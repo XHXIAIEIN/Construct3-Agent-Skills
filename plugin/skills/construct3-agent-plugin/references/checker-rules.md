@@ -271,6 +271,7 @@ How each was read from the editor and confirmed:
 | No two variables of one scope share a name, compared without case: the top-level variables of every sheet are one scope, the variables of one list of events another, a function's parameters another. A global declared at the top of two sheets is declared twice | the editor opens the file. It keeps two globals, and every use refers to the first. It renames the second of two locals of one list (`STEP` to `STEP2`) and every parameter of a function but the last, and every use refers to the one that keeps its name. Its variable dialog refuses the second name with `The name X is already used in this scope` |
 | A local variable or function parameter is not named like a local or parameter of a scope that holds it, compared without case: a parameter like a variable of its function's group or of a group around it, a local of a function's sub-events like its parameter, a local of a sub-event like a variable of its group or of an event above | the project opens, and the editor renames the one that comes later in the sheet. Both names then refer to the other one where it is in scope, so a parameter after its group's constant reads the constant. If the group's variable comes later, the editor renames that one, and a use of it elsewhere in the group stops the open with `Unknown expression 'SPEED': This is not a system expression or variable name in this scope` |
 | A local variable or function parameter is not named like a global of another type, compared without case: the nearest scope wins, so a text `count` hides a number `COUNT` in its event and sub-events. One of the same type under another case is a warning: the project opens, and the global's name refers to the local there | `Type mismatch: - does not work with 'string' and 'number'`, for `COUNT - 1` below a text local `count` |
+| A variable a condition or an action names is in scope. In scope are the globals, the locals declared in the list of events that holds the event or in a list above it, and the parameters of the function around it. A local declared among an event's own sub-events is in scope for those sub-events, not for the event itself | `cannot find event variable 'inner'`, for a local `inner` declared among the event's sub-events and set by the event's own action |
 | No two functions, and no two custom actions of one object, share a name, compared without case | the project opens, and the editor renames the second, `Beep` to `Beep2`; a call by either name runs the first |
 | A shared ACE of `plugins/_common.json` is used only on a plugin whose `commonAces` lists it: Text has no `set-default-color`, its colour is `set-font-color` | `missing action id 'set-default-color'` |
 | `Self` stands only in a parameter of an object's own condition or action; in a System one (*For each (ordered)*, *Pick by comparison*, *Set value*) it names nothing, and the finding writes the expression with the object the ACE names. A variable or parameter named `self` in scope is what a bare `self` reads; `self.X` is still Self | `Invalid use of 'self'` |
@@ -405,13 +406,16 @@ the project, and `scripts/open_in_editor.py` prints its message, such as
 
 ## How the rules were confirmed
 
-Run over the official example projects, the checker fails a few, on
-parameters that a later release changed and on layers and animations the
-examples name but do not have; each is a real finding, not a false one.
-None of them breaks an editor rule of the table above, which is how each
-rule was confirmed before it became an error.
-`Construct3-RAG/tests/test_skill_check_project.py` breaks the stand-in game
-one rule at a time and reads the finding.
+Run over the official example projects, the checker fails a few, and each
+finding is real, not a false one. Most name layers and animations that the
+example does not have, or a parameter value that a later release removed;
+the editor opens those projects. Each rule of the table above became an
+error only after such a run added no finding. One example broke a rule
+later, when a release added an animation parameter to the 3D model's
+`Progress` expression. arcane-express calls `CharModel.Progress` without
+it, so the editor refuses the project from that release on, with the
+checker's message. `Construct3-RAG/tests/test_skill_check_project.py` breaks the
+stand-in game one rule at a time and reads the finding.
 
 A new rule takes the same two steps: find the editor's message in its
 project model, run the rule over the official examples, and only then make
