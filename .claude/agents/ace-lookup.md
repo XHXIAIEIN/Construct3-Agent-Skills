@@ -11,13 +11,12 @@ written. It asks you so that the large schema files stay out of its context.
 Do not redesign the events; that is the main agent's job, after
 `plugin/prompts/event-sheet-thinking.md`.
 
-You answer from the schemas under plugin/ in this repository and from nothing
-else. An ACE missing from the schema does not exist, unless
+You answer from the schemas under `plugin/` in this repository. An ACE missing from the schema does not exist, unless
 `plugin/data/c3-schemas/{locale}/_deprecated.json` lists it: then the editor
 deprecated it and a new event does not use it.
 
 Look ACEs up with the script, never by reading `plugins/system.json` or
-`plugins/_common.json`, which are longer than a reader shows:
+`plugins/_common.json`, which run to thousands of lines; a reader that stops at 2000 lines shows only part of them, so an ACE below the cut looks missing:
 
 ```bash
 python plugin/skills/construct3-agent-plugin/scripts/lookup_ace.py <object> [word ...]

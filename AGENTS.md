@@ -2,13 +2,15 @@
 
 ## 1. What this repository is
 
-This repository is the home of the Construct 3 plugin for Claude Code. The
-plugin is `plugin/`: the `construct3-agent-plugin` skill, the schemas of
+This repository holds, under `plugin/`, what an AI agent needs to make
+Construct 3 games: the `construct3-agent-plugin` skill, the schemas of
 every Construct 3 condition, action, expression and effect in English and
 Chinese, the prompts for event sheet design, and an empty project to start
-from. The files beside `plugin/` are this repository's own: this guide, the
-READMEs, the Claude Code agents under `.claude/` and the marketplace
-manifest under `.claude-plugin/`.
+from. Any agent that runs a shell and Python uses them through the skill.
+`plugin/` is also the Claude Code plugin `construct3`. The files beside
+`plugin/` are this repository's own: this guide, the READMEs, the Claude
+Code agents under `.claude/` and the marketplace manifest under
+`.claude-plugin/`.
 
 `plugin/` is built in [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG)
 and pushed here by its workflow after each change. Do not edit a file under
@@ -41,7 +43,9 @@ deprecated it: an old project that uses it still opens, and a new project
 should not use it.
 
 Look an ACE up with the script, never by reading `plugins/system.json` or
-`plugins/_common.json`, which run to thousands of lines and a reader cuts:
+`plugins/_common.json`. They run to thousands of lines, and a reader that
+stops at 2000 lines shows only part of them, so an ACE below the cut looks
+missing:
 
 ```bash
 python plugin/skills/construct3-agent-plugin/scripts/lookup_ace.py System wait
@@ -78,17 +82,23 @@ changes which events are written is recorded in Construct3-RAG, under
 
 ## 4. Use from a game project
 
-A game project uses the plugin in one of three ways; the README says how
-to install each:
+A game project reaches the skill in one of these ways; the README says
+how to set each one up:
 
-- From Claude's directory or from this repository as a marketplace: the
-  skill loads on its own when the user asks about a Construct 3 project.
-- From a clone of this repository, linked into `~/.claude/skills/`.
-- Without an install, by running the scripts with `--project <folder>`:
+- To use the skill with any agent, run `install.py`. It copies the skill
+  into the project and adds a block to the project's `AGENTS.md`, which
+  names this clone's `plugin/` as the data:
 
   ```bash
-  python plugin/skills/construct3-agent-plugin/scripts/check_project.py --project <game folder>
+  python plugin/skills/construct3-agent-plugin/scripts/install.py --project <game folder>
   ```
+
+- To use it in Claude Code, install the plugin from Claude's directory,
+  from this repository as a marketplace, or from a clone linked into
+  `~/.claude/skills/`. The skill then loads on its own when the user asks
+  about a Construct 3 project.
+- To use it without an install, run the scripts from this clone with
+  `--project <folder>`.
 
 Read `plugin/skills/construct3-agent-plugin/SKILL.md` before you read or
 write the first project file. Before you hand a project over, make sure
@@ -97,9 +107,10 @@ that `check_project.py` reports no problems.
 ## 5. Change this repository
 
 - A change under `plugin/` is made in Construct3-RAG, as section 1 says.
-- The READMEs describe the plugin for people, in English and Chinese with
-  the same content. `README.md` names no Chinese text besides its link to
-  `README_CN.md`.
-- A commit message names an issue of another repository in words or as a
-  URL in backticks, never as `owner/repo#N` or `#N`, because GitHub turns
-  those into a public cross-reference on that issue's timeline.
+- The READMEs describe the skill and the plugin for people, in English
+  and Chinese with the same content. `README.md` names no Chinese text
+  besides its link to `README_CN.md`.
+- A commit message or PR text names an issue of another repository in
+  words or as a URL in backticks, never as `owner/repo#N` or `#N`,
+  because GitHub turns those into a public cross-reference on that
+  issue's timeline.
