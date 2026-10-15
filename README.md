@@ -10,7 +10,7 @@ The repository holds, under [`plugin/`](plugin/README.md), the `construct3-agent
 - Write by the definitions: look every condition, action, expression and effect up as the editor defines them before touching anything, then edit the project's JSON files directly, so the values written are ones the editor accepts.
 - Change a project: read a folder project (a folder with `project.c3proj`) or a single-file project (`.c3p`), print an event sheet as events, and change it from a checked plan.
 - Check a project: apply the rules the editor applies when it opens one to every project file, so what would stop it opening is found before delivery.
-- Drive the editor: open the Construct 3 editor in the machine's browser over the Chrome DevTools Protocol, and start, open, check, preview and export the project there; the project stays on the machine.
+- Drive the editor: open the Construct 3 editor in the machine's browser over the Chrome DevTools Protocol, and start, open, check, preview and export the project there.
 - Write event sheets the examples' way: the prompts teach the agent to think an interaction through first, to avoid the pitfalls the official examples show, and to organise, name and comment a sheet in the examples' style.
 
 > [!IMPORTANT]

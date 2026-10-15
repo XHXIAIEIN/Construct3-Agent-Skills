@@ -10,7 +10,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 - 按定义写：动手之前先查编辑器定义的每一个条件、动作、表达式和效果，再直接编辑项目的 JSON 文件，所以写出的值编辑器认得。
 - 改项目：读文件夹项目（含 `project.c3proj`）或单文件项目（`.c3p`），把事件表打印成事件，按检查过的计划改它。
 - 查项目：按编辑器打开项目时应用的规则检查每个项目文件，打不开的原因在交付前就找到。
-- 驱动编辑器：通过 Chrome DevTools Protocol 驱动本机浏览器打开 Construct 3 编辑器，新建、打开、检查、预览和导出项目，项目留在本机。
+- 驱动编辑器：通过 Chrome DevTools Protocol 驱动本机浏览器打开 Construct 3 编辑器，新建、打开、检查、预览和导出项目。
 - 事件表的写法：prompts 教 agent 先把一个交互想清楚，避开官方示例暴露的坑，按示例的风格组织、命名和注释事件表。
 
 > [!IMPORTANT]
