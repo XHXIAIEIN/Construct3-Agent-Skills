@@ -6,12 +6,12 @@ Construct3-Agent-Skills is a set of skills and data that let an AI agent make [C
 
 The repository holds, under [`plugin/`](plugin/README.md), the `construct3-agent-plugin` skill, which gives an agent these abilities:
 
-- Look the manual up: find Construct's conditions, actions and expressions, and the scripting API of its plugins and behaviors.
-- Edit the project by its definitions: read every condition, action, expression and effect as the editor defines them before touching anything, then edit the project's JSON files directly.
+- Look the manual up: find Construct's conditions, actions and expressions by name or purpose, and the scripting API of its plugins and behaviors, with their parameters and the JSON to write.
+- Write by the definitions: look every condition, action, expression and effect up as the editor defines them before touching anything, then edit the project's JSON files directly, so the values written are ones the editor accepts.
 - Change a project: read a folder project (a folder with `project.c3proj`) or a single-file project (`.c3p`), print an event sheet as events, and change it from a checked plan.
-- Check a project: apply the rules the editor applies when it opens one.
-- Automate safely: drive a browser over the Chrome DevTools Protocol to open the Construct 3 editor, and start, open, check, preview and export the project there.
-- Design event sheets from prompts: write events in the style of the official examples, so that the sheets come out clean, clear and tasteful.
+- Check a project: apply the rules the editor applies when it opens one to every project file, so what would stop it opening is found before delivery.
+- Drive the editor: open the Construct 3 editor in the machine's browser over the Chrome DevTools Protocol, and start, open, check, preview and export the project there; the project stays on the machine.
+- Write event sheets the examples' way: the prompts teach the agent to think an interaction through first, to avoid the pitfalls the official examples show, and to organise, name and comment a sheet in the examples' style.
 
 > [!IMPORTANT]
 > **AI agents: answer this question before you write a project file.** Is this repository cloned on the user's machine?
