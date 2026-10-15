@@ -1,0 +1,49 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# CDN cache (auto-generated, weekly expiry)
+.cache/
+
+# Local dev resources (C3 source, manual data, debug logs)
+.local/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+.log/
+
+# Claude Code
+.claude/settings.local.json
+
+# Gradio / MCP
+.gradio/
+.mcp.json
+.playwright-mcp/
+
+# Git worktrees
+.worktrees/
+
+# Temporary / working files
+tmp/
+.trash/
+.remember/
+
+# A staging folder export_to_data left beside data/ when its run was killed
+/.data-staging-*/
+
+# Temporary files of a session (soul-workstyle)
+.tmp/

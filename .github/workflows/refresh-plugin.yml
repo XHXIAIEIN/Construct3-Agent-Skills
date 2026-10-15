@@ -1,0 +1,59 @@
+name: Refresh plugin
+
+# Builds plugin/ from the current data of Construct3-RAG and pushes the
+# build to main when it changed. Construct3-RAG refreshes its data every
+# Wednesday 10:00 UTC and on demand, so this runs every day two hours later
+# and by hand. It pushes the build only after the checks pass on it. Why:
+# docs/decisions/plugin-repository.md.
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Clone Construct3-RAG beside this repository
+        run: git clone --quiet --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "$GITHUB_WORKSPACE/../Construct3-RAG"
+
+      - name: Build plugin/
+        id: build
+        run: |
+          python scripts/build_plugin.py
+          if [ -n "$(git status --porcelain -- plugin)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "data=$(git -C "$GITHUB_WORKSPACE/../Construct3-RAG" rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "plugin/ is up to date with the data"
+          fi
+
+      - name: Install the requirements of the tests
+        if: steps.build.outputs.changed == 'true'
+        run: pip install pytest pillow
+
+      - name: Run the checks on the build
+        if: steps.build.outputs.changed == 'true'
+        run: |
+          python -m pytest -q -rs
+          python -m compileall -q scripts tests skills
+          python scripts/build_plugin.py --check
+
+      - name: Push the build
+        if: steps.build.outputs.changed == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add plugin
+          git commit -q -m "plugin/: built from Construct3-RAG ${{ steps.build.outputs.data }}"
+          git push

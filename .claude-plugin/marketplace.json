@@ -4,7 +4,7 @@
 		"name": "XHXIAIEIN"
 	},
 	"metadata": {
-		"description": "The Construct 3 plugin for Claude Code, built from Construct3-RAG."
+		"description": "The Construct 3 plugin for Claude Code, built from the skill, the prompts and the data of Construct3-RAG."
 	},
 	"plugins": [
 		{

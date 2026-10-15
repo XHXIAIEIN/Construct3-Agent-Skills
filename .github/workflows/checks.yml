@@ -1,0 +1,55 @@
+name: Checks
+
+# The checks of AGENTS.md, section 5, on every push to main and every pull
+# request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The build and the tests read data/ from a Construct3-RAG clone
+      # beside this one, as on a machine (docs/decisions/plugin-repository.md).
+      # The example projects are not cloned, so the tests that read them
+      # skip, and the log lists every skip.
+      - name: Clone Construct3-RAG beside this repository
+        run: git clone --quiet --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "$GITHUB_WORKSPACE/../Construct3-RAG"
+
+      - name: Install the requirements of the tests
+        run: pip install pytest pillow
+
+      # git diff --check of AGENTS.md checks uncommitted changes, which a
+      # fresh checkout has none of.
+      - name: Run the checks
+        id: run
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            python -m pytest -q -rs
+            python -m compileall -q scripts tests skills
+            python scripts/build_plugin.py --check
+          } 2>&1 | tee "$RUNNER_TEMP/checks.log"
+
+      - name: Report
+        run: |
+          if grep -q '^SKIPPED' "$RUNNER_TEMP/checks.log"; then
+            echo "Tests that skipped in the check run:"
+            grep '^SKIPPED' "$RUNNER_TEMP/checks.log"
+          fi
+
+      - name: Fail when a check failed
+        if: steps.run.outcome == 'failure'
+        run: exit 1

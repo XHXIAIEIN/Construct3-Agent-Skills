@@ -4,7 +4,7 @@
 
 Construct3-Agent-Skills is a set of skills and data that let an AI agent make [Construct 3](https://editor.construct.net/) games.
 
-The repository holds, under [`plugin/`](plugin/README.md), the `construct3-agent-plugin` skill, which gives an agent these abilities:
+The repository holds the `construct3-agent-plugin` skill, its prompts and the Claude Code plugin built from them. [`plugin/`](plugin/README.md) is the built folder that every install runs. The skill gives an agent these abilities:
 
 - Look the manual up: find Construct's conditions, actions and expressions by name or purpose, and the scripting API of its plugins and behaviors, with their parameters and the JSON to write.
 - Write by the definitions: look every condition, action, expression and effect up as the editor defines them before touching anything, then edit the project's JSON files directly, so the values written are ones the editor accepts.
@@ -79,18 +79,23 @@ When the skill runs from a Git clone, the checker fetches that clone's remote at
 ## Repository
 
 ```
-plugin/                 The skill, the data, the prompts and the plugin manifest
+plugin/                 The built folder: the skill, the data, the prompts and the plugin manifest
+skills/                 The skill's source, with its evals
+prompts/                The prompts' source: event sheet thinking, pitfalls, style and task references
+scripts/                build_plugin.py, bootstrap.py, output_diff.py, measure_examples.py; scripts/plugin/ holds the manifest, README and icon
+tests/                  The pytest suite
+docs/                   The decision records and the audit
 .claude-plugin/         The marketplace manifest for Claude Code, which names plugin/
 .claude/agents/         The ace-lookup sub-agent for sessions in this repository
 CLAUDE.md               Imports AGENTS.md
-AGENTS.md               The guide for AI agents
+AGENTS.md               The guide for AI agents; its section 5 says how to change the skill and build plugin/
 ```
 
 ## Repositories this one depends on
 
 | Repository | Content |
 |------------|---------|
-| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | Where `plugin/` is built: the data pipeline, the tests and the decision records. A workflow there pushes the built folder here after each change, so a change to the skill, the data or the prompts goes to that repository. |
+| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | The data: every condition, action, expression and effect as the editor defines them, the example index, the language packs and the TypeScript definitions, refreshed from the Construct 3 CDN each release. `plugin/` is built here from the skill, the prompts and a clone of that repository beside this one; a workflow rebuilds it every day when the data changed. |
 | [XHXIAIEIN/Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) | The official manual, the Addon SDK guide and the Game Services docs, as Markdown. The data gives the names and parameters; the manual says what they do. |
 | [Scirra/Construct-Example-Projects](https://github.com/Scirra/Construct-Example-Projects) | Every example from the Construct example browser, saved as a folder project. `search_guides.py` finds them by topic. |
 | [Scirra/Construct-Addon-SDK](https://github.com/Scirra/Construct-Addon-SDK) | Templates and documentation for custom plugins, behaviors, effects and themes. |

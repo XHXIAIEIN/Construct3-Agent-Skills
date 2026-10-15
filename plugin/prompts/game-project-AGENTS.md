@@ -70,8 +70,8 @@ at most 10 000 characters of findings. Each row of the table then names the
 one file that holds the details of its task, so a change to a tool or a data
 path is made in one place.
 
-This repository keeps Scirra's guide as
-[`data/c3-guides/constructs-project-format.md`](../data/c3-guides/constructs-project-format.md),
+The folder the block names keeps Scirra's guide as
+`Construct3-RAG/data/c3-guides/constructs-project-format.md`,
 and "The project folder" in
 [`prompts/references/hand-editing-project-files.md`](references/hand-editing-project-files.md)
 applies what it states about the files. If the agent adds, renames or moves

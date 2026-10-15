@@ -358,8 +358,10 @@ def main() -> int:
         sys.exit(f"no project.c3proj in {project}: --project is the folder the editor saved the project into"
                  f"{new_project(str(project))}")
 
-    rag = c3.above(SKILL_DIR, "data/c3-schemas/_index.json")
-    if rag is None or (rag / "skills" / SKILL).resolve() != SKILL_DIR:
+    # The source skill lies in a clone's skills/: the plugin folder, which holds data/ beside it, or the
+    # sources of Construct3-Agent-Skills, whose plugin/ holds the data and the prompts the block names.
+    repo = c3.above(SKILL_DIR, "data/c3-schemas/_index.json") or c3.above(SKILL_DIR, "plugin/data/c3-schemas/_index.json")
+    if repo is None or (repo / "skills" / SKILL).resolve() != SKILL_DIR:
         # An installed copy: the clone holds the current files, so its install.py does the work.
         rag = c3.find_rag(project, args.rag)
         theirs = rag / "skills" / SKILL / "scripts" / "install.py"
@@ -369,6 +371,7 @@ def main() -> int:
         if not args.into:
             passed += ["--into", str(SKILL_DIR.parent)]
         return subprocess.run([sys.executable, str(theirs), *passed]).returncode
+    rag = repo if c3.is_clone(repo) else repo / "plugin"
 
     if args.helpers_only or args.block_only:
         if project is None:

@@ -4,10 +4,10 @@
 
 Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://editor.construct.net/) 游戏的 skill 和数据集。
 
-仓库在 [`plugin/`](plugin/README.md) 下放着 `construct3-agent-plugin` skill，它给 agent 这些能力：
+仓库放着 `construct3-agent-plugin` skill、它的 prompts，以及用它们构建的 Claude Code plugin。[`plugin/`](plugin/README.md) 是构建好的文件夹，每种安装方式运行的都是它。skill 给 agent 这些能力：
 
 - 查手册：按名字或用途找到 Construct 的条件、动作和表达式，以及插件和行为的脚本 API，连同参数和要写的 JSON。
-- 按定义写：动手之前先查编辑器定义的每一个条件、动作、表达式和效果，再直接编辑项目的 JSON 文件，所以写出的值编辑器认得。
+- 按定义写：动手之前先查编辑器定义的每一个条件、动作、表达式和滤镜，再直接编辑项目的 JSON 文件，所以写出的值编辑器认得。
 - 改项目：读文件夹项目（含 `project.c3proj`）或单文件项目（`.c3p`），把事件表打印成事件，按检查过的计划改它。
 - 查项目：按编辑器打开项目时应用的规则检查每个项目文件，打不开的原因在交付前就找到。
 - 驱动编辑器：通过 Chrome DevTools Protocol 驱动本机浏览器打开 Construct 3 编辑器，新建、打开、检查、预览和导出项目。
@@ -79,21 +79,26 @@ skill 从 Git clone 运行时，检查器每小时最多拉取一次远端，用
 ## 仓库结构
 
 ```
-plugin/                 skill、数据、prompts 和 plugin 清单
+plugin/                 构建好的文件夹：skill、数据、prompts 和 plugin 清单
+skills/                 skill 的源文件，含它的 evals
+prompts/                prompts 的源文件：事件表思路、坑、风格和按任务查的参考
+scripts/                build_plugin.py、bootstrap.py、output_diff.py、measure_examples.py；scripts/plugin/ 下是清单、README 和图标
+tests/                  pytest 测试
+docs/                   决策记录和审查
 .claude-plugin/         给 Claude Code 的 marketplace 清单，指向 plugin/
 .claude/agents/         给本仓库会话用的 ace-lookup 子 agent
 CLAUDE.md               引用 AGENTS.md
-AGENTS.md               给 AI agent 的指南
+AGENTS.md               给 AI agent 的指南；第 5 节说明怎么改 skill 和构建 plugin/
 ```
 
 ## 其他依赖仓库
 
 | 仓库 | 内容 |
 |------|------|
-| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | 构建 `plugin/` 的地方：数据管线、测试和决策记录。每次改动后，那边的工作流把构建好的文件夹推到这里，所以对 skill、数据或 prompts 的修改要去那个仓库做。 |
+| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | 数据：编辑器定义的每一个条件、动作、表达式和滤镜，示例索引、语言包和 TypeScript 定义，每个版本从 Construct 3 CDN 刷新。`plugin/` 在本仓库里用 skill、prompts 和放在旁边的那个仓库的 clone 构建；数据变了，工作流每天重新构建一次。 |
 | [XHXIAIEIN/Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) | 官方手册、Addon SDK 指南和 Game Services 文档的 Markdown 版。数据给出名称和参数，手册说明它们做什么。 |
 | [Scirra/Construct-Example-Projects](https://github.com/Scirra/Construct-Example-Projects) | 示例浏览器里的每一个官方示例，保存为文件夹项目。`search_guides.py` 按主题找到它们。 |
-| [Scirra/Construct-Addon-SDK](https://github.com/Scirra/Construct-Addon-SDK) | 自定义插件、行为、效果和主题的模板和文档。 |
+| [Scirra/Construct-Addon-SDK](https://github.com/Scirra/Construct-Addon-SDK) | 自定义插件、行为、滤镜和主题的模板和文档。 |
 
 ## 许可
 

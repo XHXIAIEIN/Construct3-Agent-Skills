@@ -1249,7 +1249,7 @@ def summary(results: list[dict], previewed: bool, out: Path, shots: Path) -> str
 
 # --- a refusal the checker passed: a report for the user to send --------------------------------
 # The skill's repository, where a rule the checker lacks is reported: SKILL.md's metadata source.
-REPOSITORY = "XHXIAIEIN/Construct3-RAG"
+REPOSITORY = "XHXIAIEIN/Construct3-Agent-Skills"      # where the skill lives, and where its issues go
 OFFERED = "editor-reports.json"     # in .tmp/: the fingerprint of each refusal already offered to the user
 PLACE = re.compile(r", event (\d+)")
 

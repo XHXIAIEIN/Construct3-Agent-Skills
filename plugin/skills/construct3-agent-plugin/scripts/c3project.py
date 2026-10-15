@@ -432,10 +432,11 @@ def is_clone(folder: Path) -> bool:
 
 
 def clone_root(rag: Path) -> Path:
-    """The clone that holds rag: its parent when rag is the plugin/ folder of a clone, else rag itself.
-    A clone's plugin/ folder, linked into ~/.claude/skills/ as the Claude Code plugin, is where the scripts
-    find data/. The sibling clones lie beside the clone, not beside plugin/."""
-    return rag.parent if rag.name == "plugin" and is_clone(rag.parent) else rag
+    """The clone that holds rag: its parent when rag is the plugin/ folder of a Git clone, else rag itself.
+    The plugin/ folder of a Construct3-Agent-Skills clone, linked into ~/.claude/skills/ as the Claude Code
+    plugin, is where the scripts find data/. The sibling clones lie beside the clone, not beside plugin/,
+    and the clone is what the update check compares with its upstream."""
+    return rag.parent if rag.name == "plugin" and (is_clone(rag.parent) or (rag.parent / ".git").exists()) else rag
 
 
 def siblings_folder(rag: Path) -> Path:
@@ -503,8 +504,12 @@ def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, li
         if is_clone(Path(c)):
             return Path(c), tried
         tried.append(f"{source}: {c}")
-    # Run in place, from <Construct3-RAG>/skills/, the clone is the script's own.
-    return above(SKILL_DIR, "data/c3-schemas/_index.json"), tried
+    # Run in place from a clone's skills/ or plugin/skills/, the clone's data is the script's own: the folder
+    # above the skill that holds data/, or that folder's built plugin/, which holds the data and the prompts.
+    own = above(SKILL_DIR, "data/c3-schemas/_index.json")
+    if own is None and (repo := above(SKILL_DIR, "plugin/data/c3-schemas/_index.json")):
+        own = repo / "plugin"
+    return own, tried
 
 
 def find_rag(root: Path | None, override: str | None) -> Path:
@@ -621,7 +626,7 @@ def clone_behind(rag: Path) -> tuple[str, bool] | None:
     and, for a copy of the skill, its refresh. A clone that holds the user's work is
     the user's to update. The clone is fetched at most every FETCH_EVERY seconds;
     offline(), or with no upstream, nothing is said."""
-    rag = clone_root(rag)
+    data, rag = rag, clone_root(rag)
     if offline() or not (rag / ".git").exists() or not shutil.which("git"):
         return None
     upstream = git_out(rag, "rev-parse", "--abbrev-ref", "@{u}")
@@ -646,13 +651,13 @@ def clone_behind(rag: Path) -> tuple[str, bool] | None:
         return None
     if not behind:
         return None
-    lag = f"Construct3-RAG at {rag} is {behind} commit{'s' if behind != 1 else ''} behind {upstream}"
+    lag = f"{rag.name} at {rag} is {behind} commit{'s' if behind != 1 else ''} behind {upstream}"
     own = [f"{ahead} commit{'s' if ahead != 1 else ''}"] if ahead else []
     if git_out(rag, "status", "--porcelain", "--untracked-files=no"):
         own.append("uncommitted changes")
     if own:
         return f"{lag}, and it holds {' and '.join(own)} of its own; tell the user, who decides how to update it", False
-    refresh = refresh_command(rag)
+    refresh = refresh_command(data)
     return (f"{lag}, so the scripts lack the fixes and checks of those commits. Run git -C \"{rag}\" merge --ff-only {upstream}, "
             f"{f'then {refresh}, ' if refresh else ''}then run this check again"), True
 

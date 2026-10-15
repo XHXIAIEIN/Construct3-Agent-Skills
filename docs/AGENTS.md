@@ -1,0 +1,94 @@
+# docs/ Directory
+
+Each folder holds the documents of one reader. Put a new document in the
+folder of its reader.
+
+| Folder | Reader | Contents |
+|--------|--------|----------|
+| `dev/` | People and agents changing the code | `skills-audit.md` |
+| `decisions/` | Anyone asking why something is the way it is | one record per decision |
+
+`dev/` describes current behavior and changes with the code that alters
+it. When a document here is added or moves, update the tables of
+`AGENTS.md` at the repository root, the agent entry point, to match. The
+docs of the data and the lookup service are in Construct3-RAG.
+
+## Decision records
+
+A record answers why the current design is what it is. It carries `Date`
+and, where the data matters, `Schema` lines, then `Problem`, `Evidence` when
+it is not in the problem, `Options`, `Decision`, and `Re-evaluate when`.
+
+- A record states what holds now. When a decision changes, rewrite the
+  record; do not append a dated update. A record whose subject is gone is
+  deleted, and the commit that deletes it says why. Git keeps the history.
+- Evidence is the finding that settles the choice, in a sentence or a small
+  table, not the log of the runs behind it. Eval iterations, sweeps, raw
+  counts and hashes stay in `.local/docs/evidence/`, which `.gitignore`
+  excludes; a record may name that folder, and nothing needed to use the
+  data or the service lives there.
+- A finding from someone's game project is stated generically: no project,
+  object or variable names.
+- State behavior and cite the manual; a tally over the examples or a
+  minified editor name goes stale with the next release.
+
+## The records
+
+The project skill, the prompts and the plugin:
+
+| Record | What it settles |
+|--------|-----------------|
+| `project-tools-skill.md` | Why the project tools ship as an Agent Skill, and what keeps small models on them |
+| `generator-helpers-inline.md` | Why the generator template keeps its helpers in the file the agent edits, between markers that let a game's copy take the skill's current ones, and what was measured |
+| `instruction-block-refresh.md` | Why the block in a game project's `AGENTS.md` carries a version and a stamp between markers, when `install.py` replaces it, and how an edited block or one from before the markers is treated |
+| `long-docs-in-parts.md` | Why the block in a game project's `AGENTS.md` tells an agent to read the project's long Markdown files by their headings, and why the context-size setting stays the project's own |
+| `record-tables-as-arrays.md` | Why the generator template writes a table of records as an Array file with field names in row 0, and copies it into a Dictionary at start |
+| `edit-sheet-script.md` | Why events enter a sheet through a checked plan instead of hand-edited JSON, and how a plan names a variable or a comment |
+| `plan-names-the-event-line.md` | Why an operation of a plan may carry the line its event prints, and not a hash of the sheet |
+| `remove-event-sheet-assistant.md` | Why no prompt or script gives a format for events entered by hand, and where its name check and naming rule went |
+| `long-sheet-contents.md` | What `print_sheet.py` prints for a sheet over its limit, what `--find` matches, and why an outline keeps a comment's first 30 characters |
+| `sheet-map.md` | Why `print_sheet.py --map` prints one line per sheet with the layouts that run it and what it defines, how the map is cut to the limit, and why each sheet's block of `--find` ends with the layouts that run it |
+| `checker-editor-load-rules.md` | How the checker learns the editor's load rules, and the editor opener that checks the rest |
+| `fix-loop-cap.md` | Why the checker counts the changes to each finding's place and stops the fix loop after two, and what it keeps in the project to count them |
+| `pack-after-check.md` | Why `pack_project.py` packs a folder project only when the checker's record holds the digest of its files and a problem count of 0, what the digest covers, and what `--unchecked` does |
+| `editor-refusal-report.md` | What the report of a refusal the checker passed holds, what it leaves out, and why the user sends it |
+| `secret-scan.md` | Which strings shaped like a key the checker warns of and the export stops on, and how one meant to be public is marked |
+| `clone-update-check.md` | Why the checker fetches the clone and fails when it is behind its upstream, and how plugin users get updates |
+| `project-format-guide.md` | Where each statement of Scirra's project format guide, the one `llm-context.md` links, is written and what checks it, and how its copy in `data/c3-guides/` is kept |
+| `preview-player.md` | Why a preview is played from a JSON plan of steps, and what the steps cover |
+| `skill-body-budget.md` | Why everything through the check loop of `SKILL.md` stays inside its first 5000 tokens, which Claude Code re-attaches after a compaction, and how the budget is measured |
+| `attach-names-the-browser.md` | Why `export_project.py --attach` takes the browser and the port it attaches to from its flags and reads no browser folder of the user's |
+| `profile-lock.md` | Why one run at a time holds a browser profile, how the lock is taken and released, and what a refused run prints |
+| `design-tokens.md` | Which tokens the recording review page and the API playground declare for palette, type, radii and motion, why they take the host UI kits' names with this repository's values, and the contrast every text token owes |
+| `runtime-graded-evals.md` | Why the skill's evals play each run's game from a plan beside the file assertions, which cases are held out of tuning, and what each run records |
+| `sheet-screenshot.md` | Why a picture of an event sheet is taken in the editor by `screenshot_sheet.py`, with its columns fitted and the picture cropped to the sheet, and why a sheet taller than the browser captures is taken one group at a time |
+| `typescript-definitions-from-the-editor.md` | Why the editor writes a project's own TypeScript definitions, through `open_in_editor.py --typescript`, and when the checker warns that they are stale |
+| `game-design-prototype.md` | Why a new game starts as a design whose rules a local prototype plays before the build, and how the same tests reach the editor |
+| `event-sheet-design-guidance.md` | The event sheet prompts, the style checks and the generator's placement helpers |
+| `design-review-packets.md` | Why the design review prints its questions by default and prepares their complete evidence only with `--prepare`, how saved judgements are reused, and which checks a reused judgement does not replace |
+| `pitfalls-index-and-topics.md` | Why the pitfalls are an index of one-line conclusions with a topic file per group, and which lessons belong in them |
+| `prompt-references-by-task.md` | Which parts of the design and style prompts live in `prompts/references/`, why Native first stays inline, and what a row of Native first holds |
+| `borrowed-numbers.md` | Which numbers and rules of other agent frameworks were measured here before the template or a check took them, and the result for each |
+| `game-look-from-design-skills.md` | What the design and game-art skills on GitHub do to steady an agent's output, and the palette, text and pixel-art defaults the generator template took from them |
+| `look-judge-calibration.md` | How often a judge that sees only the screenshots answers `review_look.py`'s questions as a panel of labeller agents does, and why the questions ask what a player sees as a mistake |
+| `file-types-in-project-c3proj.md` | Which `type` the editor records per extension in `project.c3proj`, measured over the official examples, and how the generator and the checker use the table |
+| `paper-and-ink-look.md` | The default look of a generated game: the paper palette, the Inter subset the generator takes from the user's font cache, the line-drawn areas, the HUD's type and the subjects' sizes |
+| `greybox-blockout.md` | The blockout look a generated game has before its art, and the grids and pacing its level is laid out by |
+| `landscape-viewport.md` | Why the generator template starts a game at 1920×1080 landscape, and what follows from it |
+| `fill-the-screen.md` | Why a generated game fills the screen at any aspect ratio, how its HUD keeps to the screen's edges and clear of a notch, and the back-to-front order of each layer's instances |
+| `layout-by-name.md` | Why a generated screen is laid out by names, a button with its label, named bands and a main object sized to the stage, with the positions computed and checked as numbers |
+| `count-up-and-press.md` | Why a generated score counts to its new value and a button presses under the finger, and the numbers each takes |
+| `input-controls.md` | Why a generated slider and toggle are drawn on the canvas and a text input is the Text input form control, and how each is placed, drawn and read |
+| `art-from-the-image-tool.md` | Why a generated game's art comes from the agent's image tool through `art()` and `prepare_art.py`, and is not drawn in code |
+| `bootstrap-from-the-url.md` | How a machine holding only the repository URL reaches a game project with the skill installed |
+| `skill-and-plugin-names.md` | The names of the skill and the Claude Code plugin |
+| `plugin-tracks-commits.md` | How the build sets `plugin.json`'s version so that a change to `plugin/` reaches an install, and why a linked clone needs no copy in the project |
+| `directory-listing.md` | Why the plugin is in Claude's directory and also installs from this repository, and why a reviewer publishes each directory version |
+| `plugin-folder.md` | Why the plugin is the built folder `plugin/`, what it carries from the repository, and the test that keeps it equal to its sources |
+| `plugin-repository.md` | Why the skill, the prompts and the plugin live in this repository, how the build reads the data of a Construct3-RAG clone beside it, how a data refresh reaches `plugin/`, and what Construct3-RAG keeps |
+| `project-worker-agent.md` | Why the plugin ships a sub-agent type whose tools are the ones the scripts need, what it saves, and how its route compared with a general-purpose sub-agent's |
+| `build-folder.md` | Why a game project's packed `.c3p`, export and sheet pictures go in `.build/`, apart from the scratch of `.tmp/` |
+| `random-uid-allocation.md` | Why the projects this repository starts give new instances random uids |
+
+A new record gets a row here and a line in `decisions/README.md`, in the same
+change that adds it.
