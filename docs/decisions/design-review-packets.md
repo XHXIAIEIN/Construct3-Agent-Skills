@@ -85,12 +85,12 @@ editor, the target input and the visual review. Static reuse cannot
 establish a runtime or visual result.
 
 Before changing the review, read its row in the task table of
-`skills/AGENTS.md`, "Change a project tool", which names its sources, tests
+`skills-dev/AGENTS.md`, "Change a project tool", which names its sources, tests
 and contracts. The source decides what the tool does.
 
 ## Re-evaluate when
 
-The skill's change to this default owes its eval iteration (`skills/AGENTS.md`,
+The skill's change to this default owes its eval iteration (`skills-dev/AGENTS.md`,
 "Evals"); its route counts and lost calls decide whether the default stays.
 Measure complete repair tasks with repeated clean model runs before choosing
 complete batches as the default. Record actual tokens and cost when exposed

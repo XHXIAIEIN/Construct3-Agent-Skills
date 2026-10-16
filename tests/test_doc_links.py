@@ -4,8 +4,8 @@ A link resolves when its file or folder exists beside the linking file and,
 when it carries a #fragment, the target Markdown file has a heading with
 that GitHub slug. A content review checks facts, not links, so a link to a
 heading that was renamed or never written survives without this test.
-The build in plugin/ and the template copied into game projects are left
-out, because their links resolve where they are installed.
+The built data under plugin/data/ and the template copied into game projects
+are left out, because their links resolve where they are installed.
 """
 import re
 from pathlib import Path
@@ -20,10 +20,12 @@ DOCUMENTS = sorted(
         *REPO.glob("*/AGENTS.md"),
         *REPO.glob("AGENTS.md"),
         *REPO.glob(".claude/agents/*.md"),
-        *(REPO / "prompts").rglob("*.md"),
-        *(REPO / "skills").rglob("*.md"),
+        *(REPO / "plugin" / "prompts").rglob("*.md"),
+        *(REPO / "plugin" / "skills").rglob("*.md"),
+        *(REPO / "plugin" / "agents").rglob("*.md"),
+        REPO / "plugin" / "README.md",
+        *(REPO / "skills-dev").rglob("*.md"),
         *(REPO / "docs").rglob("*.md"),
-        *(REPO / "scripts" / "plugin").rglob("*.md"),
     }
 )
 
@@ -92,7 +94,7 @@ def broken(path: Path, link: str) -> str | None:
 
 def test_the_documents_are_found() -> None:
     assert REPO / "AGENTS.md" in DOCUMENTS
-    assert REPO / "skills" / "construct3-agent-plugin" / "SKILL.md" in DOCUMENTS
+    assert REPO / "plugin" / "skills" / "construct3-agent-plugin" / "SKILL.md" in DOCUMENTS
     assert all(path.is_file() for path in DOCUMENTS)
 
 

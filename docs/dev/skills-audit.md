@@ -45,7 +45,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S01：中断恢复把备份当作可丢弃的残留
 
-位置：[export_project.py](../../skills/construct3-agent-plugin/scripts/export_project.py)，第 588–626、636 行。
+位置：[export_project.py](../../plugin/skills/construct3-agent-plugin/scripts/export_project.py)，第 588–626、636 行。
 
 替换顺序是先把 `web` 改名为 `web.old`，再把 `web.new` 改名为 `web`。进程在两次改名之间被终止时，`.old` 是唯一的旧导出；`run()` 开头及 `unpack()` 开头的 `clear_beside()` 却会无条件删除持有 `data.json` 的 `.old` 和 `.new`。
 
@@ -57,7 +57,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S02：文件名不足以证明目录属于导出器
 
-位置：[export_project.py](../../skills/construct3-agent-plugin/scripts/export_project.py)，第 565–597 行。
+位置：[export_project.py](../../plugin/skills/construct3-agent-plugin/scripts/export_project.py)，第 565–597 行。
 
 `refused_folder()` 对非空目标只检查是否存在 `data.json`，没有验证内容或由谁创建。`clear_beside()` 对固定同级目录更宽松：只要有该文件就递归删除，连目标校验中对 `project.c3proj` 的拒绝也没有。
 
@@ -71,7 +71,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S03：回滚没有区分本次写入和其他进程的保存
 
-位置：[edit_sheet.py](../../skills/construct3-agent-plugin/scripts/edit_sheet.py)，第 754–769、900–927 行。
+位置：[edit_sheet.py](../../plugin/skills/construct3-agent-plugin/scripts/edit_sheet.py)，第 754–769、900–927 行。
 
 `--new` 只检查目标事件表是否出现；清单仍使用启动时的 `project.data`。回滚快照在验证结束后才读取，写入前没有核对清单版本。失败后，`put_back()` 又把快照里的所有清单和布局恢复，只要字节不同就覆盖，不检查该文件是否被本次调用写过。
 
@@ -83,7 +83,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S04：倒计时判定仍接受过早重启和无法解释的条件
 
-位置：[grade.py](../../skills/construct3-agent-plugin/evals/grade.py)，第 129–167 行；[test_skill_grade.py](../../tests/test_skill_grade.py)，第 89 行起。
+位置：[grade.py](../../skills-dev/evals/grade.py)，第 129–167 行；[test_skill_grade.py](../../tests/test_skill_grade.py)，第 89 行起。
 
 `runs_out()` 只计算条件在 30、0、−0.5 的真假。`倒计时 <= 29` 在这些点上满足要求，但从 30 每帧扣除 `dt` 后，约 1 秒就会重启。另一个漏洞是无法解析的比较返回 `None`，调用者用 `is not False` 接受它；`倒计时 > (1 - 1)` 等价于已被拒绝的 `倒计时 > 0`，却继续通过。
 
@@ -95,7 +95,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S05：checker 的使用错误也被当作正常检查结果
 
-位置：[trace.py](../../skills/construct3-agent-plugin/evals/trace.py)，第 68–79 行。
+位置：[trace.py](../../skills-dev/evals/trace.py)，第 68–79 行。
 
 `lost_calls` 的豁免条件是 shell 命令包含 `check_project.py`，没有识别返回的是项目 findings、参数错误还是脚本异常。
 
@@ -105,7 +105,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S06：客户端包装进程使超时失去上限
 
-位置：[run_trigger_eval.py](../../skills/construct3-agent-plugin/evals/run_trigger_eval.py)，第 84–105、111 行。
+位置：[run_trigger_eval.py](../../skills-dev/evals/run_trigger_eval.py)，第 84–105、111 行。
 
 定时器只调用 `proc.kill()`，读取循环仍阻塞等待 stdout。若 `--client` 是一个启动子进程的包装命令，子进程继承 stdout 后，父进程被终止并不会关闭管道，也不会停止子进程。
 
@@ -117,7 +117,7 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 ### S07：导出数据解析失败没有进入清理和报告路径
 
-位置：[export_project.py](../../skills/construct3-agent-plugin/scripts/export_project.py)，第 503–509、603–624 行。
+位置：[export_project.py](../../plugin/skills/construct3-agent-plugin/scripts/export_project.py)，第 503–509、603–624 行。
 
 `exported_versions()` 直接读取 JSON 的 `project` 键。`unpack()` 的异常处理只覆盖 `Stop`、`OSError` 和 `BadZipFile`，不覆盖 JSON 解析、键缺失及字段类型错误。
 
@@ -133,13 +133,13 @@ P1 表示可能损失文件或越过代码安装边界，应优先处理；P2 �
 
 | 原编号 | 优先级 | 当前证据 | 建议与验证边界 |
 |--------|--------|----------|----------------|
-| R07 | P2 | [SKILL.md](../../skills/construct3-agent-plugin/SKILL.md) 重新分词仍超过 [skills/AGENTS.md](../../skills/AGENTS.md) 的 token 预算；[入口测试](../../tests/test_skill_spec.py) 第 36–37 行只限制行数。具体测量在本轮证据文件 | 按局部修改、读取审查、生成项目分流，把按需指导放到引用文件或工具输出；增加 token 预算检查。入口成本已测，缩短对模型效果的影响未测 |
-| R09 | P2 | [SKILL.md](../../skills/construct3-agent-plugin/SKILL.md) 第 47–50 行仍固定切换或创建 `agents` 分支，没有会话独立工作区约束 | 使用独立工作区和分支，在写入前检查 Git 状态；不要让多个会话共享写入位置。冲突事故未运行 |
-| R10 | P1 | [open_in_editor.py](../../skills/construct3-agent-plugin/scripts/open_in_editor.py) 第 187–192 行仍自动点击项目内 addon 的安装确认；显式 `--install-addon` 是另一条路径 | 对外部项目默认报告 addon 身份并停止，安装需显式启用或已确认的信任策略；未安装恶意 addon，不能宣称已发生代码执行 |
-| R11 | P2 | [install.py](../../skills/construct3-agent-plugin/scripts/install.py) 第 58–68 行仍直接覆盖漂移文件、删除额外文件，没有备份或完整替换事务 | 源技能作为权威可以保留；刷新前为本地修改提供可恢复副本，中途失败也应保持一份完整技能。第一轮镜像反例的实现仍在，本轮未重复覆盖实验 |
-| R12 | P2 | [SKILL.md](../../skills/construct3-agent-plugin/SKILL.md) 第 249–295 行要求每次修改处理所有 checker、design 和 look findings；design 默认扫描全部事件表 | 局部任务处理修改引入和受影响的缺陷；全项目治理由对应任务触发。工具已有 `--sheets`，入口应使用任务范围；实际模型扩散修改的频率未测 |
-| R15 | P2 | [export_project.py](../../skills/construct3-agent-plugin/scripts/export_project.py) 第 541–562 行打包仍把 `useWorker` 强制改成 `auto`；正式打包测试确认原工程配置保持而副本改变 | 明确导出配置策略，验收实际 Web runtime 与预览是否一致；运行差异未验证，不能断言所有项目都会出错 |
-| R16 | P2 | [pack_project.py](../../skills/construct3-agent-plugin/scripts/pack_project.py) 第 95–111 行仍在过滤之前读取全部 ZIP 成员，没有数量及解压大小上限 | 先检查目录和路径，只读取编辑器需要的内容，并设置资源边界；没有运行资源耗尽实验，也没有确认新的目录穿越漏洞 |
+| R07 | P2 | [SKILL.md](../../plugin/skills/construct3-agent-plugin/SKILL.md) 重新分词仍超过 [skills-dev/AGENTS.md](../../skills-dev/AGENTS.md) 的 token 预算；[入口测试](../../tests/test_skill_spec.py) 第 36–37 行只限制行数。具体测量在本轮证据文件 | 按局部修改、读取审查、生成项目分流，把按需指导放到引用文件或工具输出；增加 token 预算检查。入口成本已测，缩短对模型效果的影响未测 |
+| R09 | P2 | [SKILL.md](../../plugin/skills/construct3-agent-plugin/SKILL.md) 第 47–50 行仍固定切换或创建 `agents` 分支，没有会话独立工作区约束 | 使用独立工作区和分支，在写入前检查 Git 状态；不要让多个会话共享写入位置。冲突事故未运行 |
+| R10 | P1 | [open_in_editor.py](../../plugin/skills/construct3-agent-plugin/scripts/open_in_editor.py) 第 187–192 行仍自动点击项目内 addon 的安装确认；显式 `--install-addon` 是另一条路径 | 对外部项目默认报告 addon 身份并停止，安装需显式启用或已确认的信任策略；未安装恶意 addon，不能宣称已发生代码执行 |
+| R11 | P2 | [install.py](../../plugin/skills/construct3-agent-plugin/scripts/install.py) 第 58–68 行仍直接覆盖漂移文件、删除额外文件，没有备份或完整替换事务 | 源技能作为权威可以保留；刷新前为本地修改提供可恢复副本，中途失败也应保持一份完整技能。第一轮镜像反例的实现仍在，本轮未重复覆盖实验 |
+| R12 | P2 | [SKILL.md](../../plugin/skills/construct3-agent-plugin/SKILL.md) 第 249–295 行要求每次修改处理所有 checker、design 和 look findings；design 默认扫描全部事件表 | 局部任务处理修改引入和受影响的缺陷；全项目治理由对应任务触发。工具已有 `--sheets`，入口应使用任务范围；实际模型扩散修改的频率未测 |
+| R15 | P2 | [export_project.py](../../plugin/skills/construct3-agent-plugin/scripts/export_project.py) 第 541–562 行打包仍把 `useWorker` 强制改成 `auto`；正式打包测试确认原工程配置保持而副本改变 | 明确导出配置策略，验收实际 Web runtime 与预览是否一致；运行差异未验证，不能断言所有项目都会出错 |
+| R16 | P2 | [pack_project.py](../../plugin/skills/construct3-agent-plugin/scripts/pack_project.py) 第 95–111 行仍在过滤之前读取全部 ZIP 成员，没有数量及解压大小上限 | 先检查目录和路径，只读取编辑器需要的内容，并设置资源边界；没有运行资源耗尽实验，也没有确认新的目录穿越漏洞 |
 
 ## 修复顺序与下一步决策
 

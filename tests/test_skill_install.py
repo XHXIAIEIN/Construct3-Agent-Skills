@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    PLUGIN,    DATA,
+    EVALS,    PLUGIN,    DATA,
     REPO, SKILL, INSTALLED, NEEDS_GIT, git, run, check, install, new_project, warnings, script_module,
 )
 
@@ -40,7 +40,7 @@ def test_install_copies_the_skill_and_writes_the_block_with_the_clones_path(tmp_
 
 def test_a_copy_holds_no_evals_and_is_current_without_them(project):
     """evals/ tests the skill from the clone: a game project neither carries it nor is told to refresh over it."""
-    assert (SKILL / "evals" / "evals.json").is_file()
+    assert (EVALS / "evals.json").is_file()
     assert not (project / INSTALLED / "evals").exists()
     code, out = check(project)
     assert code == 0 and "differs from the clone's" not in out, out

@@ -46,22 +46,22 @@ Option 2. Where each statement of the guide lives:
 | The format has no published specification and changes between releases; an invalid edit can leave a project that does not open | `prompts/references/hand-editing-project-files.md`, "The project folder" | the checker, then `open_in_editor.py` (`checker-editor-load-rules.md`) |
 | `project.c3proj` indexes the project; a file it does not list is ignored | the same section | `check_project.py`: a warning, `scripts/` aside |
 | Each JSON resource is in its folder, under the subfolders the listing names | the same section | the checker reads a resource by its listing |
-| Images are in `images/` without subfolders, named `<type>-<animation>-<frame>.png` or `<type>.png` in lower case | the same section; `skills/construct3-agent-plugin/references/checker-rules.md` | the checker: a missing image is an error |
+| Images are in `images/` without subfolders, named `<type>-<animation>-<frame>.png` or `<type>.png` in lower case | the same section; `plugin/skills/construct3-agent-plugin/references/checker-rules.md` | the checker: a missing image is an error |
 | An image imported in a lossy format and not edited keeps it, named by `fileType` | the same | the checker finds it through `fileType` |
 | An image's `width` and `height` in its entry are ignored; the size comes from the file | the same | the checker does not compare them |
 | A uid is any value, unique; six-digit random numbers suit source control | the same, "Encodings"; `random-uid-allocation.md` | the checker: a repeated uid is an error |
 | A sid is a 15-digit random number | "Encodings" | `edit_sheet.py` and the generator write them; a repeated sid is a finding |
-| Script, sound, music, video, font, icon and general files are in their folders and used as they are | `skills/construct3-agent-plugin/references/checker-rules.md`, the table | the checker: a listed file missing from its folder, `video` included, is an error |
+| Script, sound, music, video, font, icon and general files are in their folders and used as they are | `plugin/skills/construct3-agent-plugin/references/checker-rules.md`, the table | the checker: a listed file missing from its folder, `video` included, is an error |
 | Sound and music are WebM Opus | "The project folder"; `prompts/references/sound.md` | the checker: a warning |
 | Fonts are best WOFF, icons PNG, video MP4 with H.264 | "The project folder" | not checked: the editor also takes TTF and OTF fonts, and the rest is a choice made in the editor |
 | TypeScript is `.ts` alone or `.js` alone | "The project folder" | the checker: both of one script listed is a warning |
 | UI state files and `uistate` folders can be deleted; palettes and tilemap brushes have root folders | "The project folder" | `data/c3-new-project/` leaves UI state out; `pack_project.py` packs all of these |
 | A `.c3p` is the project folder zipped | `pack_project.py` | it writes `project.c3proj` at the archive's root |
-| Layouts hold a tree of layers, event sheets a tree of blocks | `skills/construct3-agent-plugin/references/checker-rules.md` | the checker walks sub-layers and sub-events |
+| Layouts hold a tree of layers, event sheets a tree of blocks | `plugin/skills/construct3-agent-plugin/references/checker-rules.md` | the checker walks sub-layers and sub-events |
 
 `llm-context.md` is the editor's file: `data/c3-new-project/` keeps it, and
 `pack_project.py` packs it. A rule about the folder, a file name or a file
-format starts from the guide (`skills/AGENTS.md`).
+format starts from the guide (`skills-dev/AGENTS.md`).
 
 ### The copy in `data/`
 

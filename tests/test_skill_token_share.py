@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import SKILL, script_module
+from tests.skill_helpers import EVALS, SKILL, script_module
 
-token_share = script_module("token_share", SKILL / "evals")
+token_share = script_module("token_share", EVALS)
 
 PRINT = {"command": "python scripts/print_sheet.py --outline"}
 READ_SKILL = {"file_path": "/game/.agents/skills/construct3-agent-plugin/SKILL.md"}
@@ -125,7 +125,7 @@ def test_the_command_prints_both_totals_and_writes_json(transcript: Path, tmp_pa
     """A list file names the transcripts; the first line prints the shares' sum beside the exact cost."""
     listed, out = tmp_path / "list.txt", tmp_path / "share.json"
     listed.write_text(f"{transcript}\n", encoding="utf-8")
-    done = subprocess.run([sys.executable, str(SKILL / "evals" / "token_share.py"), f"@{listed}",
+    done = subprocess.run([sys.executable, str(EVALS / "token_share.py"), f"@{listed}",
                            "--out", str(out), "--files", "--targets", "--items", "0"],
                           capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert done.returncode == 0, done.stderr
@@ -140,6 +140,6 @@ def test_the_command_prints_both_totals_and_writes_json(transcript: Path, tmp_pa
 def test_a_transcript_without_a_response_is_exit_1(tmp_path: Path) -> None:
     empty = tmp_path / "empty.jsonl"
     empty.write_text(json.dumps({"type": "user", "message": {"content": "hi"}}) + "\n", encoding="utf-8")
-    done = subprocess.run([sys.executable, str(SKILL / "evals" / "token_share.py"), str(empty)],
+    done = subprocess.run([sys.executable, str(EVALS / "token_share.py"), str(empty)],
                           capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert done.returncode == 1 and "no transcript held a model response" in done.stderr

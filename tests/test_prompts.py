@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PROMPTS = REPO / "prompts"
+PROMPTS = REPO / "plugin" / "prompts"
 INDEX = PROMPTS / "event-sheet-pitfalls.md"
 TOPICS = PROMPTS / "pitfalls"
 

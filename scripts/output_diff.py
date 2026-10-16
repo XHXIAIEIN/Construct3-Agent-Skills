@@ -62,7 +62,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL = Path("skills/construct3-agent-plugin")
+SKILL = Path("plugin/skills/construct3-agent-plugin")
 REPORT = Path(tempfile.gettempdir()) / "construct3-output-diff.txt"
 EXAMPLE_KINDS = ("print_sheet", "print_sheet_limit", "print_layout", "check_project", "check_style", "review_design",
                  "edit_sheet", "edit_sheet_line", "edit_sheet_key")

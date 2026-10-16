@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import PLUGIN, REPO, SKILL, run, install, new_project, script_module
+from tests.skill_helpers import EVALS, PLUGIN, REPO, SKILL, run, install, new_project, script_module
 
 SKILL_MD = SKILL / "SKILL.md"
 LIMIT = script_module("c3project").LIMIT      # where the scripts cut their own output
@@ -198,7 +198,7 @@ def trigger_eval(tmp_path: Path, queries: list[dict], *extra: str) -> tuple[int,
     client.write_text(FAKE_CLIENT, encoding="utf-8")
     (tmp_path / "queries.json").write_text(json.dumps(queries), encoding="utf-8")
     report = tmp_path / "report.json"
-    code, out = run(tmp_path, SKILL / "evals" / "run_trigger_eval.py", "queries.json", "--project", str(root),
+    code, out = run(tmp_path, EVALS / "run_trigger_eval.py", "queries.json", "--project", str(root),
                     "--client", f"{Path(sys.executable).as_posix()} {client.as_posix()}",
                     "--runs", "2", "--output", str(report), *extra)
     assert not (root / "written-by-a-run.txt").exists(), "a run wrote into the project the others read"
@@ -284,7 +284,7 @@ def run_trace(tmp_path: Path, entries: list[dict], out: Path) -> tuple[str, dict
     """trace.py over a transcript of these entries: what it printed and the trace.json it wrote into out."""
     transcript = tmp_path / "agent.jsonl"
     transcript.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
-    code, said = run(tmp_path, SKILL / "evals" / "trace.py", str(transcript), "--out", str(out))
+    code, said = run(tmp_path, EVALS / "trace.py", str(transcript), "--out", str(out))
     assert code == 0, said
     return said, json.loads((out / "trace.json").read_text(encoding="utf-8"))
 

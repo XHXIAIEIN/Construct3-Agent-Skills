@@ -84,7 +84,7 @@ The project skill, the prompts and the plugin:
 | `skill-and-plugin-names.md` | The names of the skill and the Claude Code plugin |
 | `plugin-tracks-commits.md` | How the build sets `plugin.json`'s version so that a change to `plugin/` reaches an install, and why a linked clone needs no copy in the project |
 | `directory-listing.md` | Why the plugin is in Claude's directory and also installs from this repository, and why a reviewer publishes each directory version |
-| `plugin-folder.md` | Why the plugin is the built folder `plugin/`, what it carries from the repository, and the test that keeps it equal to its sources |
+| `plugin-folder.md` | Why the plugin folder holds the skill, the prompts and its own files as sources and only its `data/` is built, what the build writes, the directory's limits, and what lives beside the folder |
 | `plugin-script-menu.md` | Why the plugin's `/` menu lists each script as a thin skill that the model never loads on its own, what such a row may run, and why the model's route is the one main skill |
 | `plugin-repository.md` | Why the skill, the prompts and the plugin live in this repository, how the build reads the data of a Construct3-RAG clone beside it, how a data refresh reaches `plugin/`, and what Construct3-RAG keeps |
 | `project-worker-agent.md` | Why the plugin ships a sub-agent type whose tools are the ones the scripts need, what it saves, and how its route compared with a general-purpose sub-agent's |

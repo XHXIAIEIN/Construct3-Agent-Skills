@@ -504,12 +504,8 @@ def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, li
         if is_clone(Path(c)):
             return Path(c), tried
         tried.append(f"{source}: {c}")
-    # Run in place from a clone's skills/ or plugin/skills/, the clone's data is the script's own: the folder
-    # above the skill that holds data/, or that folder's built plugin/, which holds the data and the prompts.
-    own = above(SKILL_DIR, "data/c3-schemas/_index.json")
-    if own is None and (repo := above(SKILL_DIR, "plugin/data/c3-schemas/_index.json")):
-        own = repo / "plugin"
-    return own, tried
+    # Run in place from the plugin folder's skills/, the data beside the skills is the script's own.
+    return above(SKILL_DIR, "data/c3-schemas/_index.json"), tried
 
 
 def find_rag(root: Path | None, override: str | None) -> Path:

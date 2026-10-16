@@ -20,7 +20,7 @@ The cost of every Claude Code transcript of one game project's sessions
 response's context, from the usage the API returned: the growth of the
 context between two responses is what was added in between, and each item
 costs its first write plus a cache read on every later response
-(`skills/construct3-agent-plugin/evals/token_share.py`). The shares add up
+(`skills-dev/evals/token_share.py`). The shares add up
 to the cost computed from the usage directly.
 
 - Whole reads of the project's design and plan documents were 10.7% of all

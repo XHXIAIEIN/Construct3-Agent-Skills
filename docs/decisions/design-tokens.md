@@ -6,7 +6,7 @@ Date: 2026-10-13; palette revised 2026-10-15
 
 Two pages carry the tool's own chrome rather than a game's: the recording
 review page beside a preview recording
-(`skills/construct3-agent-plugin/assets/recording-review.html`) and the API
+(`plugin/skills/construct3-agent-plugin/assets/recording-review.html`) and the API
 playground (`src/interfaces/http/playground.html` in Construct3-RAG). The review page had grown
 a palette of one-off greys, type at three sizes with no weight discipline,
 zebra-striped rows and borders drawn as full rules on every edge; the
@@ -219,7 +219,7 @@ here, the pages' own fallback.
   referenced six old tokens from its script's inline styles, which a CSS
   block rename leaves broken.
 - The template ships in two copies that are kept equal:
-  `skills/construct3-agent-plugin/assets/` is the source and
+  `plugin/skills/construct3-agent-plugin/assets/` is the source and
   `plugin/skills/construct3-agent-plugin/assets/` is written by the build;
   change the source, then run `python scripts/build_plugin.py`, because
   the build also sets the plugin's version, which a copy by hand leaves

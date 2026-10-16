@@ -34,13 +34,13 @@ Option 3. TRAE reads `.trae/skills/` and, once enabled in its settings,
 Claude Code reads `.claude/skills/`. A project used with the Claude Code
 plugin holds no copy (`plugin-tracks-commits.md`).
 
-- `skills/construct3-agent-plugin/`: `SKILL.md`; `scripts/`, one script per
+- `plugin/skills/construct3-agent-plugin/`: `SKILL.md`; `scripts/`, one script per
   intent, each named in `SKILL.md`, over the shared `c3project.py`;
   `check_design.py`, `play_design.py` and `review_look.py` also over
   `game_model.py`, and `review_design.py` over `design_review.py`;
   `references/`; `assets/`, among them `build_project.py`, the generator
   template, and `game-project-block.md`, the Construct 3 block of the
-  project's instruction file; `evals/`, which stays in this repository.
+  project's instruction file; `skills-dev/evals/`, which stays in this repository.
 - `install.py` copies the folder into `.agents/skills/`, or the folder
   `--into` names, refreshes every copy the project holds when run again, and
   appends the block to `AGENTS.md` with the clone's path filled in when no
@@ -190,7 +190,7 @@ Each of these was a failure seen in an eval run or a game project.
 
 - The trigger evaluation of `description` has not run: it needs a
   signed-in `claude` CLI, and a subagent of this repository inherits its
-  `AGENTS.md`, which names the skill. `evals/run_trigger_eval.py` and the
+  `AGENTS.md`, which names the skill. `skills-dev/evals/run_trigger_eval.py` and the
   query files are ready. Change `description` only from its train failures.
 - No one has reviewed the eval answers by hand; the assertions are at
   ceiling, so that review is the next signal.
@@ -211,7 +211,7 @@ Each of these was a failure seen in an eval run or a game project.
 
 - An agent loses the end of a printed sheet to truncation, or a harness in
   use cuts below 10 000 characters: lower `LIMIT` in
-  `skills/construct3-agent-plugin/scripts/c3project.py`.
+  `plugin/skills/construct3-agent-plugin/scripts/c3project.py`.
 - A run started from the block edits a sheet's JSON by hand: read its trace
   for what it opened instead of `SKILL.md`.
 - A harness in use reads neither `.agents/skills/` nor the block: name its

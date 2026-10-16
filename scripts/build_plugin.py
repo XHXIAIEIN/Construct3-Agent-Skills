@@ -1,42 +1,42 @@
 #!/usr/bin/env python3
-"""Build plugin/, the Claude Code plugin, from the skill, the prompts and the data they read.
+"""Refresh plugin/data/ from the data of Construct3-RAG and set the plugin's version.
 
-    python scripts/build_plugin.py            write plugin/
-    python scripts/build_plugin.py --check    fail when plugin/ differs from a fresh build
+    python scripts/build_plugin.py            write plugin/data/ and the version
+    python scripts/build_plugin.py --check    fail when plugin/data/ or the version differs from a fresh build
     python scripts/build_plugin.py --rag F    read data/ from the Construct3-RAG clone F
 
-The skill and the prompts come from this repository. The data comes from the
-Construct3-RAG clone beside it, or from --rag or CONSTRUCT3_RAG_DATA, which
-must be a Git clone, because the build takes the tracked files. Why:
-docs/decisions/plugin-repository.md.
+plugin/ is the Claude Code plugin and holds its sources: the skill under
+skills/construct3-agent-plugin/, the rows of the / menu under skills/<name>/,
+the prompts, the manifest, the README, the icon and the agents. Only its
+data/ is built, from the Construct3-RAG clone beside this repository, or from
+--rag or CONSTRUCT3_RAG_DATA, which must be a Git clone, because the build
+takes the tracked files. Why: docs/decisions/plugin-repository.md.
 
-The plugin folder carries what the construct3-agent-plugin skill reads, under
-the limits of Claude's plugin directory: 512 files or fewer, every file
-other than an image or a font under 256 KiB, and the folder under 7 MB in
-all. The skill, the schemas, the guides, the prompts and the empty project
-are copied to the same paths; a schema is written with an indent of one
+The folder stays under the limits of Claude's plugin directory: 512 files or
+fewer, every file other than an image or a font under 256 KiB, and the folder
+under 7 MB in all. The schemas, the guides and the empty project are copied
+to the same paths under data/; a schema is written with an indent of one
 space, which keeps the folder under its size limit. The TypeScript
-definitions, the examples and the index of their ACEs are written as bundles, which
-skills/construct3-agent-plugin/scripts/c3project.py reads with data_texts;
-the language packs keep the parts check_project.py reads. They also keep
-the name, properties and debugger texts of every plugin and behavior,
-because the keys of a preview's inspector values point into them. Why:
-docs/decisions/plugin-folder.md.
+definitions, the examples and the index of their ACEs are written as bundles,
+which skills/construct3-agent-plugin/scripts/c3project.py reads with
+data_texts; the language packs keep the parts check_project.py reads. They
+also keep the name, properties and debugger texts of every plugin and
+behavior, because the keys of a preview's inspector values point into them.
+Why: docs/decisions/plugin-folder.md.
 
-skills/menu/ holds one thin skill per user-facing script, copied to
-plugin/skills/<name>/, so that the plugin's / menu lists the scripts; each runs
-its script and is never loaded into the model's context on its own. The build
-fails when a script and the menu disagree. Why:
-docs/decisions/plugin-script-menu.md.
+skills/<name>/SKILL.md is one thin skill per user-facing script, so that the
+plugin's / menu lists the scripts; each runs its script and is never loaded
+into the model's context on its own. The build fails when a script and the
+menu disagree. Why: docs/decisions/plugin-script-menu.md.
 
 The build also sets the version in .claude-plugin/plugin.json. The published
 plugin is the one at the commit that HEAD shares with origin/main, or at HEAD
 without that ref. During a merge, it is the one at the commit that the merge
-commit will share with origin/main. If the built files other than plugin.json
-equal the published ones, the build keeps the published version; otherwise it
-writes the published version with its patch raised by one. The version in
-scripts/plugin/plugin.json is the floor, raised by hand for a minor or major
-release. The build reads Git locally and never fetches. Why:
+commit will share with origin/main. If the plugin's files other than
+plugin.json equal the published ones, the build keeps the published version;
+otherwise it writes the published version with its patch raised by one. The
+version committed in plugin.json is the floor, raised by hand for a minor or
+major release. The build reads Git locally and never fetches. Why:
 docs/decisions/plugin-tracks-commits.md.
 
 exit codes: 0 built or equal, 1 plugin/ differs, breaks a limit or disagrees with the menu, 2 no Construct3-RAG clone
@@ -55,26 +55,23 @@ from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "skills" / "construct3-agent-plugin" / "scripts"))
+PLUGIN = ROOT / "plugin"
+SKILL = "plugin/skills/construct3-agent-plugin"
+sys.path.insert(0, str(ROOT / SKILL / "scripts"))
 
 from c3project import siblings_folder  # noqa: E402
 
-OUT = ROOT / "plugin"
 # The Construct3-RAG clone whose data/ the build takes: beside this repository, as the other clones are
 RAG = Path(os.environ.get("CONSTRUCT3_RAG_DATA") or siblings_folder(ROOT) / "Construct3-RAG")
 RAG_URL = "https://github.com/XHXIAIEIN/Construct3-RAG"
-SOURCES = ROOT / "scripts" / "plugin"          # the manifest, README, icon and agents of the plugin
-SKILL = "skills/construct3-agent-plugin"
-MENU = "skills/menu"           # the thin skills of the / menu: MENU/<name>/SKILL.md goes to skills/<name>/SKILL.md
+DATA = "data"
+MANIFEST = ".claude-plugin/plugin.json"
 # The scripts with no menu skill: modules the scripts import, and install.py, which copies the skill into a
 # game project, a copy a plugin user does not need (docs/decisions/plugin-tracks-commits.md)
 NOT_IN_MENU = frozenset({"c3project", "design_review", "game_model", "install"})
-MANIFEST = ".claude-plugin/plugin.json"
 
-# Copied to the same path inside the plugin
-COPIED = (SKILL, "data/c3-schemas", "data/c3-guides", "data/c3-new-project", "prompts",
-          "data/c3-ts-defs/autocomplete-data.json")
-LEFT_OUT = (f"{SKILL}/evals/",)
+# Copied to the same path under plugin/
+COPIED = ("data/c3-schemas", "data/c3-guides", "data/c3-new-project", "data/c3-ts-defs/autocomplete-data.json")
 # Written as bundles: folder, the files of it to take
 BUNDLED = (("data/c3-ts-defs", "*.d.ts"), ("data/c3-examples/en-US", "*.json"), ("data/c3-examples/zh-CN", "*.json"),
            ("data/c3-example-usage", "*.json"))
@@ -95,7 +92,7 @@ SCHEMAS = "data/c3-schemas"     # copied with an indent of one space, 400 KiB le
 
 def source(rel: str) -> Path:
     """The clone a repository path is read from: data/ from the Construct3-RAG clone, the rest from here."""
-    return (RAG if rel.split("/", 1)[0] == "data" else ROOT) / rel
+    return (RAG if rel.split("/", 1)[0] == DATA else ROOT) / rel
 
 
 def tracked(path: str) -> list[str]:
@@ -103,8 +100,7 @@ def tracked(path: str) -> list[str]:
     root = source(path).parents[len(PurePosixPath(path).parts) - 1]
     p = subprocess.run(["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "--", path],
                        capture_output=True, text=True, encoding="utf-8", check=True)
-    return sorted({line for line in p.stdout.splitlines()
-                   if (root / line).is_file() and not line.startswith(LEFT_OUT) and "__pycache__" not in line})
+    return sorted({line for line in p.stdout.splitlines() if (root / line).is_file() and "__pycache__" not in line})
 
 
 def locales() -> list[str]:
@@ -173,8 +169,9 @@ def lang_subset(locale: str) -> str:
 
 
 def menu_skills() -> dict[str, str]:
-    """The thin skills of the / menu: the script's stem for each skill name, from the folders of MENU."""
-    folders = sorted({PurePosixPath(rel).parts[2] for rel in tracked(MENU) if rel.endswith("/SKILL.md")})
+    """The thin skills of the / menu: the script's stem for each skill name, from the folders beside the skill."""
+    folders = sorted({PurePosixPath(rel).parts[2] for rel in tracked("plugin/skills")
+                      if rel.endswith("/SKILL.md") and PurePosixPath(rel).parts[2] != "construct3-agent-plugin"})
     return {name: name.replace("-", "_") for name in folders}
 
 
@@ -183,36 +180,29 @@ def menu_problems() -> list[str]:
     script does not exist, or a menu skill for a script NOT_IN_MENU leaves out."""
     scripts = {PurePosixPath(rel).stem for rel in tracked(f"{SKILL}/scripts") if rel.endswith(".py")}
     menu = menu_skills()
-    out = [f"{SKILL}/scripts/{stem}.py has no {MENU}/{stem.replace('_', '-')}/SKILL.md"
+    out = [f"{SKILL}/scripts/{stem}.py has no plugin/skills/{stem.replace('_', '-')}/SKILL.md"
            for stem in sorted(scripts - NOT_IN_MENU - set(menu.values()))]
-    out += [f"{MENU}/{name}/SKILL.md names no script: {SKILL}/scripts/{stem}.py" for name, stem in menu.items()
+    out += [f"plugin/skills/{name}/SKILL.md names no script: {SKILL}/scripts/{stem}.py" for name, stem in menu.items()
             if stem not in scripts]
-    out += [f"{MENU}/{name}/SKILL.md: {stem}.py is NOT_IN_MENU" for name, stem in menu.items() if stem in NOT_IN_MENU]
+    out += [f"plugin/skills/{name}/SKILL.md: {stem}.py is NOT_IN_MENU" for name, stem in menu.items()
+            if stem in NOT_IN_MENU]
     return out
 
 
 def build(out: Path) -> None:
+    """The plugin's data folder, written fresh at out."""
     for part in COPIED:
         for rel in tracked(part):
+            inner = rel[len(DATA) + 1:]
             if part == SCHEMAS and rel.endswith(".json"):
-                reindent(source(rel), out / rel)
+                reindent(source(rel), out / inner)
             else:
-                copy(source(rel), out / rel)
-    for rel in tracked(MENU):
-        copy(source(rel), out / "skills" / PurePosixPath(rel).relative_to(MENU))
+                copy(source(rel), out / inner)
     for folder, pattern in BUNDLED:
         for rel, text in bundles(folder, pattern):
-            write(out / rel, text)
+            write(out / rel[len(DATA) + 1:], text)
     for locale in locales():
-        write(out / "data" / "c3-lang" / f"{locale}.json", lang_subset(locale))
-    copy(SOURCES / "plugin.json", out / MANIFEST)
-    # The listing icon, which plugin.json names in "icon"; .claude-plugin/ holds the manifest only
-    copy(SOURCES / "icon.png", out / "icon.png")
-    copy(SOURCES / "README.md", out / "README.md")
-    # The plugin's sub-agent types: a file under agents/ is one, read by Claude Code from the plugin's folder
-    for agent in sorted((SOURCES / "agents").glob("*.md")):
-        copy(agent, out / "agents" / agent.name)
-    copy(ROOT / "LICENSE", out / "LICENSE")
+        write(out / "c3-lang" / f"{locale}.json", lang_subset(locale))
 
 
 def blob_id(data: bytes) -> str:
@@ -250,7 +240,7 @@ def published() -> tuple[str | None, dict[str, str]]:
 
 def release_version(published_version: str | None, published_blobs: dict[str, str],
                     fresh_blobs: dict[str, str], floor: str) -> str:
-    """The version of a build. It is the published version while the build's files equal the published
+    """The version of a build. It is the published version while the plugin's files equal the published
     files, and that version with its patch raised by one once they differ. It is never below the floor."""
     def numbers(version: str) -> tuple[int, ...]:
         return tuple(int(n) for n in version.split("."))
@@ -263,24 +253,38 @@ def release_version(published_version: str | None, published_blobs: dict[str, st
     return ".".join(map(str, max(version, numbers(floor))))
 
 
-def set_version(out: Path) -> str:
-    """Write the release version into the manifest of the plugin built in out, and return it."""
-    manifest = json.loads((out / MANIFEST).read_text(encoding="utf-8"))
-    fresh = {rel: blob_id(p.read_bytes()) for rel, p in files(out).items() if rel != MANIFEST}
-    manifest["version"] = release_version(*published(), fresh, manifest["version"])
-    write(out / MANIFEST, json.dumps(manifest, ensure_ascii=False, indent="\t") + "\n")
-    return manifest["version"]
-
-
 def files(folder: Path) -> dict[str, Path]:
-    """The files of a plugin folder, without the bytecode Python writes beside a script it ran."""
+    """The files of a folder, without the bytecode Python writes beside a script it ran."""
     return {p.relative_to(folder).as_posix(): p for p in sorted(folder.rglob("*"))
             if p.is_file() and "__pycache__" not in p.parts}
 
 
-def limits(folder: Path) -> list[str]:
-    """What breaks the directory's limits on the plugin folder."""
-    found = files(folder)
+def plugin_files(data: Path) -> dict[str, Path]:
+    """The plugin's files with the data folder at data in place of plugin/data/, by their path in the plugin."""
+    out = {rel: p for rel, p in files(PLUGIN).items() if rel.split("/", 1)[0] != DATA}
+    out.update({f"{DATA}/{rel}": p for rel, p in files(data).items()})
+    return out
+
+
+def manifest() -> dict:
+    return json.loads((PLUGIN / MANIFEST).read_text(encoding="utf-8"))
+
+
+def version_for(data: Path) -> str:
+    """The release version of the plugin with the data folder at data."""
+    fresh = {rel: blob_id(p.read_bytes()) for rel, p in plugin_files(data).items() if rel != MANIFEST}
+    return release_version(*published(), fresh, manifest()["version"])
+
+
+def set_version(version: str) -> None:
+    """Write version into the plugin's manifest, keeping its other fields."""
+    data = manifest()
+    data["version"] = version
+    write(PLUGIN / MANIFEST, json.dumps(data, ensure_ascii=False, indent="\t") + "\n")
+
+
+def limits(found: dict[str, Path]) -> list[str]:
+    """What breaks the directory's limits on the plugin folder, over its files by path."""
     problems = [f"{len(found)} files, more than {MAX_FILES}"] if len(found) > MAX_FILES else []
     total = sum(p.stat().st_size for p in found.values())
     if total > MAX_TOTAL:
@@ -300,7 +304,7 @@ def limits(folder: Path) -> list[str]:
 
 def differences(built: Path, committed: Path) -> list[str]:
     a, b = files(built), files(committed) if committed.is_dir() else {}
-    out = [f"missing from plugin/: {rel}" for rel in a if rel not in b]
+    out = [f"missing from plugin/data/: {rel}" for rel in a if rel not in b]
     out += [f"not in a fresh build: {rel}" for rel in b if rel not in a]
     out += [f"differs: {rel}" for rel in a if rel in b and not filecmp.cmp(a[rel], b[rel], shallow=False)]
     return out
@@ -308,45 +312,38 @@ def differences(built: Path, committed: Path) -> list[str]:
 
 @contextlib.contextmanager
 def fresh_build() -> Iterator[tuple[Path, str]]:
-    """A fresh build in a temporary folder, with its version; the folder goes at the end of the block."""
+    """A fresh data folder in a temporary place, with the plugin's version; the folder goes at the end."""
     with tempfile.TemporaryDirectory() as tmp:
-        fresh = Path(tmp) / "plugin"
+        fresh = Path(tmp) / DATA
         build(fresh)
-        yield fresh, set_version(fresh)
+        yield fresh, version_for(fresh)
 
 
 def rebuild() -> list[str]:
-    """plugin/ replaced by a fresh build, and what in it breaks the limits. A folder
-    there that holds no plugin is left alone."""
-    if OUT.exists() and not (OUT / MANIFEST).exists():
-        sys.exit(f"{OUT} holds no .claude-plugin/plugin.json; not overwritten")
-    with fresh_build() as (fresh, _):
-        if OUT.exists():
-            shutil.rmtree(OUT)
-        shutil.copytree(fresh, OUT)
-    return limits(OUT) + menu_problems()
-
-
-def version_in(folder: Path) -> str | None:
-    manifest = folder / MANIFEST
-    return json.loads(manifest.read_text(encoding="utf-8")).get("version") if manifest.is_file() else None
+    """plugin/data/ replaced by a fresh build and the version written, and what breaks the limits or the menu."""
+    with fresh_build() as (fresh, version):
+        if (PLUGIN / DATA).exists():
+            shutil.rmtree(PLUGIN / DATA)
+        shutil.copytree(fresh, PLUGIN / DATA)
+        set_version(version)
+    return limits(files(PLUGIN)) + menu_problems()
 
 
 def check() -> list[str]:
-    """How plugin/ differs from a fresh build, and what in the build breaks the limits."""
+    """How plugin/data/ and the version differ from a fresh build, and what breaks the limits or the menu."""
     with fresh_build() as (fresh, version):
-        problems = limits(fresh) + menu_problems() + differences(fresh, OUT)
-    committed = version_in(OUT)
+        problems = limits(plugin_files(fresh)) + menu_problems() + differences(fresh, PLUGIN / DATA)
+    committed = manifest()["version"]
     if committed != version:
-        problems.append(f"version: {committed} in plugin/, {version} in a fresh build")
+        problems.append(f"version: {committed} in plugin.json, {version} for the plugin's files")
     return problems
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 description="Build plugin/, the Claude Code plugin, from the skill and the data it reads.",
+                                 description="Refresh plugin/data/ from the data of Construct3-RAG and set the plugin's version.",
                                  epilog="exit codes: 0 built or equal, 1 plugin/ differs, breaks a limit or disagrees with the menu, 2 no Construct3-RAG clone")
-    ap.add_argument("--check", action="store_true", help="compare plugin/ with a fresh build, write nothing")
+    ap.add_argument("--check", action="store_true", help="compare plugin/data/ and the version with a fresh build, write nothing")
     ap.add_argument("--rag", metavar="FOLDER", help=f"the Construct3-RAG clone whose data/ is built in (default: {RAG})")
     args = ap.parse_args()
     if args.rag:
@@ -361,7 +358,7 @@ def main() -> int:
     if args.check:
         print(f"plugin/: {'differs or breaks a limit; run python scripts/build_plugin.py' if problems else 'equal to a fresh build'}")
     else:
-        print(f"plugin/: built, version {version_in(OUT)}, {len(files(OUT))} files"
+        print(f"plugin/: built, version {manifest()['version']}, {len(files(PLUGIN))} files"
               f"{'; breaks the limits above' if problems else ''}")
     return 1 if problems else 0
 

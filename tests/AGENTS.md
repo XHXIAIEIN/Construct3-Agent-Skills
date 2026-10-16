@@ -14,11 +14,9 @@ build reads and a few tests compare with the plugin's copy.
   the built folder that holds the data and the prompts, because that is
   what every install and link runs them from. Raw data files come from
   `DATA`, the sibling clone's `data/`.
-- Run `python scripts/build_plugin.py` before the tests after a change to
-  the skill or the prompts. The tests install the source skill into the
-  stand-in game and the copy compares itself with the skill in `plugin/`,
-  so a stale `plugin/` fails every check as drift, and
-  `test_plugin_folder.py` names the difference.
+- Run `python scripts/build_plugin.py` after the data of the Construct3-RAG
+  clone changed, because `test_plugin_folder.py` fails while `plugin/data/`
+  differs from a fresh build.
 - A skip reason names the command that supplies what is missing
   (`python scripts/bootstrap.py`, `pip install pillow`). A sibling clone's
   path comes from `siblings_folder`, as `EXAMPLES` in `skill_helpers.py`
@@ -28,7 +26,7 @@ build reads and a few tests compare with the plugin's copy.
 ## Skill tests
 
 The evals of the skill run agents, not pytest, and live with the skill:
-`skills/AGENTS.md`, "Evals". `test_skill_spec.py` tests the skill's format,
+`skills-dev/AGENTS.md`, "Evals". `test_skill_spec.py` tests the skill's format,
 the trigger runner `run_trigger_eval.py` against a stand-in client, and
 `trace.py` on a written transcript. `test_skill_grade.py` grades recorded
 answers from `fixtures/restart_event_answers/` and runs built from the

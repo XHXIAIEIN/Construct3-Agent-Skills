@@ -32,7 +32,7 @@ Option 2 as the default, and option 3 as the step after it.
 ### The checker
 
 - The rules, their messages and what each finding says are listed in
-  `skills/construct3-agent-plugin/references/checker-rules.md`.
+  `plugin/skills/construct3-agent-plugin/references/checker-rules.md`.
 - A rule is read from the editor's project loader as a whole call chain,
   located by the message it throws, not from the one message a user pasted:
   the next assertion in the same function would cost another round trip.

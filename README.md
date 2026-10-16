@@ -4,7 +4,7 @@
 
 Construct3-Agent-Skills is a set of skills and data that let an AI agent make [Construct 3](https://editor.construct.net/) games.
 
-The repository holds the `construct3-agent-plugin` skill, its prompts and the Claude Code plugin built from them. [`plugin/`](plugin/README.md) is the built folder that every install runs. The skill gives an agent these abilities:
+The repository holds the `construct3-agent-plugin` skill, its prompts and the data they read, in one folder, [`plugin/`](plugin/README.md), which is also the Claude Code plugin. The skill gives an agent these abilities:
 
 - Look the manual up: find Construct's conditions, actions and expressions by name or purpose, and the scripting API of its plugins and behaviors, with their parameters and the JSON to write.
 - Write by the definitions: look every condition, action, expression and effect up as the editor defines them before touching anything, then edit the project's JSON files directly, so the values written are ones the editor accepts.
@@ -79,10 +79,9 @@ When the skill runs from a Git clone, the checker fetches that clone's remote at
 ## Repository
 
 ```
-plugin/                 The built folder: the skill, the data, the prompts and the plugin manifest
-skills/                 The skill's source, with its evals
-prompts/                The prompts' source: event sheet thinking, pitfalls, style and task references
-scripts/                build_plugin.py, bootstrap.py, output_diff.py, measure_examples.py; scripts/plugin/ holds the manifest, README and icon
+plugin/                 The plugin: the skill and the / menu rows under skills/, the prompts, the manifest, README and icon, and the built data/
+skills-dev/             The skill's evals and the guide to changing the skill
+scripts/                build_plugin.py (refreshes plugin/data/), bootstrap.py, output_diff.py, measure_examples.py
 tests/                  The pytest suite
 docs/                   The decision records and the audit
 .claude-plugin/         The marketplace manifest for Claude Code, which names plugin/

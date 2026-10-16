@@ -4,7 +4,7 @@ Date: 2026-10-04
 
 ## Problem
 
-The generator template, `skills/construct3-agent-plugin/assets/build_project.py`,
+The generator template, `plugin/skills/construct3-agent-plugin/assets/build_project.py`,
 is one file: the helpers (one per ACE, the images, the grid, the layouts, the
 checks that stop a run) and a stand-in game. An agent copies it into a
 game's `tools/` and rewrites the game in it, so every copy keeps the helpers
@@ -16,7 +16,7 @@ changing a generated game as they are with the template.
 
 ## Evidence
 
-Three eval iterations on the five generator cases of `evals/evals.json`
+Three eval iterations on the five generator cases of `skills-dev/evals/evals.json`
 (Haiku 4.5, two runs per case and arm, the template of the day before as the
 baseline in the same batch; `.local/docs/evidence/skill-evals/`
 `construct3-agent-plugin/iteration-40/` to `iteration-42/`):

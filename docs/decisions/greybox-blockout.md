@@ -127,7 +127,7 @@ alone.
 
 ## Decision
 
-Option 3, in `skills/construct3-agent-plugin/assets/build_project.py`.
+Option 3, in `plugin/skills/construct3-agent-plugin/assets/build_project.py`.
 
 ### The vocabulary
 
@@ -194,7 +194,7 @@ Two more rules from the same sources were measured on the official 2D game
 examples before either became a check: 81 one-screen layouts of the
 examples tagged as games, their content the visible instances of the
 scrolling layers less Text and backdrops
-(`skills/construct3-agent-plugin/evals/measure_layout.py`).
+(`skills-dev/evals/measure_layout.py`).
 
 | Rule from slide and poster skills | Official layouts that pass | Outcome |
 |-----------------------------------|----------------------------|---------|
@@ -303,7 +303,7 @@ average than the first. It prints the curve, one line a beat, above
 
 ### The manifest
 
-`skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
+`plugin/skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
 this record and of `paper-and-ink-look.md` with a status: `enforced` when a check stops the generator,
 `adopted` when the user decided it and the template holds it, `proposed`,
 `rejected`. Its `deliver` steps are what a model writing the generator is

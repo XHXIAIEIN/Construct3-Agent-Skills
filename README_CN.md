@@ -4,7 +4,7 @@
 
 Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://editor.construct.net/) 游戏的 skill 和数据集。
 
-仓库放着 `construct3-agent-plugin` skill、它的 prompts，以及用它们构建的 Claude Code plugin。[`plugin/`](plugin/README.md) 是构建好的文件夹，每种安装方式运行的都是它。skill 给 agent 这些能力：
+仓库把 `construct3-agent-plugin` skill、它的 prompts 和它们读取的数据放在一个文件夹里，[`plugin/`](plugin/README.md)，它同时就是 Claude Code plugin。skill 给 agent 这些能力：
 
 - 查手册：按名字或用途找到 Construct 的条件、动作和表达式，以及插件和行为的脚本 API，连同参数和要写的 JSON。
 - 按定义写：动手之前先查编辑器定义的每一个条件、动作、表达式和滤镜，再直接编辑项目的 JSON 文件，所以写出的值编辑器认得。
@@ -79,10 +79,9 @@ skill 从 Git clone 运行时，检查器每小时最多拉取一次远端，用
 ## 仓库结构
 
 ```
-plugin/                 构建好的文件夹：skill、数据、prompts 和 plugin 清单
-skills/                 skill 的源文件，含它的 evals
-prompts/                prompts 的源文件：事件表思路、坑、风格和按任务查的参考
-scripts/                build_plugin.py、bootstrap.py、output_diff.py、measure_examples.py；scripts/plugin/ 下是清单、README 和图标
+plugin/                 plugin 本身：skills/ 下是 skill 和 / 菜单的条目，还有 prompts、清单、README、图标，以及构建出的 data/
+skills-dev/             skill 的 evals 和改 skill 的指南
+scripts/                build_plugin.py（刷新 plugin/data/）、bootstrap.py、output_diff.py、measure_examples.py
 tests/                  pytest 测试
 docs/                   决策记录和审查
 .claude-plugin/         给 Claude Code 的 marketplace 清单，指向 plugin/
