@@ -192,3 +192,4 @@ runs the same on every push to `main` and every pull request.
 | Project and skill audit findings | `docs/dev/skills-audit.md` |
 | The data files, their fields and their update pipeline | `docs/guide/data-format.md` and `docs/dev/data-pipeline.md` in the Construct3-RAG clone |
 | Delegating an ACE lookup to a Claude Code sub-agent | `.claude/agents/ace-lookup.md` |
+| Polishing the skill's sources, prompts, docs, records and code in one verified run; start it when no other session edits the repository | `.claude/workflows/polish.js` |
