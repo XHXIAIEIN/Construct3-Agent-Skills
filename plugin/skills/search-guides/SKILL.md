@@ -3,7 +3,9 @@ name: search-guides
 description: Prints the event sheet pitfall entries and the official example projects that hold the given words. Each example comes with the command that prints its events. Used before an interaction is written, and when events do not behave as expected.
 argument-hint: "WORD [WORD ...] [--locale LOCALE]"
 disable-model-invocation: true
-allowed-tools: Bash(python *) PowerShell(python *)
+allowed-tools:
+  - Bash(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" search_guides *)
+  - PowerShell(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" search_guides *)
 ---
 
 What `search_guides.py` printed for the arguments given, with its exit code on the last line:

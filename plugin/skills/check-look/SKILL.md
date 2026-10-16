@@ -3,7 +3,9 @@ name: check-look
 description: Confirms the strict rules of the skill's look manifest on a project built from the generator template. Used after the generator's own check ends with ok.
 argument-hint: "[--painted [FILE ...]] [--unit PX]"
 disable-model-invocation: true
-allowed-tools: Bash(python *) PowerShell(python *)
+allowed-tools:
+  - Bash(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" check_look *)
+  - PowerShell(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" check_look *)
 ---
 
 What `check_look.py` printed for the arguments given, with its exit code on the last line:

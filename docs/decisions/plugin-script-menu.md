@@ -65,8 +65,20 @@ name through `claude -p "/<plugin>:lookup-ace System wait" --plugin-dir
   expressions"), and a chain around `python`, `|| true` ("python appears
   inside a control-flow or chain statement ... requires manual approval").
   On Windows with the PowerShell tool on, the command runs through the
-  PowerShell tool, which a `Bash(python *)` rule does not cover; the check
-  passes with `allowed-tools: Bash(python *) PowerShell(python *)`.
+  PowerShell tool, which a `Bash(...)` rule does not cover, so a row
+  carries one rule for each tool.
+- The directory's validator holds a row whose `allowed-tools` pre-approves
+  a whole interpreter, `Bash(python *)`: "Pre-approves broad shell access
+  in allowed-tools", once per row. A rule that names the row's own
+  command, with `*` for its arguments, is matched after
+  `${CLAUDE_PLUGIN_ROOT}` is substituted: run through `claude -p
+  --permission-mode default --plugin-dir <plugin>`, the row with the
+  narrowed rule printed its script's output and `exit code 0`, and the
+  same row with a rule naming another script ended with "Shell command
+  permission check failed for pattern" and ran nothing. The validator
+  also holds `skills/run.py` as a script it cannot follow, which the
+  checklist states for a `!` line that runs a non-shell file; that hold
+  stays.
 - A script that exits 2 outside a project, `open_in_editor.py --steps`,
   reaches the model through the runner below as its `no project.c3proj`
   line and `exit code 2`.
@@ -122,9 +134,11 @@ Each row:
   prints and when, in the third person; an `argument-hint` of groups of
   the script's usage line, in double quotes, because a hint that starts
   with `[` is a flow sequence to a YAML parser and the text after it a
-  parse error; `allowed-tools: Bash(python *) PowerShell(python *)`, so
-  that the row runs under the default permission mode whichever tool
-  Claude Code runs it through. `argument-hint` and
+  parse error; `allowed-tools` as a list of two rules, one for the Bash
+  tool and one for the PowerShell tool, each the row's own command,
+  `python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" <script> *`, so that the
+  row runs under the default permission mode whichever tool Claude Code
+  runs it through and pre-approves nothing else. `argument-hint` and
   `disable-model-invocation` are Claude Code's fields, not the open
   format's, so the reference validator of `skills-dev/AGENTS.md` fails on a
   row by design; `tests/test_plugin_folder.py` pins the frontmatter
@@ -156,10 +170,9 @@ against the usage line, and the runner's pass-through and exit code.
   The row of `skills-dev/AGENTS.md` names the file to change with the script.
 - The runner adds a process per row. The scripts take tenths of a second;
   the editor scripts take seconds, as before.
-- `allowed-tools` grants `python` with any arguments for the turn that
-  invokes the row. The row's own command is the only one the turn runs
-  before the model speaks, and the person's own permission rules govern
-  what the model runs after.
+- `allowed-tools` grants the row's own command with any arguments for the
+  turn that invokes the row; the person's own permission rules govern what
+  the model runs after.
 - The rows run under the default `bash` shell on a machine with Git Bash
   and under the PowerShell tool elsewhere on Windows; on a Windows machine
   with neither, the skills page says the invocation fails before the

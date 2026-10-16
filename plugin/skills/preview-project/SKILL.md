@@ -3,7 +3,9 @@ name: preview-project
 description: Previews the project in the editor and plays it from a plan of steps, such as taps, holds, drags, key presses, waits and screenshots. It prints one line per step with the runtime errors. --keep saves a passing plan in tools/plans, --all replays every kept plan. Used to check what a player does.
 argument-hint: "[PLAN.json] [--keep NAME] [--all] [--headed]"
 disable-model-invocation: true
-allowed-tools: Bash(python *) PowerShell(python *)
+allowed-tools:
+  - Bash(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" preview_project *)
+  - PowerShell(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" preview_project *)
 ---
 
 What `preview_project.py` printed for the arguments given, with its exit code on the last line:

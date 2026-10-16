@@ -156,6 +156,19 @@ def groups(usage: str) -> list[str]:
     return out + [current] if current else out
 
 
+def frontmatter_fields(head: str) -> dict:
+    """The fields of a skill's frontmatter: a plain scalar after ': ', or the items of a block list."""
+    fields: dict = {}
+    key = ""
+    for line in head.removeprefix("---\n").splitlines():
+        if line.startswith("  - "):
+            fields[key].append(line[4:])
+        else:
+            key, _, value = line.partition(":")
+            fields[key] = value.strip() if value.strip() else []
+    return fields
+
+
 def positionals(groups_: list[str]) -> list[str]:
     return [g for g in groups_ if not g.startswith(("[-", "-"))]
 
@@ -174,13 +187,15 @@ def test_every_user_facing_script_has_one_menu_skill_whose_hint_is_its_usage_lin
         source = MENU / name / "SKILL.md"
         text = source.read_bytes().decode("ascii")
         head, body = text.split("\n---\n", 1)
-        fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
+        fields = frontmatter_fields(head)
         assert fields["name"] == name and re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", name) and len(name) <= 64
         assert fields["disable-model-invocation"] == "true", name
         assert 0 < len(fields["description"]) <= 1024 and not re.search(r": | #", fields["description"]), name
-        # Pre-approved for both tools Claude Code may run the injected command through: with the PowerShell
-        # tool on, Windows runs it through PowerShell, which Bash(python *) does not cover
-        assert fields["allowed-tools"] == "Bash(python *) PowerShell(python *)", name
+        # Pre-approved for both tools Claude Code may run the injected command through (with the PowerShell
+        # tool on, Windows runs it through PowerShell), and for this row's command alone: the directory holds
+        # a row that pre-approves a whole interpreter (docs/decisions/plugin-script-menu.md)
+        command = f'python "${{CLAUDE_PLUGIN_ROOT}}/skills/run.py" {stem} *'
+        assert fields["allowed-tools"] == [f"Bash({command})", f"PowerShell({command})"], name
         assert f'!`python "${{CLAUDE_PLUGIN_ROOT}}/skills/run.py" {stem} $ARGUMENTS`' in body, name
         assert "construct3:construct3-agent-plugin" in body and "${CLAUDE_PLUGIN_ROOT}/skills/construct3-agent-plugin/SKILL.md" in body
         assert len(body.strip().splitlines()) <= 5, f"{name}: the body teaches nothing, the main skill does"

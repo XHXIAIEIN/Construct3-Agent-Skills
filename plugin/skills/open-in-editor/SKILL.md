@@ -3,7 +3,9 @@ name: open-in-editor
 description: Opens the project in the Construct 3 editor in a headless browser and prints opened, or failed with the editor's message. --preview also runs the game for a few seconds and prints its runtime errors with their events, --state what the runtime holds at the end. Used after the checker passes.
 argument-hint: "[PATH ...] [--preview [SECONDS]] [--state [TYPE ...]] [--headed] [--steps]"
 disable-model-invocation: true
-allowed-tools: Bash(python *) PowerShell(python *)
+allowed-tools:
+  - Bash(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" open_in_editor *)
+  - PowerShell(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" open_in_editor *)
 ---
 
 What `open_in_editor.py` printed for the arguments given, with its exit code on the last line:
