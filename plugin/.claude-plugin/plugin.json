@@ -12,9 +12,9 @@
 	"license": "MIT",
 	"icon": "./icon.png",
 	"keywords": [
-		"gamedev",
 		"construct3",
 		"make-games",
+		"gamedev",
 		"visual-coding"
 	]
 }
