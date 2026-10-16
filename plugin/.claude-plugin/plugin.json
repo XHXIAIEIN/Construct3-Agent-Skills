@@ -13,8 +13,10 @@
 	"icon": "./icon.png",
 	"keywords": [
 		"construct3",
+		"game-development",
 		"make-games",
 		"gamedev",
-		"visual-coding"
+		"visual-coding",
+		"event-sheets"
 	]
 }
