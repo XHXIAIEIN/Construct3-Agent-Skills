@@ -133,7 +133,7 @@ The build:
   plugin writes the icon's path in backticks
   or a code block, which the checklist holds for a reviewer. The README
   describes the plugin route only, and states what the plugin runs and what
-  reaches the network: the checker's fetch of a clone, and the browser that
+  reaches the network: the checker's read of a clone's upstream version, and the browser that
   the scripts open on the Construct editor and its preview. The checklist's
   "Prepare for the security scan" asks the README to describe everything
   the plugin runs, sends or fetches. This repository's README names
