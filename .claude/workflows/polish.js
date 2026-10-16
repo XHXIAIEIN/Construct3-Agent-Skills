@@ -795,7 +795,7 @@ const revertPrompt = (pre, unit, created) => `Restore files of the polish worktr
 
 // ---------------------------------------------------------------- check, commit, review, merge
 
-const CHECKS = 'python -m compileall -q scripts tests plugin/skills skills-dev'
+const CHECKS = 'python -m compileall -q scripts tests skills-dev plugin/skills'
 
 const checkPrompt = (pre, units, kept, followUps, moveCommits) => {
   const keepFiles = uniq(kept.flatMap(r => [...editable(r.unit), ...(r.polished.created || [])]))
@@ -803,7 +803,7 @@ const checkPrompt = (pre, units, kept, followUps, moveCommits) => {
   const projectsTail = PROJECTS.map(p => `"${p}"`).join(' ')
   const sweepNote = !pre.examples ? ' There is no examples folder: output_diff.py exits 2, so say in notes that the output comparison did not run.' : ''
   const projectsStep = PROJECTS.length
-    ? ` Then the game projects, which output_diff.py does not run: \`git -C "${pre.main}" worktree add --detach "${pre.report_dir}/old" ${pre.head}\`, then \`cd "${pre.report_dir}/old" && python skills-dev/evals/sweep_outputs.py "${pre.report_dir}/sweep-old.json" --scripts "${pre.report_dir}/old/plugin/skills/construct3-agent-plugin/scripts" --projects ${projectsTail}\`, then the same command for the new side with --scripts "${pre.worktree}/plugin/skills/construct3-agent-plugin/scripts" and "${pre.report_dir}/sweep-new.json", then \`--compare\` of the two (allow 10 minutes each), and afterwards \`git -C "${pre.main}" worktree remove --force "${pre.report_dir}/old"\`. If sweep_outputs.py exits 2 saying that the scripts folder is not inside a checkout of the clone, the comparison of the game projects did not run: say so in notes with the message, and leave the game projects to a person.`
+    ? ` Then the game projects, which output_diff.py does not run: \`git -C "${pre.main}" worktree add --detach "${pre.report_dir}/old" ${pre.head}\`, then \`cd "${pre.report_dir}/old" && python skills-dev/evals/sweep_outputs.py "${pre.report_dir}/sweep-old.json" --scripts "${pre.report_dir}/old/plugin/skills/construct3-agent-plugin/scripts" --projects ${projectsTail}\`, then the same command for the new side with --scripts "${pre.worktree}/plugin/skills/construct3-agent-plugin/scripts" and "${pre.report_dir}/sweep-new.json", then \`--compare\` of the two (allow 10 minutes each), and afterwards \`git -C "${pre.main}" worktree remove --force "${pre.report_dir}/old"\`.`
     : pre.examples ? ' No game project was given: say in notes that the comparison covered the official examples, the lookups and the generators only.' : ''
   return `You check the polished worktree before anything is committed: restore what was not kept, apply follow-ups, build the plugin, run the checks, and undo what breaks them. The next agent commits what you leave.
 
