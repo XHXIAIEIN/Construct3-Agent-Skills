@@ -6,10 +6,7 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
-# CDN cache (auto-generated, weekly expiry)
-.cache/
-
-# Local dev resources (C3 source, manual data, debug logs)
+# Local material that must not be public
 .local/
 
 # IDE / OS
@@ -29,11 +26,6 @@ __pycache__/
 # Claude Code
 .claude/settings.local.json
 
-# Gradio / MCP
-.gradio/
-.mcp.json
-.playwright-mcp/
-
 # Git worktrees
 .worktrees/
 
@@ -41,9 +33,6 @@ __pycache__/
 tmp/
 .trash/
 .remember/
-
-# A staging folder export_to_data left beside data/ when its run was killed
-/.data-staging-*/
 
 # Temporary files of a session (soul-workstyle)
 .tmp/

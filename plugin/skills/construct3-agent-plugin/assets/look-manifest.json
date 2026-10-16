@@ -4,9 +4,9 @@
   "about": "The stand-in look of a generated game and the route its art takes: what the generator template holds, what stops its run, what the user has decided and what is still open. An agent hands the model the deliver steps and runs the confirm steps on what comes back.",
   "template": "assets/build_project.py",
   "decisions": [
-    "Construct3-RAG/docs/decisions/paper-and-ink-look.md",
-    "Construct3-RAG/docs/decisions/greybox-blockout.md",
-    "Construct3-RAG/docs/decisions/published-game-visual-language.md"
+    "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
+    "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
+    "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
     "enforced": "held by the template, and a check stops the generator's run when it is broken",

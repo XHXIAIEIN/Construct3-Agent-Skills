@@ -34,9 +34,9 @@ once before it is handed over.
 - Loaded as the Claude Code plugin (the skill is named
   `construct3:construct3-agent-plugin`): the game project needs no copy; run
   the scripts from this folder. In the files of this skill, `Construct3-RAG/`
-  before `data/` or `prompts/` stands for `${CLAUDE_PLUGIN_ROOT}/`; other
-  `Construct3-RAG/` paths, such as `docs/`, are not in the plugin, so skip
-  them. To hand a sheet change or a lookup to a sub-agent, start it as
+  before `data/` or `prompts/` stands for `${CLAUDE_PLUGIN_ROOT}/`;
+  `Construct3-Agent-Skills/docs/` paths, the records of the repository the
+  plugin is built in, are not in the plugin, so skip them. To hand a sheet change or a lookup to a sub-agent, start it as
   `construct3:project-worker`, which has only the tools these scripts need.
 - Otherwise, reading this inside the clone while the work is in a game
   project: install the skill there first,

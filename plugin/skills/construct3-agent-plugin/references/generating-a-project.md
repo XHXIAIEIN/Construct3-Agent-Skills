@@ -112,7 +112,7 @@ sprite with what its picture shows and its box in units. Every sprite is an
 `art()`, which shows its stand-in until its picture is in `art/`. The
 session that has an image tool makes the pictures; the plan does not draw
 them in code. Art drawn in code looks worse than the stand-ins and mixes
-drawing styles on one screen (`Construct3-RAG/docs/decisions/art-from-the-image-tool.md`).
+drawing styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md`).
 
 ## Build, check, open
 

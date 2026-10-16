@@ -85,7 +85,7 @@ def stand_in(root: Path) -> Path:
 
 def seed_load_errors(root: Path) -> None:
     """Five mistakes the editor refuses, each one a small model has made
-    (Construct3-RAG/docs/decisions/checker-editor-load-rules.md)."""
+    (docs/decisions/checker-editor-load-rules.md)."""
     path = root / "eventSheets" / "Game.json"
     sheet = read_json(path)
     rows = sheet["events"]

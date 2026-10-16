@@ -143,6 +143,11 @@ Before you edit, read the `AGENTS.md` of every directory you touch, run
   its patch raised by one once they differ, never below the committed one.
   Raise `version` in `plugin/.claude-plugin/plugin.json` by hand only for
   a minor or major release (`docs/decisions/plugin-tracks-commits.md`).
+- No `.gitattributes` in this repository. The directory refuses to validate
+  a repository whose attributes could rewrite files at checkout, and a test
+  fails on the file. The build writes text files with LF, and the checks read
+  a committed text file with CRLF as LF, so a checkout with `core.autocrlf`
+  passes them (`docs/decisions/plugin-folder.md`).
 - `plugin/` is held to Claude's directory limits: 512 files, 256 KiB a
   file other than an image, 7,000,000 bytes in all (`docs/decisions/plugin-folder.md`).
   The build fails past them. What the plugin does not need at run time

@@ -115,7 +115,7 @@ def write(path: Path, text: str) -> None:
 
 def copy(src: Path, dst: Path) -> None:
     """src at dst: an image byte for byte, any other file with LF line endings, as Git stores it.
-    A checkout made before .gitattributes holds CRLF files; LF keeps its build equal to plugin/."""
+    A checkout with core.autocrlf holds CRLF files; LF keeps its build equal to plugin/."""
     data = src.read_bytes()
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(data if src.name.endswith(BINARIES) else data.replace(b"\r\n", b"\n"))
@@ -205,6 +205,12 @@ def build(out: Path) -> None:
         write(out / "c3-lang" / f"{locale}.json", lang_subset(locale))
 
 
+def stored(p: Path) -> bytes:
+    """A file's bytes as Git stores them: a text file with LF, whatever a checkout with core.autocrlf wrote."""
+    data = p.read_bytes()
+    return data if p.name.endswith(BINARIES) else data.replace(b"\r\n", b"\n")
+
+
 def blob_id(data: bytes) -> str:
     """The id Git gives a file holding data."""
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
@@ -272,7 +278,7 @@ def manifest() -> dict:
 
 def version_for(data: Path) -> str:
     """The release version of the plugin with the data folder at data."""
-    fresh = {rel: blob_id(p.read_bytes()) for rel, p in plugin_files(data).items() if rel != MANIFEST}
+    fresh = {rel: blob_id(stored(p)) for rel, p in plugin_files(data).items() if rel != MANIFEST}
     return release_version(*published(), fresh, manifest()["version"])
 
 
@@ -306,8 +312,16 @@ def differences(built: Path, committed: Path) -> list[str]:
     a, b = files(built), files(committed) if committed.is_dir() else {}
     out = [f"missing from plugin/data/: {rel}" for rel in a if rel not in b]
     out += [f"not in a fresh build: {rel}" for rel in b if rel not in a]
-    out += [f"differs: {rel}" for rel in a if rel in b and not filecmp.cmp(a[rel], b[rel], shallow=False)]
+    out += [f"differs: {rel}" for rel in a if rel in b and not same(a[rel], b[rel])]
     return out
+
+
+def same(built: Path, committed: Path) -> bool:
+    """Whether a committed file equals its build. A checkout with core.autocrlf holds
+    plugin/ with CRLF text files, which Git stores as the LF the build writes."""
+    if built.name.endswith(BINARIES):
+        return filecmp.cmp(built, committed, shallow=False)
+    return built.read_bytes() == committed.read_bytes().replace(b"\r\n", b"\n")
 
 
 @contextlib.contextmanager
