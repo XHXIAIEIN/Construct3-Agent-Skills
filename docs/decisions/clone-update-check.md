@@ -66,13 +66,13 @@ Construct3-RAG at <clone> is 3 commits behind origin/main, so the scripts lack t
 
 ## The Claude Code plugin
 
-A plugin installed from the `construct3-rag` marketplace is a copy in Claude
+A plugin installed from the `construct3-agent-skills` marketplace is a copy in Claude
 Code's plugin cache, with no `.git`, so the check above says nothing there.
 `plugin.json` carries a `version`, so an update reaches that copy only
 when the version is raised (`plugin-tracks-commits.md`). Claude Code
 updates a plugin from a third-party marketplace on its own only when the
 user turns on the marketplace's auto-update. The user can also run
-`claude plugin update construct3@construct3-rag`. The README gives both
+`claude plugin update construct3@construct3-agent-skills`. The README gives both
 (Claude Code docs, "Keep plugins updated",
 `https://code.claude.com/docs/en/plugins/install`).
 

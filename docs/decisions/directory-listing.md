@@ -49,23 +49,17 @@ publishes each version.
   signed in with that account downloads it at its next start and loads it
   as `construct3@synced`; its skill is `construct3:construct3-agent-plugin`
   as with every other route.
-- `construct3@construct3-rag` from this repository and the clone linked
-  under `~/.claude/skills/` stay for following main. When one of them is
-  present, Claude Code loads it and reports the synced copy as not loaded
-  (Claude Code docs, "Plugin loading reference", "Name conflicts"), so the
-  routes do not stack.
+- `construct3@construct3-agent-skills` from this repository and the clone
+  linked under `~/.claude/skills/` stay for following main. When one of
+  them is present, Claude Code loads it and reports the synced copy as not
+  loaded (Claude Code docs, "Plugin loading reference", "Name conflicts"),
+  so the routes do not stack.
 - The directory serves the version a reviewer last published, which can
   be behind main by as long as a review takes. The README says so.
-
-- The listing reads the plugin from the root of Construct3-RAG, through
-  the marketplace manifest and the frozen `plugin/` there. The submission
-  from this repository, with the plugin path `plugin`, replaces it when it
-  is live (`plugin-repository.md`). Until then the listing stays, because a
-  delisted plugin stops updating for the people who installed it.
+- The listing reads the plugin from the root of this repository, through
+  its marketplace manifest and `plugin/`.
 
 ## Re-evaluate when
 
 - The portal offers auto-publish for this plugin.
 - Re-validation of `plugin/` still reports a hold (`plugin-folder.md`).
-- The submission from this repository is live: delist the listing from
-  Construct3-RAG, and remove its frozen `plugin/` and marketplace manifest.

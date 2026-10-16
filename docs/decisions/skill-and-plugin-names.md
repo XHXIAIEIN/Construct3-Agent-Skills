@@ -11,7 +11,7 @@ submitted to the directory, so it was settled first.
 
 ## Decision
 
-- Plugin `construct3`, marketplace `construct3-rag`: `construct3@construct3-rag`
+- Plugin `construct3`, marketplace `construct3-agent-skills`: `construct3@construct3-agent-skills`
   installs it.
 - Skill `construct3-agent-plugin`, folder and `name` alike, as the Agent
   Skills format requires. Its full name is `construct3:construct3-agent-plugin`.

@@ -76,9 +76,8 @@ plugin keeps its name.
   tracks in that clone, and `tests/test_plugin_folder.py` keeps
   `plugin/data/` equal to a fresh build. The version logic of
   `plugin-tracks-commits.md` reads this repository's `origin/main`, and the
-  committed version is its floor, above the version the frozen plugin in
-  Construct3-RAG carries, so that no install goes back. What the plugin
-  does not ship, the evals and the maintainers' guide, lies under
+  committed version is its floor, so that no install goes back. What the
+  plugin does not ship, the evals and the maintainers' guide, lies under
   `skills-dev/`, because the directory holds the folder to 512 files and
   7,000,000 bytes.
 - The tests give the scripts `plugin/` as the clone, because that is the
@@ -102,12 +101,9 @@ plugin keeps its name.
   bullet of `SKILL.md` carry the name. For an install from this repository
   that folder is `plugin/`.
 - Construct3-RAG keeps `data/`, `src/`, the update pipeline and the docs of
-  those. Its instruction files name this repository. Its `plugin/` stays
-  as it was last built there, frozen, until the directory submission from
-  this repository is live, because the listing submitted from that
-  repository reads the plugin from its root, and a delisted plugin stops
-  updating for the people who installed it. Then that `plugin/`, its
-  marketplace manifest and that listing go (`directory-listing.md`).
+  those. Its instruction files name this repository, and its `README.md`,
+  `README_CN.md` and `AGENTS.md` send an agent here for the skill, the
+  prompts and the plugin (`skill-in-agent-skills.md` there).
 
 ## Trade-offs
 
@@ -125,9 +121,6 @@ plugin keeps its name.
 
 ## Re-evaluate when
 
-- The directory submission from this repository is live: delist the
-  listing from Construct3-RAG, remove its frozen `plugin/` and its
-  marketplace manifest.
 - A data refresh must reach the plugin within hours: add a
   `repository_dispatch` from Construct3-RAG's update workflow, with a
   token stored there.
