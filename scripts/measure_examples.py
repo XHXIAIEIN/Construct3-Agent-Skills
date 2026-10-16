@@ -25,7 +25,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "skills" / "construct3-agent-plugin" / "scripts"))
+sys.path.insert(0, str(ROOT / "plugin" / "skills" / "construct3-agent-plugin" / "scripts"))
 from c3project import siblings_folder  # noqa: E402
 
 # The examples' tags are in the data of the Construct3-RAG clone beside this repository

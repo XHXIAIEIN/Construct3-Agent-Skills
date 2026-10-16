@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a script of the construct3-agent-plugin skill for a skill of the plugin's / menu.
 
-    python run.py SCRIPT [ARG ...]      skills/construct3-agent-plugin/scripts/SCRIPT.py ARG ..., then "exit code N"
+    python run.py SCRIPT [ARG ...]      construct3-agent-plugin/scripts/SCRIPT.py beside this file, ARG ..., then "exit code N"
 
 The menu skills run their script through this file inside a !`...` line of SKILL.md. Claude Code aborts the
 skill when such a command exits non-zero, and refuses a chain (`|| true`) or an expansion (`$?`) that would
@@ -14,9 +14,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# The skill is beside this file in the plugin (plugin/skills/run.py) and one folder up in the sources (skills/menu/run.py)
-SCRIPTS = next((folder / "construct3-agent-plugin" / "scripts" for folder in (HERE, HERE.parent)
-                if (folder / "construct3-agent-plugin" / "scripts").is_dir()), HERE / "construct3-agent-plugin" / "scripts")
+SCRIPTS = HERE / "construct3-agent-plugin" / "scripts"      # the skill is beside this file, plugin/skills/
 
 
 def main(argv: list[str]) -> int:

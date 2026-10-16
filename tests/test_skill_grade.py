@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import SKILL, SHEET, run
+from tests.skill_helpers import EVALS, SKILL, SHEET, run
 
-sys.path.insert(0, str(SKILL / "evals"))
+sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
 import grade as grader  # noqa: E402
 import make_fixtures  # noqa: E402
@@ -25,12 +25,12 @@ import preview_project  # noqa: E402
 import compare  # noqa: E402
 
 # evals/trace.py by its path: the standard library has a module named trace.
-tracer = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_location("eval_trace", SKILL / "evals" / "trace.py"))
+tracer = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_location("eval_trace", EVALS / "trace.py"))
 spec.loader.exec_module(tracer)
 
 ANSWERS = Path(__file__).parent / "fixtures" / "restart_event_answers"
 CHINESE_ALL_THREE = "**事件 9**（Restart 组）：Coin.Count = 0，仅触发一次。触发后等待 1 秒，再重载场景。\n"
-CASES = {c["name"]: c for c in json.loads((SKILL / "evals" / "evals.json").read_text(encoding="utf-8"))["evals"]}
+CASES = {c["name"]: c for c in json.loads((EVALS / "evals.json").read_text(encoding="utf-8"))["evals"]}
 
 
 def read_json(path: Path) -> dict:
@@ -55,7 +55,7 @@ def project_case(tmp_path: Path, project: Path, name: str) -> Path:
 
 def grade_iteration(tmp_path: Path) -> str:
     """What grade.py prints on the iteration tmp_path/it, which it grades without an error."""
-    code, out = run(tmp_path, SKILL / "evals" / "grade.py", str(tmp_path / "it"))
+    code, out = run(tmp_path, EVALS / "grade.py", str(tmp_path / "it"))
     assert code == 0, out
     return out
 
@@ -248,12 +248,12 @@ def test_a_held_out_case_is_aggregated_apart_and_its_failures_are_not_printed(tm
     assert "coins-in-a-ring/with_skill: held out, " in out and "FAIL" not in out
     benchmark = read_json(tmp_path / "it" / "benchmark.json")
     assert "coins-in-a-ring" not in benchmark["by_case"] and "coins-in-a-ring" in benchmark["held_out"]["by_case"]
-    code, out = run(tmp_path, SKILL / "evals" / "grade.py", str(tmp_path / "it"), "--show-held-out")
+    code, out = run(tmp_path, EVALS / "grade.py", str(tmp_path / "it"), "--show-held-out")
     assert "FAIL [runtime] Round 2's three coins sit evenly" in out
 
 
 def test_make_fixtures_lays_out_a_held_out_case_only_when_asked(tmp_path: Path) -> None:
-    code, out = run(tmp_path, SKILL / "evals" / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "coins-in-a-ring")
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "coins-in-a-ring")
     assert code == 1 and "held out of tuning" in out and "--held-out" in out
 
 
@@ -388,7 +388,7 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
          "opened   project\n  1 key ArrowRight 0.5 s  ok\nkeep: this plan passes; keep it with --keep NAME", False),
     ]
     transcript = transcript_of(tmp_path / "agent.jsonl", calls)
-    code, out = run(tmp_path, SKILL / "evals" / "trace.py", str(transcript), "--out", str(run_dir))
+    code, out = run(tmp_path, EVALS / "trace.py", str(transcript), "--out", str(run_dir))
     assert code == 0, out
     trace = read_json(run_dir / "trace.json")
     assert {k: trace[k] for k in grader.TRACE_COLUMNS} == {
@@ -406,7 +406,7 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
     assert (run_dir / "transcript.jsonl").read_bytes() == transcript.read_bytes()
     assert ("first script check_project, chain to preview_project (4 of 5, 7 calls), 2 help reads, 1 refused plans, "
             "1 hand edits, 8 calls before the first edit") in out
-    code, out = run(tmp_path, SKILL / "evals" / "trace.py", str(transcript))
+    code, out = run(tmp_path, EVALS / "trace.py", str(transcript))
     assert code == 0, out
     assert "1 refused plans, hand edits and calls before the first edit need --out or --root with its project/" in out
 
@@ -483,10 +483,10 @@ def test_grade_carries_the_route_columns_and_decides_on_one(tmp_path: Path) -> N
     assert benchmark["run_summary"]["delta"]["with_skill - old_skill"]["chain_depth"] == pytest.approx(10 / 3, abs=0.01)
     assert benchmark["run_summary"]["with_skill"]["chain_end"] == {"preview_project": 1, "review_look": 2}
     assert benchmark["decision"]["verdict"] == "holds" and benchmark["decision"]["p"] == 0.05
-    code, out = run(tmp_path, SKILL / "evals" / "compare.py", str(iteration / "benchmark.json"), "chain_depth")
+    code, out = run(tmp_path, EVALS / "compare.py", str(iteration / "benchmark.json"), "chain_depth")
     assert code == 0 and out.strip() == ("chain_depth up: with_skill - old_skill = +10 over 1 case, one-sided p = 0.050 "
                                          "(exact, 20 reassignments)")
-    code, out = run(tmp_path, SKILL / "evals" / "compare.py", str(iteration / "benchmark.json"), "chain_depth", "--direction", "down")
+    code, out = run(tmp_path, EVALS / "compare.py", str(iteration / "benchmark.json"), "chain_depth", "--direction", "down")
     assert "p = 1.000" in out
 
 
@@ -559,7 +559,7 @@ def test_trace_counts_whole_sheet_prints_and_print_sheet_characters(tmp_path: Pa
     """The metric of a long sheet's list (docs/decisions/long-sheet-contents.md): what print_sheet.py printed, and
     how often a run asked for whole sheets past the limit."""
     transcript = transcript_of(tmp_path / "agent.jsonl", [("Bash", {"command": command}, "x" * 1234, False)])
-    code, out = run(tmp_path, SKILL / "evals" / "trace.py", str(transcript), "--out", str(tmp_path))
+    code, out = run(tmp_path, EVALS / "trace.py", str(transcript), "--out", str(tmp_path))
     trace = read_json(tmp_path / "trace.json")
     assert code == 0 and trace["print_sheet_chars"] == 1234 and trace["whole_sheet_prints"] == int(whole)
 

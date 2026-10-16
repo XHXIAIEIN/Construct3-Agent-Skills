@@ -33,7 +33,7 @@ project.
 | `prompts/references/` | Material needed only sometimes, each named by the task that needs it: a new project's sheets, layers, objects and look; feel, and an attack's timing, animation and hit effects; the slot case, native and as a program; hand-editing project JSON; bars and life counters; sounds and placeholder audio; sequences and dialogue run from a data file; menus steered by keys or a gamepad |
 
 `AGENTS.md` section 3 is the SOP. In a game project, the block of
-`skills/construct3-agent-plugin/assets/game-project-block.md` sends the
+`plugin/skills/construct3-agent-plugin/assets/game-project-block.md` sends the
 agent to `event-sheet-thinking.md` before it decides what the events are.
 
 How the prompts are kept:

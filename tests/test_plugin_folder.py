@@ -1,5 +1,5 @@
-"""plugin/, the Claude Code plugin: equal to a fresh build, under the directory's limits, and holding
-every data and prompt file the skill's text sends an agent to (docs/decisions/plugin-folder.md)."""
+"""plugin/, the Claude Code plugin: its data/ equal to a fresh build, the folder under the directory's limits,
+and holding every data and prompt file the skill's text sends an agent to (docs/decisions/plugin-folder.md)."""
 import json
 import os
 import re
@@ -9,10 +9,9 @@ import sys
 from pathlib import Path
 
 from scripts import build_plugin
-from tests.skill_helpers import DATA, REPO, SKILL, run, streams
+from tests.skill_helpers import DATA, PLUGIN, REPO, SKILL, run, streams
 
-PLUGIN = REPO / "plugin"
-MENU = REPO / "skills" / "menu"
+MENU = PLUGIN / "skills"        # the rows of the / menu lie beside the skill
 NAMED = re.compile(r"Construct3-RAG/((?:data|prompts)/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
 
 
@@ -22,22 +21,17 @@ def test_plugin_folder_is_a_fresh_build_under_the_limits():
     assert p.returncode == 0, p.stdout + p.stderr
 
 
-def test_the_build_writes_text_files_with_lf_and_an_image_byte_for_byte(tmp_path, monkeypatch):
+def test_the_build_copies_text_files_with_lf_and_an_image_byte_for_byte(tmp_path):
     # A checkout with core.autocrlf holds CRLF files (docs/decisions/plugin-folder.md)
-    sources = tmp_path / "sources"
-    sources.mkdir()
-    (sources / "plugin.json").write_bytes(b'{\r\n\t"name": "construct3"\r\n}\r\n')
-    (sources / "README.md").write_bytes(b"# Construct 3\r\n\r\nA line.\r\n")
-    icon = (build_plugin.SOURCES / "icon.png").read_bytes()
+    (tmp_path / "guide.md").write_bytes(b"# Construct 3\r\n\r\nA line.\r\n")
+    icon = (PLUGIN / "icon.png").read_bytes()
     # The PNG signature holds CR LF, so a build that rewrote an image would change it
     assert b"\r\n" in icon
-    (sources / "icon.png").write_bytes(icon)
-    monkeypatch.setattr(build_plugin, "SOURCES", sources)
-    out = tmp_path / "plugin"
-    build_plugin.build(out)
-    assert (out / ".claude-plugin" / "plugin.json").read_bytes() == b'{\n\t"name": "construct3"\n}\n'
-    assert (out / "README.md").read_bytes() == b"# Construct 3\n\nA line.\n"
-    assert (out / "icon.png").read_bytes() == icon
+    (tmp_path / "icon.png").write_bytes(icon)
+    build_plugin.copy(tmp_path / "guide.md", tmp_path / "out" / "guide.md")
+    build_plugin.copy(tmp_path / "icon.png", tmp_path / "out" / "icon.png")
+    assert (tmp_path / "out" / "guide.md").read_bytes() == b"# Construct 3\n\nA line.\n"
+    assert (tmp_path / "out" / "icon.png").read_bytes() == icon
 
 
 def test_a_crlf_checkout_of_plugin_equals_its_build(tmp_path):
@@ -70,9 +64,9 @@ def test_the_limits_hold_the_folder_size(tmp_path, monkeypatch):
     folder = tmp_path / "plugin"
     folder.mkdir()
     (folder / "a.json").write_bytes(b"{}\n" * 10)
-    assert build_plugin.limits(folder) == []
+    assert build_plugin.limits(build_plugin.files(folder)) == []
     monkeypatch.setattr(build_plugin, "MAX_TOTAL", 29)
-    assert build_plugin.limits(folder) == ["30 bytes in all, more than 29"]
+    assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
 
 
 def test_every_data_and_prompt_file_the_skill_names_is_in_the_plugin():
@@ -162,13 +156,26 @@ def groups(usage: str) -> list[str]:
     return out + [current] if current else out
 
 
+def frontmatter_fields(head: str) -> dict:
+    """The fields of a skill's frontmatter: a plain scalar after ': ', or the items of a block list."""
+    fields: dict = {}
+    key = ""
+    for line in head.removeprefix("---\n").splitlines():
+        if line.startswith("  - "):
+            fields[key].append(line[4:])
+        else:
+            key, _, value = line.partition(":")
+            fields[key] = value.strip() if value.strip() else []
+    return fields
+
+
 def positionals(groups_: list[str]) -> list[str]:
     return [g for g in groups_ if not g.startswith(("[-", "-"))]
 
 
 def test_every_user_facing_script_has_one_menu_skill_whose_hint_is_its_usage_line(tmp_path):
-    """The plugin's / menu lists one thin skill per user-facing script, under skills/<name>/ beside the main
-    skill (docs/decisions/plugin-script-menu.md). Each is kept out of the model's context
+    """The plugin's / menu lists one thin skill per user-facing script, under plugin/skills/<name>/ beside the
+    main skill (docs/decisions/plugin-script-menu.md). Each is kept out of the model's context
     (disable-model-invocation), runs its script through skills/run.py with the user's arguments, and sends a
     session without the main skill to its SKILL.md. Its argument-hint is made of groups of the script's own
     usage line: the positional ones in the script's order, and flags the script takes."""
@@ -180,13 +187,15 @@ def test_every_user_facing_script_has_one_menu_skill_whose_hint_is_its_usage_lin
         source = MENU / name / "SKILL.md"
         text = source.read_bytes().decode("ascii")
         head, body = text.split("\n---\n", 1)
-        fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
+        fields = frontmatter_fields(head)
         assert fields["name"] == name and re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", name) and len(name) <= 64
         assert fields["disable-model-invocation"] == "true", name
         assert 0 < len(fields["description"]) <= 1024 and not re.search(r": | #", fields["description"]), name
-        # Pre-approved for both tools Claude Code may run the injected command through: with the PowerShell
-        # tool on, Windows runs it through PowerShell, which Bash(python *) does not cover
-        assert fields["allowed-tools"] == "Bash(python *) PowerShell(python *)", name
+        # Pre-approved for both tools Claude Code may run the injected command through (with the PowerShell
+        # tool on, Windows runs it through PowerShell), and for this row's command alone: the directory holds
+        # a row that pre-approves a whole interpreter (docs/decisions/plugin-script-menu.md)
+        command = f'python "${{CLAUDE_PLUGIN_ROOT}}/skills/run.py" {stem} *'
+        assert fields["allowed-tools"] == [f"Bash({command})", f"PowerShell({command})"], name
         assert f'!`python "${{CLAUDE_PLUGIN_ROOT}}/skills/run.py" {stem} $ARGUMENTS`' in body, name
         assert "construct3:construct3-agent-plugin" in body and "${CLAUDE_PLUGIN_ROOT}/skills/construct3-agent-plugin/SKILL.md" in body
         assert len(body.strip().splitlines()) <= 5, f"{name}: the body teaches nothing, the main skill does"
@@ -198,8 +207,6 @@ def test_every_user_facing_script_has_one_menu_skill_whose_hint_is_its_usage_lin
         hint = groups(fields["argument-hint"].strip('"'))
         assert hint and positionals(hint) == positionals(usage), f"{name}: {fields['argument-hint']!r} against {usage}"
         assert not set(hint) - set(usage), f"{name}: {sorted(set(hint) - set(usage))} is no group of the usage line"
-        assert (PLUGIN / "skills" / name / "SKILL.md").read_bytes() == source.read_bytes()
-    assert (PLUGIN / "skills" / "run.py").read_bytes() == (MENU / "run.py").read_bytes().replace(b"\r\n", b"\n")
 
 
 def test_the_menu_runner_passes_the_output_through_and_exits_zero(tmp_path):
@@ -226,4 +233,3 @@ def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     assert [t.strip() for t in fields["tools"].split(",")] == ["Bash", "PowerShell", "Read", "Edit", "Write", "Grep",
                                                                "Glob", "Skill"]
     assert "construct3:construct3-agent-plugin" in body and "SKILL.md" in body
-    assert agent.read_bytes() == (build_plugin.SOURCES / "agents" / "project-worker.md").read_bytes()

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import SKILL, script_module
+from tests.skill_helpers import EVALS, SKILL, script_module
 
-jl = script_module("judge_look", SKILL / "evals")
-ll = script_module("label_look", SKILL / "evals")
+jl = script_module("judge_look", EVALS)
+ll = script_module("label_look", EVALS)
 rl = script_module("review_look")
 
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"

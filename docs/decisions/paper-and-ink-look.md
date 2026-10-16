@@ -157,7 +157,7 @@ a phone's size in the preview.
 
 ## Decision
 
-Option 3, as the default of `skills/construct3-agent-plugin/assets/build_project.py`.
+Option 3, as the default of `plugin/skills/construct3-agent-plugin/assets/build_project.py`.
 
 ### The font
 

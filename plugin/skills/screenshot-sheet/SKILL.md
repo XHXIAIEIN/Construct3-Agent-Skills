@@ -3,7 +3,9 @@ name: screenshot-sheet
 description: Saves a picture of an event sheet, or of one group of it, as the Construct 3 editor shows it, cropped to the sheet. Used for a forum post, a bug report or a document.
 argument-hint: "[SHEET] [--group TITLE] [--scale {1,2,3}] [--dark] [--out FOLDER]"
 disable-model-invocation: true
-allowed-tools: Bash(python *) PowerShell(python *)
+allowed-tools:
+  - Bash(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" screenshot_sheet *)
+  - PowerShell(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" screenshot_sheet *)
 ---
 
 What `screenshot_sheet.py` printed for the arguments given, with its exit code on the last line:

@@ -24,7 +24,7 @@ def test_script_command_names_the_script_and_the_project_from_the_current_direct
     assert c3.script_command(None, "print_sheet.py", " --outline") == f"python {PRINT_SHEET} --outline"
     monkeypatch.chdir(REPO)
     assert c3.script_command(project, "print_sheet.py") == (
-        f"python skills/construct3-agent-plugin/scripts/print_sheet.py --project {project.resolve().as_posix()}")
+        f"python plugin/skills/construct3-agent-plugin/scripts/print_sheet.py --project {project.resolve().as_posix()}")
     spaced = new_project(tmp_path / "New folder" / "game")
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()

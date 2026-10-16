@@ -31,7 +31,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 - [A key a web export would ship is a warning, and stops the export](secret-scan.md) — 2026-10-08
 - [Art from the Image Tool](art-from-the-image-tool.md) — 2026-10-06
 - [Layout by Name: Components, Bands and Computed Checks](layout-by-name.md) — 2026-10-06
-- [The Plugin Is a Folder Built From the Repository](plugin-folder.md) — 2026-10-05
+- [The Plugin Folder Holds Its Sources; Only Its Data Is Built](plugin-folder.md) — 2026-10-05
 - [The Plugin's Version and Why a Project Needs No Copy](plugin-tracks-commits.md) — 2026-10-05
 - [The products of a game project go in `.build/`](build-folder.md) — 2026-10-04
 - [A Clone Behind Its Upstream Fails the Check](clone-update-check.md) — 2026-10-04

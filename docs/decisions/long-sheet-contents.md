@@ -18,7 +18,7 @@ pieces.
 
 Shares of the whole cost of one production game's Claude Code transcripts,
 425 sessions and sub-agents, measured with
-`skills/construct3-agent-plugin/evals/token_share.py`:
+`skills-dev/evals/token_share.py`:
 
 | What was read | Share |
 |---------------|-------|
@@ -86,9 +86,9 @@ its size and the layouts that run it.
 script's own limit, so a change to the list shows in its report.
 
 The change to what `print_sheet.py` prints, and `--find` in the scripts
-table of `SKILL.md`, are one eval iteration (`skills/AGENTS.md`, "Evals"):
+table of `SKILL.md`, are one eval iteration (`skills-dev/AGENTS.md`, "Evals"):
 the case `find-in-a-big-sheet` asks for one event of a sheet of 410 events
-with Chinese comments that `evals/make_fixtures.py` builds, and the metric
+with Chinese comments that `skills-dev/evals/make_fixtures.py` builds, and the metric
 is `print_sheet_chars` of `trace.py`, the characters the calls that ran
 `print_sheet.py` returned, with `whole_sheet_prints`, the calls that passed
 `--limit 0` for whole sheets, beside it.

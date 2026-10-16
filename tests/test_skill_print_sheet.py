@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    PLUGIN,    REPO, INSTALLED, SHEET, SKILL, EXAMPLES, NEEDS_EXAMPLES, git, run, tool, streams, check, edit, block, events,
+    EVALS,    PLUGIN,    REPO, INSTALLED, SHEET, SKILL, EXAMPLES, NEEDS_EXAMPLES, git, run, tool, streams, check, edit, block, events,
     script_module,
 )
 
@@ -346,7 +346,7 @@ def test_since_stops_at_the_limit_and_names_the_part_that_continues(project):
 
 def big(project: Path) -> Path:
     """The stand-in game with the eval fixture's sheet of 24 waves, 410 events under Chinese comments."""
-    script_module("make_fixtures", SKILL / "evals").seed_big_sheet(project)
+    script_module("make_fixtures", EVALS).seed_big_sheet(project)
     return project
 
 
@@ -502,7 +502,7 @@ def test_map_takes_no_find_events_outline_show_or_since(built):
 
 def test_the_big_sheet_fixture_is_long_and_passes_the_checker(project):
     """The eval fixture of a long sheet: 400 and more events, comments in Chinese, a project the checker passes."""
-    make = script_module("make_fixtures", SKILL / "evals")
+    make = script_module("make_fixtures", EVALS)
     sheet = make.big_sheet()
 
     def comments(events: list) -> list[str]:

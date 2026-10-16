@@ -5,7 +5,7 @@ Schema: Construct 3 r495.2
 
 ## Problem
 
-The generator template, `skills/construct3-agent-plugin/assets/build_project.py`,
+The generator template, `plugin/skills/construct3-agent-plugin/assets/build_project.py`,
 started every game at 720×1280 in portrait. The value came with the first
 generator, written for a phone puzzle game, and no record argued for it.
 Most of the user's players see a game on a desktop browser, where a
@@ -30,7 +30,7 @@ derived from the viewport follow without code changes: `UNIT` 32, `MARGIN`
 off. A phone game sets 720×1280 and `"portrait"`, and gets `TOUCH` 96.
 
 The tests pin the derived numbers at 1920×1080, and the HUD eval case and
-`evals/grade.py` grade at that viewport. A fixture from an older skill,
+`skills-dev/evals/grade.py` grade at that viewport. A fixture from an older skill,
 an `old_` arm, still has 720×1280 and is graded against the new numbers.
 
 ## Re-evaluate when

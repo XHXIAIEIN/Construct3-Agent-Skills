@@ -73,7 +73,7 @@ Option 3, beside the file assertions, which stay.
 - Levels. Each assertion in `grading.json` has a `level`: `checker`,
   `files` or `runtime`. The summary gives the runtime assertions separately
   and the highest level up to which every assertion passed.
-- Plans. `evals/play_cases.py` builds the plan of each case whose request
+- Plans. `skills-dev/evals/play_cases.py` builds the plan of each case whose request
   changes what the game does. A check is a `js` step with a `check:` note
   that returns `{ok, said}`. When a setup step fails, the checks after it
   fail as not reached. Every plan also fails on a runtime error the game

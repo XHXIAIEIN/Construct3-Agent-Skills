@@ -3,7 +3,9 @@ name: prepare-art
 description: Turns the pictures saved from the session's image tool into a generated game's art. --list prints the next step toward the pictures the generator asks for. Without it, each picture in art/raw is cut out and fitted to its box. Needs Pillow.
 argument-hint: "[--list]"
 disable-model-invocation: true
-allowed-tools: Bash(python *) PowerShell(python *)
+allowed-tools:
+  - Bash(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" prepare_art *)
+  - PowerShell(python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" prepare_art *)
 ---
 
 What `prepare_art.py` printed for the arguments given, with its exit code on the last line:

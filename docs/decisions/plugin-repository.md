@@ -67,21 +67,23 @@ The sources live here, the build reads the data from a Construct3-RAG clone
 beside this repository, a scheduled workflow refreshes the build, and the
 plugin keeps its name.
 
-- `skills/construct3-agent-plugin/`, `prompts/` and `scripts/plugin/` are
-  the sources. `scripts/build_plugin.py` builds `plugin/` from them and
-  from the `data/` of the Construct3-RAG clone beside this repository;
-  `--rag` or `CONSTRUCT3_RAG_DATA` names another clone. The build takes
-  the files Git tracks in each clone. `plugin/` is committed with the
-  sources, and `tests/test_plugin_folder.py` keeps it equal to a fresh
-  build (`plugin-folder.md`). The version logic of
-  `plugin-tracks-commits.md` reads this repository's `origin/main`. The
-  floor in `scripts/plugin/plugin.json` is above the version the frozen
-  plugin in Construct3-RAG carries, so that no install goes back.
+- `plugin/` holds the sources: the skill under `plugin/skills/`, the
+  prompts under `plugin/prompts/`, the manifest, the README, the icon and
+  the sub-agents (`plugin-folder.md`). Only `plugin/data/` is built:
+  `scripts/build_plugin.py` writes it from the `data/` of the
+  Construct3-RAG clone beside this repository; `--rag` or
+  `CONSTRUCT3_RAG_DATA` names another clone. The build takes the files Git
+  tracks in that clone, and `tests/test_plugin_folder.py` keeps
+  `plugin/data/` equal to a fresh build. The version logic of
+  `plugin-tracks-commits.md` reads this repository's `origin/main`, and the
+  committed version is its floor, above the version the frozen plugin in
+  Construct3-RAG carries, so that no install goes back. What the plugin
+  does not ship, the evals and the maintainers' guide, lies under
+  `skills-dev/`, because the directory holds the folder to 512 files and
+  7,000,000 bytes.
 - The tests give the scripts `plugin/` as the clone, because that is the
   folder every install and link runs them from, and read raw data files
-  from the sibling clone's `data/`. A script run in place from `skills/`
-  finds `plugin/` through its own location. `install.py` run from there
-  installs the source skill with a block that names `plugin/`.
+  from the sibling clone's `data/`.
 - `clone_root` in `c3project.py` treats the `plugin/` folder of a Git
   clone as that clone's. The sibling clones are looked for beside this
   repository, and the update check (`clone-update-check.md`) compares this
@@ -109,6 +111,7 @@ plugin keeps its name.
 
 ## Trade-offs
 
+- The skill's evals are two folders away from the scripts they test.
 - The build and the tests need a second clone. On a machine without it
   the build stops and names the clone command; in CI the workflows clone
   it shallow.

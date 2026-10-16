@@ -10,15 +10,15 @@ Code re-attaches the most recent invocation of each skill after the
 summary, keeping the first 5,000 tokens of each. Re-attached skills share a
 combined budget of 25,000 tokens", filled from the most recently invoked
 skill (<https://code.claude.com/docs/en/skills>, "Skill content
-lifecycle"). The body of `skills/construct3-agent-plugin/SKILL.md` ran
+lifecycle"). The body of `plugin/skills/construct3-agent-plugin/SKILL.md` ran
 past that budget, and "Check after every change" was its last section but
 one. So the first compaction of a long session dropped the six steps of
 the check loop, the `stop:` rule and the hand-over order, and kept the
 sections on looking an ACE up and reading a sheet. The recorded eval
-transcripts hold no compaction (`evals/token_share.py`), so the evals
+transcripts hold no compaction (`skills-dev/evals/token_share.py`), so the evals
 never showed it.
 
-`skills/AGENTS.md` credited the 5000 tokens to "the specification". The
+`skills-dev/AGENTS.md` credited the 5000 tokens to "the specification". The
 Agent Skills specification sets no token budget. The 500-line rule is
 Anthropic's skill guidance ("Keep SKILL.md under 500 lines", the same page,
 "Add supporting files"); the 5000 tokens are Claude Code's re-attach.
@@ -96,24 +96,24 @@ Option 2. `tests/test_skill_spec.py` holds it:
 `test_the_check_loop_survives_a_compaction` fails when the end of "Check
 after every change" passes 5000 tokens at 2.7 characters a token, and
 names the line of the cut and the sections after it. The 500-line test
-stays, credited to Anthropic's guidance. `skills/AGENTS.md` names both
+stays, credited to Anthropic's guidance. `skills-dev/AGENTS.md` names both
 sources.
 
 The order of `SKILL.md` is: what to do before the first command, the
 Scripts table, the check loop, the three sections on the tools, the
 generator. The loop's end sits about a hundred tokens under the budget, so
 the next sentence the loop needs moves one out, as the rule in
-`skills/AGENTS.md` says.
+`skills-dev/AGENTS.md` says.
 
 ## Re-evaluate when
 
 - A signed-in `claude` CLI or an API key is at hand: measure the body with
   `claude -p` twice, with and without it, and replace 2.7 with the measured
   ratio in the test and here.
-- An eval iteration runs on the reordered text (`skills/AGENTS.md`,
+- An eval iteration runs on the reordered text (`skills-dev/AGENTS.md`,
   "Evals"): the trims rest on the earlier iterations, not on a run of this
   text.
 - The Claude Code page changes the 5000 or the 25,000, or names the
   tokenizer.
-- A compaction appears in a recorded transcript: `evals/token_share.py`
+- A compaction appears in a recorded transcript: `skills-dev/evals/token_share.py`
   can then show what was re-attached.

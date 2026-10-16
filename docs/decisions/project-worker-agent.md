@@ -14,7 +14,7 @@ alone.
 ## Evidence
 
 First context of the sub-agent transcripts stored on one machine, by type,
-measured with `evals/token_share.py --files`:
+measured with `skills-dev/evals/token_share.py --files`:
 
 | Type | Transcripts | Median first context, tokens |
 |------|-------------|------------------------------|
@@ -55,7 +55,7 @@ two routes equal. The runs are in
 ## Decision
 
 The plugin ships `agents/project-worker.md`, built from
-`scripts/plugin/agents/` by `build_plugin.py`, shown as
+`plugin/agents/` by `build_plugin.py`, shown as
 `construct3:project-worker`. Its tools are Bash, PowerShell, Read, Edit,
 Write, Grep, Glob and Skill: the shells the scripts run in, the reads and
 edits of project files and plans, search, and the Skill tool for the
@@ -68,7 +68,7 @@ general-purpose, so a switch changes what new runs are compared against.
 
 `SKILL.md`'s plugin bullet names the type for a sheet change or a lookup
 handed to a sub-agent. That sentence is an eval iteration
-(`skills/AGENTS.md`, "Evals") that sub-agent runs cannot measure, because
+(`skills-dev/AGENTS.md`, "Evals") that sub-agent runs cannot measure, because
 a sub-agent cannot start one of its own: it needs runs started as main
 sessions, `claude -p` per run.
 

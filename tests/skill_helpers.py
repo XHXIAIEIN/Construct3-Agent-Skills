@@ -22,10 +22,11 @@ import pytest
 
 
 REPO = Path(__file__).resolve().parent.parent
-SKILL = REPO / "skills" / "construct3-agent-plugin"
-# The folder the scripts get as the clone: plugin/, built from the skill, the prompts and the data, which is
-# where every install and link runs them from (docs/decisions/plugin-repository.md)
+# The folder the scripts get as the clone: plugin/, which holds the skill, the prompts and the built data, and
+# is where every install and link runs them from (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
+SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
+EVALS = REPO / "skills-dev" / "evals"        # the skill's evals, kept out of the plugin folder
 INSTALLED = ".agents/skills/construct3-agent-plugin"
 SHEET = "eventSheets/Game.json"
 
@@ -42,13 +43,13 @@ NO_EXAMPLES = (f"no Construct-Example-Projects clone at {EXAMPLES.parent}; "
 
 
 def script_module(name: str, folder: Path = SKILL / "scripts"):
-    """A script of the skill as a module, the scripts beside it importable while it loads and
-    nothing left on sys.path. From the skill's own folders it is the module the other scripts import,
-    cached like any import; from an installed copy it is loaded by its file, so that what it finds
-    from its own location is that copy's."""
+    """A script of the skill or of its evals as a module, the scripts beside it importable while it loads
+    and nothing left on sys.path. From the skill's own folders and the evals it is the module the other
+    scripts import, cached like any import; from an installed copy it is loaded by its file, so that what
+    it finds from its own location is that copy's."""
     sys.path.insert(0, str(folder))
     try:
-        if folder.is_relative_to(SKILL):
+        if folder.is_relative_to(SKILL) or folder == EVALS:
             return importlib.import_module(name)
         spec = importlib.util.spec_from_file_location(name, folder / f"{name}.py")
         module = importlib.util.module_from_spec(spec)

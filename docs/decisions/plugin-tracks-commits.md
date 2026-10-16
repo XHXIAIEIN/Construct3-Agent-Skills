@@ -53,7 +53,7 @@ The build sets the version. `scripts/build_plugin.py` writes it into
 - If the built files other than `plugin.json` have the Git blob ids of the
   published files, the build keeps the published version. Otherwise it
   writes the published version with its patch raised by one.
-- `version` in `scripts/plugin/plugin.json` is the floor: the build never
+- `version` in `plugin/plugin.json` is the floor: the build never
   writes a lower version. A minor or a major release raises the floor by
   hand. Versions compare as numbers.
 - The build reads Git locally and never fetches. The merge base, and not
@@ -81,7 +81,7 @@ the clone was added as a marketplace whose plugin source was the repository
 root.
 
 A project used with the plugin holds no copy of the skill; its `AGENTS.md`
-names the scripts under the plugin's `skills/construct3-agent-plugin/`.
+names the scripts under the plugin's `plugin/skills/construct3-agent-plugin/`.
 `SKILL.md` and `AGENTS.md` section 4 tell an agent that sees the skill as
 `construct3:construct3-agent-plugin` not to install one.
 

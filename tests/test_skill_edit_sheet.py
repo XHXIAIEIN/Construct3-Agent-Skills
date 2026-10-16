@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    PLUGIN,    REPO, SKILL, INSTALLED, SHEET, EXAMPLES, NEEDS_EXAMPLES, run, streams, tool, check, edit, events, every_event,
+    EVALS,    PLUGIN,    REPO, SKILL, INSTALLED, SHEET, EXAMPLES, NEEDS_EXAMPLES, run, streams, tool, check, edit, events, every_event,
     collect_tween, plan, script_module,
 )
 
@@ -188,7 +188,7 @@ def test_plan_refuses_a_new_event_that_flips_a_variable_on_every_tick(project):
 
 def test_a_finding_names_the_place_a_plan_changes(project):
     """The five mistakes of the eval's broken sheet, repaired by the places the checker gives for them."""
-    script_module("make_fixtures", SKILL / "evals").seed_load_errors(project)
+    script_module("make_fixtures", EVALS).seed_load_errors(project)
     code, out = check(project)
     assert code == 1 and re.search(r"event 2 \(sid \d+\) condition 1: System:on-start-of-layout is inverted", out)
     assert re.search(r"event 5 \(sid \d+\) condition 1 Touch:on-touched-object", out)
