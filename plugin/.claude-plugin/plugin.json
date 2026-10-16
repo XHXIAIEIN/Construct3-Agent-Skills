@@ -11,18 +11,5 @@
 	"supportUrl": "https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues",
 	"license": "MIT",
 	"icon": "./icon.png",
-	"keywords": [
-		"construct3",
-		"construct",
-		"construct3-agent-skills",
-		"gamedev",
-		"make-games",
-		"web-games",
-		"low-code",
-		"no-code",
-		"event-sheets",
-		"2d-games",
-		"3d-games",
-		"agent-skills"
-	]
+	"keywords": ["gamedev", "construct3", "make-games", "visual-coding", "game-engine", "web-games", "html5"]
 }
