@@ -253,7 +253,7 @@ passes, since a trigger or an event that runs every tick may call it.
 
 They surface here with an event number instead of one at a time in a dialog.
 How each was read from the editor and confirmed:
-`Construct3-RAG/docs/decisions/checker-editor-load-rules.md`.
+`Construct3-Agent-Skills/docs/decisions/checker-editor-load-rules.md`.
 
 | Rule | The editor's message |
 |------|----------------------|
@@ -326,11 +326,11 @@ and give the line to the user. Each run keeps its findings in
 `.tmp/check-project.json`, with a digest of the files it checked and the
 number of problems; when two changes to a finding's place leave it
 standing, the last line starts with `stop:`
-(`Construct3-RAG/docs/decisions/fix-loop-cap.md`).
+(`Construct3-Agent-Skills/docs/decisions/fix-loop-cap.md`).
 
 `pack_project.py` reads the same record. It packs a folder project only
 when the record holds the digest the files have at present and a problem
-count of 0 (`Construct3-RAG/docs/decisions/pack-after-check.md`). A long report prints the
+count of 0 (`Construct3-Agent-Skills/docs/decisions/pack-after-check.md`). A long report prints the
 findings that fit 10 000 characters, warnings in at most a third of them and
 problems in the rest, and counts what it left out: fix those and run again,
 or pass `--limit 0`.
@@ -369,7 +369,7 @@ output. Each names the event and says what to write.
 | with events ..., picks a branch by testing X for the codes ... with find (sibling events or Else branches whose conditions call `find(X, "<literal>")` or `findcase` on the same X); `find` matches any part and ignores case, so the finding names a code that matches another | 2 or more events | none; the one example that tests outputs with find, quest-flowcharts, does it inside one event or in separate functions. A generated card game dispatched its enemy moves and card effects this way, 3 times |
 | mid("<letters>", ...find("<letters>", X)..., ...) looks X up through the letters, a table written as text; the finding writes the cycle as `(X + 1) % N` | any | none: no example calls find with a literal first. A generated card game wrote its element cycle so, 3 times |
 
-Why these thresholds: `Construct3-RAG/docs/decisions/event-sheet-design-guidance.md`.
+Why these thresholds: `Construct3-Agent-Skills/docs/decisions/event-sheet-design-guidance.md`.
 A style warning is never an error: the editor accepts all ten, and an
 official example may carry one. What the shape should be instead is
 `Construct3-RAG/prompts/event-sheet-style.md`, and for the last three the
@@ -394,7 +394,7 @@ comment above the event, in a variable's comment or on the line marks a key
 meant to be public, such as one a service issues for web pages.
 `scripts/export_project.py` stops on the same finding before the browser
 starts. The shapes and the measurement behind them:
-`Construct3-RAG/docs/decisions/secret-scan.md`.
+`Construct3-Agent-Skills/docs/decisions/secret-scan.md`.
 
 ## What it does not see
 

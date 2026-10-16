@@ -160,7 +160,7 @@ which cases to play and how to reach and read them to
   the first's close ended it under the second, which failed with
   "Target.closeTarget: No target with given id found" and blamed the
   network, exit 2. With the lock, the second is refused with the first's
-  pid and the first opens. `Construct3-RAG/docs/decisions/profile-lock.md`]
+  pid and the first opens. `Construct3-Agent-Skills/docs/decisions/profile-lock.md`]
 - A browser started with `--user-data-dir=\\?\<path>`, the prefix that lifts
   MAX_PATH, writes no cookie file, so a third-party login (GitHub) is gone at
   the next start; `open_in_editor.py` adds the prefix only to a long path.
@@ -212,8 +212,9 @@ which cases to play and how to reach and read them to
   exactly, case included, else the Properties Bar shows `[???]`; the
   built-ins write ids in kebab case. The editor's own effects, their
   `addon.json`, GLSL and WGSL, are in
-  `Construct3-RAG/.cache/c3-cdn/<release>/effects_allEffects.json` once
-  the clone has fetched that release from the CDN.
+  `.cache/c3-cdn/<release>/effects_allEffects.json` of a clone of
+  https://github.com/XHXIAIEIN/Construct3-RAG once its update pipeline has fetched
+  that release from the CDN.
   [r504 `main.js`, the addon installer;
   observed installing an effect addon, 2026-10-03]
 - An effect that counts its pixels by `pixelSize` changes with the editor's

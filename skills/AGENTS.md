@@ -64,7 +64,9 @@ table are under `construct3-agent-plugin/`, except the `scripts/`,
 - Paths inside the skill are relative to its folder. A file of the folder
   the Construct 3 block names, `plugin/` with its `data/` and `prompts/`, is
   written `Construct3-RAG/<path>`, as the block writes it; a relative link
-  out of the folder breaks in a copy.
+  out of the folder breaks in a copy. A record of this repository is
+  written `Construct3-Agent-Skills/docs/decisions/<file>`, a record of
+  Construct3-RAG by its URL, since neither is in `plugin/`.
   The plugin bullet of `SKILL.md` says where such a path lies in the plugin,
   so the skill's text names no file that the plugin holds only in a bundle.
   A script prints a file of that folder by its absolute path. It prints

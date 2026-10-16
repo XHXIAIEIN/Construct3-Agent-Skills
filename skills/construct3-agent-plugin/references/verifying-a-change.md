@@ -50,7 +50,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    that passes there, or fails at an earlier step, has not reached the
    bug. A fix played against it shows nothing, so change the plan until it
    fails as reported. Then change the events and play the same plan until
-   it passes. [design: `Construct3-RAG/docs/decisions/preview-player.md`,
+   it passes. [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`,
    the bullet on a bug's plan]
 3. **Reach each scene the way the game does.** Play to it when that is
    short; otherwise call the game's own functions with
@@ -110,7 +110,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    for the effect in `Construct3-RAG/prompts/references/feel.md` where
    there is one, otherwise from the user. The change is done when the
    recording measures the target, not when the motion looks better.
-   [design: `Construct3-RAG/docs/decisions/preview-player.md`, the bullet
+   [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullet
    on a word of feel]
 7. **Keep what the run logs apart from what the change did.** A run that
    logs no error and never reached the event says nothing; a run that logs
@@ -128,7 +128,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    which part looks off, or that neither settles it. The recording's review
    page, `NN-NAME.html`, then goes to the user for what is left to the eye: they play it frame by
    frame, select a part that looks wrong and copy it back as a task.
-   [design: `Construct3-RAG/docs/decisions/preview-player.md`, the bullets
+   [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
    on `record` and the review page]
 8. **Keep the plan, and replay every kept plan after each change.** Once a
    plan passes, run it again with `--keep NAME`. It is copied to
@@ -139,7 +139,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    one that fails. Fix the events the failing step reads, not the plan,
    because the plan passed when its change was made. Change a kept plan
    only when the game was meant to change what it checks.
-   [design: `Construct3-RAG/docs/decisions/preview-player.md`, the bullet
+   [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullet
    on kept plans]
 
 ## The look of each layout
