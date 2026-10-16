@@ -149,8 +149,11 @@ font cache and draws a missing font in `system-ui`
 (`paper-and-ink-look.md`), so the plugin has no need of them.
 
 Copied text files are written with LF line endings, as Git stores them, so
-a checkout with CRLF files (`lf-line-endings.md`) builds the same folder as
-any other.
+a checkout with CRLF files builds the same folder as any other, and
+`--check` reads a committed text file with its CRLF as LF. The repository
+has no `.gitattributes` to force LF at checkout: the directory refuses to
+validate a repository whose attributes could rewrite files at checkout, and
+it refused this one while `* text=auto eol=lf` was there.
 
 The skill names a file of the data and prompts folder as
 `Construct3-RAG/<path>`. A game project resolves it through its

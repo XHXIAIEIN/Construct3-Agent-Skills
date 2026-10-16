@@ -119,7 +119,7 @@ def write(path: Path, text: str) -> None:
 
 def copy(src: Path, dst: Path) -> None:
     """src at dst: an image byte for byte, any other file with LF line endings, as Git stores it.
-    A checkout made before .gitattributes holds CRLF files; LF keeps its build equal to plugin/."""
+    A checkout with core.autocrlf holds CRLF files; LF keeps its build equal to plugin/."""
     data = src.read_bytes()
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(data if src.name.endswith(BINARIES) else data.replace(b"\r\n", b"\n"))
@@ -302,8 +302,16 @@ def differences(built: Path, committed: Path) -> list[str]:
     a, b = files(built), files(committed) if committed.is_dir() else {}
     out = [f"missing from plugin/: {rel}" for rel in a if rel not in b]
     out += [f"not in a fresh build: {rel}" for rel in b if rel not in a]
-    out += [f"differs: {rel}" for rel in a if rel in b and not filecmp.cmp(a[rel], b[rel], shallow=False)]
+    out += [f"differs: {rel}" for rel in a if rel in b and not same(a[rel], b[rel])]
     return out
+
+
+def same(built: Path, committed: Path) -> bool:
+    """Whether a committed file equals its build. A checkout with core.autocrlf holds
+    plugin/ with CRLF text files, which Git stores as the LF the build writes."""
+    if built.name.endswith(BINARIES):
+        return filecmp.cmp(built, committed, shallow=False)
+    return built.read_bytes() == committed.read_bytes().replace(b"\r\n", b"\n")
 
 
 @contextlib.contextmanager

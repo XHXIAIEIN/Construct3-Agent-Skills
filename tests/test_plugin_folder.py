@@ -23,7 +23,7 @@ def test_plugin_folder_is_a_fresh_build_under_the_limits():
 
 
 def test_the_build_writes_text_files_with_lf_and_an_image_byte_for_byte(tmp_path, monkeypatch):
-    # A checkout made before .gitattributes keeps CRLF files (docs/decisions/lf-line-endings.md)
+    # A checkout with core.autocrlf holds CRLF files (docs/decisions/plugin-folder.md)
     sources = tmp_path / "sources"
     sources.mkdir()
     (sources / "plugin.json").write_bytes(b'{\r\n\t"name": "construct3"\r\n}\r\n')
@@ -38,6 +38,21 @@ def test_the_build_writes_text_files_with_lf_and_an_image_byte_for_byte(tmp_path
     assert (out / ".claude-plugin" / "plugin.json").read_bytes() == b'{\n\t"name": "construct3"\n}\n'
     assert (out / "README.md").read_bytes() == b"# Construct 3\n\nA line.\n"
     assert (out / "icon.png").read_bytes() == icon
+
+
+def test_a_crlf_checkout_of_plugin_equals_its_build(tmp_path):
+    built, committed = tmp_path / "built.md", tmp_path / "committed.md"
+    built.write_bytes(b"# Construct 3\n\nA line.\n")
+    committed.write_bytes(b"# Construct 3\r\n\r\nA line.\r\n")
+    assert build_plugin.same(built, committed)
+    committed.write_bytes(b"# Construct 3\r\n\r\nAnother line.\r\n")
+    assert not build_plugin.same(built, committed)
+
+
+def test_the_repository_has_no_gitattributes():
+    # The directory refuses to validate a repository whose attributes could rewrite files at checkout
+    # (docs/decisions/plugin-folder.md)
+    assert not (REPO / ".gitattributes").exists()
 
 
 def test_the_schemas_are_the_source_json_with_an_indent_of_one():
