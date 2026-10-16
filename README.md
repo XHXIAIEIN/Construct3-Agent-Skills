@@ -2,7 +2,7 @@
 
 **English** | [中文](README_CN.md)
 
-Construct3-Agent-Skills is a set of skills and data that let an AI agent make [Construct 3](https://editor.construct.net/) games.
+Construct3-Agent-Skills is a set of skills and data that let an AI agent make [Construct 3](https://editor.construct.net/) ([affiliate link](https://www.construct.net/a/260259?t=construct3)) games.
 
 The repository holds the `construct3-agent-plugin` skill, its prompts and the data they read, in one folder, [`plugin/`](plugin/README.md), which is also the Claude Code plugin. The skill gives an agent these abilities:
 
