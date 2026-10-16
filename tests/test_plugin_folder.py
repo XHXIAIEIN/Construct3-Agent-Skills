@@ -188,7 +188,7 @@ def test_every_user_facing_script_has_one_menu_skill_whose_hint_is_its_usage_lin
     assert set(menu.values()) == scripts and len(menu) == len(scripts)
     for name, stem in menu.items():
         source = MENU / name / "SKILL.md"
-        text = source.read_bytes().decode("ascii")
+        text = source.read_bytes().decode("ascii").replace("\r\n", "\n")      # a checkout may hold CRLF
         head, body = text.split("\n---\n", 1)
         fields = frontmatter_fields(head)
         assert fields["name"] == name and re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", name) and len(name) <= 64
