@@ -67,6 +67,9 @@ def test_the_limits_hold_the_folder_size(tmp_path, monkeypatch):
     assert build_plugin.limits(build_plugin.files(folder)) == []
     monkeypatch.setattr(build_plugin, "MAX_TOTAL", 29)
     assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
+    # A checkout with core.autocrlf holds the same file with CRLF: the directory reads the stored LF bytes
+    (folder / "a.json").write_bytes(b"{}\r\n" * 10)
+    assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
 
 
 def test_every_data_and_prompt_file_the_skill_names_is_in_the_plugin():
@@ -185,7 +188,7 @@ def test_every_user_facing_script_has_one_menu_skill_whose_hint_is_its_usage_lin
     assert set(menu.values()) == scripts and len(menu) == len(scripts)
     for name, stem in menu.items():
         source = MENU / name / "SKILL.md"
-        text = source.read_bytes().decode("ascii")
+        text = source.read_bytes().decode("ascii").replace("\r\n", "\n")      # a checkout may hold CRLF
         head, body = text.split("\n---\n", 1)
         fields = frontmatter_fields(head)
         assert fields["name"] == name and re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", name) and len(name) <= 64

@@ -290,17 +290,19 @@ def set_version(version: str) -> None:
 
 
 def limits(found: dict[str, Path]) -> list[str]:
-    """What breaks the directory's limits on the plugin folder, over its files by path."""
+    """What breaks the directory's limits on the plugin folder, over its files by path. The sizes are
+    those of the bytes Git stores, because the directory reads the repository, not a checkout that
+    core.autocrlf wrote with CRLF."""
     problems = [f"{len(found)} files, more than {MAX_FILES}"] if len(found) > MAX_FILES else []
-    total = sum(p.stat().st_size for p in found.values())
+    sizes = {rel: len(stored(p)) for rel, p in found.items()}
+    total = sum(sizes.values())
     if total > MAX_TOTAL:
         problems.append(f"{total:,} bytes in all, more than {MAX_TOTAL:,}")
     for rel, p in found.items():
         if rel.endswith(BINARIES):
             continue
-        size = p.stat().st_size
-        if size > MAX_SIZE:
-            problems.append(f"{rel}: {size // 1024} KiB, more than {MAX_SIZE // 1024}")
+        if sizes[rel] > MAX_SIZE:
+            problems.append(f"{rel}: {sizes[rel] // 1024} KiB, more than {MAX_SIZE // 1024}")
         try:
             p.read_text(encoding="utf-8")
         except UnicodeDecodeError:
