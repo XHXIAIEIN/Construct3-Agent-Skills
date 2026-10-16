@@ -74,7 +74,9 @@ plugin keeps its name.
   the files Git tracks in each clone. `plugin/` is committed with the
   sources, and `tests/test_plugin_folder.py` keeps it equal to a fresh
   build (`plugin-folder.md`). The version logic of
-  `plugin-tracks-commits.md` reads this repository's `origin/main`.
+  `plugin-tracks-commits.md` reads this repository's `origin/main`. The
+  floor in `scripts/plugin/plugin.json` is above the version the frozen
+  plugin in Construct3-RAG carries, so that no install goes back.
 - The tests give the scripts `plugin/` as the clone, because that is the
   folder every install and link runs them from, and read raw data files
   from the sibling clone's `data/`. A script run in place from `skills/`
