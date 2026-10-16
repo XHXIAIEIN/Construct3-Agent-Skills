@@ -67,6 +67,9 @@ def test_the_limits_hold_the_folder_size(tmp_path, monkeypatch):
     assert build_plugin.limits(build_plugin.files(folder)) == []
     monkeypatch.setattr(build_plugin, "MAX_TOTAL", 29)
     assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
+    # A checkout with core.autocrlf holds the same file with CRLF: the directory reads the stored LF bytes
+    (folder / "a.json").write_bytes(b"{}\r\n" * 10)
+    assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
 
 
 def test_every_data_and_prompt_file_the_skill_names_is_in_the_plugin():
