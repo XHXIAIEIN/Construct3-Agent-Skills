@@ -121,14 +121,20 @@ Sources and the rule for adding an entry are in the index,
   points make the kinks shorter but never remove them, and rows spaced
   evenly show no depth. Moving the top points sideways gives a skew
   (parallelogram); pulling them in gives a trapezoid, which reads as a plane
-  seen at an angle only with depth. For that plane, tilt the mesh in Z with
-  *Set mesh point* (mesh-z-elevation) under the layout's *Perspective*
-  projection, as [3d-layers.md](../references/3d-layers.md) says, or use art
-  already drawn in perspective. Whether the Z route draws the lines straight
-  is not yet checked in the editor. [observed 2026-10-18: a qqbot example
-  with an 8x8 mesh, top row pulled in by 0.3 on each side, drew the 16x12
-  grid of its image with zigzag lines and even rows; manual:
-  plugin-reference/common-features/common-actions.md "Mesh distortion"]
+  seen at an angle only with depth. For that plane, leave X and Y at their
+  defaults and give the near row a Z with *Set mesh point*
+  (mesh-z-elevation), on a layer whose *Rendering mode* is *3D* under the
+  layout's *Perspective* projection, as
+  [3d-layers.md](../references/3d-layers.md) says. Its lines stay straight
+  and its rows get closer towards the far edge, and a 2x2 mesh is enough.
+  The raised row draws larger than the object box, so size or place the
+  object for the tilted shape. [observed 2026-10-18 in a preview, r506.2
+  editor, 778x511 viewport: on a Sprite with a 16x12 grid image, an 8x8
+  mesh with its top row pulled in by 0.3 on each side drew zigzag lines and
+  even rows; a 2x2 or 8x8 mesh with x and y at their defaults and z 600 on
+  the bottom row drew straight lines and rows closer towards the top; manual:
+  scripting/scripting-reference/object-interfaces/iworldinstance.md
+  "setMeshPoint"]
 - The JSON plugin reads a path as keys separated by dots, so a key with a
   dot in it, `"menu.title"`, is looked for as `menu` and then `title`
   inside it, and *Has key* fails. Escape the dot in the path with a
