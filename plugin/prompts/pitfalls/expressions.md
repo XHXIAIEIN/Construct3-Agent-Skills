@@ -115,6 +115,20 @@ Sources and the rule for adding an entry are in the index,
   may go past it). A texture value of -1 leaves the texture position
   unchanged. [manual: plugin-reference/common-features/common-actions.md "Set
   mesh point"]
+- A mesh pulled into a trapezoid in X and Y bends every straight line of
+  its image: each cell is drawn as two triangles, and the image follows each
+  triangle on its own, so a line kinks where it crosses a diagonal. More
+  points make the kinks shorter but never remove them, and rows spaced
+  evenly show no depth. Moving the top points sideways gives a skew
+  (parallelogram); pulling them in gives a trapezoid, which reads as a plane
+  seen at an angle only with depth. For that plane, tilt the mesh in Z with
+  *Set mesh point* (mesh-z-elevation) under the layout's *Perspective*
+  projection, as [3d-layers.md](../references/3d-layers.md) says, or use art
+  already drawn in perspective. Whether the Z route draws the lines straight
+  is not yet checked in the editor. [observed 2026-10-18: a qqbot example
+  with an 8x8 mesh, top row pulled in by 0.3 on each side, drew the 16x12
+  grid of its image with zigzag lines and even rows; manual:
+  plugin-reference/common-features/common-actions.md "Mesh distortion"]
 - The JSON plugin reads a path as keys separated by dots, so a key with a
   dot in it, `"menu.title"`, is looked for as `menu` and then `title`
   inside it, and *Has key* fails. Escape the dot in the path with a
