@@ -30,7 +30,7 @@ guide under `skills-dev/`, the tests, the docs and the records. Why:
 | `plugin/.claude-plugin/plugin.json` | The plugin's manifest: name, version, description, keywords; the committed `version` is the floor the build never goes below |
 | `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets; `skills-dev/AGENTS.md` says how to change it |
 | `plugin/skills/<name>/SKILL.md`, `plugin/skills/run.py` | One row of the `/` menu per user-facing script, and the runner they share |
-| `plugin/prompts/` | Event sheet thinking, pitfalls and style, and the references for game feel, menus, dialogue and hand-edited project files; `event-sheet-pitfalls.md` is the index of the pitfalls |
+| `plugin/prompts/` | Event sheet thinking, pitfalls and style, and the references for game feel, menus, dialogue, layers in depth and hand-edited project files; `event-sheet-pitfalls.md` is the index of the pitfalls |
 | `plugin/data/c3-schemas/` | The ACEs of every plugin, behavior and effect, one JSON file each, per locale (built) |
 | `plugin/data/c3-lang/` | The editor texts the checker and a preview's inspector read (built) |
 | `plugin/data/c3-new-project/` | The empty project the editor saves, which `new_project.py` copies (built) |
@@ -199,7 +199,7 @@ runs the same on every push to `main` and every pull request.
 | The project tools the skill carries into a game project, and changing and evaluating them | `plugin/skills/construct3-agent-plugin/SKILL.md`, `skills-dev/AGENTS.md` |
 | Event sheet design, sourced pitfalls, the examples' authoring style | `plugin/prompts/event-sheet-thinking.md`, `plugin/prompts/event-sheet-pitfalls.md` and its topic files in `plugin/prompts/pitfalls/`, `plugin/prompts/event-sheet-style.md`, `docs/decisions/event-sheet-design-guidance.md` |
 | A new project's sheets, layers, objects and look | `plugin/prompts/references/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
-| Slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus | `plugin/prompts/references/` |
+| Slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, flat layers in depth under a 3D camera | `plugin/prompts/references/` |
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/` in the Construct3-RAG clone |
 | Why the plugin folder holds its sources, how its version is set, why it has this repository | `docs/decisions/plugin-folder.md`, `plugin-tracks-commits.md`, `plugin-repository.md` |
 | Why features were kept or removed | `docs/AGENTS.md`, the index of the records |
