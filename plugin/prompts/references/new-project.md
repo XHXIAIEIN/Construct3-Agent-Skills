@@ -124,6 +124,13 @@ Construct-Example-Projects, 2026-09-18]
   `hud_text()`, `hud_stat()`, `row()`, `no_overlap()`, `play_area()`,
   `centred()`, `spaced()` and `filled()`, and holds the HUD to the screen's
   edges with `anchored()`.
+- A line 1 px thick drops out on some rows when the screen draws the
+  viewport smaller than its size. Draw a rule at least the viewport's
+  height over the screen's height thick, rounded up. In a 1280×720
+  viewport previewed 720 px wide, Sprite rules 1 px thick showed on two
+  rows of four, and rules 2 px thick on all four at 720, 960 and 1100 px
+  wide. The template's `LINE` is 1 px at 720 high and 2 px at 1080.
+  [observed in a demo project, r506.3 preview, 2026-10-20]
 - A button's text is its label, centred on it, and the two move and hide
   together; a bar's name stands in front of the bar. A one-screen layout is
   bands: the title, the status line, the stage in the middle and the hint at

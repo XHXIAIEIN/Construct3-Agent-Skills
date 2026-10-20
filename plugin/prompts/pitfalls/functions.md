@@ -44,6 +44,16 @@ Sources and the rule for adding an entry are in the index,
   that picked three swords, the first of them hidden and without a kind, did
   nothing for any; with *For each* first in the block, each sword with a kind
   played its move]
+- A custom action is an action and returns nothing; its block's
+  `functionReturnType` is `none`. To hand a result back, set an instance
+  variable of the object in the block and read it after the call. A script
+  in the block reaches the instance with
+  `runtime.objects.Inventory.getFirstPickedInstance()`, writes
+  `instVars.FoundY` and reads the parameters as `localVars.Value`. Logic
+  that needs no picks can be a function with a return type instead.
+  [observed in a demo project, r506.3 preview, 2026-10-20: a custom action
+  of an Array set `FoundY` from a script, and the next action of the caller
+  read the row it found]
 - Parameters are bare identifiers in expressions: `Self.X + OffsetX`, not
   `Functions.OffsetX` or `Self.OffsetX`. [example: 3d-castle-maze, function
   OffsetHand]

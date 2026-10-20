@@ -73,6 +73,7 @@ If the events define or call a function or a custom action, read
 - Without *Copy picked* a function runs with every object reset to all picked.
 - With *Copy picked*, type and family picks are copied separately. Logic on the caller's picks is a custom action.
 - A custom action runs once with all the caller's picks, and a System condition in it reads the first. If it decides per instance, put *For each* first.
+- A custom action returns nothing. Hand its result back in an instance variable of the object, set in the block and read after the call.
 - Parameters are bare identifiers in expressions: `OffsetX`, not `Functions.OffsetX`.
 - If a parameter and a variable of the function's group differ only in case, the editor renames the later one, and a renamed parameter leaves the function reading the variable. Name them apart by more than case (`launchSpeed` beside `SPEED`).
 - If two functions, or two custom actions of one object, have names that differ only in case, the editor renames the second, and every call runs the first. Name them apart by more than case.
@@ -103,7 +104,7 @@ group turned off to pause, read
 - *Wait for previous actions* waits only for asynchronous actions. It waits for the *Wait* actions in a function only when the function is marked *Asynchronous*, and the mark changes nothing inside the function.
 - A *Wait* delays only the rest of its own block and its sub-events. Sibling events run at once.
 - A *Wait* with *Use time scale* on never ends while the time scale is 0.
-- *Wait 0* resumes at the start of the next tick, not at the end of the event or sheet. Leave it out unless a trigger fires before the tick applies what it reports.
+- *Wait 0* resumes at the start of the next tick, not at the end of the event or sheet. Leave it out unless a trigger fires before the tick applies what it reports, or no later event or trigger can pick what a trigger created.
 - Deactivating a group stops its events, not its behaviors, timers or tweens, so it does not pause.
 - *Set time scale* 0 stops animations too. To keep one playing through a pause (an ultimate, a cutscene), *Set object time scale* 1 on it, and restore both in the Sprite's *On finished*.
 - A hit stop is *Set time scale* 0.1, *Wait*, *Set time scale* 1. A smooth ramp is a value tween.
@@ -125,6 +126,7 @@ Dictionary or JSON, read [pitfalls/expressions.md](pitfalls/expressions.md).
 - `%` keeps the sign of the left operand, so `-1 % 5` is `-1`.
 - `%` is applied before `*`, so `a * b % c` is `a * (b % c)`. Write `(a * b) % c`.
 - There is no null, and a missing value reads as 0. Ask *Has key* or the size first.
+- `Array.IndexOf` searches along X only. Find a row with *For* over `Height`, *Compare at XY* and *Stop loop*, which does not stop *For each element*.
 - Dictionary *Set key* ignores a missing key. Write with *Add key*.
 - JSON `Type(path)` is `"undefined"` for a missing path, so it can test presence inside an expression.
 - *For* counts down when its end is below its start. Before `For 0 to count - 1`, test the count, or start ≤ end.
@@ -298,7 +300,7 @@ Sprite, read [pitfalls/creating-objects.md](pitfalls/creating-objects.md).
 - *Create hierarchy* creates the children on the new parent's layer, whatever layers the template's children sit on. Move a child to its own layer after the creation.
 - An object created only by events loads its images when created and draws nothing until they arrive, so a screen-sized picture shows late. Call *Load object images* for it in *On start of layout*.
 - A Particles object given a Sprite spawns real instances that are not the emitter's children.
-- A created instance is found outside its own event only by UID, *Pick children* and `Count`, until the top-level event ends. Call a function that acts on the older instances before the creation, or set the new one's values while it is picked.
+- A created instance is found outside its own event only by UID, *Pick children* and `Count`, until the top-level event ends. Call a function that acts on the older instances before the creation, or set the new one's values while it is picked. If nothing runs later, put *Wait 0* before the step.
 - The instances of a new hierarchy run *On created* in no fixed order. Initialise the hierarchy in *On hierarchy ready* of its root, which fires once all of them have.
 - A fired bullet that misses flies on outside the layout forever, since its hit events destroy only the ones that hit. Give it the Destroy outside behavior.
 

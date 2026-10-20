@@ -63,8 +63,9 @@ Sources and the rule for adding an entry are in the index,
   [Creating objects](creating-objects.md)). Instead, initialise in *On
   created* or the creating event, pass `UID`, or put the dependent step in a
   later top-level event or trigger. Use *Wait 0* only if a trigger fires
-  before the tick finishes what it reports. For example, *On keyframe
-  reached* fires before the keyframe's values are written (see
+  before the tick finishes what it reports, or if no later event or trigger
+  runs a step that picks the instances a trigger created. For example, *On
+  keyframe reached* fires before the keyframe's values are written (see
   [Timeline](timeline.md)). Ashley's tutorial says "until the end of the
   event sheet", which is Construct 2 wording. [runtime: exported c3runtime.js
   r503, `Wait` calls `AddScheduledWait`, `RunScheduledWaits` is called only

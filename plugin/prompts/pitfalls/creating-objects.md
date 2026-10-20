@@ -108,9 +108,12 @@ Sources and the rule for adding an entry are in the index,
   - If it needs values of the new instance, set them in the creating
     function while the new instance is picked, or pass `UID`.
   - Otherwise pick from a later top-level event or trigger.
+  - If no later event or trigger runs the step, as after an AJAX *On
+    completed* that builds a screen, put *Wait 0* before it. The step then
+    runs at the start of the next tick, and the new instances show for one
+    frame before it (see [Wait and time scale](wait-and-time-scale.md)).
 
-  *Wait 0* is not needed and runs a tick later (see [Wait and time
-  scale](wait-and-time-scale.md)). `check_project.py` warns if one list of
+  `check_project.py` warns if one list of
   actions creates instances, directly or through a function, and then calls a
   function that picks them by a condition. [Ashley in
   Scirra/Construct-bugs#3554 (2019) and #5178 (2021); runtime: exported
@@ -125,7 +128,10 @@ Sources and the rule for adding an entry are in the index,
   same event, so an attacker stopped; observed in a game project, 2026-10-15:
   calling the function that slides the existing cards before the one that
   creates the new card cleared both `check_project.py` warnings, and the
-  queue moved as before]
+  queue moved as before; observed in a demo project, r506.3 preview,
+  2026-10-20: an AJAX *On completed* created twelve Text instances in a *For*
+  sub-event, and a later sub-event ran *Wait 0* and then a function whose
+  *Compare instance variable* picked and recoloured the three of one row]
 - When a hierarchy is created, the order of its instances' *On created* is
   not fixed. In one instance's *On created*, the others may not have run
   theirs yet, so code there cannot rely on how the rest of the hierarchy is
