@@ -1,3 +1,7 @@
+---
+addons: tween
+---
+
 # Event Sheet Pitfalls: Tween
 
 Sources and the rule for adding an entry are in the index,

@@ -1,3 +1,7 @@
+---
+addons: timeline
+---
+
 # Event Sheet Pitfalls: Timeline
 
 Sources and the rule for adding an entry are in the index,

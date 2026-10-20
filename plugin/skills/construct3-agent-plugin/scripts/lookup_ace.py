@@ -46,6 +46,14 @@ it, from `Construct3-RAG/data/c3-example-usage/`, and the print_sheet.py
 commands that print up to three of those uses, the smallest sheets first. The
 commands need the Construct-Example-Projects clone beside Construct3-RAG. An
 entry that no example uses prints no count.
+
+After them, an entry of an addon or an ACE that a pitfalls topic names in its
+`addons:` line (`Construct3-RAG/prompts/pitfalls/*.md`) ends with
+`pitfalls:` and the file to read before writing it. An entry of an addon that
+`Construct3-RAG/prompts/native-first.json` lists ends with `prefer:`, the
+built-in a new project uses in its place and the Native first row that says
+so; the editor still offers the addon, and an existing project may keep it.
+Other entries print neither line.
 """
 import json
 import sys
@@ -280,22 +288,79 @@ class Usage:
                 f"clones it, and each count then gets the commands that print the examples' events)")
 
 
+def front_matter(path: Path) -> dict[str, str]:
+    """The `key: value` lines between the `---` fences a Markdown file opens with; {} without them."""
+    out: dict[str, str] = {}
+    with path.open(encoding="utf-8") as f:
+        if f.readline().strip() != "---":
+            return out
+        for line in f:
+            if line.strip() == "---":
+                break
+            key, sep, value = line.partition(":")
+            if sep:
+                out[key.strip()] = value.strip()
+    return out
+
+
+class Pointers:
+    """What to read before writing an entry: the pitfalls topic files whose `addons:` line names the
+    entry's addon or the ACE itself (prompts/pitfalls/*.md), and the Native first row that replaces the
+    addon (prompts/native-first.json). The clone and the plugin both hold prompts/; a folder without it
+    prints neither line. The deprecation list is the editor's and stays apart (c3.DEPRECATED)."""
+
+    def __init__(self, rag: Path) -> None:
+        self.rag = rag
+        self.topics: dict[str, list[Path]] = {}      # addon id, or addon/ace id -> the topic files
+        for path in sorted((rag / "prompts" / "pitfalls").glob("*.md")):
+            for key in front_matter(path).get("addons", "").split(","):
+                if key.strip() and key.strip() != "none":
+                    self.topics.setdefault(key.strip().lower(), []).append(path)
+        prefer = rag / "prompts" / "native-first.json"
+        self.prefer = c3.load(prefer) if prefer.is_file() else {}
+
+    def lines(self, addon: str, ace_id: str) -> list[str]:
+        files = self.topics.get(addon.lower(), []) + self.topics.get(f"{addon}/{ace_id}".lower(), [])
+        out = []
+        if files:
+            out.append("  pitfalls: " + ", ".join(c3.shown_path(f) for f in dict.fromkeys(files)))
+        row = self.prefer.get("addons", {}).get(addon.lower())
+        if row:
+            out.append(f"  prefer: {row['use']}; {self.prefer.get('table', 'Native first')}, \"{row['row']}\", "
+                       f"in {c3.shown_path(self.rag / self.prefer['file'])}")
+        return out
+
+    def tails(self, entries: list[tuple]) -> list[list[str]]:
+        """The lines of each (owner, behavior, addon, kind, entry), one list per entry, in the same order."""
+        return [self.lines(addon, it["id"]) for _, _, addon, _, it in entries]
+
+    def addon_lines(self, entries: list[tuple]) -> list[str]:
+        """The lines of the addons the entries belong to, once each: under a list that prints no entry in full,
+        a pointer to the addon's topic file or its Native first row is still the answer."""
+        return [line for addon in dict.fromkeys(e[2] for e in entries) for line in self.lines(addon, "")]
+
+
 def print_in_full(blocks: list[list[str]], ids: list[str], limit: int, usage: Usage | None = None,
-                  tails: list[list[str]] | None = None) -> None:
+                  tails: list[list[str]] | None = None, pointers: list[list[str]] | None = None) -> None:
     """Prints the entries in full while they fit --limit and names the rest: six entries
     of Audio, each parameter described, run past 10 000 characters. The tail of a block,
-    the official examples that use the entry, is left out when only the block fits."""
+    the official examples that use the entry, is left out when only the block fits; the
+    pointers after it, one line each, stay while the block fits with them."""
     tails = tails or [[] for _ in blocks]
+    pointers = pointers or [[] for _ in blocks]
     note = usage.note() if usage and any(tails) else None
     # The note on the rest takes a few hundred characters of the limit, and the note on the clone its own.
-    room = c3.fitting([line for block, tail in zip(blocks, tails) for line in block + tail],
+    room = c3.fitting([line for block, tail, more in zip(blocks, tails, pointers) for line in block + tail + more],
                       max(limit - 400 - len(note or ""), 1) if limit else 0)
     counted = False
-    for n, (block, tail) in enumerate(zip(blocks, tails)):
+    for n, (block, tail, more) in enumerate(zip(blocks, tails, pointers)):
         if len(block) > room and n:
             break
-        lines = block + tail if len(block) + len(tail) <= room else block
-        counted = counted or len(lines) > len(block)
+        if len(block) + len(tail) + len(more) <= room:
+            lines = block + tail + more
+            counted = counted or bool(tail)
+        else:
+            lines = block + more if len(block) + len(more) <= room else block
         print("\n".join(lines))
         room -= len(lines)
     else:
@@ -401,6 +466,7 @@ def addon_word_lines(p: c3.Project, sources: list[tuple[str, str | None, dict]],
 def ace_lookup(p: c3.Project, target: str, words: list[str], limit: int) -> int:
     sources = sources_of(p, target)
     usage = Usage(p.rag)
+    pointers = Pointers(p.rag)
     if LOWER(target) == LOWER(p.functions_object):
         # A model that has not met it writes an object type and a usedAddons entry, and the editor
         # reports a missing legacy addon.
@@ -431,7 +497,8 @@ def ace_lookup(p: c3.Project, target: str, words: list[str], limit: int) -> int:
     def print_entries(chosen: list[tuple]) -> None:
         """Prints each (owner, behavior, addon, kind, entry) in full, an expression under its name in a project file."""
         print_in_full([in_full(*e, written.get((e[1], e[2], e[4]["id"])) if e[3] == "expressions" else None)
-                       for e in chosen], [e[4]["id"] for e in chosen], limit, usage, usage.tails(chosen))
+                       for e in chosen], [e[4]["id"] for e in chosen], limit, usage, usage.tails(chosen),
+                      pointers.tails(chosen))
 
     if not entries:
         obj = p.objects_lower.get(LOWER(target))
@@ -536,7 +603,7 @@ def ace_lookup(p: c3.Project, target: str, words: list[str], limit: int) -> int:
     if c3.fitting(lines, limit) == len(lines):
         print("\n".join(lines))
         print(f"{len(found)} entries; add a word to narrow them, six or fewer print with the JSON to write")
-        for line in retired_lines:
+        for line in retired_lines + pointers.addon_lines(found):
             print(line)
         return 0
     print(f"{len(found)} entries, more than fit {limit} characters (--limit). Entries per category:")
@@ -553,6 +620,8 @@ def ace_lookup(p: c3.Project, target: str, words: list[str], limit: int) -> int:
         print(f"  behaviors    {', '.join(behaviors)}")
     print("add a word: a category, a behavior, condition, action or expression, or part of a name; "
           "six entries or fewer print with the JSON to write")
+    for line in pointers.addon_lines(found):
+        print(line)
     return 0
 
 

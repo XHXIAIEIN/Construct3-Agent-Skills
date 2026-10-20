@@ -1,3 +1,7 @@
+---
+addons: solid, turret/add-object-to-target, bullet/bounce-off-object, sprite/set-collisions-enabled, _common/pick-children, _common/pick-parent, _common/pick-nth-child, _common/has-children, _common/compare-child-count, _common/add-child, _common/destroy
+---
+
 # Event Sheet Pitfalls: Picking
 
 Sources and the rule for adding an entry are in the index,

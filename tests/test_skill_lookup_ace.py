@@ -410,3 +410,46 @@ def test_the_note_on_a_missing_clone_counts_against_the_limit(tmp_path):
     for limit in ("900", "1100", "1500"):
         out = lookup_wait(rag, tmp_path, "--limit", limit)
         assert len(out) <= int(limit), (limit, out)
+
+
+def test_an_entry_ends_with_the_pitfalls_of_its_addon(skill_only):
+    """The topic file a model needs before writing the ACE comes after the example commands. An entry ends
+    with it when the topic's addons: line names its addon or the ACE itself; other System entries print none."""
+    code, out = tool(skill_only, "lookup_ace", "Tween", "tween-one-property")
+    assert code == 0, out
+    lines = out.splitlines()
+    at = [i for i, line in enumerate(lines) if line.startswith("  pitfalls: ")]
+    assert len(at) == 1 and lines[at[0]].endswith("prompts/pitfalls/tween.md"), out
+    assert lines[at[0] - 1].startswith("    python ") and "print_sheet.py" in lines[at[0] - 1], out
+    assert at[0] == len(lines) - 1 or lines[at[0] + 1].startswith(("action ", "condition ", "expression ")), out
+    code, out = tool(skill_only, "lookup_ace", "Tween")
+    assert code == 0 and out.rstrip().endswith("\n  pitfalls: " + out.rstrip().rsplit("pitfalls: ", 1)[1]), out
+    code, out = tool(skill_only, "lookup_ace", "System", "wait")
+    waits = [block for block in ("\n" + out).split("\naction ") if block.startswith("wait ")]
+    assert waits and waits[0].rstrip().endswith("prompts/pitfalls/wait-and-time-scale.md"), out
+    code, out = tool(skill_only, "lookup_ace", "System", "every", "tick")
+    assert code == 0 and "pitfalls:" not in out, out
+
+
+def test_an_entry_of_a_superseded_addon_points_at_the_built_in_preferred_to_it(skill_only):
+    """A pointer to the Native first row, not a finding: the editor offers Fade, the checker says nothing,
+    and the deprecation marks stay the editor's."""
+    code, out = tool(skill_only, "lookup_ace", "Fade", "start", "fade")
+    assert code == 0, out
+    prefer = sorted(set(line for line in out.splitlines() if line.startswith("  prefer: ")))
+    assert prefer == ["  prefer: a Tween (one property) on Opacity; Native first, \"Repeating or periodic movement, "
+                      "flashing, fading out\", in " + prefer[0].rsplit(" in ", 1)[1]], out
+    assert prefer[0].endswith("prompts/event-sheet-thinking.md") and "deprecated" not in out, out
+    code, out = tool(skill_only, "lookup_ace", "Fade")
+    assert code == 0 and out.rstrip().endswith(prefer[0]) and out.count("prefer:") == 1, out
+    code, out = tool(skill_only, "lookup_ace", "Pin", "pin", "to", "object")
+    entries = out.count("\naction ") + 1
+    assert entries > 1 and out.count("  prefer: a hierarchy: Add child on the parent;") == entries, out
+    assert "<deprecated>" in out and "the current action of the same name is pin-to-object-properties" in out, out
+
+
+def test_an_entry_with_no_pointer_prints_no_extra_line(skill_only):
+    code, out = tool(skill_only, "lookup_ace", "Anchor")
+    assert code == 0 and "pitfalls:" not in out and "prefer:" not in out, out
+    code, out = tool(skill_only, "lookup_ace", "Sine", "set", "period")
+    assert code == 0 and "pitfalls:" not in out and "prefer:" not in out, out

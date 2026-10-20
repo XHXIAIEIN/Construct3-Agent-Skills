@@ -67,6 +67,7 @@ The project skill, the prompts and the plugin:
 | `event-sheet-design-guidance.md` | The event sheet prompts, the style checks and the generator's placement helpers |
 | `design-review-packets.md` | Why the design review prints its questions by default and prepares their complete evidence only with `--prepare`, how saved judgements are reused, and which checks a reused judgement does not replace |
 | `pitfalls-index-and-topics.md` | Why the pitfalls are an index of one-line conclusions with a topic file per group, and which lessons belong in them |
+| `lookup-pointers.md` | Why `lookup_ace.py` ends an entry with its addon's pitfalls file and the Native first row that replaces the addon, where each list lives, and what it costs |
 | `prompt-references-by-task.md` | Which parts of the design and style prompts live in `prompts/references/`, why Native first stays inline, and what a row of Native first holds |
 | `borrowed-numbers.md` | Which numbers and rules of other agent frameworks were measured here before the template or a check took them, and the result for each |
 | `game-look-from-design-skills.md` | What the design and game-art skills on GitHub do to steady an agent's output, and the palette, text and pixel-art defaults the generator template took from them |
@@ -80,6 +81,7 @@ The project skill, the prompts and the plugin:
 | `count-up-and-press.md` | Why a generated score counts to its new value and a button presses under the finger, and the numbers each takes |
 | `input-controls.md` | Why a generated slider and toggle are drawn on the canvas and a text input is the Text input form control, and how each is placed, drawn and read |
 | `art-from-the-image-tool.md` | Why a generated game's art comes from the agent's image tool through `art()` and `prepare_art.py`, and is not drawn in code |
+| `sound-files-measured.md` | Why `check_sounds.py` measures a project's sound files with ffmpeg against the tiers of `sound.md`, how a file's role is known, and why `make_sounds.py` writes placeholders that pass the same measure |
 | `bootstrap-from-the-url.md` | How a machine holding only the repository URL reaches a game project with the skill installed |
 | `skill-and-plugin-names.md` | The names of the skill and the Claude Code plugin |
 | `plugin-tracks-commits.md` | How the build sets `plugin.json`'s version so that a change to `plugin/` reaches an install, and why a linked clone needs no copy in the project |

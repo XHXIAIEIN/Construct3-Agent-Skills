@@ -1,3 +1,7 @@
+---
+addons: audio
+---
+
 # Event Sheet Pitfalls: Audio
 
 Sources and the rule for adding an entry are in the index,

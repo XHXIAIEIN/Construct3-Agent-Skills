@@ -1,3 +1,7 @@
+---
+addons: browser, filesystem, json
+---
+
 # Event Sheet Pitfalls: Storage and export
 
 Sources and the rule for adding an entry are in the index,

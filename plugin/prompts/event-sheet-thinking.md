@@ -112,7 +112,7 @@ is a program transcribed into events, even without a picking smell.
 | Smooth follow of a target that keeps moving: camera, cursor, aim angle | `lerp(a, b, 1 - f^dt)` (`anglelerp` for angles) in `Every tick`; it reads the target again each tick and never finishes | A Tween restarted every tick; `lerp(a, b, 0.1)` with a constant factor, which is framerate-dependent |
 | A value derived from another live value: colour from health, zoom from speed, a slider position | `lerp(lo, hi, t)` with `t` from `unlerp`, a ratio, `Tween.Value(tag)` or a timeline; no duration of its own | A variable holding the mapped value, updated from several events |
 | Continuous motion toward a target or along a heading | MoveTo, Bullet, Pathfinding, Platform, 8 Direction | `Set X`/`Set Y` from your own velocity variables |
-| A part that moves with a body: the graphics on a collision box, a shadow, a held item | Hierarchy: *Add child* once, when the body is created; the child then follows it | An every-tick *Set position* to the body's X and Y |
+| A part that moves with a body: the graphics on a collision box, a shadow, a held item | Hierarchy: *Add child* once, when the body is created; the child then follows it | An every-tick *Set position* to the body's X and Y; the Pin behavior, superseded |
 | Repeating or periodic movement, flashing, fading out | Sine, Flash, Rotate; a fade is a Tween on Opacity | Hand-written oscillation; the Fade behavior, superseded |
 | Level data, loot tables, stat curves, any lookup table | Array or Dictionary project file (Project Bar: *New - Array / Dictionary*), loaded in *On start of layout*: AJAX *Request project file*, *Wait for previous actions*, then *Load* from `AJAX.LastData`, all in that one block, because a *Wait* delays only its own block (cell-linking loads its level this way). An AJAX *On completed* is a trigger and cannot sit under *On start of layout*. Nested or hand-written data through the JSON plugin | Per-level instance variables, `level1Hp`, chained conditions or nested ternaries that encode the table in expressions |
 | A list that changes at runtime: a deck and its discard pile, a queue, an inventory, a playlist | One Array per list, width 0 at start: *Push* to add, *Shuffle*, `Front`, `Back` or `At(i)` to read, then *Pop* or *Delete* to remove (they return nothing, so read first), *Contains value* to test membership, `Width` to count (place-stickers `InventoryArray`, airborne-explorer `ArrBGM`). Load definitions with several fields from a project file (row above) | A separated string read with `tokenat` (smell table) |
@@ -173,6 +173,9 @@ than superseded. A new project uses *Regular*, where Z is a co-ordinate on
 the same scale as X and Y, so 3D sizes match how they look.
 [manual: tips-and-guides/superseded-features.md,
 tips-and-guides/deprecated-features.md]
+`native-first.json` beside this file lists the superseded addons with the
+row that replaces each, and `lookup_ace.py` prints that row under the
+addon's entries.
 
 ## Feel
 

@@ -1,3 +1,7 @@
+---
+addons: bullet, tilemovement, dragndrop
+---
+
 # Event Sheet Pitfalls: Coordinates and angles
 
 Sources and the rule for adding an entry are in the index,

@@ -1,3 +1,7 @@
+---
+addons: system/restart-layout, system/go-to-layout, system/go-to-layout-by-name, system/go-to-nextprevious-layout, system/reset-global-variables
+---
+
 # Event Sheet Pitfalls: Restarting a layout
 
 Sources and the rule for adding an entry are in the index,

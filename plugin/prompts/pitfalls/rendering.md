@@ -1,3 +1,7 @@
+---
+addons: text, spritefont2, tiledbg, drawingcanvas, system/set-canvas-size, _common/set-width, _common/move-to-top
+---
+
 # Event Sheet Pitfalls: Rendering
 
 Sources and the rule for adding an entry are in the index,

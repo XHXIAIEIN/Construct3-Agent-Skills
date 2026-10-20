@@ -141,6 +141,10 @@ def bundles(folder: str, pattern: str) -> list[tuple[str, str]]:
         if not PurePosixPath(inner).match(pattern) or "sdk" in inner.split("/"):
             continue
         text = source(rel).read_text(encoding="utf-8-sig")
+        if inner.endswith(".json"):
+            # The scripts parse a bundled JSON file and no agent reads it by line: without its indent it
+            # takes 200 KiB less of the folder's limit
+            text = json.dumps(json.loads(text), ensure_ascii=False, separators=(",", ":"))
         if part and len(dump({**part, inner: text}).encode("utf-8")) > BUNDLE_SIZE:
             out.append(dump(part))
             part = {}

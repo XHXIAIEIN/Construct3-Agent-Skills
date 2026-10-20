@@ -1,3 +1,7 @@
+---
+addons: sprite/set-animation, sprite/set-animation-frame, sprite/imagepointx, sprite/imagepointy, sprite/imagepointz, sprite/imagepointcount, model3d/set-progress
+---
+
 # Event Sheet Pitfalls: Animation
 
 Sources and the rule for adding an entry are in the index,

@@ -1,3 +1,7 @@
+---
+addons: mouse, touch, keyboard, gamepad, dragndrop, platform/simulate-control, eightdir/simulate-control
+---
+
 # Event Sheet Pitfalls: Input
 
 Sources and the rule for adding an entry are in the index,

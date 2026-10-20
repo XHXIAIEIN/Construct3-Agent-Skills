@@ -359,3 +359,8 @@ The entry goes into the topic file of its group, and the group here gets
 its conclusion as one line, in the same place in the order. A conclusion
 keeps the fix, not only the prohibition. A fact that fits no group gets a
 topic file of its own and a group here that says when to read it.
+
+A topic file opens with an `addons:` line between `---` fences: the ids of
+the plugins, behaviors and ACEs (`tween`, `system/wait`) whose entries
+`lookup_ace.py` ends with a pointer to the file, or `none` for a topic
+that holds for every sheet.
