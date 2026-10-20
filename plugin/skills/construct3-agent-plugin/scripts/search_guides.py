@@ -42,7 +42,7 @@ def without_source(text: str) -> str:
 def pitfalls(rag: Path) -> list[tuple[str, int, str]]:
     """Every bullet of the topic files as (file, line, text), the text on one line without its source."""
     out = []
-    for path in sorted((rag / "prompts" / "pitfalls").glob("*.md")):
+    for path in sorted((c3.prompts_folder(rag) / "pitfalls").glob("*.md")):
         text = path.read_text(encoding="utf-8")
         starts = [m.start() for m in ENTRY.finditer(text)]
         for i, start in enumerate(starts):

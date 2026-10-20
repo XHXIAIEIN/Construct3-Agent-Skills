@@ -1,8 +1,8 @@
 """Install this skill in a Construct 3 game project, or refresh a copy of it.
 
-    python <Construct3-RAG>/skills/construct3-agent-plugin/scripts/install.py [--project FOLDER] [--into DIR]
+    python <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/install.py [--project FOLDER] [--into DIR]
 
-Copies the skill's folder from the Construct3-RAG clone into the project's
+Copies the skill's folder from the plugin into the project's
 skills directory, and adds the Construct 3 block to the project's AGENTS.md
 when no instruction file there names the clone yet, with the clone's path
 filled in, and the line `@AGENTS.md` to CLAUDE.md. Run again, it refreshes
@@ -309,7 +309,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Install the construct3-agent-plugin skill in a Construct 3 game project, or refresh the copies it "
-                    "holds, from the Construct3-RAG clone this script sits in. Adds the Construct 3 block to the "
+                    "holds, from the plugin folder this script sits in. Adds the Construct 3 block to the "
                     "project's AGENTS.md when no instruction file there names the clone yet, and the line @AGENTS.md "
                     "to CLAUDE.md. Replaces the Construct 3 block of the project's instruction file and the helpers "
                     "of its tools/build_project.py, each between its markers, with the skill's when they are an "
@@ -330,7 +330,7 @@ def main() -> int:
     ap.add_argument("--into", metavar="DIR",
                     help=f"skills directory to install into, relative to the project or absolute (default: every "
                          f"copy the project already holds, else {DEFAULT_INTO})")
-    ap.add_argument("--rag", metavar="FOLDER", help="the Construct3-RAG clone, when run from an installed copy")
+    ap.add_argument("--rag", metavar="FOLDER", help="the plugin folder of a Construct3-Agent-Skills clone, when run from an installed copy")
     ap.add_argument("--no-block", action="store_true", help="do not touch the project's AGENTS.md")
     ap.add_argument("--helpers-only", action="store_true",
                     help=f"refresh only the helpers of the project's {c3.GENERATOR}, between its markers; no copy "

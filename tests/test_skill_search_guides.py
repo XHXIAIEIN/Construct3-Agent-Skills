@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from tests.skill_helpers import PLUGIN, REPO, SKILL, NEEDS_GIT, git, run, tool, script_module
+from tests.skill_helpers import DATA, INSTALLED, PLUGIN, REPO, SKILL, NEEDS_GIT, git, run, tool, script_module
 
 c3 = script_module("c3project")
 
@@ -97,3 +97,12 @@ def test_examples_without_the_clone_say_how_to_get_it(tmp_path):
     plugin = fake_rag(tmp_path / "Plugin", snake=True)
     assert (f'git clone --depth 1 https://github.com/Scirra/Construct-Example-Projects '
             f'"{clone.as_posix()}" clones it') in snake_output(plugin, tmp_path)
+
+
+def test_raw_data_override_keeps_pitfalls_for_source_and_installed_scripts(project):
+    for script in (SKILL / "scripts" / "search_guides.py", project / INSTALLED / "scripts" / "search_guides.py"):
+        code, out = run(project, script, "click", "button", "behind", "--examples", "0", "--rag", str(DATA.parent))
+        assert code == 0, out
+        assert "pitfalls:" in out and "*Pick top/bottom* (top)" in out, out
+        location = next(line for line in out.splitlines() if "/prompts/pitfalls/input.md:" in line)
+        assert Path(location.rsplit(":", 1)[0]).is_file(), out

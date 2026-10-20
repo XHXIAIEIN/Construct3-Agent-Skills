@@ -3503,7 +3503,7 @@ class Checker:
                                       f"event that created it. Set the new {t} up in the event that creates "
                                       f"it, pass its UID to {name} and pick it there by unique ID, or call "
                                       f"{name} from a later top-level event or trigger "
-                                      f"({(self.p.rag / 'prompts' / 'pitfalls' / 'creating-objects.md').as_posix()})")
+                                      f"({(c3.prompts_folder(self.p.rag) / 'pitfalls' / 'creating-objects.md').as_posix()})")
                 for t, chain in sub[0].items():
                     made.setdefault(t, (i, [name] + chain))
 

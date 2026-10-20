@@ -59,7 +59,7 @@ def rules(p: c3.Project) -> dict:
     """Hashes of the scripts and prompts that shape a question; a change invalidates saved answers."""
     scripts = Path(__file__).parent
     paths = [scripts / name for name in ("review_design.py", "design_review.py", "print_sheet.py", "c3project.py")]
-    paths += [p.rag / "prompts" / name for name in ("event-sheet-thinking.md", "event-sheet-style.md")]
+    paths += [c3.prompts_folder(p.rag) / name for name in ("event-sheet-thinking.md", "event-sheet-style.md")]
     return {path.name: hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
             for path in paths}
 
@@ -277,7 +277,7 @@ def packets(p: c3.Project, d: Design, found: list[dict], sheets: list[str], ques
             script = (p.root / path).read_text(encoding="utf-8")
             add(path.as_posix(), script, script)
             missing.append("Script imports and runtime effects are unresolved; verify them in the preview")
-        guide = p.rag / "prompts" / "event-sheet-thinking.md"
+        guide = c3.prompts_folder(p.rag) / "event-sheet-thinking.md"
         if guide.exists():
             text = guide.read_text(encoding="utf-8")
             model = text.split("## The model\n", 1)[-1].split("## Rules\n", 1)[0]

@@ -1,9 +1,9 @@
 """Lay out the project folders of one eval iteration, one per test case and arm.
 
-    python evals/make_fixtures.py RUNS_DIR [--arms with_skill without_skill] [--cases NAME ...] [--held-out]
+    python skills-dev/evals/make_fixtures.py RUNS_DIR [--arms with_skill without_skill] [--cases NAME ...] [--held-out]
                                   [--old-clone FOLDER] [--examples FOLDER]
 
-RUNS_DIR must lie outside the Construct3-RAG clone: an agent started below
+RUNS_DIR must lie outside the Construct3-Agent-Skills clone: an agent started below
 the clone reads its AGENTS.md, which routes to this skill, and a baseline
 that has the skill is not a baseline. A project is one of three kinds. The
 default is the stand-in game of assets/build_project.py, without tools/, so
@@ -13,7 +13,7 @@ that the task is a hand edit of a project made in the editor. A fixture
 game before any file exists. A fixture of SEEDS is a stand-in game or an
 example with a fault written into it, most of them a mistake small models
 make, for a case that asks to fix it. A case marked held_out in evals.json is
-left out unless --held-out is given (skills/AGENTS.md, Evals).
+left out unless --held-out is given (skills-dev/AGENTS.md, Evals).
 
 An arm named with_... holds the skill and the block as install.py leaves
 them, without_... holds neither, and old_... holds the previous version of
@@ -439,7 +439,7 @@ def main() -> int:
         sys.exit(f"no test case named {', '.join(sorted(unknown))}; evals.json has: {', '.join(c['name'] for c in CASES)}")
     held = sorted(c["name"] for c in CASES if c.get("held_out") and c["name"] in (args.cases or []))
     if held and not args.held_out:
-        sys.exit(f"{', '.join(held)} {'is' if len(held) == 1 else 'are'} held out of tuning (skills/AGENTS.md, Evals): "
+        sys.exit(f"{', '.join(held)} {'is' if len(held) == 1 else 'are'} held out of tuning (skills-dev/AGENTS.md, Evals): "
                  f"add --held-out once the change is otherwise done, or name the other cases")
     chosen = [c for c in CASES if (c["name"] in args.cases if args.cases else args.held_out or not c.get("held_out"))]
 

@@ -84,7 +84,7 @@ def name_clones(project: Path, folder: Path, names: list[str]) -> str:
     head, _, tail = text.partition(key)
     line, _, rest = tail.partition("\n")
     agents.write_text(head + key + line + "\n" + lines + rest, encoding="utf-8", newline="\n")
-    return f"AGENTS.md: named {', '.join(missing)} under {folder.as_posix()}, which is not beside Construct3-RAG"
+    return f"AGENTS.md: named {', '.join(missing)} under {folder.as_posix()}, which is not beside Construct3-Agent-Skills"
 
 
 def main() -> int:

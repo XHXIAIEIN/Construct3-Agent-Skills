@@ -13,11 +13,11 @@ Each row names its source in the Example column:
 - `observed`: what a game project settled in its r504 preview, 2026-09-30
   to 2026-10-05, or what a probe project showed in the stable editor's
   preview on 2026-10-08, recorded in `docs/decisions/count-up-and-press.md`
-  of the Construct3-RAG repository;
+  of the Construct3-Agent-Skills repository;
 - `studied`: a mechanism read in a studied project's sheets, 2026-10-06;
 - `measured`: a probe project played in a preview at 60 and 144 Hz, with
   its numbers in `docs/decisions/borrowed-numbers.md` of the
-  Construct3-RAG repository.
+  Construct3-Agent-Skills repository.
 
 | Need | Use | Example |
 |------|-----|---------|

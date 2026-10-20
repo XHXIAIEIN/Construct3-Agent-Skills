@@ -12,8 +12,8 @@ Scripts for the JSON of a Construct 3 project saved as a folder: look an ACE
 up with the JSON to write, read a sheet as the editor words it, change it
 from a plan, check the project before the editor opens it, generate a whole
 project from Python, and open it in the editor to see that it opens. They
-read the schemas of the Construct3-RAG clone, so a name they accept exists
-and a name they reject does not. The checker reads the files alone; the
+read Construct3-RAG schemas from the plugin or a data clone, so a name they
+accept exists and a name they reject does not. The checker reads the files alone; the
 editor also reads the expressions, so a project the checker passes is opened
 once before it is handed over.
 
@@ -24,10 +24,10 @@ once before it is handed over.
   `python .agents/skills/construct3-agent-plugin/scripts/check_project.py`.
   The scripts find the project from the current directory upward;
   `--project <folder>` names another one.
-- The scripts find the clone through `--rag`, the `CONSTRUCT3_RAG`
+- The scripts find the data folder through `--rag`, the `CONSTRUCT3_RAG`
   environment variable, or the `Construct3-RAG: <folder>` line in the
   project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found`: fill
-  that line in; ask the user for the folder instead of guessing it.
+  that line in with the Agent-Skills clone's `plugin/` folder.
   `check_project.py` fetches the clone at most once an hour to say when it
   is behind its upstream; `CONSTRUCT3_RAG_OFFLINE=1` turns the fetch and
   the comparison off.

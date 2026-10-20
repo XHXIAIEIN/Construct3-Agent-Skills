@@ -1,5 +1,5 @@
 """What the scripts of this skill share: finding the project and the
-Construct3-RAG clone, reading the files project.c3proj lists, the schemas,
+Construct 3 data folder, reading the files project.c3proj lists, the schemas,
 the object model (types, families, behaviors, instance variables), the
 schema entry behind a condition or an action, what the editor has
 deprecated, the helpers of a game's generator against the template's, and
@@ -463,7 +463,7 @@ def examples_clone_command(rag: Path | None) -> str:
     """The command that puts the examples clone where the scripts look for it: the clone's bootstrap.py,
     or the git clone itself from a plugin that holds no bootstrap.py."""
     if rag is None:
-        return "python <Construct3-RAG>/scripts/bootstrap.py"
+        return "python <Construct3-Agent-Skills>/scripts/bootstrap.py"
     bootstrap = clone_root(rag) / "scripts" / "bootstrap.py"
     if bootstrap.is_file():
         return f"python {bootstrap.as_posix()}"
@@ -506,6 +506,16 @@ def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, li
         tried.append(f"{source}: {c}")
     # Run in place from the plugin folder's skills/, the data beside the skills is the script's own.
     return above(SKILL_DIR, "data/c3-schemas/_index.json"), tried
+
+
+def prompts_folder(rag: Path) -> Path:
+    """The prompts beside the selected data, in this plugin, or in the sibling Agent-Skills plugin."""
+    own = above(SKILL_DIR, "prompts/event-sheet-pitfalls.md")
+    candidates = [rag / "prompts"]
+    if own:
+        candidates.append(own / "prompts")
+    candidates.append(siblings_folder(rag) / "Construct3-Agent-Skills" / "plugin" / "prompts")
+    return next((path for path in candidates if path.is_dir()), rag / "prompts")
 
 
 def find_rag(root: Path | None, override: str | None) -> Path:
@@ -1253,7 +1263,8 @@ def argument_parser(description: str, epilog: str) -> argparse.ArgumentParser:
     ap.add_argument("--project", metavar="FOLDER",
                     help="the folder that holds project.c3proj (default: found from the current directory upward)")
     ap.add_argument("--rag", metavar="FOLDER",
-                    help="the Construct3-RAG clone (default: CONSTRUCT3_RAG, else the 'Construct3-RAG:' line "
+                    help="the folder holding data/ (Agent-Skills plugin/ or Construct3-RAG; default: CONSTRUCT3_RAG, "
+                         "else the 'Construct3-RAG:' line "
                          "of the project's AGENTS.md or CLAUDE.md)")
     ap.add_argument("--locale", default="en-US",
                     help="schema locale, one of `languages` in data/c3-schemas/_index.json; ids are the same in "
