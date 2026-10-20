@@ -131,6 +131,13 @@ Sources and the rule for adding an entry are in the index,
   highlights on a separate child that keeps its colour. [manual:
   plugin-reference/common-features/common-actions.md "Set color"; observed in
   a game project, r503 preview, 2026-09-29]
+- `rgbEx` and `rgba` take each channel from 0 to 100, `rgbEx255` and
+  `rgba255` from 0 to 255. A channel past 100 in `rgbEx` is clamped, so a
+  colour written on the 0-255 scale draws paler: a blue drew pale and grey
+  lines of `#DEDEDE` drew white. Write a fixed colour as
+  `HexColor("#RRGGBB")` and a computed one as `rgbEx255(r, g, b)`, and not
+  the deprecated `rgb`. [manual: system-reference/system-expressions.md
+  "rgbEx"; observed in an Array IndexOfY demo, r506.3 preview, 2026-10-20]
 - A Text object draws its text into a texture of its own. A change of text or
   font size redraws and re-uploads that texture on the next frame. So a *Set
   font size* every tick during a pop tween redraws the text and uploads a

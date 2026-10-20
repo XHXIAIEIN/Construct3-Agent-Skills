@@ -124,8 +124,8 @@ is the skip. Use it when the line needs no pause and no voice.
   with the tag's parts from `tokenat(tag, i, " ")`. Reading the raw line
   with `mid` one character at a time, every tick, inside a *While*, is the
   smell row of the design guide. Write a colour in a tag as three numbers,
-  `<color 255 0 0>`, or as a name that a Dictionary maps to `rgbEx`, so no
-  event decodes hex by hand. [studied]
+  `<color 255 0 0>` read into `rgbEx255`, or as a name that a Dictionary
+  maps to a hex string for `HexColor`, so no event decodes hex by hand. [studied]
 - **Glyphs that move.** Only when a glyph shakes or waves on its own does
   each one become an instance: one Sprite Font instance per character,
   made a child of the line's object with *Add child*, so it follows the

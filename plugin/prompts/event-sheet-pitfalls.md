@@ -244,6 +244,7 @@ polygons or blend modes, or drop a dragged object onto another, read
 - *Move to top* leaves a hierarchy's children where they were. Move each part.
 - An instance listed earlier on a layer is drawn under the later ones, so a dragged piece listed before its target vanishes behind it when dropped. List it after the target, or *Move to top* in *On drag start*.
 - *Set color* multiplies. Draw a tinted part white and keep highlights on an untinted child.
+- `rgbEx` clamps each channel at 100, so 0-255 values draw pale or white. Write `HexColor("#RRGGBB")`, or `rgbEx255` for computed channels.
 - Changing a Text's font size redraws and re-uploads its texture. Animate position, angle or opacity, or use a Sprite Font and tween its scale.
 - A Sprite Font draws whole cells and tints its outline with its colour. Draw glyphs left in the cell, one image per colour, in a box sized for the largest scale.
 - A Sprite Font's *Character spacing* is in layout pixels, not scaled by *Scale*, and only between characters. `TextWidth` includes it. Keep it 0 and put a space character where a gap is wanted.
