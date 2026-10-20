@@ -470,7 +470,9 @@ def bare_name_in(code: str, name: str) -> bool:
     """name read as a variable of the script: not a member, a key or the script's own declaration."""
     n = re.escape(name)
     declared = (rf"\b(?:let|const|var|function|class)\s+{n}\b|(?<![\w$.]){n}\s*=>"
-                rf"|\((?:\s*[\w$]+\s*,)*\s*{n}\s*(?:,\s*[\w$]+\s*)*\)\s*=>")
+                rf"|\((?:\s*[\w$]+\s*,)*\s*{n}\s*(?:,\s*[\w$]+\s*)*\)\s*=>"
+                # destructured, as in const {{ Value }} = localVars
+                rf"|\b(?:let|const|var)\s*(?:\{{[^}}]*|\[[^\]]*)(?<![\w$.]){n}(?![\w$])(?!\s*:(?!:))")
     if re.search(declared, code):
         return False
     return re.search(rf"(?<![\w$.]){re.escape(name)}(?![\w$])(?!\s*:(?!:))", code) is not None

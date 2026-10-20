@@ -1570,6 +1570,19 @@ def test_a_script_that_reads_a_parameter_bare_is_named(project):
     assert [w for w in warnings(out) if "reads text as a bare name" in w and "localVars.text" in w], out
 
 
+@pytest.mark.parametrize("script", [
+    "const { text } = localVars;\nconsole.log(parseInt(text, 16));",
+    "const { width, text } = localVars, h = 2;\nconsole.log(text, h);",
+    "let [text] = [localVars.text];\nconsole.log(text);",
+])
+def test_a_script_that_destructures_a_parameter_reads_its_own_name(project, script):
+    """The destructured name is the script's own constant (Array IndexOfY demo, r506.3 preview, 2026-10-20)."""
+    func = function("Hex", 2, [{"type": "script", "language": "javascript", "script": [script]}],
+                    params=[{"name": "text", "type": "string", "initialValue": "", "comment": "", "sid": 3}])
+    out = findings(project, lambda s: s["events"].append(func))
+    assert not [w for w in warnings(out) if "as a bare name" in w], out
+
+
 @pytest.mark.parametrize("returns, use, said", [
     ("number", {"callFunction": "Two", "sid": 4, "parameters": []}, "function 'Two' has wrong return type"),
     ("none", {"id": "set-text", "objectClass": "ScoreText", "sid": 4, "parameters": {"text": "Functions.Two"}},
