@@ -16,7 +16,7 @@ the sheet.
 
 Generate when the agent owns the project and the user reviews it in the
 editor: a prototype, a game built from a design conversation, a rewrite. Edit
-JSON by hand (`Construct3-RAG/prompts/references/hand-editing-project-files.md`)
+JSON by hand (`Construct3-Agent-Skills/plugin/prompts/references/hand-editing-project-files.md`)
 when the change is small and the project is the user's, made in the editor.
 Do not generate over a project the user edits in parallel: the generator
 overwrites the files it produces.
@@ -101,8 +101,8 @@ gets its storage from the rule for its owner and lifetime:
 Check the table before writing events: no scratch global; no global that
 one group alone writes and reads; no field packed in a string with a
 separator or a suffix; no row stored in two places. The reasons are in
-`Construct3-RAG/prompts/event-sheet-thinking.md` ("Native first", "Smell
-table") and `Construct3-RAG/prompts/event-sheet-style.md` ("Seven habits to
+`Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md` ("Native first", "Smell
+table") and `Construct3-Agent-Skills/plugin/prompts/event-sheet-style.md` ("Seven habits to
 avoid").
 
 ## Plan the art
@@ -117,11 +117,11 @@ drawing styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-from-t
 ## Build, check, open
 
 Design first, as `designing-a-game.md` beside this file and
-`Construct3-RAG/prompts/event-sheet-thinking.md` say:
+`Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md` say:
 relations, an official example with the same behaviors, the Native first
-table, the Feel table of `Construct3-RAG/prompts/references/feel.md`, the
+table, the Feel table of `Construct3-Agent-Skills/plugin/prompts/references/feel.md`, the
 sheets, groups and objects of
-`Construct3-RAG/prompts/references/new-project.md`, and the state table
+`Construct3-Agent-Skills/plugin/prompts/references/new-project.md`, and the state table
 above. Then:
 
 1. Write the design into the generator: the constants at the top, the
@@ -161,7 +161,7 @@ above. Then:
    a tween and a timer ending a tick apart, a mask that leaves a corner
    uncovered) is a runtime fact. Fix the generator, and when the fact would
    trip the next agent, record it with its source where it changes that
-   agent's work: `Construct3-RAG/prompts/event-sheet-pitfalls.md` when it
+   agent's work: `Construct3-Agent-Skills/plugin/prompts/event-sheet-pitfalls.md` when it
    changes which events are written, `editor-and-preview.md` beside this
    file when it is about the editor or the preview, and the places its
    "Adding an entry" section names for a file format or the look.
@@ -233,7 +233,7 @@ parameters are in the template.
 - Every runtime-created type has a template instance in a layout that never
   runs (`Objects` in the stand-in).
 - Before placing, sizing or colouring anything on the screen, read
-  `Construct3-RAG/prompts/references/new-project.md`, "Viewport, look and
+  `Construct3-Agent-Skills/plugin/prompts/references/new-project.md`, "Viewport, look and
   HUD": the layout and the paper-and-ink look that the helpers below draw
   until the art arrives, with the numbers behind them.
 - Positions and sizes are whole units of the placement grid, never numbers
@@ -438,9 +438,9 @@ parameters are in the template.
   None, acts)])`: one gate event, flat sibling cases with a comment each,
   `None` for Else. The checker's `--style` warns where a sheet departs from
   these three shapes. What it cannot check: the names, in
-  `Construct3-RAG/prompts/event-sheet-style.md`, and the folders, layers and
+  `Construct3-Agent-Skills/plugin/prompts/event-sheet-style.md`, and the folders, layers and
   `ObjectRepository` layout, in
-  `Construct3-RAG/prompts/references/new-project.md`.
+  `Construct3-Agent-Skills/plugin/prompts/references/new-project.md`.
 
   ```python
   def module_player() -> dict:

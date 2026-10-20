@@ -92,7 +92,7 @@ def test_skill_md_reads_under_any_locale_codec():
 
 def test_every_file_the_skill_names_is_in_it():
     for name, text in skill_docs():
-        # a path of the clone, Construct3-RAG/prompts/references/..., is not one of the skill's own
+        # a path of the clone, Construct3-Agent-Skills/plugin/prompts/references/..., is not one of the skill's own
         for rel in set(re.findall(r"(?<![\w/])((?:scripts|references|assets)/[\w.-]+\.\w+)", text)):
             assert (SKILL / rel).is_file(), f"{name} names {rel}"
 
@@ -105,6 +105,8 @@ def test_every_file_of_the_clone_the_skill_names_exists():
         for rel in set(re.findall(r"Construct3-RAG/([\w./-]+\.\w+)", text)):
             where = REPO if rel.startswith("docs/") else PLUGIN
             assert (where / rel).is_file(), f"{name} names Construct3-RAG/{rel}"
+        for rel in set(re.findall(r"Construct3-Agent-Skills/plugin/([\w./-]+\.\w+)", text)):
+            assert (PLUGIN / rel).is_file(), f"{name} names Construct3-Agent-Skills/plugin/{rel}"
 
 
 # Browser flags, named where the skill says how the browser is started or starts itself again

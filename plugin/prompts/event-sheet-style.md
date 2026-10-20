@@ -75,7 +75,7 @@ each. Two levels of sub-events cover almost every event in the examples.
 To see these conventions in a whole sheet before writing, print an example:
 
 ```bash
-python <Construct3-RAG>/skills/construct3-agent-plugin/scripts/print_sheet.py --project <Construct-Example-Projects>/example-projects/samuroof Game
+python <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/print_sheet.py --project <Construct-Example-Projects>/example-projects/samuroof Game
 ```
 
 `labyrinth`, `eventide` and `digiautos` show the same conventions.

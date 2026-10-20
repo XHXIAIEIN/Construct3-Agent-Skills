@@ -226,7 +226,7 @@ If a draft matches one row, redesign it instead of patching it.
    `behaviors` for a drag case). If `Construct-Example-Projects` is cloned
    alongside, copy the event shape from `example-projects/{id}/eventSheets/`.
    Read a sheet as events, not as JSON: `python
-   <Construct3-RAG>/skills/construct3-agent-plugin/scripts/print_sheet.py --project
+   <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/print_sheet.py --project
    <Construct-Example-Projects>/example-projects/{id}` prints it in the
    editor's wording, at about a quarter of the length.
    In `family-tree` and `alchemist`, the drop pattern is `On drop`, a
@@ -244,7 +244,7 @@ If a draft matches one row, redesign it instead of patching it.
    and the [pitfalls](event-sheet-pitfalls.md), with the topic file of each
    group that it touches.
 6. Only then verify every name: `python
-   <Construct3-RAG>/skills/construct3-agent-plugin/scripts/lookup_ace.py
+   <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/lookup_ace.py
    OBJECT WORDS` prints the matching conditions, actions and expressions of
    a plugin or behavior, with their parameters and the JSON to write, and
    the ACEs that all world objects share with them. If it finds nothing, say

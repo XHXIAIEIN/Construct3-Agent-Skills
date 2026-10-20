@@ -16,7 +16,7 @@ file to read for each kind of work, and a copy of the
 folder writes both:
 
 ```bash
-python <Construct3-RAG>/skills/construct3-agent-plugin/scripts/install.py
+python <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/install.py
 ```
 
 It copies [`skills/construct3-agent-plugin/`](../skills/construct3-agent-plugin/SKILL.md)
@@ -89,7 +89,7 @@ whole, because each one says what to read next.
 The block loads no other file at startup; the agent reads each one when its
 work needs it. If the agent keeps skipping those files, add this line below
 the block's end marker:
-`@<path-to>/Construct3-RAG/prompts/event-sheet-thinking.md`. Claude Code
+`@<path-to>/Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md`. Claude Code
 then inlines that file into every session of the project, at the cost of
 its full length each time. Other tools ignore the line.
 

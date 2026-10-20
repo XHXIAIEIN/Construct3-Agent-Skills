@@ -87,7 +87,7 @@ Traps of the running game are warnings:
   further condition, and that nothing else starts but *On start of
   layout*. The first time the condition is false when the timer ends,
   nothing starts it, and *On timer* never fires again
-  [`Construct3-RAG/prompts/pitfalls/timer.md`]. The finding names the
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/timer.md`]. The finding names the
   input trigger to start it in. It passes when a *Regular* start, an *Else*
   branch or an unconditional restart keeps it going, and when another
   trigger, a function or an event that runs every tick starts it. Over the
@@ -115,7 +115,7 @@ Traps of the running game are warnings:
   events run on the same input, this one after the other's actions, so it
   sees the value just set and can set it back: a switch written as
   "frame 0: set 1" and "frame 1: set 0" never stays switched
-  [`Construct3-RAG/prompts/pitfalls/triggers-and-else.md`]. The finding
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/triggers-and-else.md`]. The finding
   writes one event with the trigger and the cases as its sub-events, the
   second starting with *Else*. A change after a *Wait* passes, since the
   later event runs before it;
@@ -134,7 +134,7 @@ Traps of the running game are warnings:
 - `X.Count = 0`, `≤ 0` or `< 1` in a condition that runs after a *Destroy*
   of X in the same top-level event: the destroyed instance counts until
   that event ends, so the test fails for the last one
-  [`Construct3-RAG/prompts/pitfalls/picking.md`]. The official examples
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md`]. The official examples
   compare with 1 there, which passes, as does a test after a *Wait*;
 - `X.PickedCount = 0`, `≤ 0` or `< 1` below a condition of its branch that
   picks X, such as *Pick all*, *For each* or a condition on X: a condition
@@ -145,7 +145,7 @@ Traps of the running game are warnings:
   for equality with two different literal values, `X: v = 1` below
   `X: v = 0`: each condition keeps only the X the conditions above it kept,
   so no instance passes both, and the event never runs
-  [`Construct3-RAG/prompts/pitfalls/picking.md`]. The finding says to
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md`]. The finding says to
   narrow once and count, `X: Row = 0`, `X: Value = 1`, then
   `System: X.PickedCount = 3`, or to keep the values in an Array. A
   *Pick all* of X between the two, and an OR block, pass. Over the official
@@ -153,7 +153,7 @@ Traps of the running game are warnings:
 - *Is overlapping* between an object with Platform and a Solid: the
   behavior pushes its object out of every enabled Solid each tick, so the
   two touch and the test never holds
-  [`Construct3-RAG/prompts/pitfalls/picking.md`]. The finding writes *Is
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md`]. The finding writes *Is
   overlapping at offset*, 1 pixel towards the Solid. It passes when
   something else moves either object (another movement behavior, a
   position, size or tween action, the Platform switched off), when an
@@ -164,7 +164,7 @@ Traps of the running game are warnings:
   or set to its position, when a layout draws it under that object: on a
   lower layer, or listed before it on the same layer. Dropped there, the
   piece disappears behind its target
-  [`Construct3-RAG/prompts/pitfalls/rendering.md`]. The finding names both
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/rendering.md`]. The finding names both
   ways out, the order in the layout and *Move to top* in *On drag start*,
   with its JSON. It passes when an action changes the Z order of either
   object (*Move to top*, *Move to bottom*, *Move to layer*, *Move to object*,
@@ -229,7 +229,7 @@ Traps of the running game are warnings:
   (*For each*, *Pick all*, a comparison, an overlap): the new instances
   join the others only when the top-level event or trigger ends, so the
   second function misses them
-  [`Construct3-RAG/prompts/pitfalls/creating-objects.md`]. A pick that
+  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/creating-objects.md`]. A pick that
   starts from *Pick by unique ID*, *Pick last created* or a hierarchy link
   passes, and so does a function that waits or copies the caller's picked
   instances after a direct create; the actions after a wait are not
@@ -372,8 +372,8 @@ output. Each names the event and says what to write.
 Why these thresholds: `Construct3-Agent-Skills/docs/decisions/event-sheet-design-guidance.md`.
 A style warning is never an error: the editor accepts all ten, and an
 official example may carry one. What the shape should be instead is
-`Construct3-RAG/prompts/event-sheet-style.md`, and for the last three the
-Native first table of `Construct3-RAG/prompts/event-sheet-thinking.md`.
+`Construct3-Agent-Skills/plugin/prompts/event-sheet-style.md`, and for the last three the
+Native first table of `Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md`.
 
 ## What a web export ships
 
@@ -401,7 +401,7 @@ starts. The shapes and the measurement behind them:
 What happens at runtime: which instances a condition picks, what order
 triggers fire in, whether an expression means what the comment says. The
 editor and the preview judge those; the observations in
-`Construct3-RAG/prompts/event-sheet-pitfalls.md` and in
+`Construct3-Agent-Skills/plugin/prompts/event-sheet-pitfalls.md` and in
 `editor-and-preview.md` beside this file came from previewing, not from the
 checker. Expression syntax beyond those operators, argument types, and
 whether a `template` parameter names a template of the object are not

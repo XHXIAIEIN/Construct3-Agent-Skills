@@ -17,7 +17,7 @@ eventSheets/*.json. Do not answer it from memory.
    sheet as events, look an ACE up with the JSON to write, change a sheet
    from a plan, check the project and generate one from a script; eventSheets/
    is read and changed through them. If that folder is missing,
-   `python Construct3-RAG/skills/construct3-agent-plugin/scripts/install.py`
+   `python Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/install.py`
    installs it. Then run
    `python .agents/skills/construct3-agent-plugin/scripts/check_project.py` once:
    it stops with what to fix when the path above does not reach the clone or
@@ -27,10 +27,10 @@ eventSheets/*.json. Do not answer it from memory.
 
 | Doing | Read first |
 |-------|------------|
-| Deciding what the events are | Construct3-RAG/prompts/event-sheet-thinking.md |
+| Deciding what the events are | Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md |
 | Writing a plugin, behavior, ACE, effect or script name, or looking for how an official example does it | The skill's `lookup_ace.py`, `lookup_script_api.py` and `search_guides.py` |
 | Writing an addon: a new plugin, behavior, effect or theme for the Addon Manager, not an event that uses one | Construct3-Manual/Construct3-Addon-SDK/index.md, then a sample under Construct-Addon-SDK/ |
-| Changing eventSheets/, layouts/, objectTypes/ JSON or clipboard JSON by hand; naming an event, or reading one the user names ("event 15", a screenshot, a Find result) | Construct3-RAG/prompts/references/hand-editing-project-files.md; for the event numbers, "Naming an event to the user" |
+| Changing eventSheets/, layouts/, objectTypes/ JSON or clipboard JSON by hand; naming an event, or reading one the user names ("event 15", a screenshot, a Find result) | Construct3-Agent-Skills/plugin/prompts/references/hand-editing-project-files.md; for the event numbers, "Naming an event to the user" |
 | Adding, renaming or moving a file of the project: an image, a sound, a script, a new sheet or layout | Construct3-RAG/data/c3-guides/constructs-project-format.md, Scirra's guide to the format, which the llm-context.md here links; then "The project folder" in hand-editing-project-files.md |
 | Following a `[manual: ...]` reference in those files | Construct3-Manual/Construct3-Manual/<that path> |
 
@@ -39,4 +39,4 @@ read in parts: list its headings with their line numbers (`grep -n '^#'
 <file>`, or `Select-String '^#' <file>` in PowerShell), then read the
 section the work needs. Each whole read stays in the context of every
 later turn of the session.
-<!-- construct3-agent-plugin block: end; version 2026-10-16, stamp e0d51d97d7af -->
+<!-- construct3-agent-plugin block: end; version 2026-10-20, stamp d8e842cf2bb3 -->

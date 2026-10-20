@@ -265,7 +265,7 @@ SOLID_CHANGES = {"destroy", "set-x", "set-y", "set-position", "set-position-to-a
                  "erase-tile-with-brush-by-name", "set-tile-with-patch-brush", "erase-tile-with-patch-brush",
                  "set-tile-with-patch-brush-by-name", "erase-tile-with-patch-brush-by-name"}
 REGENERATE = {"regenerate-obstacle-map", "regenerate-region", "regenerate-region-around-object"}
-# Is overlapping between a Platform object and a Solid (Construct3-RAG/prompts/pitfalls/picking.md): the
+# Is overlapping between a Platform object and a Solid (Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md): the
 # Platform behavior pushes its object out of every enabled Solid each tick, so the two touch and do not overlap.
 # On collision still fires, because the behavior registers the collision as it pushes out (exported c3runtime.js,
 # Platform: PushOutSolidAxis, then RegisterCollision). An object that something else moves, or a Solid switched
@@ -2625,7 +2625,7 @@ class Checker:
                 f"never runs. Test touching with Is overlapping at offset, 1 pixel towards {solid}: {offset} for a "
                 f"{solid} on the right, \"offset-x\": \"-1\" on the left, \"offset-x\": \"0\", \"offset-y\": "
                 f"\"1\" below; two events, or an OR block, for both sides. {mover} On collision with {solid} also "
-                f"fires when they touch (Construct3-RAG/prompts/pitfalls/picking.md)")
+                f"fires when they touch (Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md)")
 
     def dragged(self, obj) -> bool:
         """An object type with Drag & Drop, or a family that has it or has a member with it."""
@@ -2756,7 +2756,7 @@ class Checker:
                     f"timer {shown} never fires after that. Start it in the trigger of what it times: for a reset N "
                     f"seconds after the last tap or key (a combo, an idle screen), start it in the input's trigger "
                     f"on every input, {start}, which restarts it, and reset in On timer {shown}; no variable "
-                    f"needs to count the time (Construct3-RAG/prompts/pitfalls/timer.md)")
+                    f"needs to count the time (Construct3-Agent-Skills/plugin/prompts/pitfalls/timer.md)")
 
     def not_leaving(self, c: dict) -> bool:
         """Whether a condition above a Destroy says nothing about an instance on its way out: a hit, an input or a

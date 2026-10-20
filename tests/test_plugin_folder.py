@@ -12,7 +12,7 @@ from scripts import build_plugin
 from tests.skill_helpers import DATA, PLUGIN, REPO, SKILL, run, streams
 
 MENU = PLUGIN / "skills"        # the rows of the / menu lie beside the skill
-NAMED = re.compile(r"Construct3-RAG/((?:data|prompts)/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
+NAMED = re.compile(r"Construct3-(?:RAG|Agent-Skills/plugin)/((?:data|prompts)/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
 
 
 def test_plugin_folder_is_a_fresh_build_under_the_limits():

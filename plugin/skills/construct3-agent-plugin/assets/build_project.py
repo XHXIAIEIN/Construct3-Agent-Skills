@@ -2977,7 +2977,7 @@ def build_and_check() -> None:
     checker = skill_file("scripts/check_project.py")
     if checker is None:
         sys.exit("generated, not checked: the construct3-agent-plugin skill is not installed in this project; "
-                 "run python <Construct3-RAG>/skills/construct3-agent-plugin/scripts/install.py here, then "
+                 "run python <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/install.py here, then "
                  "its scripts/check_project.py")
     print("generated; checking")
     sys.stdout.flush()
@@ -2985,7 +2985,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-15, stamp f6adb8c1cc66 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-20, stamp eebf831cacc7 ================
 
 
 # --- the game ---------------------------------------------------------------------------

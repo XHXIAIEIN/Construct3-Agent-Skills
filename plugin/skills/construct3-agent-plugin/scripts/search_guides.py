@@ -3,7 +3,7 @@
     python scripts/search_guides.py WORD [WORD ...] [--pitfalls N] [--examples N] [--locale en-US]
                                     [--limit CHARS] [--project FOLDER] [--rag FOLDER]
 
-Prints the entries of `Construct3-RAG/prompts/pitfalls/*.md` that hold the
+Prints the entries of `Construct3-Agent-Skills/plugin/prompts/pitfalls/*.md` that hold the
 words, each in full with its file and line. Then it prints the official
 examples whose id, name, description, tags or addons hold them, each with the
 command that prints its events. Entries with more of the words come first. A
