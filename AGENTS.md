@@ -177,19 +177,34 @@ Before you edit, read the `AGENTS.md` of every directory you touch, run
   GitHub turns those into a public cross-reference on that issue's
   timeline, which cannot be taken back.
 
-Before you finish, run these:
+Before you finish, run the tests that the change reaches and the three
+quick checks:
 
 ```bash
-python -m pytest -q
+python -m pytest -q <test files>
 python -m compileall -q scripts tests skills-dev plugin/skills
 python scripts/build_plugin.py --check
 git diff --check
 ```
 
-They need the Construct3-RAG clone beside this one and, for the tests that
-read the official examples, the `Construct-Example-Projects` clone; a test
-that lacks it skips and names the command. `.github/workflows/checks.yml`
-runs the same on every push to `main` and every pull request.
+Pick the test files from the paths in the diff:
+
+- A change to `plugin/prompts/` or a document reaches the tests that read
+  them: `test_prompts.py`, `test_doc_links.py`, `test_plugin_folder.py` and
+  `test_skill_search_guides.py`.
+- A change to a script reaches its own tests and the tests of the scripts
+  that import it. Find the importers with `grep -l <module>` in the scripts'
+  folders, then the tests that name any of them.
+- A change that reaches most test files, such as one to
+  `tests/skill_helpers.py` or `tests/conftest.py`, runs the whole suite,
+  `python -m pytest -q`.
+
+`.github/workflows/checks.yml` runs the whole suite and the other checks on
+every push to `main` and every pull request, so a push needs no local run
+of its own. The tests need the Construct3-RAG clone beside this one and,
+for the tests that read the official examples, the
+`Construct-Example-Projects` clone; a test that lacks it skips and names the
+command.
 
 ## 6. Where to read more
 
