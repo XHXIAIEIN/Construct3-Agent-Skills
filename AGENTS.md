@@ -46,7 +46,7 @@ new pitfall reaches users by `git pull` without a plugin release. Below,
 | `skills-dev/` | The skill's evals under `evals/`, and `AGENTS.md`, the guide to changing the skill |
 | `scripts/` | The data build, `bootstrap.py`, the output comparison and the measurements. `scripts/AGENTS.md` lists them |
 | `tests/` | The pytest suite, described in `tests/AGENTS.md` |
-| `docs/decisions/` | The records, indexed in `docs/AGENTS.md` |
+| `docs/decisions/` | The records, indexed in `docs/decisions/README.md`; `docs/AGENTS.md` says how to write one |
 | `.claude/agents/` | The `ace-lookup` sub-agent for sessions in this repository |
 | `.claude-plugin/marketplace.json` | The marketplace manifest, which names `plugin/` |
 
@@ -181,7 +181,7 @@ Before you edit, read the `AGENTS.md` of every directory you touch and run
 - A change to `SKILL.md`, to a reference or to what a script prints needs an
   eval iteration of its own (`skills-dev/AGENTS.md`, "Evals").
 - If a product choice has a visible effect, record its evidence, options and
-  trade-offs in `docs/decisions/`, and add a row for it to `docs/AGENTS.md`.
+  trade-offs in `docs/decisions/`, and add its line to `docs/decisions/README.md`.
 - Change the docs and the tests together with the behavior. The READMEs
   describe the skill and the plugin for people. They hold the same content
   in English and Chinese, and `README.md` names no Chinese text besides its
@@ -234,7 +234,7 @@ names the command.
 | The slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, flat layers in depth under a 3D camera | `Construct3-Cookbook/guides/recipes/` and `project-files/` |
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/` in the Construct3-RAG clone |
 | Why the plugin folder holds its sources, how the build sets its version, why it has this repository | `docs/decisions/plugin-folder.md`, `plugin-tracks-commits.md`, `plugin-repository.md` |
-| Why features were kept or removed | `docs/AGENTS.md`, the index of the records |
+| Why features were kept or removed | `docs/decisions/README.md`, the index of the records |
 | The data files, their fields and their update pipeline | `docs/guide/data-format.md` and `docs/dev/data-pipeline.md` in the Construct3-RAG clone |
 | How to hand an ACE lookup to a Claude Code sub-agent | `.claude/agents/ace-lookup.md` |
 | A verified run that polishes the skill's sources, docs, records and code. Start it only when no other session edits the repository | `.claude/workflows/polish.js` |

@@ -1,5 +1,7 @@
 This folder holds the decision records: the evidence, the options and the trade-offs behind a product choice.
 A new record is added below as its own title, with the date of its `Date:` line, newest first.
+The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
+[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
 - [The Event Sheet Guides Live in Construct3-Cookbook](guides-in-cookbook.md) — 2026-10-21
 - [--attach Names the Browser; the Script Reads No Browser Folder of the User's](attach-names-the-browser.md) — 2026-10-16

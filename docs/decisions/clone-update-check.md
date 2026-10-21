@@ -11,15 +11,23 @@ made. `bootstrap.py` clones a repository only when its folder is missing, and
 agent can work for weeks from a clone that lacks the checks and data of later
 commits, and nothing tells it so.
 
+The event sheet guides and pitfalls live in a second clone, Construct3-Cookbook
+(`guides-in-cookbook.md`), so that a new pitfall reaches users by `git pull`
+without a plugin release. The clone command the scripts print is `--depth 1`,
+made once, and a Cookbook clone that is never pulled undoes that.
+
 ## Decision
 
 `check_project.py`, which the block in a game project runs at the start of
-each session and the skill runs after every change, compares the plugin
-version of the clone with the one on its upstream branch, and reports a
-clone that is behind as a problem, with the commands that update it:
+each session and the skill runs after every change, compares the two clones the
+agent reads with their upstream branches: the clone of this repository by
+its plugin version, and the Cookbook clone that `locate_cookbook()` finds by
+its newest commit. It reports a clone that is behind as a problem, with the
+commands that update it:
 
 ```
 Construct3-Agent-Skills at <clone> holds version 1.1.27 of the plugin, and origin/main holds 1.1.30, so the scripts lack the fixes and checks of the newer version. Run git -C "<clone>" pull --ff-only, then python "<clone>/plugin/skills/construct3-agent-plugin/scripts/install.py" --into "<game>/.agents/skills", then run this check again
+Construct3-Cookbook at <cookbook> lacks the newer guides of origin/main, so the agent misses the pitfalls added since. Run git -C "<cookbook>" pull --ff-only, then run this check again
 ```
 
 - The users of a clone have Git installed but do not run it themselves, so
@@ -32,7 +40,8 @@ Construct3-Agent-Skills at <clone> holds version 1.1.27 of the plugin, and origi
 - One line carries both steps: the pull, and for a game project that holds
   a copy of the skill, the `install.py` that refreshes the copy. Run from
   the clone itself (the Claude Code plugin linked to a clone, or the
-  scripts run in place), the line gives the pull alone.
+  scripts run in place), the line gives the pull alone. The Cookbook's line
+  has no install step, because the scripts read that clone in place.
 - The upstream's version is read over HTTPS from
   `raw.githubusercontent.com`, the `plugin/.claude-plugin/plugin.json` of
   the branch the clone tracks, at the GitHub repository its remote names.
@@ -40,17 +49,25 @@ Construct3-Agent-Skills at <clone> holds version 1.1.27 of the plugin, and origi
   key or credential helper of the user's. Claude's directory held a version
   for "uses a credential from the user's machine" while the check fetched.
   A remote off GitHub gets no comparison.
+- The Cookbook has no version, so its newest commit is read instead, from
+  GitHub's API, `api.github.com/repos/<owner>/<repo>/commits/<branch>` with
+  the `application/vnd.github.sha` media type, which answers with the bare
+  id. The read is anonymous too. Anonymous API reads are limited to 60 an
+  hour per address. The clone is behind when that commit is not an ancestor
+  of its `HEAD` (`git merge-base --is-ancestor`). A commit the clone lacks
+  fails the same way, so a `--depth 1` clone is answered without its
+  history, and a commit fetched but not merged still counts as behind.
 - The version is the build's (`plugin-tracks-commits.md`): it rises with
   every commit that changes `plugin/`, the folder whose scripts, data and
   prompts the user's agent reads. A commit that changes only the sources'
   tests or records leaves it, and the clone is not called behind for it.
-- The check reads the version at most once an hour per clone, with an
+- The check reads each upstream at most once an hour per clone, with an
   eight-second limit. The last read's version is a file in
-  `construct3-rag-version/` of the system's temporary folder, written
+  `construct3-rag-version/` of the system's temporary folder, one per clone, written
   empty before the read, so that an offline machine waits once per hour
   and not on every check. In between, the check compares with that
   version, which costs a file read.
-- The line is an error only when the version was read in this run. From an
+- A line is an error only when its upstream was read in this run. From an
   earlier read it is a warning, so that a pull that failed offline, after
   a read that succeeded, does not fail every check of the hour; the next
   read makes it an error again.
@@ -66,54 +83,13 @@ Construct3-Agent-Skills at <clone> holds version 1.1.27 of the plugin, and origi
   lookup would interrupt the task.
 - Nothing is said for a clone that is not a Git repository (the plugin
   cache), a detached HEAD, a branch with no upstream, a remote off GitHub,
-  a failed read, or a clone with no plugin version.
+  a failed read, or a clone with no plugin version, and nothing more without
+  a Cookbook clone, since the scripts already print its clone command.
 - `CONSTRUCT3_RAG_OFFLINE=1` skips the check, and `check_project.py` then
-  prints a `note:` line saying the clone was not compared with its
-  upstream. Only `1` sets it, so that `0` keeps the check. The tests set it,
+  prints a `note:` line naming the clones that were not compared with their
+  upstreams. Only `1` sets it, so that `0` keeps the check. The tests set it,
   so that a test run reads no network and its output does not depend on the
   remote.
-
-## The Cookbook clone (2026-10-21)
-
-The event sheet guides and pitfalls moved to the public Construct3-Cookbook
-repository (`guides-in-cookbook.md`), so that a new pitfall reaches users by
-`git pull` without a plugin release. A Cookbook clone that is never pulled
-undoes that, and the clone command the scripts print is `--depth 1`, made
-once. So `check_project.py` checks the clone that `locate_cookbook()` finds
-too, as it checks the plugin's:
-
-```
-Construct3-Cookbook at <cookbook> lacks the newer guides of origin/main, so the agent misses the pitfalls added since. Run git -C "<cookbook>" pull --ff-only, then run this check again
-```
-
-- The Cookbook has no version, so the check compares commits. It reads
-  the newest commit of the branch the clone tracks from GitHub's API,
-  `api.github.com/repos/<owner>/<repo>/commits/<branch>` with the
-  `application/vnd.github.sha` media type, which answers with the bare id.
-  The read is anonymous and runs no `git fetch`, as for the plugin.
-  Anonymous API reads are limited to 60 an hour per address, and the check
-  makes one an hour per clone.
-- The clone is behind when that commit is not an ancestor of its `HEAD`
-  (`git merge-base --is-ancestor`). A commit the clone lacks fails the same
-  way, so a `--depth 1` clone is answered without its history, and a commit
-  fetched but not merged still counts as behind.
-- The rest is the plugin's check: the stamp written before the read, once
-  an hour per clone; an error from a read in this run and a warning from an
-  earlier one; a warning that asks for the user when the clone holds
-  commits or uncommitted changes of its own; nothing for a detached `HEAD`,
-  a branch that tracks nothing, a remote off GitHub or a failed read; and
-  `CONSTRUCT3_RAG_OFFLINE=1` turns it off, with the Cookbook named in the
-  `note:` line. The line has no install step, because the scripts read the
-  clone in place.
-- Without a Cookbook clone the check says nothing more: the scripts already
-  print the clone command.
-
-Trade-off: a pitfall is often one small commit, and the Cookbook gets them
-in bursts. Each push makes the next check of a stale clone fail once, for
-one round trip, the pull, which is the price of the pitfall reaching the
-agent. A failing check costs that round trip even when the new commits
-touch no page the project's findings cite; the check does not read which
-files changed, since that needs the history the shallow clone lacks.
 
 ## The Claude Code plugin
 
@@ -142,8 +118,15 @@ user turns on the marketplace's auto-update. The user can also run
   that follows reads the project with the current rules.
 - An eval run follows the line too, so fixtures come from a clone that does
   not trail its upstream (`skills-dev/AGENTS.md`, "Evals").
-- Only the clone that holds the data folder is checked, this repository
-  through its `plugin/`. The sibling clones change rarely, and their
-  content reaches the agent through the data. A clone of Construct3-RAG
+- Two clones are checked: this repository through its `plugin/`, and the
+  Cookbook. The other sibling clones change rarely, and their content
+  reaches the agent through the data. A clone of Construct3-RAG
   named by an older block has no plugin version and gets no comparison.
-- A commit reaches users only after it is pushed and has changed `plugin/`.
+- A pitfall is often one small commit, and the Cookbook gets them in
+  bursts. Each push makes the next check of a stale Cookbook clone fail
+  once, for the pull, which is the price of the pitfall reaching the agent.
+  It fails even when the new commits touch no page the project's findings
+  cite: which files changed needs the history a shallow clone lacks.
+- A commit reaches users only after it is pushed: a change to `plugin/`
+  through the version, a change to the guides through the Cookbook's
+  branch.
