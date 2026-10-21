@@ -425,7 +425,7 @@ def test_an_entry_ends_with_the_pitfalls_of_its_addon(skill_only):
     # After the example commands, or after the count alone when no examples clone gives the commands
     assert (lines[at[0] - 1].startswith("    python ") and "print_sheet.py" in lines[at[0] - 1]
             or lines[at[0] - 1].strip().startswith("used in ")), out
-    assert at[0] == len(lines) - 1 or lines[at[0] + 1].startswith(("action ", "condition ", "expression ")), out
+    assert at[0] == len(lines) - 1 or lines[at[0] + 1].startswith(("action ", "condition ", "expression ", "(no ")), out
     code, out = tool(skill_only, "lookup_ace", "Tween")
     assert code == 0 and out.rstrip().endswith("\n  pitfalls: " + out.rstrip().rsplit("pitfalls: ", 1)[1]), out
     code, out = tool(skill_only, "lookup_ace", "System", "wait")
