@@ -92,14 +92,14 @@ def test_skill_md_reads_under_any_locale_codec():
 
 def test_every_file_the_skill_names_is_in_it():
     for name, text in skill_docs():
-        # a path of the clone, Construct3-Agent-Skills/plugin/prompts/references/..., is not one of the skill's own
+        # a path of another clone, Construct3-Cookbook/guides/recipes/..., is not one of the skill's own
         for rel in set(re.findall(r"(?<![\w/])((?:scripts|references|assets)/[\w.-]+\.\w+)", text)):
             assert (SKILL / rel).is_file(), f"{name} names {rel}"
 
 
 def test_every_file_of_the_clone_the_skill_names_exists():
     """A copy of the skill reaches these through the project's Construct3-RAG line, which names the folder that
-    holds data/ and prompts/; a docs/ path is this repository's, which the plugin bullet of SKILL.md says to
+    holds data/; a docs/ path is this repository's, which the plugin bullet of SKILL.md says to
     skip. A file renamed here breaks them and nothing else reports it."""
     for name, text in skill_docs():
         for rel in set(re.findall(r"Construct3-RAG/([\w./-]+\.\w+)", text)):

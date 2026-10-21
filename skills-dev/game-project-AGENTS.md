@@ -19,7 +19,7 @@ folder writes both:
 python <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/install.py
 ```
 
-It copies [`skills/construct3-agent-plugin/`](../skills/construct3-agent-plugin/SKILL.md)
+It copies [`skills/construct3-agent-plugin/`](../plugin/skills/construct3-agent-plugin/SKILL.md)
 to the project's `.agents/skills/`. If no instruction file of the project
 names this repository, it also appends the block to `AGENTS.md`, with the
 path of this clone on its `Construct3-RAG:` line. In an instruction file
@@ -32,12 +32,12 @@ either way, so an agent without skill support reaches it too.
 ## The block
 
 The text is
-[`skills/construct3-agent-plugin/assets/game-project-block.md`](../skills/construct3-agent-plugin/assets/game-project-block.md).
+[`skills/construct3-agent-plugin/assets/game-project-block.md`](../plugin/skills/construct3-agent-plugin/assets/game-project-block.md).
 To place it by hand:
 
 1. Copy it into the project's `AGENTS.md`, with its two marker lines.
-2. Fill in the one path at the top: this clone, or a symlink in the
-   project that points to it. Replace `<path-to>` in place, or keep it and
+2. Fill in the two paths at the top: this clone and the Construct3-Cookbook
+   clone, or symlinks in the project that point to them. Replace `<path-to>` in place, or keep it and
    add a line `- path-to = <folder>` above it for the folder that holds the
    clones; the skill's scripts read both.
 3. The block expects the `Construct3-Manual`, `Construct-Example-Projects`
@@ -73,7 +73,7 @@ path is made in one place.
 The folder the block names keeps Scirra's guide as
 `Construct3-RAG/data/c3-guides/constructs-project-format.md`,
 and "The project folder" in
-[`prompts/references/hand-editing-project-files.md`](references/hand-editing-project-files.md)
+`Construct3-Cookbook/guides/project-files/hand-editing.md`
 applies what it states about the files. If the agent adds, renames or moves
 a file of the project, the block sends the agent to both.
 
@@ -89,7 +89,7 @@ whole, because each one says what to read next.
 The block loads no other file at startup; the agent reads each one when its
 work needs it. If the agent keeps skipping those files, add this line below
 the block's end marker:
-`@<path-to>/Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md`. Claude Code
+`@<path-to>/Construct3-Cookbook/guides/design/thinking.md`. Claude Code
 then inlines that file into every session of the project, at the cost of
 its full length each time. Other tools ignore the line.
 

@@ -8,12 +8,16 @@ build reads and a few tests compare with the plugin's copy.
 
 - A script of the `construct3-agent-plugin` skill is tested in
   `test_skill_<script>.py`; the build in `test_build_plugin.py` and
-  `test_plugin_folder.py`; the prompts' shape in `test_prompts.py`.
+  `test_plugin_folder.py`; the Cookbook paths the repository names in
+  `test_cookbook_paths.py` (the guides' own shape is checked in
+  Construct3-Cookbook).
 - Assert public contracts, not private implementation fields.
 - The scripts get `plugin/` as the clone (`PLUGIN` in `skill_helpers.py`),
-  the built folder that holds the data and the prompts, because that is
+  the built folder that holds the data, because that is
   what every install and link runs them from. Raw data files come from
-  `DATA`, the sibling clone's `data/`.
+  `DATA`, the sibling clone's `data/`; the guides from `GUIDES`, the
+  Cookbook clone that `CONSTRUCT3_COOKBOOK` or the folder beside the clones
+  holds, and a test that reads them is marked `NEEDS_COOKBOOK`.
 - Run `python scripts/build_plugin.py` after the data of the Construct3-RAG
   clone changed, because `test_plugin_folder.py` fails while `plugin/data/`
   differs from a fresh build.

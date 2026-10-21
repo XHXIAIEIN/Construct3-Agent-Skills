@@ -26,4 +26,4 @@ The plugin also adds the sub-agent type `construct3:project-worker`, for a chang
 
 ## Source
 
-The plugin is built in [Construct3-Agent-Skills](https://github.com/XHXIAIEIN/Construct3-Agent-Skills), which holds the skill, the prompts, the tests and the decision records. The data comes from [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), which holds the data pipeline. License: MIT.
+The plugin is built in [Construct3-Agent-Skills](https://github.com/XHXIAIEIN/Construct3-Agent-Skills), which holds the skill, the tests and the decision records. The event sheet guides the skill reads live in [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook): clone it beside the plugin's clone, or name it with `CONSTRUCT3_COOKBOOK`, and `git pull` it for new pitfalls. The data comes from [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), which holds the data pipeline. License: MIT.

@@ -1,5 +1,7 @@
 """c3project.py, what the skill's scripts share: the one form of every command a script prints for the agent
 to run next, from the current directory."""
+from pathlib import Path
+
 from tests.skill_helpers import REPO, SKILL, new_project, script_module
 
 c3 = script_module("c3project")
@@ -38,19 +40,45 @@ def test_missing_examples_bootstrap_names_the_tool_repository():
     assert c3.examples_clone_command(None) == "python <Construct3-Agent-Skills>/scripts/bootstrap.py"
 
 
-def test_prompts_follow_raw_data_and_installed_skill_sources(tmp_path, monkeypatch):
+def cookbook(folder: Path) -> Path:
+    """A folder that counts as a Construct3-Cookbook clone."""
+    index = folder / "guides" / "pitfalls.md"
+    index.parent.mkdir(parents=True)
+    index.write_text("# Pitfalls", encoding="utf-8")
+    return folder
+
+
+def test_the_cookbook_is_found_by_flag_variable_line_then_beside_the_clones(tmp_path, monkeypatch):
     rag = tmp_path / "Construct3-RAG"
     rag.mkdir()
-    own = tmp_path / "source" / "plugin"
-    (own / "prompts").mkdir(parents=True)
-    (own / "prompts" / "event-sheet-pitfalls.md").write_text("# Pitfalls", encoding="utf-8")
-    monkeypatch.setattr(c3, "SKILL_DIR", own / "skills" / "construct3-agent-plugin")
-    assert c3.prompts_folder(rag) == own / "prompts"
+    game = tmp_path / "game"
+    game.mkdir()
+    monkeypatch.setattr(c3, "SKILL_DIR", game / ".agents" / "skills" / "construct3-agent-plugin")
+    monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
+    monkeypatch.chdir(game)
+    assert c3.guides_folder(rag, game) is None
+    assert f'"{(tmp_path / "Construct3-Cookbook").as_posix()}"' in c3.missing_cookbook(rag)
 
-    sibling = tmp_path / "Construct3-Agent-Skills" / "plugin" / "prompts"
-    sibling.mkdir(parents=True)
+    # A folder of that name without the guides, such as a private workspace, is not a clone
+    (tmp_path / "Construct3-Cookbook").mkdir()
+    assert c3.guides_folder(rag, game) is None
+    cookbook(tmp_path / "Construct3-Cookbook")
+    assert c3.guides_folder(rag, game) == tmp_path / "Construct3-Cookbook" / "guides"
+
+    line = cookbook(tmp_path / "named")
+    (game / "AGENTS.md").write_text(f"- Construct3-Cookbook: {line.as_posix()}\n", encoding="utf-8")
+    assert c3.locate_cookbook(rag, game)[0] == line
+    variable = cookbook(tmp_path / "variable")
+    monkeypatch.setenv("CONSTRUCT3_COOKBOOK", str(variable))
+    assert c3.locate_cookbook(rag, game)[0] == variable
+    flag = cookbook(tmp_path / "flag")
+    assert c3.locate_cookbook(rag, game, str(flag))[0] == flag
+
+
+def test_a_guide_is_cited_by_its_cookbook_path_without_a_clone(tmp_path, monkeypatch):
     monkeypatch.setattr(c3, "SKILL_DIR", tmp_path / "game" / ".agents" / "skills" / "construct3-agent-plugin")
-    assert c3.prompts_folder(rag) == sibling
-
-    (rag / "prompts").mkdir()
-    assert c3.prompts_folder(rag) == rag / "prompts"
+    monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
+    monkeypatch.chdir(tmp_path)
+    rag = tmp_path / "Construct3-RAG"
+    rag.mkdir()
+    assert c3.guide_path(rag, "behaviors/timer.md") == "Construct3-Cookbook/guides/behaviors/timer.md"

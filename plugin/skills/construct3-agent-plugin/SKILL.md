@@ -34,7 +34,7 @@ once before it is handed over.
 - Loaded as the Claude Code plugin (the skill is named
   `construct3:construct3-agent-plugin`): the game project needs no copy; run
   the scripts from this folder. In the files of this skill, `Construct3-RAG/`
-  before `data/` or `prompts/` stands for `${CLAUDE_PLUGIN_ROOT}/`;
+  before `data/` stands for `${CLAUDE_PLUGIN_ROOT}/`;
   `Construct3-Agent-Skills/docs/` paths, the records of the repository the
   plugin is built in, are not in the plugin, so skip them. To hand a sheet change or a lookup to a sub-agent, start it as
   `construct3:project-worker`, which has only the tools these scripts need.
@@ -144,13 +144,13 @@ A project handed over as a file is packed after the last check, because
 `pack_project.py` refuses files that the check has not passed.
 
 Before you design an interaction, read
-`Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md` and run
+`Construct3-Cookbook/guides/design/thinking.md` and run
 `scripts/search_guides.py` with the interaction's words. The design guide
 names the built-in to write before a variable or an *Every tick* (its
 Native first table), and what a new project takes instead of a superseded
-feature. Before events go into a sheet, read
-`Construct3-Agent-Skills/plugin/prompts/event-sheet-style.md`, the shape the official
-examples give a sheet.
+feature. Before events go into a sheet, read `design/style.md` beside it,
+the official sheets' shape. Without a Cookbook clone the
+scripts print the `git clone`: run it once the user agrees.
 
 Exit code 2 and `stopped at`: the line says the cause and what to do. Read
 [references/checker-rules.md](references/checker-rules.md) when a finding
@@ -186,7 +186,7 @@ every new entry one; in a hand edit it is a 15-digit number the project
 does not use yet. A combo item whose name differs from its id prints both,
 `id: name`: write the id, and give the user the name. An expression prints
 the way it is reached, `Coin.Tween.Progress(tags)`. What the line does not
-show is in `Construct3-Agent-Skills/plugin/prompts/references/hand-editing-project-files.md`:
+show is in `Construct3-Cookbook/guides/project-files/hand-editing.md`:
 read it before writing a function or custom action block or a call of one,
 a `projectfile` parameter, or a family's behavior through a member type.
 

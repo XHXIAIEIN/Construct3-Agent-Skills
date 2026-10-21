@@ -8,7 +8,7 @@ cover, such as two fingers at once. A lesson from the editor, the preview or
 a script driving them goes here with its source, under the heading of its
 topic, one bullet each: fact, consequence, source. A runtime behaviour that
 changes which events are written goes to
-`Construct3-Agent-Skills/plugin/prompts/event-sheet-pitfalls.md` instead, and a lesson about
+`Construct3-Cookbook/guides/pitfalls.md` instead, and a lesson about
 which cases to play and how to reach and read them to
 [verifying-a-change.md](verifying-a-change.md).
 
@@ -234,7 +234,7 @@ which cases to play and how to reach and read them to
   `savedWithRelease`, and the stable editor then refuses the project as
   "saved in a newer version of Construct". A beta tab that stays open saves
   the newer release again on its next save, so close it before putting the
-  project back, as `Construct3-Agent-Skills/plugin/prompts/references/hand-editing-project-files.md`
+  project back, as `Construct3-Cookbook/guides/project-files/hand-editing.md`
   says under `savedWithRelease`. `open_in_editor.py` and
   `preview_project.py` open such a project in the latest beta and pass; the
   `opened` line names the beta only in its title, `Construct 3 beta,

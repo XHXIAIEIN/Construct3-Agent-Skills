@@ -37,7 +37,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PLUGIN = REPO / "plugin"        # what the scripts get as the clone: the skill, the prompts and the built data
+PLUGIN = REPO / "plugin"        # what the scripts get as the clone: the skill and the built data
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402

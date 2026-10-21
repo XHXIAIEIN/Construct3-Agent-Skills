@@ -1,9 +1,9 @@
 """Search the event sheet pitfalls and the official examples by words.
 
     python scripts/search_guides.py WORD [WORD ...] [--pitfalls N] [--examples N] [--locale en-US]
-                                    [--limit CHARS] [--project FOLDER] [--rag FOLDER]
+                                    [--limit CHARS] [--project FOLDER] [--rag FOLDER] [--cookbook FOLDER]
 
-Prints the entries of `Construct3-Agent-Skills/plugin/prompts/pitfalls/*.md` that hold the
+Prints the pitfall entries of `Construct3-Cookbook/guides/` that hold the
 words, each in full with its file and line. Then it prints the official
 examples whose id, name, description, tags or addons hold them, each with the
 command that prints its events. Entries with more of the words come first. A
@@ -39,10 +39,10 @@ def without_source(text: str) -> str:
     return text
 
 
-def pitfalls(rag: Path) -> list[tuple[str, int, str]]:
-    """Every bullet of the topic files as (file, line, text), the text on one line without its source."""
+def pitfalls(guides: Path) -> list[tuple[str, int, str]]:
+    """Every bullet of the pitfall pages as (file, line, text), the text on one line without its source."""
     out = []
-    for path in sorted((c3.prompts_folder(rag) / "pitfalls").glob("*.md")):
+    for path in sorted(p for folder in c3.PITFALL_FOLDERS for p in (guides / folder).rglob("*.md")):
         text = path.read_text(encoding="utf-8")
         starts = [m.start() for m in ENTRY.finditer(text)]
         for i, start in enumerate(starts):
@@ -94,6 +94,10 @@ def main() -> int:
     ap.add_argument("words", nargs="+", metavar="WORD", help="English words; an entry holding more of them ranks higher")
     ap.add_argument("--pitfalls", type=int, default=5, metavar="N", help="pitfall entries to print (default: 5)")
     ap.add_argument("--examples", type=int, default=8, metavar="N", help="example projects to print (default: 8)")
+    ap.add_argument("--cookbook", metavar="FOLDER",
+                    help="the Construct3-Cookbook clone that holds the pitfalls (default: CONSTRUCT3_COOKBOOK, else the "
+                         "'Construct3-Cookbook:' line of the project's AGENTS.md or CLAUDE.md, else a Construct3-Cookbook "
+                         "folder beside the clones)")
     args = ap.parse_args()
     c3.utf8_output()
     root = c3.find_project(args.project)
@@ -101,7 +105,10 @@ def main() -> int:
     c3.note_drift(rag)
 
     lines: list[str] = []
-    found_pitfalls = ranked(pitfalls(rag), lambda p: p[2], args.words)[: args.pitfalls]
+    guides = c3.guides_folder(rag, root, args.cookbook) if args.pitfalls else None
+    if args.pitfalls and not guides:
+        print(f"note: pitfalls not searched: {c3.missing_cookbook(rag)}")
+    found_pitfalls = ranked(pitfalls(guides), lambda p: p[2], args.words)[: args.pitfalls] if guides else []
     if found_pitfalls:
         lines.append("pitfalls:")
         for file, line, text in found_pitfalls:

@@ -9,7 +9,7 @@ The main agent asks you which ACE does something, or sends you every ACE of
 an event sheet design, a generated sheet or a generator to check before it is
 written. It asks you so that the large schema files stay out of its context.
 Do not redesign the events; that is the main agent's job, after
-`plugin/prompts/event-sheet-thinking.md`.
+`Construct3-Cookbook/guides/design/thinking.md`.
 
 You answer from the schemas under `plugin/` in this repository. An ACE missing from the schema does not exist, unless
 `plugin/data/c3-schemas/{locale}/_deprecated.json` lists it: then the editor

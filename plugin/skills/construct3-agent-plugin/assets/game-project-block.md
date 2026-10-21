@@ -2,11 +2,14 @@
 # Construct 3
 
 - Construct3-RAG: <path-to>/Construct3-RAG
+- Construct3-Cookbook: <path-to>/Construct3-Cookbook
 
 Construct3-Manual, Construct-Example-Projects and Construct-Addon-SDK are
-cloned beside the repository that holds it; add a line like the one above for any that is elsewhere.
-Never guess this path: the checker in step 1 stops when it does not reach
-the clone, and says what to write.
+cloned beside the repository that holds it; add a line like the ones above for any that is elsewhere.
+Never guess these paths: the checker in step 1 stops when it does not reach
+the Construct3-RAG clone, and says what to write. Construct3-Cookbook holds
+the guides the table names; if its folder is missing, give the user the
+`git clone` command the checker prints, and clone it only once they agree.
 
 Anything that changes what the game does is event sheet work: a new
 mechanic, a fix, a behavior, a variable, a timer, an animation, an edit to
@@ -27,11 +30,11 @@ eventSheets/*.json. Do not answer it from memory.
 
 | Doing | Read first |
 |-------|------------|
-| Deciding what the events are | Construct3-Agent-Skills/plugin/prompts/event-sheet-thinking.md |
+| Deciding what the events are | Construct3-Cookbook/guides/design/thinking.md |
 | Writing a plugin, behavior, ACE, effect or script name, or looking for how an official example does it | The skill's `lookup_ace.py`, `lookup_script_api.py` and `search_guides.py` |
 | Writing an addon: a new plugin, behavior, effect or theme for the Addon Manager, not an event that uses one | Construct3-Manual/Construct3-Addon-SDK/index.md, then a sample under Construct-Addon-SDK/ |
-| Changing eventSheets/, layouts/, objectTypes/ JSON or clipboard JSON by hand; naming an event, or reading one the user names ("event 15", a screenshot, a Find result) | Construct3-Agent-Skills/plugin/prompts/references/hand-editing-project-files.md; for the event numbers, "Naming an event to the user" |
-| Adding, renaming or moving a file of the project: an image, a sound, a script, a new sheet or layout | Construct3-RAG/data/c3-guides/constructs-project-format.md, Scirra's guide to the format, which the llm-context.md here links; then "The project folder" in hand-editing-project-files.md |
+| Changing eventSheets/, layouts/, objectTypes/ JSON or clipboard JSON by hand; naming an event, or reading one the user names ("event 15", a screenshot, a Find result) | Construct3-Cookbook/guides/project-files/hand-editing.md; for the event numbers, "Naming an event to the user" |
+| Adding, renaming or moving a file of the project: an image, a sound, a script, a new sheet or layout | Construct3-RAG/data/c3-guides/constructs-project-format.md, Scirra's guide to the format, which the llm-context.md here links; then "The project folder" in hand-editing.md |
 | Following a `[manual: ...]` reference in those files | Construct3-Manual/Construct3-Manual/<that path> |
 
 A Markdown file of this project that is longer than about 300 lines is
@@ -39,4 +42,4 @@ read in parts: list its headings with their line numbers (`grep -n '^#'
 <file>`, or `Select-String '^#' <file>` in PowerShell), then read the
 section the work needs. Each whole read stays in the context of every
 later turn of the session.
-<!-- construct3-agent-plugin block: end; version 2026-10-20, stamp d8e842cf2bb3 -->
+<!-- construct3-agent-plugin block: end; version 2026-10-21, stamp de6c4a2a7378 -->

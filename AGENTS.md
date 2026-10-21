@@ -7,7 +7,6 @@ one folder, `plugin/`:
 
 - the `construct3-agent-plugin` skill under `plugin/skills/`, with the rows
   of the Claude Code plugin's `/` menu beside it;
-- the prompts for event sheet design under `plugin/prompts/`;
 - the schemas of every Construct 3 condition, action, expression and effect
   in English and Chinese, the editor texts, the example index, the
   TypeScript definitions and an empty project to start from, under
@@ -15,8 +14,8 @@ one folder, `plugin/`:
 
 Any agent that runs a shell and Python uses them through the skill.
 `plugin/` is also the Claude Code plugin `construct3`, and the folder is
-the source: the skill, the prompts, the manifest, the README, the icon and
-the sub-agents are edited in place. Only `plugin/data/` is built, by
+the source: the skill, the manifest, the README, the icon and the
+sub-agents are edited in place. Only `plugin/data/` is built, by
 `scripts/build_plugin.py`, from the data of
 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), a clone
 beside this one. That repository holds the data, its update pipeline and
@@ -25,12 +24,18 @@ plugin does not ship lies beside it: the skill's evals and the maintainers'
 guide under `skills-dev/`, the tests, the docs and the records. Why:
 `docs/decisions/plugin-repository.md`, `docs/decisions/plugin-folder.md`.
 
+The guides for event sheet design, the pitfalls among them, live in
+[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook), a
+public repository whose clone the scripts find beside this one, so that a
+new pitfall reaches users by `git pull` without a plugin release. Below,
+`Construct3-Cookbook/...` names a file of that clone. Why:
+`docs/decisions/guides-in-cookbook.md`.
+
 | Path | What it holds |
 |------|---------------|
 | `plugin/.claude-plugin/plugin.json` | The plugin's manifest: name, version, description, keywords; the committed `version` is the floor the build never goes below |
 | `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets; `skills-dev/AGENTS.md` says how to change it |
 | `plugin/skills/<name>/SKILL.md`, `plugin/skills/run.py` | One row of the `/` menu per user-facing script, and the runner they share |
-| `plugin/prompts/` | Event sheet thinking, pitfalls and style, and the references for game feel, menus, dialogue, layers in depth and hand-edited project files; `event-sheet-pitfalls.md` is the index of the pitfalls |
 | `plugin/data/c3-schemas/` | The ACEs of every plugin, behavior and effect, one JSON file each, per locale (built) |
 | `plugin/data/c3-lang/` | The editor texts the checker and a preview's inspector read (built) |
 | `plugin/data/c3-new-project/` | The empty project the editor saves, which `new_project.py` copies (built) |
@@ -87,29 +92,32 @@ data and the tools.
 ## 3. Design event sheet logic
 
 Before you design an interaction, data storage, timing or animation, read
-and follow `plugin/prompts/event-sheet-thinking.md`. Then verify the names
-with section 2. Events written into a project follow
-`plugin/prompts/event-sheet-style.md`, which describes how the official
-examples organise, name and comment a sheet.
+and follow `Construct3-Cookbook/guides/design/thinking.md`.
+Then verify the names with section 2. Events written into a project follow
+`Construct3-Cookbook/guides/design/style.md`, which describes
+how the official examples organise, name and comment a sheet. Without a
+Cookbook clone, give the user the `git clone` command that
+`search_guides.py` prints, and clone it once they agree.
 
-If a project shows a runtime behaviour of events that changes which events
-are written, record it in the topic file of its group under
-`plugin/prompts/pitfalls/`, with its source, and record its conclusion as
-one line in `plugin/prompts/event-sheet-pitfalls.md`. A lesson about the
-project file format, the editor, the preview or the look goes where
-"Adding an entry" there says.
+A runtime behaviour of events that changes which events are written is a
+pitfall. Record it in Construct3-Cookbook, not here. Its entry and source go
+on the page that owns it there: an add-on's id, a category or a manual page,
+by that repository's `AGENTS.md`. Its conclusion goes as one line into
+`guides/pitfalls.md`. A lesson about the project file format, the editor,
+the preview or the look goes where "Adding an entry" there says.
 
 ## 4. Use from a game project
 
 A game project reaches the skill in one of these ways; the README says
 how to set each one up. Before you place the block in a project's
 instruction file by hand or change it, read
-`plugin/prompts/game-project-AGENTS.md`.
+`skills-dev/game-project-AGENTS.md`.
 
 - To use the skill with any agent, run `install.py`. It copies the skill
   into the project and adds a block to the project's `AGENTS.md`, whose
   `Construct3-RAG:` line names this clone's `plugin/`, the folder that
-  holds the data and the prompts:
+  holds the data, and whose `Construct3-Cookbook:` line names the Cookbook
+  clone:
 
   ```bash
   python plugin/skills/construct3-agent-plugin/scripts/install.py --project <game folder>
@@ -170,8 +178,7 @@ Before you edit, read the `AGENTS.md` of every directory you touch, run
 - Docs and tests change with the behavior. The READMEs describe the skill
   and the plugin for people, in English and Chinese with the same content.
   `README.md` names no Chinese text besides its link to `README_CN.md`.
-  The skill, the prompts, the `AGENTS.md` files and the agent files are
-  English.
+  The skill, the `AGENTS.md` files and the agent files are English.
 - A commit message or PR text names an issue of another repository in
   words or as a URL in backticks, never as `owner/repo#N` or `#N`, because
   GitHub turns those into a public cross-reference on that issue's
@@ -189,9 +196,10 @@ git diff --check
 
 Pick the test files from the paths in the diff:
 
-- A change to `plugin/prompts/` or a document reaches the tests that read
-  them: `test_prompts.py`, `test_doc_links.py`, `test_plugin_folder.py` and
-  `test_skill_search_guides.py`.
+- A change to a document reaches the tests that read them:
+  `test_doc_links.py`, `test_plugin_folder.py` and
+  `test_cookbook_paths.py`, which checks that every
+  `Construct3-Cookbook/...` path named here exists in the Cookbook clone.
 - A change to a script reaches its own tests and the tests of the scripts
   that import it. Find the importers with `grep -l <module>` in the scripts'
   folders, then the tests that name any of them.
@@ -202,9 +210,9 @@ Pick the test files from the paths in the diff:
 `.github/workflows/checks.yml` runs the whole suite and the other checks on
 every push to `main` and every pull request, so a push needs no local run
 of its own. The tests need the Construct3-RAG clone beside this one and,
-for the tests that read the official examples, the
-`Construct-Example-Projects` clone; a test that lacks it skips and names the
-command.
+for the tests that read the official examples or the guides, the
+`Construct-Example-Projects` and `Construct3-Cookbook` clones; a test that
+lacks a clone skips and names its command.
 
 ## 6. Where to read more
 
@@ -212,13 +220,13 @@ command.
 |------|----------|
 | Install and use the skill or the plugin | `README.md` |
 | The project tools the skill carries into a game project, and changing and evaluating them | `plugin/skills/construct3-agent-plugin/SKILL.md`, `skills-dev/AGENTS.md` |
-| Event sheet design, sourced pitfalls, the examples' authoring style | `plugin/prompts/event-sheet-thinking.md`, `plugin/prompts/event-sheet-pitfalls.md` and its topic files in `plugin/prompts/pitfalls/`, `plugin/prompts/event-sheet-style.md`, `docs/decisions/event-sheet-design-guidance.md` |
-| A new project's sheets, layers, objects and look | `plugin/prompts/references/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
-| Slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, flat layers in depth under a 3D camera | `plugin/prompts/references/` |
+| Event sheet design, sourced pitfalls, the examples' authoring style | `design/thinking.md`, `pitfalls.md` with its pages and `design/style.md` under `Construct3-Cookbook/guides/`, `docs/decisions/event-sheet-design-guidance.md` |
+| A new project's sheets, layers, objects and look | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
+| Slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, flat layers in depth under a 3D camera | `Construct3-Cookbook/guides/recipes/` and `project-files/` |
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/` in the Construct3-RAG clone |
 | Why the plugin folder holds its sources, how its version is set, why it has this repository | `docs/decisions/plugin-folder.md`, `plugin-tracks-commits.md`, `plugin-repository.md` |
 | Why features were kept or removed | `docs/AGENTS.md`, the index of the records |
 | Project and skill audit findings | `docs/dev/skills-audit.md` |
 | The data files, their fields and their update pipeline | `docs/guide/data-format.md` and `docs/dev/data-pipeline.md` in the Construct3-RAG clone |
 | Delegating an ACE lookup to a Claude Code sub-agent | `.claude/agents/ace-lookup.md` |
-| Polishing the skill's sources, prompts, docs, records and code in one verified run; start it when no other session edits the repository | `.claude/workflows/polish.js` |
+| Polishing the skill's sources, docs, records and code in one verified run; start it when no other session edits the repository | `.claude/workflows/polish.js` |

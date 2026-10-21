@@ -43,7 +43,7 @@ Sources:
 The "sources" view sums them into what a change can move: baseline, model
 output, the model's tool inputs, skill script output (the scripts of this
 skill, --help included), skill text and references (its SKILL.md, read or
-loaded, and the references and prompts it points to), other reads, other
+loaded, and the references and guides it points to), other reads, other
 shell output, attachments, cache-rewrite. --targets groups the larger reads
 (read:<kind> and bash:read-file) by the file or folder they read: game
 design documents, project JSON, this skill's references, a game's tools/.
@@ -139,7 +139,7 @@ def classify_read(path: str) -> str:
         return "read:SKILL.md"
     if re.search(r"/(eventsheets|layouts|objecttypes|families|timelines)/", low) or low.endswith(".c3proj"):
         return "read:project-json"
-    if "/references/" in low or "/prompts/" in low:
+    if "/references/" in low or "/prompts/" in low or "construct3-cookbook/guides/" in low:
         return "read:skill-reference"
     for ends, kind in ((".md", "md-other"), (".py", "py"), ((".js", ".ts"), "js-ts"), (".json", "json-other")):
         if low.endswith(ends):
@@ -452,8 +452,8 @@ TARGETS = [
     (r"agents\.md", "AGENTS.md"),
     (r"skill\.md", "skill SKILL.md"),
     (r"construct3-agent-plugin/references/|/references/", "skill references"),
-    (r"prompts/pitfalls|event-sheet-pitfalls", "skill pitfalls"),
-    (r"prompts/", "skill prompts"),
+    (r"prompts/pitfalls|event-sheet-pitfalls|cookbook/guides/(pitfalls|plugins|behaviors|effects|primitives|[a-z]+-category)", "skill pitfalls"),
+    (r"prompts/|cookbook/guides/", "skill prompts"),
     (r"c3-schemas|c3-lang|c3-ts-defs", "skill data"),
     (r"construct3-agent-plugin/scripts/|skills/construct3/", "skill script source"),
     (r"docs/0?1-plans|docs/plans", "game docs: plans"),

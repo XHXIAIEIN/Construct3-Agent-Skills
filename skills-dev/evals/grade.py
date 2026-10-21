@@ -72,7 +72,7 @@ REPO = Path(__file__).resolve().parents[2]
 SKILL = REPO / "plugin" / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
-# The scripts get plugin/ as the clone, which holds the skill, the prompts and the built data; the raw data
+# The scripts get plugin/ as the clone, which holds the skill and the built data; the raw data
 # files are in the Construct3-RAG clone beside this one (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
 DATA = c3.siblings_folder(REPO) / "Construct3-RAG" / "data"
