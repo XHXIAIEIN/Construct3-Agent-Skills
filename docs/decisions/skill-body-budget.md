@@ -80,6 +80,22 @@ through a reference that names them already (`designing-a-game.md`,
 `generating-a-project.md`, `export-project.md`, `reading-the-runtime.md`);
 `review_look.py` is step 6 of the loop.
 
+Iteration 67 ran the split against the commit before it with Haiku, on
+`design-a-catch-game`, which needs `check_design.py`, a moved row, and on
+`add-countdown`, which needs only rows that stayed. Every run of both arms
+reached `check_design.py` through `designing-a-game.md`, and no run opened
+`references/scripts.md`. The pass rates of the two arms were equal per case,
+and the split lost no more calls (scored runs):
+
+| Case | with_skill lost calls | old_skill lost calls |
+|------|-----------------------|----------------------|
+| design-a-catch-game | 1 | 2, 3 |
+| add-countdown | 2, 2 | 2, 3 |
+
+The permutation test gave no verdict: three runs were void, two of them by
+a write `trace.py` read wrongly (`2>/dev/null)`, and paths in the text of
+an answer), one by a mistyped run folder, so a cell kept one run.
+
 ## Options
 
 1. Bring the whole body under 5000 tokens, as the specification
@@ -128,10 +144,11 @@ has a row in neither table or in both. The 500-line test stays.
 - A signed-in `claude` CLI or an API key is at hand: measure the body with
   `claude -p` twice, with and without it, and replace 2.7 with the measured
   ratio in the test and here.
-- An eval iteration runs on this text (`skills-dev/AGENTS.md`, "Evals"),
-  above all a case that needs a moved script, such as an export or a new
-  project: a run that never opens `references/scripts.md` and misses the
-  script brings its row back to the body.
+- An eval iteration with full cells runs on this text (`skills-dev/AGENTS.md`,
+  "Evals"), above all a case that needs a moved script that no other
+  reference names, such as `advanced_random.py` or the sound scripts: a
+  run that never opens `references/scripts.md` and misses the script
+  brings its row back to the body.
 - The Claude Code page changes the 5000 or the 25,000, or names the
   tokenizer.
 - A compaction appears in a recorded transcript: `skills-dev/evals/token_share.py`
