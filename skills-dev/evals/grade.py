@@ -6,7 +6,10 @@ ITERATION_DIR holds <case>/<arm>/ with project/, outputs/answer.md,
 fixture.json and, once the run has reported, timing.json. Every assertion of
 evals/evals.json is checked by code against the files the run left, with the
 clone's own checker, and written to <case>/<arm>/grading.json with the
-evidence and its level: checker or files. A case whose request changes what
+evidence and its level: checker or files. A run of an old_ arm installed
+the older skill, so the checker's warning that the project's Construct 3
+block is older than the skill's is left out of its output, and nothing
+else is. A case whose request changes what
 the game does also has the runtime assertions of its plan in
 evals/play_cases.py. --play plays the plan on the run's project in the
 editor's preview, into <case>/<arm>/play/. Without --play, grade.py reads a
@@ -23,8 +26,9 @@ interval, and with_skill less each other arm. A run with a trace.json
 output tokens, and the route columns of its transcript: read_skill_md,
 chain_depth, chain_attempts, preview_failed, help_reads, repeat_help,
 plan_refusals, hand_edits, lookups_before_first_edit, data_reads,
-other_clone_reads, entry_chars, printed_command_failures, print_sheet_chars
-and whole_sheet_prints, averaged like the cost columns; first_script, chain_end and chain_reached are counted
+other_clone_reads, entry_chars, printed_command_failures, print_sheet_chars,
+whole_sheet_prints, cookbook_reads, pointers_printed, pointer_follows,
+read_design_guide and cookbook_misses, averaged like the cost columns; first_script, chain_end and chain_reached are counted
 per cell. Time
 comes from timing.json, else from the trace; tokens come from timing.json. A
 case marked held_out in evals.json is reported separately, under held_out,
@@ -85,12 +89,22 @@ COMPARE = {0: lambda a, b: a == b, 1: lambda a, b: a != b, 2: lambda a, b: a < b
            3: lambda a, b: a <= b, 4: lambda a, b: a > b, 5: lambda a, b: a >= b}
 
 
+# check_project.py's block_behind warning on an instruction file whose Construct 3 block is older than the skill's.
+STALE_BLOCK = re.compile(r"^warning: [^\n]*: its Construct 3 block is the skill's of [^\n]* and the skill's is now "
+                         r"of [^\n]*; refresh it,[^\n]*\n?", re.M)
+
+
 def checker(project: Path) -> tuple[int, str]:
+    """check_project.py's exit code and output on the project. A run of an old_ arm installed the older skill,
+    whose block the current checker warns about, so that one warning is left out of its output."""
     p = subprocess.run([sys.executable, str(SKILL / "scripts" / "check_project.py"),
                         "--project", str(project), "--rag", str(PLUGIN)],
                        capture_output=True, text=True, encoding="utf-8",
                        env=dict(os.environ, PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_NO_RECORD="1"))
-    return p.returncode, (p.stdout + p.stderr).strip()
+    out = (p.stdout + p.stderr).strip()
+    if project.parent.name.startswith("old_"):
+        out = STALE_BLOCK.sub("", out).strip()
+    return p.returncode, out
 
 
 def walk(events: list, above: tuple = ()):
@@ -336,7 +350,7 @@ def unchanged(run: Path, allowed: tuple[str, ...] = ()) -> tuple[bool, str]:
     """Whether no project file differs from the fixture, with the list of those that do. A path that starts
     with one of `allowed` is skipped, and so are .tmp, where the skill's scripts write their results, and .git,
     which SKILL.md tells a run to create."""
-    want = {k: v for k, v in json.loads((run / "fixture.json").read_text(encoding="utf-8")).items() if not k.endswith((".sids", ".warnings"))}
+    want = {k: v for k, v in json.loads((run / "fixture.json").read_text(encoding="utf-8")).items() if not k.endswith((".sids", ".warnings", ".commit"))}
     project = run / "project"
     have = {p.relative_to(project).as_posix(): hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
             for p in sorted(project.rglob("*"))
@@ -1448,11 +1462,13 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
 TRACE_COLUMNS = ("tool_calls", "lost_calls", "turns", "output_tokens", "read_skill_md", "first_script", "chain_depth",
                  "chain_end", "chain_reached", "chain_attempts", "preview_failed", "help_reads", "repeat_help",
                  "plan_refusals", "hand_edits", "lookups_before_first_edit", "data_reads", "other_clone_reads",
-                 "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints")
+                 "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints",
+                 "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses")
 METRICS = ("pass_rate", "runtime_rate", "seconds", "tokens", "turns", "output_tokens", "tool_calls", "lost_calls",
            "play_seconds", "read_skill_md", "chain_depth", "chain_attempts", "preview_failed", "help_reads",
            "repeat_help", "plan_refusals", "hand_edits", "lookups_before_first_edit", "data_reads",
-           "other_clone_reads", "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints")
+           "other_clone_reads", "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints",
+           "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses")
 COUNTED = ("first_script", "chain_end", "chain_reached")    # per cell: how many runs started with, passed, or called each
 LEVELS = ("checker", "files", "runtime")      # in the order a run reaches them
 

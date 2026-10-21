@@ -66,6 +66,24 @@ calls and their results:
   elsewhere in it, a relative path resolved against the cd before it. A
   script run from the clone, and a --rag or --project value, are not
   reads.
+- cookbook_reads, cookbook_pages: calls that read the guides/ of the
+  Cookbook clone, read as the clone reads are, and the pages they read,
+  relative to guides/, in the order of their first read. The clone is the
+  one the project's Construct3-Cookbook: line names, else the one
+  c3project.locate_cookbook finds for the project.
+- pointers_printed, pointer_follows, pointers: a pointer is a page that a
+  lookup_ace.py "pitfalls:" line or a search_guides.py result's file and
+  line names; it is followed when a later call reads the page.
+  pointers_printed counts the pages pointed to and pointer_follows the
+  ones followed, and pointers keeps the pages printed and followed by
+  each of the two scripts.
+- read_design_guide: guides/design/thinking.md was read before the first
+  edit, as lookups_before_first_edit finds it, or at all when nothing edited.
+- cookbook_misses, cookbook_missed: the paths under the Cookbook clone
+  that a call tried to read and that are not there, whether the call was
+  lost or a later command in it hid the error, and those paths. A path is
+  judged by the clone as it is when the trace runs, so read it from a
+  clone at the commit the runs used.
 - entry_chars: the characters that came back before the first script
   call: the skill, the instruction files, the listing of the project.
 - printed_command_failures: lost shell calls whose script path an earlier
@@ -74,8 +92,10 @@ calls and their results:
   does not count; a refused plan is lost and counts here as well as in
   plan_refusals.
 
-hand_edits, lookups_before_first_edit and the clone reads need the run
-folder (--out or --root) with its project/; without it they are null.
+hand_edits, lookups_before_first_edit, the clone reads and the Cookbook
+columns need the run folder (--out or --root) with its project/; without it
+they are null, and the Cookbook columns are null too for a run without a
+Cookbook clone.
 
 exit codes: 0 read, 1 the file holds no tool call
 """
@@ -491,17 +511,93 @@ def clone_reads(calls: list[dict], clone: Path) -> tuple[int, int]:
     """The calls that read the clone's data/, and the calls that read the rest of it."""
     data = other = 0
     for c in calls:
-        given = c["input"] if isinstance(c["input"], dict) else {}
-        if c["tool"] in SHELLS:
-            paths = read_paths(str(given.get("command", "")))
-        else:
-            path = absolute(str(given.get(FILE_READS.get(c["tool"], ""), ""))) if c["tool"] in FILE_READS else None
-            paths = [path] if path else []
+        paths = call_reads(c)
         if any(within(p, clone / "data") for p in paths):
             data += 1
         elif any(within(p, clone) for p in paths):
             other += 1
     return data, other
+
+
+def cookbook_of(project: Path, clone: Path | None) -> Path | None:
+    """The Cookbook clone of the run: the one the project's Construct3-Cookbook: line names, else the one the
+    scripts would find for the project beside the clones."""
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        try:
+            value = c3project.clone_line((project / name).read_text(encoding="utf-8"), c3project.COOKBOOK_CLONE)
+        except OSError:
+            value = None
+        if value:
+            return Path(value)
+    return c3project.locate_cookbook(clone, project)[0]
+
+
+def call_reads(c: dict) -> list[str]:
+    """The absolute paths a call reads, as clone_reads counts them."""
+    given = c["input"] if isinstance(c["input"], dict) else {}
+    if c["tool"] in SHELLS:
+        return read_paths(str(given.get("command", "")))
+    path = absolute(str(given.get(FILE_READS.get(c["tool"], ""), ""))) if c["tool"] in FILE_READS else None
+    return [path] if path else []
+
+
+# A pointer to a Cookbook page: lookup_ace.py's "pitfalls:" line, and a search_guides.py result's file and line.
+LOOKUP_POINTER = re.compile(r"^[ \t]*pitfalls: (.+)$", re.M)
+SEARCH_POINTER = re.compile(r"^(\S[^\n:]*(?::[\\/][^\n:]*)?\.md)(?::\d+)?\r?$", re.M)
+POINTER_SOURCES = {"lookup_ace": LOOKUP_POINTER, "search_guides": SEARCH_POINTER}
+COOKBOOK_COLUMNS = ("cookbook_reads", "cookbook_pages", "pointers_printed", "pointer_follows", "pointers",
+                    "read_design_guide", "cookbook_misses", "cookbook_missed")
+
+
+def page_of(word: str, guides: Path, cwd: str | None) -> str | None:
+    """The page of guides/ that word names, relative to guides/ with forward slashes: an absolute path, one
+    relative to the cd of the command, or the Construct3-Cookbook/guides/<page> a script prints without a clone."""
+    word = word.strip().strip("\"'`")
+    path = resolved(word, cwd)
+    if path and within(path, guides) and path.lower().endswith(".md"):
+        return "/".join(parts_below(path, guides))
+    m = re.search(rf"(?:^|/){c3project.COOKBOOK_CLONE}/{c3project.GUIDES}/(.+\.md)$", word.replace("\\", "/"))
+    return os.path.normcase(m.group(1)).replace("\\", "/") if m else None
+
+
+def pointers_in(c: dict, guides: Path) -> dict[str, list[str]]:
+    """The Cookbook pages the call's result points to, by the script that printed them."""
+    command = str(c["input"].get("command", "")) if isinstance(c["input"], dict) else ""
+    cwd = cwd_at(command, len(command))
+    found: dict[str, list[str]] = {}
+    for script, pattern in POINTER_SOURCES.items():
+        if runs_script(c, script):
+            words = [w for m in pattern.finditer(c["result"]) for w in m.group(1).split(", ")]
+            found[script] = [p for w in words if (p := page_of(w, guides, cwd))]
+    return found
+
+
+def cookbook_route(calls: list[dict], cookbook: Path, first_edit: int | None) -> dict:
+    """How the run used the Cookbook: the calls that read its guides/, the pages they read, the pages the
+    scripts pointed to and the ones read after that, whether design/thinking.md came before the first edit, and
+    the paths under the clone that a call tried and that are not there."""
+    guides = cookbook / c3project.GUIDES
+    reads, pages, misses, design = 0, [], [], False
+    printed: dict[str, dict[str, None]] = {script: {} for script in POINTER_SOURCES}   # the pages, in order
+    followed: dict[str, list[str]] = {script: [] for script in POINTER_SOURCES}
+    for n, c in enumerate(calls):
+        paths = call_reads(c)
+        read = list(dict.fromkeys(page for p in paths if within(p, guides) and os.path.isfile(p)
+                                  and (page := "/".join(parts_below(p, guides)))))
+        reads += any(within(p, guides) and os.path.exists(p) for p in paths)
+        pages += [p for p in read if p not in pages]
+        design |= "design/thinking.md" in read and (first_edit is None or n < first_edit)
+        misses += [p for p in paths if within(p, cookbook) and not os.path.exists(p)]
+        for script, seen in printed.items():
+            followed[script] += [p for p in read if p in seen and p not in followed[script]]
+        for script, found in pointers_in(c, guides).items():
+            printed[script].update(dict.fromkeys(found))
+    every = {p for seen in printed.values() for p in seen}
+    return {"cookbook_reads": reads, "cookbook_pages": pages, "pointers_printed": len(every),
+            "pointer_follows": len({p for got in followed.values() for p in got}),
+            "pointers": {script: {"printed": list(printed[script]), "followed": followed[script]}
+                         for script in POINTER_SOURCES},
+            "read_design_guide": design, "cookbook_misses": len(misses), "cookbook_missed": misses}
 
 
 def printed_command_failures(calls: list[dict]) -> int:
@@ -547,6 +643,7 @@ def summary(calls: list[dict], root: Path | None = None) -> dict:
            "help_reads": sum(helps.values()), "repeat_help": sum(n - 1 for n in helps.values()),
            "help_reads_by_script": helps, "plan_refusals": sum(refused_plan(c) for c in calls),
            "hand_edits": None, "lookups_before_first_edit": None, "data_reads": None, "other_clone_reads": None,
+           **dict.fromkeys(COOKBOOK_COLUMNS),
            "entry_chars": sum(c["chars"] or 0 for c in calls[:before_first]),
            "printed_command_failures": printed_command_failures(calls),
            # each call once, though its command runs print_sheet.py more than once: the characters the run read back
@@ -561,6 +658,9 @@ def summary(calls: list[dict], root: Path | None = None) -> dict:
         clone = clone_of(project)
         if clone:
             out["data_reads"], out["other_clone_reads"] = clone_reads(calls, clone)
+        cookbook = cookbook_of(project, clone)
+        if cookbook:
+            out |= cookbook_route(calls, cookbook, out["lookups_before_first_edit"])
     return out
 
 
@@ -604,6 +704,11 @@ def main() -> int:
           + (f"{counts['hand_edits']} hand edits, {counts['lookups_before_first_edit']} calls before the first edit"
              if counts["hand_edits"] is not None else
              "hand edits and calls before the first edit need --out or --root with its project/"))
+    if counts["cookbook_reads"] is not None:
+        print(f"{counts['cookbook_reads']} Cookbook reads ({', '.join(counts['cookbook_pages']) or 'no page'}), "
+              f"{counts['pointer_follows']} of {counts['pointers_printed']} pointers followed, design guide "
+              f"{'read' if counts['read_design_guide'] else 'not read'} before the first edit, "
+              f"{counts['cookbook_misses']} misses")
     if root:
         counts["outside"], counts["outside_reads"] = outside(calls, root)
         writes = counts["outside"]

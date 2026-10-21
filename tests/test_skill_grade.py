@@ -8,13 +8,14 @@ passes throughout. An add-countdown run is the stand-in game with the events it 
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, SKILL, SHEET, run
+from tests.skill_helpers import EVALS, NEEDS_GIT, SKILL, SHEET, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -150,6 +151,23 @@ def test_the_restart_reads_the_countdown_running_out(tmp_path: Path, project: Pa
     assert result["passed"] is restarts, result
 
 
+def test_an_old_arm_is_not_failed_on_its_older_block(tmp_path: Path, project: Path) -> None:
+    """An old_ arm installed the older skill, whose Construct 3 block the current checker warns about: grade.py leaves
+    that warning out of an old_ run's checker output and keeps it in a with_skill run's."""
+    from tests.test_skill_install import older_block
+    outs = {}
+    for arm in ("old_skill_2", "with_skill"):
+        root = tmp_path / arm / "project"
+        shutil.copytree(project, root)
+        older_block(root)
+        outs[arm] = grader.checker(root)
+    code, out = outs["with_skill"]
+    assert code == 0 and grader.STALE_BLOCK.search(out), out
+    assert [line for line in out.splitlines() if line.startswith("warning:")] == [grader.STALE_BLOCK.search(out)[0].strip()]
+    code, out = outs["old_skill_2"]
+    assert code == 0 and "warning:" not in out and out.splitlines()[-1].startswith("ok: "), out
+
+
 def test_a_function_call_on_start_is_graded_with_the_countdown(tmp_path: Path, project: Path) -> None:
     """A call of a function lists its arguments, not named parameters: iteration 65's add-countdown/with_skill
     called ShowScore under On start of layout, and the grader stopped on the list."""
@@ -267,6 +285,28 @@ def test_make_fixtures_finds_the_old_installer_under_plugin(tmp_path: Path) -> N
     assert code == 1 and "plugin/skills/construct3-agent-plugin/scripts/install.py" in out
 
 
+@NEEDS_GIT
+def test_make_fixtures_pins_the_with_arm_to_a_worktree_of_the_commit(tmp_path: Path) -> None:
+    """The with_skill fixture is installed from a detached worktree of HEAD in the runs folder and names its commit;
+    the without_skill fixture installed nothing and names none."""
+    repo, runs = EVALS.parents[1], tmp_path / "runs"
+    sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True,
+                         check=True).stdout.strip()
+    folder = runs / f"clone-{sha[:12]}"
+    try:
+        code, out = run(tmp_path, EVALS / "make_fixtures.py", str(runs), "--cases", "name-the-restart-event",
+                        "--arms", "with_skill", "without_skill")
+        assert code == 0, out
+        assert read_json(runs / "clone.json") == {"commit": sha, "folder": folder.resolve().as_posix(), "old_clone": None}
+        case = runs / "name-the-restart-event"
+        assert read_json(case / "with_skill" / "fixture.json")["clone.commit"] == sha
+        assert "clone.commit" not in read_json(case / "without_skill" / "fixture.json")
+        block = (case / "with_skill" / "project" / "AGENTS.md").read_text(encoding="utf-8")
+        assert f"- Construct3-RAG: {(folder / 'plugin').resolve().as_posix()}" in block, block
+    finally:
+        subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(folder)], capture_output=True)
+
+
 def test_sweep_outputs_runs_the_skill_scripts_of_this_checkout_by_default(tmp_path: Path) -> None:
     # Past the check of the scripts folder, the sweep stops at the empty project list.
     code, out = run(tmp_path, EVALS / "sweep_outputs.py", str(tmp_path / "out.json"), "--projects", str(tmp_path))
@@ -375,6 +415,7 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
     project, clone = run_dir / "project", tmp_path / "clone"
     (project / "layouts").mkdir(parents=True)
     block = ("path-to = " + clone.parent.as_posix() + "\n- Construct3-RAG: <path-to>/clone\n"
+             "- Construct3-Cookbook: <path-to>/cookbook\n"
              "1. Run `python .agents/skills/construct3-agent-plugin/scripts/check_project.py` from the project folder.\n")
     (project / "AGENTS.md").write_text(block, encoding="utf-8")
     scripts = f"{project.as_posix()}/.agents/skills/construct3-agent-plugin/scripts"
@@ -415,7 +456,8 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
         "first_script": "check_project", "chain_depth": 4, "chain_end": "preview_project", "chain_reached": "preview_project",
         "chain_attempts": 7, "preview_failed": 1, "help_reads": 2, "repeat_help": 1, "plan_refusals": 1, "hand_edits": 1,
         "lookups_before_first_edit": 8, "data_reads": 1, "other_clone_reads": 1, "entry_chars": 6018 + len(block),
-        "printed_command_failures": 1, "print_sheet_chars": 0, "whole_sheet_prints": 0}
+        "printed_command_failures": 1, "print_sheet_chars": 0, "whole_sheet_prints": 0, "cookbook_reads": 0,
+        "pointers_printed": 0, "pointer_follows": 0, "read_design_guide": False, "cookbook_misses": 0}
     assert trace["chain"] == {"check_project": {"calls": 4, "passed": True}, "review_design": {"calls": 1, "passed": False},
                               "open_in_editor": {"calls": 1, "passed": False}, "preview_project": {"calls": 1, "passed": True},
                               "review_look": {"calls": 0, "passed": False}}
@@ -428,6 +470,74 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
     code, out = run(tmp_path, EVALS / "trace.py", str(transcript))
     assert code == 0, out
     assert "1 refused plans, hand edits and calls before the first edit need --out or --root with its project/" in out
+
+
+def cookbook_run(tmp_path: Path, line: bool) -> tuple[Path, Path]:
+    """A run folder whose project names a Cookbook clone with a few pages on its Construct3-Cookbook: line, or
+    names none."""
+    run_dir, cookbook = tmp_path / "run", tmp_path / "cookbook"
+    (run_dir / "project" / "layouts").mkdir(parents=True, exist_ok=True)
+    for page in ("pitfalls.md", "design/thinking.md", "behaviors/timer.md", "behaviors/platform.md", "behaviors/dragndrop.md"):
+        (cookbook / "guides" / page).parent.mkdir(parents=True, exist_ok=True)
+        (cookbook / "guides" / page).write_text("# page\n", encoding="utf-8")
+    block = f"- Construct3-RAG: {(tmp_path / 'clone').as_posix()}\n"
+    (run_dir / "project" / "AGENTS.md").write_text(
+        block + (f"- Construct3-Cookbook: {cookbook.as_posix()}\n" if line else ""), encoding="utf-8")
+    return run_dir, cookbook
+
+
+def test_trace_counts_the_cookbook_pages_and_the_pointers_followed(tmp_path: Path) -> None:
+    """The design guide read before the edit, a lookup_ace.py pointer followed before the edit, one followed after
+    it and one never followed, a search_guides.py result path relative to the cd of its command that a later sed
+    reads, and two cats of a page that is not there, both misses: one lost, one whose error a pipe hid."""
+    run_dir, cookbook = cookbook_run(tmp_path, line=True)
+    guides, scripts = (cookbook / "guides").as_posix(), "/s/.agents/skills/construct3-agent-plugin/scripts"
+    missing, hidden = f"{cookbook.as_posix()}/pitfalls/behaviors/timer.md", f"{guides}/pitfalls/timer.md"
+    calls = [
+        ("Bash", {"command": f'cat "{guides}/design/thinking.md"'}, "# page", False),
+        ("Bash", {"command": f"python {scripts}/lookup_ace.py Timer start"},
+         f"Timer: Start timer\n  pitfalls: {guides}/behaviors/timer.md, {guides}/plugins/system.md", False),
+        ("Bash", {"command": f"python {scripts}/lookup_ace.py Platform jump"},
+         "Platform: Simulate control\n  pitfalls: Construct3-Cookbook/guides/behaviors/platform.md", False),
+        ("Bash", {"command": f'cd "{cookbook.as_posix()}" && python {scripts}/search_guides.py drag'},
+         "pitfalls:\nguides/behaviors/dragndrop.md:17\n  Drag & Drop moves the dragged instance only when ...", False),
+        ("Read", {"file_path": f"{guides}/behaviors/timer.md"}, "1\t# page", False),
+        ("Bash", {"command": f'cat "{missing}"'}, f"Exit code 1\ncat: {missing}: No such file or directory", True),
+        ("Bash", {"command": f'cat "{hidden}" 2>&1 | head'}, f"cat: {hidden}: No such file or directory", False),
+        ("Bash", {"command": f'cd "{cookbook.as_posix()}" && sed -n 1,40p guides/behaviors/dragndrop.md'}, "# page", False),
+        ("Edit", {"file_path": f"{(run_dir / 'project').as_posix()}/layouts/x.json", "old_string": "a", "new_string": "b"},
+         "updated", False),
+        ("Read", {"file_path": f"{guides}/behaviors/platform.md"}, "1\t# page", False),
+    ]
+    transcript = transcript_of(tmp_path / "agent.jsonl", calls)
+    code, out = run(tmp_path, EVALS / "trace.py", str(transcript), "--out", str(run_dir))
+    assert code == 0, out
+    trace = read_json(run_dir / "trace.json")
+    assert {k: trace[k] for k in tracer.COOKBOOK_COLUMNS} == {
+        "cookbook_reads": 4, "cookbook_pages": ["design/thinking.md", "behaviors/timer.md", "behaviors/dragndrop.md",
+                                                "behaviors/platform.md"],
+        "pointers_printed": 4, "pointer_follows": 3,
+        "pointers": {"lookup_ace": {"printed": ["behaviors/timer.md", "plugins/system.md", "behaviors/platform.md"],
+                                    "followed": ["behaviors/timer.md", "behaviors/platform.md"]},
+                     "search_guides": {"printed": ["behaviors/dragndrop.md"], "followed": ["behaviors/dragndrop.md"]}},
+        "read_design_guide": True, "cookbook_misses": 2,
+        "cookbook_missed": [str(Path(missing).resolve()), str(Path(hidden).resolve())]}
+    assert trace["lost_calls"] == 1 and trace["lookups_before_first_edit"] == 8
+    assert "4 Cookbook reads (design/thinking.md, behaviors/timer.md" in out and "3 of 4 pointers followed" in out
+
+
+def test_trace_leaves_the_cookbook_columns_null_without_a_clone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A project that names no Cookbook, where none lies beside the clones, has no Cookbook columns; one that names
+    a clone has them even when the run read none of it."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
+    monkeypatch.setattr(tracer.c3project, "cookbook_places", lambda rag: [])
+    calls = [{"tool": "Read", "what": "x", "failed": False, "result": "", "input": {"file_path": "/x/AGENTS.md"},
+              "chars": 0, "loads_skill": False}]
+    run_dir, _ = cookbook_run(tmp_path, line=False)
+    assert all(tracer.summary(calls, run_dir)[k] is None for k in tracer.COOKBOOK_COLUMNS)
+    run_dir, _ = cookbook_run(tmp_path, line=True)
+    assert tracer.summary(calls, run_dir)["pointers_printed"] == 0
 
 
 @pytest.mark.parametrize(("command", "edit"), [
@@ -477,8 +587,10 @@ def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
                 "chain_reached": "review_look", "chain_attempts": depth + 1,
                 "preview_failed": 0, "help_reads": 1, "repeat_help": 0, "plan_refusals": 0, "hand_edits": 0,
                 "lookups_before_first_edit": 8, "data_reads": 1, "other_clone_reads": 0, "entry_chars": 30000,
-                "printed_command_failures": 0, "print_sheet_chars": 9000, "whole_sheet_prints": 0, "outside": [],
-                "outside_reads": []}), encoding="utf-8")
+                "printed_command_failures": 0, "print_sheet_chars": 9000, "whole_sheet_prints": 0,
+                "cookbook_reads": depth - 1, "pointers_printed": 2, "pointer_follows": int(depth > 3),
+                "read_design_guide": depth > 4, "cookbook_misses": 0, "outside": [], "outside_reads": []}),
+                encoding="utf-8")
     return iteration
 
 
@@ -499,6 +611,9 @@ def test_grade_carries_the_route_columns_and_decides_on_one(tmp_path: Path) -> N
     assert with_skill["chain_reached"] == {"review_look": 3}
     assert set(grader.TRACE_COLUMNS) <= set(with_skill["runs"][0])
     assert with_skill["runs"][0]["tool_calls"] == 25 and with_skill["lost_calls"]["mean"] == 1
+    assert with_skill["pointer_follows"] == {"mean": 1, "runs": 3, "stddev": 0.0}
+    assert with_skill["read_design_guide"]["mean"] == 0.667 and with_skill["cookbook_reads"]["mean"] == 3.667
+    assert benchmark["run_summary"]["delta"]["with_skill - old_skill"]["pointer_follows"] == 1
     assert benchmark["run_summary"]["delta"]["with_skill - old_skill"]["chain_depth"] == pytest.approx(10 / 3, abs=0.01)
     assert benchmark["run_summary"]["with_skill"]["chain_end"] == {"preview_project": 1, "review_look": 2}
     assert benchmark["decision"]["verdict"] == "holds" and benchmark["decision"]["p"] == 0.05
@@ -507,6 +622,8 @@ def test_grade_carries_the_route_columns_and_decides_on_one(tmp_path: Path) -> N
                                          "(exact, 20 reassignments)")
     code, out = run(tmp_path, EVALS / "compare.py", str(iteration / "benchmark.json"), "chain_depth", "--direction", "down")
     assert "p = 1.000" in out
+    code, out = run(tmp_path, EVALS / "compare.py", str(iteration / "benchmark.json"), "pointer_follows")
+    assert code == 0 and "pointer_follows up: with_skill - old_skill = +3 over 1 case, one-sided p = 0.050" in out
 
 
 def test_grade_says_underpowered_and_aggregates_all_the_same(tmp_path: Path) -> None:
