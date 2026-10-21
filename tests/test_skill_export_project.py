@@ -2,6 +2,7 @@
 that stops leaves in the editor."""
 import io
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -242,6 +243,67 @@ def test_a_failed_unpack_keeps_the_earlier_export(monkeypatch, tmp_path):
     with pytest.raises(export.Stop, match="holds no Web export"):
         export.unpack(zipped_export("1.0.3.0"), tmp_path / "first", "1.0.3.0")
     assert (mine / "notes.txt").is_file() and (tmp_path / "first" / "index.html").read_text(encoding="utf-8") == "1.0.2.0"
+
+
+class Killed(BaseException):
+    """The process ending in the middle of a step, which no except clause of the script sees."""
+
+
+@pytest.mark.parametrize("kill_in", ["extraction", "swap", "cleanup"])
+def test_a_retry_after_a_killed_export_keeps_one_export(monkeypatch, tmp_path, kill_in):
+    """A run killed between the steps of the swap leaves the earlier export beside the folder, at
+    times as the only one; a retry restores it before it clears anything, so a retry that fails
+    leaves an export in the folder (the audit of 2026-10-07, S01, lost both to a wrong version)."""
+    export = script_module("export_project")
+    web = tmp_path / "web"
+    export.unpack(zipped_export("1.0.0.0"), web, "1.0.0.0")
+    with monkeypatch.context() as m:
+        def kill(*_):
+            raise Killed
+        if kill_in == "extraction":
+            m.setattr(zipfile.ZipFile, "extractall", kill)
+        elif kill_in == "swap":
+            rename = Path.rename
+            m.setattr(Path, "rename", lambda self, target: kill() if self.name.startswith("web.new")
+                      else rename(self, target))
+        else:
+            m.setattr(export.shutil, "rmtree", kill)
+        with pytest.raises(Killed):
+            export.unpack(zipped_export("1.0.1.0"), web, "1.0.1.0")
+    with pytest.raises(export.Stop, match="not 1.0.2.0"):
+        export.unpack(zipped_export("1.0.1.0"), web, "1.0.2.0")
+    expected = "1.0.1.0" if kill_in == "cleanup" else "1.0.0.0"
+    assert (web / "index.html").read_text(encoding="utf-8") == expected
+    assert [f.name for f in tmp_path.iterdir()] == ["web"]
+    export.unpack(zipped_export("1.0.2.0"), web, "1.0.2.0")
+    assert (web / "index.html").read_text(encoding="utf-8") == "1.0.2.0"
+    assert [f.name for f in tmp_path.iterdir()] == ["web"]
+
+
+def test_a_backup_that_cannot_be_restored_is_named(monkeypatch, tmp_path):
+    """When the earlier export cannot go back in its place, the run stops and names where it is."""
+    export = script_module("export_project")
+    web = tmp_path / "web"
+    export.unpack(zipped_export("1.0.0.0"), web, "1.0.0.0")
+    rename = Path.rename
+    with monkeypatch.context() as m:
+        def kill(self, target):
+            if self.name.startswith("web.new"):
+                raise Killed
+            return rename(self, target)
+        m.setattr(Path, "rename", kill)
+        with pytest.raises(Killed):
+            export.unpack(zipped_export("1.0.1.0"), web, "1.0.1.0")
+    (old,) = [f for f in tmp_path.iterdir() if f.name.startswith("web.old")]
+    with monkeypatch.context() as m:
+        def refuse(self, target):
+            if self.name.startswith("web.old"):
+                raise OSError("in use")
+            return rename(self, target)
+        m.setattr(Path, "rename", refuse)
+        with pytest.raises(export.Stop, match=f"earlier export is in {re.escape(str(old))}"):
+            export.unpack(zipped_export("1.0.1.0"), web, "1.0.1.0")
+    assert (old / "index.html").read_text(encoding="utf-8") == "1.0.0.0" and not web.exists()
 
 
 def test_export_stops_on_a_key_it_would_ship_and_names_the_hosts(project):

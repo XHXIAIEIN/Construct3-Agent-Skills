@@ -606,13 +606,22 @@ def beside(folder: Path) -> tuple[Path, Path]:
 
 def clear_beside(folder: Path) -> None:
     """Removes the export a run that was killed left beside the export folder, so that no .c3p packs
-    it; a folder there that holds no export is someone's, and stops the run."""
-    for leftover in beside(folder):
-        if not leftover.exists():
-            continue
-        if not (leftover / "data.json").is_file():
+    it; a folder there that holds no export is someone's, and stops the run. A run killed between the
+    two renames of the swap left the earlier export only in .old, which goes back in its place first."""
+    new, old = beside(folder)
+    for leftover in (new, old):
+        if leftover.exists() and not (leftover / "data.json").is_file():
             raise Stop(f"{leftover} is in the way and holds no Web export; move or delete it by hand")
-        shutil.rmtree(leftover)
+    if old.exists() and not folder.exists():
+        try:
+            old.rename(folder)
+        except OSError as e:
+            raise Stop(f"the earlier export is in {old}, where a killed run left it, and it could not go "
+                       f"back to {folder}: {e}; move it there by hand") from e
+        print(f"put back the earlier export that a killed run left in {old}", flush=True)
+    for leftover in (new, old):
+        if leftover.exists():
+            shutil.rmtree(leftover)
 
 
 def unpack(data: bytes, folder: Path, version: str) -> None:
