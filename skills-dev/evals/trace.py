@@ -21,9 +21,10 @@ lists the writes outside the run folder (--root, by default RUN_DIR of
 --out): an absolute path given to Write, Edit or NotebookEdit, and one a
 shell command redirects to or gives to a command that writes (cp, mv,
 mkdir, rm, tee, Set-Content, Copy-Item ...); outside_reads lists the other
-absolute paths outside it. A relative path, a variable and a path built
-inside a script are not resolved, so the list is a floor: an empty one
-proves nothing. read_skill_md is true when this skill's SKILL.md reached the
+absolute paths outside it. The text of a heredoc or a here-string is a
+command's input, not its words, and /dev/null is no file. A relative path,
+a variable and a path built inside a script are not resolved, so the list
+is a floor: an empty one proves nothing. read_skill_md is true when this skill's SKILL.md reached the
 model: the Skill tool called with this skill, its SKILL.md read, or a shell
 read of it (cat, type, Get-Content, sed, head) that came back with more than
 5000 characters, and the call's result came back without an error, as
@@ -154,11 +155,15 @@ def calls_of(path: Path) -> list[dict]:
 SHELLS = ("Bash", "PowerShell")
 
 
-# Shell text in words: 2>&1, a redirection, a separator, a quoted string, or a bare word.
-WORD = re.compile(r"""\d?>>?&\d|\d?>>?|&&|\|\||[|;&\n]|"[^"]*"|'[^']*'|[^\s"'|;&>]+""")
+# Shell text in words: 2>&1, a redirection, a separator (a bracket of a subshell or a $( ) or ` ` substitution too),
+# a quoted string, or a bare word.
+WORD = re.compile(r"""\d?>>?&\d|\d?>>?|&&|\|\||[|;&\n()`]|"[^"]*"|'[^']*'|[^\s"'|;&>()`]+""")
 REDIRECT = re.compile(r"\d?>>?")
-SEPARATORS = {"&&", "||", "|", ";", "&", "\n"}
-NOWHERE = {"/dev/null", "$null", "nul"}
+SEPARATORS = {"&&", "||", "|", ";", "&", "\n", "(", ")", "`"}
+NOWHERE = {"/dev/null", "/dev/stdout", "/dev/stderr", "$null", "nul"}
+# A heredoc's operator and end word (<<EOF, <<-'EOF', not the here-string <<<), and a PowerShell here-string.
+HEREDOC = re.compile(r"(?<!<)<<(?!<)(-?)[ \t]*(['\"]?)(\w+)\2")
+HERE_STRING = re.compile(r"@(['\"])[ \t]*\r?\n.*?\r?\n\1@", re.S)
 WRITES_EVERY = {"mkdir", "md", "rm", "rmdir", "rd", "del", "erase", "touch", "tee", "tee-object", "new-item", "ni",
                 "remove-item", "ri", "set-content", "sc", "add-content", "ac", "out-file"}
 WRITES_LAST = {"cp", "mv", "copy", "move", "copy-item", "cpi", "move-item", "mi", "rsync"}
@@ -201,8 +206,27 @@ def without_sed_script(words: list[str]) -> list[str]:
     return out
 
 
+def without_bodies(command: str) -> str:
+    """The command without the text of its heredocs and PowerShell here-strings, which is a command's input and not
+    words of the shell. A here-string becomes an empty string; a heredoc whose end line never comes is kept."""
+    lines = HERE_STRING.sub("''", command).split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        out.append(lines[i])
+        i += 1
+        for m in HEREDOC.finditer(out[-1]):
+            tabs, word = m.group(1), m.group(3)
+            end = next((j for j in range(i, len(lines))
+                        if (lines[j].lstrip("\t") if tabs else lines[j]).rstrip("\r") == word), None)
+            if end is None:
+                break
+            i = end + 1
+    return "\n".join(out)
+
+
 def split_shell(command: str) -> tuple[list[list[str]], list[str]]:
-    """The command's segments as words, a sed script left out, and the absolute paths its redirections write."""
+    """The command's segments as words, a sed script and the text of heredocs left out, and the absolute paths its
+    redirections write."""
     segments: list[list[str]] = []
     writes: list[str] = []
     segment: list[str] = []
@@ -212,7 +236,7 @@ def split_shell(command: str) -> tuple[list[list[str]], list[str]]:
             segments.append(without_sed_script(segment) if command_name(segment[0]) == "sed" else list(segment))
         segment.clear()
 
-    words = WORD.findall(command)
+    words = WORD.findall(without_bodies(command))
     i = 0
     while i < len(words):
         if words[i] in SEPARATORS:
@@ -256,7 +280,7 @@ LITERAL_PATH = re.compile(r"""["']([^"'\n\t()\[\]{};$*?<>|&\\][^"'\n\t()\[\]{};$
 INTERPRETER = re.compile(r"(?<![\w-])(?:python3?|py|node|pwsh|powershell)(?:\.exe)?\"?\s+(?:-[ce]?\s|-\s*<<|<<)|<<\s*-?\s*['\"]?\w+")
 WRITE_CALL = re.compile(r"\.write_(?:text|bytes)\(|writeFile(?:Sync)?\(|open\([^)]*[\"'][wa]b?\+?[\"']|Set-Content|Out-File")
 CD = re.compile(r"""(?:^|&&|\|\||;|\n)\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)""")
-REDIRECT_TARGET = re.compile(r"""(?<![\d&])>>?\s*("[^"]+"|'[^']+'|[^\s;&|<>]+)""")
+REDIRECT_TARGET = re.compile(r"""(?<![\d&])>>?\s*("[^"]+"|'[^']+'|[^\s;&|<>()`]+)""")
 
 
 def resolved(word: str, cwd: str | None) -> str | None:
@@ -305,8 +329,10 @@ def cwd_at(command: str, position: int) -> str | None:
 
 def inline_writes(command: str) -> list[str]:
     """The files the command writes by a redirection or an inline script, relative to the cd before each: a
-    python -, python -c, node -e or heredoc script that holds a write call names its files as string literals."""
-    out = [p for m in REDIRECT_TARGET.finditer(command) if (p := resolved(m.group(1), cwd_at(command, m.start())))]
+    python -, python -c, node -e or heredoc script that holds a write call names its files as string literals. A >
+    in the text of a heredoc is not a redirection."""
+    shell = without_bodies(command)
+    out = [p for m in REDIRECT_TARGET.finditer(shell) if (p := resolved(m.group(1), cwd_at(shell, m.start())))]
     script = INTERPRETER.search(command)
     if script and WRITE_CALL.search(command):
         cwd = cwd_at(command, script.start())

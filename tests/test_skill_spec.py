@@ -335,3 +335,28 @@ def test_trace_lists_writes_outside_the_run_folder(tmp_path):
     assert [Path(r["path"]) for r in trace["outside_reads"]] == [
         tmp_path / "clone" / "data" / "c3-schemas" / "_index.json", tmp_path / "clone" / "AGENTS.md"]
     assert "3 writes outside" in out, out
+
+
+@pytest.mark.parametrize("command, wrote", [
+    # iteration 67, add-countdown/old_skill: the ) of a $( ) is no part of the path, and /dev/null is no file
+    ('cd "{base}" && F=$(ls notes/expressions.md 2>/dev/null) && grep -n Operators "$F"', []),
+    ("echo `ls x 2>/dev/null`; head -3 x 2>/dev/stderr", []),
+    # iteration 67, design-a-catch-game/with_skill_2: an answer written by a heredoc names paths in its text
+    ('mkdir -p "{run}/outputs" && cat > "{run}/outputs/answer.md" <<\'EOF\'\n# Answer\n\n'
+     "Copy from `{base}/examples/egg-catcher` (`/examples/egg-catcher`).\nmv /examples/main.js` here\nEOF", []),
+    ("cat <<-EOF > {base}/notes.md\n\trm /examples/old\n\tEOF\necho done", ["notes.md"]),
+    ("@'\nrm C:/examples/old\n'@ | Set-Content {base}/notes.md", ["notes.md"]),
+    # iteration 67, design-a-catch-game/with_skill_3: a mistyped sibling of the run folder is a real write outside
+    ('mkdir -p "{run}-3/project/tools" && cp "{run}/answer.md" "{run}-3/answer.md"',
+     ["case/with_skill-3/project/tools", "case/with_skill-3/answer.md"]),
+])
+def test_trace_reads_writes_from_the_words_of_the_shell(tmp_path, command, wrote):
+    """Only the shell's own words are paths: /dev/null and the brackets of a substitution are not, and the text of
+    a heredoc or a here-string is a command's input. These were the false writes that voided runs of iteration 67;
+    a write to a mistyped run folder stays listed."""
+    run_dir = tmp_path / "case" / "with_skill"
+    (run_dir / "project").mkdir(parents=True)
+    given = {"command": command.format(base=tmp_path.as_posix(), run=run_dir.as_posix())}
+    _, trace = run_trace(tmp_path, [{"message": {"content": [
+        {"type": "tool_use", "id": "t", "name": "Bash", "input": given}]}}], run_dir)
+    assert [Path(w["path"]) for w in trace["outside"]] == [tmp_path / p for p in wrote]

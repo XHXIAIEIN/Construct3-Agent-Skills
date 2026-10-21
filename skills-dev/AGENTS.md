@@ -275,7 +275,9 @@ python skills-dev/evals/run_trigger_eval.py skills-dev/evals/train_queries.json 
   scratchpad or an answer one folder too high, and `grade.py` does not
   score such a run. The list is a floor: it reads absolute paths from file
   tools and from the words of shell commands, so a relative path, a
-  variable or a write made inside a script escapes it.
+  variable or a write made inside a script escapes it. The text of a
+  heredoc or a here-string is input, not words, so a path in an answer
+  written by `cat > answer.md <<'EOF'` is no write.
 - When a run's completion notice arrives, write the tokens and the duration
   it gives into the run's `timing.json`. `trace.py` reads the turns, the
   output and input tokens and the seconds from the transcript. The
