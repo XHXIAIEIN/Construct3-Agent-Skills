@@ -235,7 +235,6 @@ names the command.
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/` in the Construct3-RAG clone |
 | Why the plugin folder holds its sources, how the build sets its version, why it has this repository | `docs/decisions/plugin-folder.md`, `plugin-tracks-commits.md`, `plugin-repository.md` |
 | Why features were kept or removed | `docs/AGENTS.md`, the index of the records |
-| The audit findings for the project and the skill | `docs/dev/skills-audit.md` |
 | The data files, their fields and their update pipeline | `docs/guide/data-format.md` and `docs/dev/data-pipeline.md` in the Construct3-RAG clone |
 | How to hand an ACE lookup to a Claude Code sub-agent | `.claude/agents/ace-lookup.md` |
 | A verified run that polishes the skill's sources, docs, records and code. Start it only when no other session edits the repository | `.claude/workflows/polish.js` |

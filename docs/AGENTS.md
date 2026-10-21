@@ -5,11 +5,9 @@ folder of its reader.
 
 | Folder | Reader | Contents |
 |--------|--------|----------|
-| `dev/` | People and agents changing the code | `skills-audit.md` |
 | `decisions/` | Anyone asking why something is the way it is | one record per decision |
 
-`dev/` describes current behavior and changes with the code that alters
-it. When a document here is added or moves, update the tables of
+When a document here is added or moves, update the tables of
 `AGENTS.md` at the repository root, the agent entry point, to match. The
 docs of the data and the lookup service are in Construct3-RAG.
 
