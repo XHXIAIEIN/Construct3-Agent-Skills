@@ -24,9 +24,10 @@ Offline support, Deduplicate images and Optimize images on and the other
 options as it remembers them; the zip replaces
 the contents of --to, by default .build/web of the project, a folder Git ignores. --to is
 refused, before the browser starts, when it is the project, holds it, is a drive's root, or
-holds files and no data.json of an earlier export. The zip is extracted beside --to and
-replaces it only when it carries the version to export, so a failed run leaves the earlier
-export as it was. The export carries the version given by --version or
+holds files that no earlier export of the script wrote, as the .export_project.json it leaves
+in the folder lists them; --take-over hands it such a folder of a Web export once. The zip is
+extracted beside --to and replaces it only when it carries the version to export, so a failed
+run leaves the earlier export as it was. The export carries the version given by --version or
 --bump, else the project's, with Auto-increment version off in the copy handed to
 the editor, and that version is written into project.c3proj when it differs. The
 copy also sets Use worker to Auto, which lets the engine decide, whatever the
@@ -46,6 +47,7 @@ import base64
 import io
 import json
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -581,10 +583,45 @@ def pack(project: Path, version: str, skip: Path | None) -> bytes:
     return pp.zipped(staged)
 
 
-def refused_folder(project: Path, folder: Path) -> str | None:
+# The record an export folder holds of the files the export wrote into it. Only a folder that holds it,
+# and no file besides those, is the script's to replace or delete: a data.json proves nothing about who
+# made a folder (the audit of 2026-10-07 lost a folder of notes and a project beside the export to one).
+MARK = ".export_project.json"
+FILES_SHOWN = 5
+
+
+def written(folder: Path) -> list[str]:
+    """The files of folder, by their path under it, the record aside."""
+    return sorted(name for name in (f.relative_to(folder).as_posix() for f in folder.rglob("*") if f.is_file())
+                  if name != MARK)
+
+
+def record(folder: Path, files: list[str]) -> None:
+    (folder / MARK).write_text(json.dumps({"files": files}, indent=1) + "\n", encoding="utf-8")
+
+
+def unowned(folder: Path) -> str | None:
+    """Why folder, which holds files, is not an export of the script's own to replace, or None."""
+    try:
+        files = set(json.loads((folder / MARK).read_text(encoding="utf-8"))["files"])
+    except (OSError, ValueError, KeyError, TypeError):
+        if not (folder / "data.json").is_file():
+            return "it holds files that are not a Web export (no data.json)"
+        return (f"it holds a Web export that the script has no record of (no {MARK}), as one exported by hand or "
+                f"by an earlier version of the script; --take-over lets the export replace it")
+    others = [f for f in written(folder) if f not in files]
+    if others:
+        more = f" and {len(others) - FILES_SHOWN} more" if len(others) > FILES_SHOWN else ""
+        return (f"it holds files the export did not write: {', '.join(others[:FILES_SHOWN])}{more}; move them out, "
+                f"or --take-over lets the export replace them too")
+    return None
+
+
+def refused_folder(project: Path, folder: Path, take_over: bool = False) -> str | None:
     """Why the export may not replace folder, or None. The export empties it, so it is never the
     project, a folder that holds the project, a drive's root, or a folder of other files: only a
-    missing or empty folder, or one that holds an earlier export, its data.json."""
+    missing or empty folder, or one that holds an earlier export of the script's own. With take_over,
+    a folder of a Web export, its data.json, as the user asked."""
     if folder == Path(folder.anchor):
         return "it is the root of a drive"
     if folder == project or folder in project.parents:
@@ -594,46 +631,61 @@ def refused_folder(project: Path, folder: Path) -> str | None:
     if folder.is_dir() and any(folder.iterdir()):
         if (folder / "project.c3proj").exists():
             return "it holds a project"
-        if not (folder / "data.json").is_file():
-            return "it holds files that are not a Web export (no data.json)"
+        why = unowned(folder)
+        if why and not (take_over and (folder / "data.json").is_file()):
+            return why
     return None
 
 
-def beside(folder: Path) -> tuple[Path, Path]:
-    """The folders beside the export folder that unpack() extracts into and moves the earlier one to."""
-    return folder.with_name(folder.name + ".new"), folder.with_name(folder.name + ".old")
+def take_over(folder: Path) -> None:
+    """Records every file of folder as the export's, so that the export replaces it."""
+    if folder.is_dir() and any(folder.iterdir()):
+        record(folder, written(folder))
+
+
+def beside(folder: Path, kind: str) -> list[Path]:
+    """The folders of kind new or old that unpack() left beside folder, with the record that makes them its own."""
+    name = re.compile(re.escape(folder.name) + r"\." + kind + r"-[0-9a-f]{8}")
+    return sorted(f for f in folder.parent.iterdir() if name.fullmatch(f.name) and f.is_dir() and not unowned(f))         if folder.parent.is_dir() else []
 
 
 def clear_beside(folder: Path) -> None:
-    """Removes the export a run that was killed left beside the export folder, so that no .c3p packs
-    it; a folder there that holds no export is someone's, and stops the run. A run killed between the
-    two renames of the swap left the earlier export only in .old, which goes back in its place first."""
-    new, old = beside(folder)
-    for leftover in (new, old):
-        if leftover.exists() and not (leftover / "data.json").is_file():
-            raise Stop(f"{leftover} is in the way and holds no Web export; move or delete it by hand")
-    if old.exists() and not folder.exists():
+    """Removes the exports a run that was killed left beside the export folder, so that no .c3p packs
+    them. A run killed between the two renames of the swap left the earlier export only in an .old
+    folder, which goes back in its place first. A folder there without the record is someone's, and
+    stays."""
+    olds = beside(folder, "old")
+    if olds and not folder.exists():
+        if len(olds) > 1:
+            raise Stop(f"{folder} is missing, and killed runs left {len(olds)} earlier exports beside it: "
+                       f"{', '.join(map(str, olds))}; move the one to keep to {folder} by hand")
         try:
-            old.rename(folder)
+            olds[0].rename(folder)
         except OSError as e:
-            raise Stop(f"the earlier export is in {old}, where a killed run left it, and it could not go "
+            raise Stop(f"the earlier export is in {olds[0]}, where a killed run left it, and it could not go "
                        f"back to {folder}: {e}; move it there by hand") from e
-        print(f"put back the earlier export that a killed run left in {old}", flush=True)
-    for leftover in (new, old):
-        if leftover.exists():
-            shutil.rmtree(leftover)
+        print(f"put back the earlier export that a killed run left in {olds[0]}", flush=True)
+    for leftover in beside(folder, "new") + beside(folder, "old"):
+        shutil.rmtree(leftover)
 
 
 def unpack(data: bytes, folder: Path, version: str) -> None:
     """Extracts the export beside folder, checks that it carries version, then puts it in place of
     folder. The earlier export in folder stays as it was until then, and comes back when the swap
-    fails; one left behind by a failed cleanup is named, not hidden."""
-    new, old = beside(folder)
+    fails; one left behind by a failed cleanup is named, not hidden. The folders beside it have names
+    of their own and the record from the start, so that no other folder is taken for them."""
     clear_beside(folder)
+    why = unowned(folder) if folder.is_dir() and any(folder.iterdir()) else None
+    if why:
+        raise Stop(f"{folder} is not the export's to replace: {why}")
+    token = secrets.token_hex(4)
+    new, old = (folder.with_name(f"{folder.name}.{kind}-{token}") for kind in ("new", "old"))
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             if "data.json" not in z.namelist():
                 raise Stop("the zip the editor made holds no data.json, so it is not a Web export")
+            new.mkdir()
+            record(new, sorted(n for n in z.namelist() if not n.endswith("/")))
             z.extractall(new)
         if version not in exported_versions(new):
             raise Stop(f"the export carries {exported_versions(new)}, not {version}; {folder} and "
@@ -730,7 +782,7 @@ def main() -> int:
                     help="the folder that holds project.c3proj (default: found from the current directory upward)")
     ap.add_argument("--to", metavar="FOLDER", type=Path,
                     help="the folder the export replaces, relative to the project (default: .build/web): a new or empty "
-                            "folder, or one that holds an earlier export")
+                            "folder, or one that holds an earlier export of this script")
     which = ap.add_mutually_exclusive_group()
     which.add_argument("--version", help="the version to export, 3 or 4 numbers of 0 to 99: 1.2.0.0")
     which.add_argument("--bump", action="store_true",
@@ -742,6 +794,9 @@ def main() -> int:
     ap.add_argument("--slow", action="store_true",
                     help=f"pauses {SLOW} times longer between clicks from the start, for a slow machine or "
                          f"network; without it a step the editor missed is tried once more this way")
+    ap.add_argument("--take-over", action="store_true",
+                    help="let the export replace a Web export in --to that the script has no record of, such as "
+                         "one exported by hand, or files the user added to its export; once, on the user's word")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the version, the editor and the folder, and open nothing")
     args = ap.parse_args()
@@ -752,10 +807,11 @@ def main() -> int:
               f"pass --project <folder>", file=sys.stderr)
         return 2
     folder = (project / (args.to or Path(pp.BUILD) / "web")).resolve()
-    refused = refused_folder(project.resolve(), folder)
+    refused = refused_folder(project.resolve(), folder, args.take_over)
     if refused:
         print(f"--to {folder}: the export replaces everything in the folder, and {refused}; pass a new or "
-              f"empty folder, or the folder of an earlier export, such as the default .build/web", file=sys.stderr)
+              f"empty folder, or the folder of an earlier export of this script, such as the default .build/web",
+              file=sys.stderr)
         return 2
     version = args.version or (bumped(project, folder) if args.bump else project_version(project))
     if not VERSION_FORMAT.fullmatch(version):
@@ -777,6 +833,8 @@ def main() -> int:
         print(f"would export {version} in {editor_url(project)} into {folder}; project.c3proj version "
               f"{current}{f' -> {version}' if version != current else ''}")
         return 0
+    if args.take_over:
+        take_over(folder)
     if not args.to:
         pp.ignored_folder(project / pp.BUILD)       # where the products go, which Git ignores
     if args.slow:

@@ -20,6 +20,7 @@ def test_export_bumps_the_last_export_and_carries_a_hand_edit(project):
     web = project / "export" / "web"
     web.mkdir(parents=True)
     (web / "data.json").write_text(json.dumps({"project": ["Coins", None, "0.1.0.99", 1]}), encoding="utf-8")
+    script_module("export_project").take_over(web)
     code, out = run(project, SCRIPT, "--to", "export/web", "--bump", "--dry-run")
     assert code == 0 and "would export 1.0.0.0 " in out, out     # the project's 1.0.0.0 is greater than 0.1.1.0
     (web / "data.json").write_text(json.dumps({"project": ["Coins", "1.0.0.99"]}), encoding="utf-8")
@@ -49,6 +50,7 @@ def test_export_refuses_a_folder_it_would_empty_of_other_files(project, tmp_path
     earlier, empty = project / "export" / "web", tmp_path / "empty"
     earlier.mkdir(parents=True)
     (earlier / "data.json").write_text(json.dumps({"project": ["Coins", "1.0.0.0"]}), encoding="utf-8")
+    script_module("export_project").take_over(earlier)
     empty.mkdir()
     for to in ("export/web", str(empty), str(tmp_path / "new")):
         code, out = run(project, SCRIPT, "--to", to, "--dry-run")
@@ -204,9 +206,7 @@ def test_a_failed_unpack_keeps_the_earlier_export(monkeypatch, tmp_path):
     as it was (the audit of 2026-10-07 lost it to a failed extraction)."""
     export = script_module("export_project")
     web = tmp_path / "web"
-    web.mkdir()
-    (web / "data.json").write_text(json.dumps({"project": ["Coins", "1.0.0.0"]}), encoding="utf-8")
-    (web / "index.html").write_text("1.0.0.0", encoding="utf-8")
+    export.unpack(zipped_export("1.0.0.0"), web, "1.0.0.0")
     before = {f.name: f.read_bytes() for f in web.iterdir()}
 
     def kept() -> bool:
@@ -226,7 +226,7 @@ def test_a_failed_unpack_keeps_the_earlier_export(monkeypatch, tmp_path):
         rename = Path.rename
 
         def fail_new(self, target):
-            if self.name == "web.new":
+            if self.name.startswith("web.new"):
                 raise OSError("in use")
             return rename(self, target)
         m.setattr(Path, "rename", fail_new)
@@ -237,12 +237,78 @@ def test_a_failed_unpack_keeps_the_earlier_export(monkeypatch, tmp_path):
     assert (web / "index.html").read_text(encoding="utf-8") == "1.0.1.0" and sorted(tmp_path.iterdir()) == [web]
     export.unpack(zipped_export("1.0.2.0"), tmp_path / "first", "1.0.2.0")     # no earlier export
     assert (tmp_path / "first" / "index.html").read_text(encoding="utf-8") == "1.0.2.0"
-    mine = tmp_path / "first.old"
+    mine = tmp_path / "first.old"     # a folder of the user's under the name the swap used before
     mine.mkdir()
     (mine / "notes.txt").write_text("keep", encoding="utf-8")
-    with pytest.raises(export.Stop, match="holds no Web export"):
-        export.unpack(zipped_export("1.0.3.0"), tmp_path / "first", "1.0.3.0")
-    assert (mine / "notes.txt").is_file() and (tmp_path / "first" / "index.html").read_text(encoding="utf-8") == "1.0.2.0"
+    export.unpack(zipped_export("1.0.3.0"), tmp_path / "first", "1.0.3.0")
+    assert (mine / "notes.txt").is_file() and (tmp_path / "first" / "index.html").read_text(encoding="utf-8") == "1.0.3.0"
+
+
+def tree(folder: Path) -> dict[str, bytes]:
+    return {f.relative_to(folder).as_posix(): f.read_bytes() for f in folder.rglob("*") if f.is_file()}
+
+
+def test_a_data_json_does_not_make_a_folder_the_exports(project, tmp_path):
+    """A data.json proves nothing about who made a folder: a folder of notes beside one was taken as
+    --to and emptied, and a project in web.new was deleted whole (the audit of 2026-10-07, S02). The
+    export replaces only a folder it made itself, which holds no file it did not write; --take-over
+    hands it another folder once, on the user's word."""
+    export = script_module("export_project")
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    (notes / "data.json").write_text(json.dumps({"project": ["Coins", "1.0.0.0"]}), encoding="utf-8")
+    (notes / "measurements.txt").write_text("keep", encoding="utf-8")
+    code, out = run(project, SCRIPT, "--to", str(notes), "--dry-run")
+    assert code == 2 and "no record of" in out and "--take-over" in out, out
+    code, out = run(project, SCRIPT, "--to", str(notes), "--take-over", "--dry-run")
+    assert code == 0 and "would export" in out, out
+    assert tree(notes)["measurements.txt"] == b"keep"
+
+    web = tmp_path / "web"
+    export.unpack(zipped_export("1.0.0.0"), web, "1.0.0.0")
+    code, out = run(project, SCRIPT, "--to", str(web), "--dry-run")
+    assert code == 0 and "would export" in out, out
+    (web / "notes.txt").write_text("mine", encoding="utf-8")
+    code, out = run(project, SCRIPT, "--to", str(web), "--dry-run")
+    assert code == 2 and "did not write: notes.txt" in out, out
+    with pytest.raises(export.Stop, match="did not write: notes.txt"):
+        export.unpack(zipped_export("1.0.1.0"), web, "1.0.1.0")
+    assert tree(web)["notes.txt"] == b"mine" and tree(web)["index.html"] == b"1.0.0.0"
+    (web / "notes.txt").unlink()
+
+    neighbours = {"web.new": {"project.c3proj": "{}", "data.json": "{}"},
+                  "web.old": {"data.json": "{}", "notes.txt": "keep"}}
+    for name, files in neighbours.items():
+        (tmp_path / name).mkdir()
+        for file, text in files.items():
+            (tmp_path / name / file).write_text(text, encoding="utf-8")
+    before = {name: tree(tmp_path / name) for name in neighbours}
+    export.unpack(zipped_export("1.0.1.0"), web, "1.0.1.0")
+    assert tree(web)["index.html"] == b"1.0.1.0"
+    assert {name: tree(tmp_path / name) for name in neighbours} == before
+    assert sorted(f.name for f in tmp_path.iterdir() if f != project) == ["notes", "web", "web.new", "web.old"]
+
+
+def test_take_over_hands_the_export_a_folder_once(monkeypatch, project, tmp_path, capsys):
+    """An export made by hand or by an earlier version of the script is replaced only with --take-over,
+    and a run with it leaves a folder the next run replaces without it."""
+    export = script_module("export_project")
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "data.json").write_text(json.dumps({"project": ["Coins", "1.0.0.0"]}), encoding="utf-8")
+    (web / "index.html").write_text("by hand", encoding="utf-8")
+    before = tree(web)
+    monkeypatch.setattr(export.oe, "browser_path", lambda: "browser")
+    monkeypatch.setattr(export, "run", lambda project, folder, version, spec, exe:
+                        export.unpack(zipped_export(version), folder, version))
+    argv = ["export_project.py", "--project", str(project), "--to", str(web), "--version", "1.2.0.0"]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert export.main() == 2 and tree(web) == before
+    monkeypatch.setattr(sys, "argv", argv + ["--take-over"])
+    assert export.main() == 0 and tree(web)["index.html"] == b"1.2.0.0"
+    monkeypatch.setattr(sys, "argv", argv[:-1] + ["1.3.0.0"])
+    assert export.main() == 0 and tree(web)["index.html"] == b"1.3.0.0"
+    assert [f.name for f in tmp_path.iterdir() if f != project] == ["web"]
 
 
 class Killed(BaseException):

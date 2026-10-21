@@ -25,14 +25,23 @@ the project exports in the same window, with the same login. One export at
 a time holds that profile. A second export started meanwhile ends with exit
 5 and the pid of the first. Run it again when the first has ended.
 
-`--to` is a new or empty folder or one that holds an earlier export: the
-script refuses the project, a folder above it, a drive's root and a folder
-of other files with exit 2, before it opens anything. The zip is extracted
-beside `--to`, into `<folder>.new`, and takes the folder's place only when
-it carries the version to export; when the extraction, the check or the
-swap fails, the earlier export stays as it was. A run killed in the middle
-of the swap leaves the earlier export in `<folder>.old`; the next run puts
-it back in `--to` before it clears anything, and names it when it cannot.
+`--to` is a new or empty folder or one that holds an earlier export of the
+script: the script refuses the project, a folder above it, a drive's root
+and a folder of other files with exit 2, before it opens anything. An
+export of the script holds `.export_project.json`, the list of the files it
+wrote; a folder without it, or with a file the list does not name, is
+refused too, and the reason names the files. A Web export made by hand or
+by an older version of the script, and files the user added to an export,
+are replaced only with `--take-over`: ask the user first, since the files
+in the folder are lost. The next export takes the folder without it.
+
+The zip is extracted beside `--to`, into `<folder>.new-<8 hex digits>`,
+and takes the folder's place only when it carries the version to export;
+when the extraction, the check or the swap fails, the earlier export stays
+as it was. A run killed in the middle of the swap leaves the earlier export
+in `<folder>.old-<8 hex digits>`; the next run puts it back in `--to`
+before it clears anything, and names it when it cannot. A folder beside
+`--to` without the list stays as it is.
 
 The copy handed to the editor sets *Use worker* to Auto, so the engine
 decides: a worker, unless the project has a script or an addon without worker
