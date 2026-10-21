@@ -31,7 +31,9 @@ run leaves the earlier export as it was. The export carries the version given by
 --bump, else the project's, with Auto-increment version off in the copy handed to
 the editor, and that version is written into project.c3proj when it differs. The
 copy also sets Use worker to Auto, which lets the engine decide, whatever the
-project sets for preview.
+project sets for preview. A bundled addon the profile lacks stops the run with its
+name, since installing it runs its code; --install-bundled-addons installs it, on the
+user's word.
 
 The export ships every string of the events, the scripts and the project files
 to every player. Before the browser starts, a string shaped like a key stops the
@@ -98,6 +100,7 @@ SLOW = 3                # how much longer the pauses between clicks are with --s
 KEYS_SHOWN = 20         # strings shaped like a key named before the rest are counted
 HOSTS_SHOWN = 10        # hosts named before the rest are counted
 pace = 1.0              # factor of every pause between clicks: SLOW with --slow or after a missed step
+bundled = False         # --install-bundled-addons: install the addons the project carries when the editor asks
 
 
 class Stop(Exception):
@@ -305,9 +308,11 @@ DIALOG_JS = r"""(() => {
   return d ? {id: d.id, text: d.innerText.trim().replace(/\s+/g, ' ').slice(0, 600)} : null;
 })()"""
 
-# Close every open dialog by its close, Cancel or OK button
+# Close every open dialog by its close, Cancel or OK button; the confirmation of a bundled addon by
+# Cancel or close only, since its OK button installs the addon
 DISMISS_JS = r"""[...document.querySelectorAll('dialog[open]')].filter(d => d.id != 'progressDialog')
-  .forEach(d => d.querySelector('ui-close-button, .cancelButton, .okButton')?.click())"""
+  .forEach(d => d.querySelector(d.id == 'addonConfirmInstallDialog' ? '.cancelButton, ui-close-button'
+                                : 'ui-close-button, .cancelButton, .okButton')?.click())"""
 
 
 def find(page: Page, scope: str, text: str) -> list[float] | None:
@@ -439,7 +444,11 @@ def open_project(page, project: Path, staged: Path) -> None:
         raise Stop("the editor did not get ready to open a project; run again")
     field = page.evaluate("document.querySelector('input[aria-label=\"Project to open\"]')", by_value=False)
     page.call("DOM.setFileInputFiles", files=[str(staged)], objectId=field["objectId"])
-    result = page.evaluate(f"({oe.RESULT_JS})()", wait=oe.RESULT_WAIT)
+    result = page.evaluate(f"({oe.RESULT_JS})({json.dumps(bundled)})", wait=oe.RESULT_WAIT)
+    if isinstance(result, dict) and result.get("addon"):
+        raise Stop(f"the project bundles an addon this browser profile lacks, and installing it runs its code in "
+                   f"the editor; the editor shows: {result['addon']}. Tell the user what it is; with their yes, run "
+                   f"again with --install-bundled-addons, and the profile keeps it")
     if not isinstance(result, dict) or result["dialogs"]:
         raise Stop(f"the project did not open: {result}")
     for _ in range(60):     # a large project takes longer than RESULT_JS waits
@@ -797,6 +806,9 @@ def main() -> int:
     ap.add_argument("--take-over", action="store_true",
                     help="let the export replace a Web export in --to that the script has no record of, such as "
                          "one exported by hand, or files the user added to its export; once, on the user's word")
+    ap.add_argument("--install-bundled-addons", action="store_true",
+                    help="install the addons a project saved with Bundle addons carries when the editor asks, "
+                         "which runs their code in the editor; only on the user's word, after a run named them")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the version, the editor and the folder, and open nothing")
     args = ap.parse_args()
@@ -837,9 +849,10 @@ def main() -> int:
         take_over(folder)
     if not args.to:
         pp.ignored_folder(project / pp.BUILD)       # where the products go, which Git ignores
+    global pace, bundled
     if args.slow:
-        global pace
         pace = SLOW
+    bundled = args.install_bundled_addons
     exe = None if args.attach else oe.browser_path()
     if not args.attach and not exe:
         print("no Edge, Chrome or Chromium found here; export in the editor by hand, or pass --attach",

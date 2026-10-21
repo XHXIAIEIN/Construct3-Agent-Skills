@@ -113,6 +113,8 @@ output, one entry per addon with --install-addon, then one per project:
       uid 4, at (56, 239.94) 8x12, on World; Health 3
         Sprite animation: Current animation "Run", Current frame 2, Is playing true, Speed 12, Repeats 0
         Platform: Vector X 128, Vector Y 0, Max speed 128, ...
+  addon    <project>
+    editor: <the addon's dialog>; bundled: <addons/ by id>
   failed   <project>
     editor: <the dialog's text, which names the sheet, event and parameter at fault>
     exception: <the first line of the exception the editor logged>
@@ -155,7 +157,8 @@ SETUP_JS = r"""async () => {
   const ok = () => document.getElementById('mainMenuButton') && !open().length;
   console.error = (...a) => { e.push(a.map(String).join(' ')); log(...a); };
   const keep = window.__c3Keep = setInterval(() => { document.querySelector('a.noThanksLink')?.click();
-    open().forEach(d => d.querySelector('ui-close-button, .okButton')?.click()); }, 200);
+    open().forEach(d => d.querySelector(d.id == 'addonConfirmInstallDialog' ? '.cancelButton, ui-close-button'
+                                        : 'ui-close-button, .okButton')?.click()); }, 200);
   const i = document.createElement('input');
   i.type = 'file'; i.ariaLabel = 'Project to open'; document.body.prepend(i);
   i.onchange = async () => {
@@ -178,9 +181,11 @@ SETUP_JS = r"""async () => {
 # takes up to half a second, so that a preview or an export can go on. It is told by
 # its id, since the crash report, a refusal, also comes after the title has turned.
 # A project saved with Bundle addons asks, halfway through opening, to install each
-# bundled addon the profile lacks, and waits there: the addon is the project's own,
-# so it is installed as a user opening the project would, and named in warnings.
-RESULT_JS = r"""async () => {
+# bundled addon the profile lacks, and waits there. Installing it runs the addon's code
+# in the editor, and a project from elsewhere may carry any addon, so RESULT answers no,
+# by Cancel or the close button, never OK, and returns the dialog's text as `addon`; called
+# with true, on the user's word, it installs each and names it in warnings.
+RESULT_JS = r"""async (install = false) => {
   const w = t => new Promise(r => setTimeout(r, t)), start = () => window.__c3Title;
   const open = () => [...document.querySelectorAll('dialog[open]')].filter(d => d.id != 'progressDialog');
   const notice = d => d.id == 'deprecatedFeaturesDialog', text = d => d.innerText.trim().replace(/\s+/g, ' ').slice(0, 1500);
@@ -189,6 +194,11 @@ RESULT_JS = r"""async () => {
   if (start() === null) return 'the file on the input is empty: its path does not exist';
   for (let n = 0; n < 180; n++, await w(250)) {
     const ask = document.querySelector('#addonConfirmInstallDialog[open]');
+    if (ask && !install) {
+      const addon = text(ask);
+      ask.querySelector('.cancelButton, ui-close-button')?.click();
+      return {opened: false, title: document.title, dialogs: [], warnings: [], errors: [], addon};
+    }
     if (ask) {
       const m = text(ask).match(/Name (.+?) Version (\S+) Type (\S+)/);
       installed.push('installed the bundled addon ' + (m ? `${m[1]} ${m[2]} (${m[3].toLowerCase()})` : text(ask).slice(-200)));
@@ -270,7 +280,8 @@ TYPESCRIPT_JS = r"""async () => {
     if (document.querySelector('#progressDialog[open]')) { n = 0; continue; }
     const d = open()[0];
     if (!d) return;
-    (d.querySelector('.cancelButton') || d.querySelector('ui-close-button, .okButton'))?.click(); } };
+    (d.querySelector('.cancelButton') || d.querySelector(d.id == 'addonConfirmInstallDialog' ? 'ui-close-button'
+                                                          : 'ui-close-button, .okButton'))?.click(); } };
   const pick = async (...keys) => { for (const k of keys) {
     const e = item(label(k));
     if (!e) return `the editor's menu has no item ${k}, "${label(k)}"`;
@@ -414,8 +425,10 @@ a file on a file input, in three rounds of calls; the page does the waiting, so 
    {c3p}
    RESULT returns {{opened, title, dialogs, warnings, errors}} a few seconds after the upload.
    opened true is the hand-over; warnings holds what the editor noted over the opened project,
-   deprecated features, to pass on to the user. Otherwise the dialog names the place and errors
-   holds the exception the editor logged. {NEXT.removeprefix("next: ")}
+   deprecated features, to pass on to the user. An `addon` is a bundled addon the editor asked to
+   install, which RESULT declined: installing it runs its code, so name it to the user, and only on
+   their yes run RESULT as `(...)(true)` after a new upload. Otherwise the dialog names the place and
+   errors holds the exception the editor logged. {NEXT.removeprefix("next: ")}
 Without such a tool, ask the user to open the project in Construct 3 and paste the text of the
 dialog it shows.{tail}
 
@@ -1054,12 +1067,13 @@ def state_lines(read: dict, label: Callable[[str], str] = key_name) -> list[str]
 
 
 def open_one(browser: Browser, editor: str, project: Path, staged: Path, shot: Path | None,
-             pinned: bool, then: Callable[[Browser, str, DevTools], dict] | None = None) -> dict:
+             pinned: bool, then: Callable[[Browser, str, DevTools], dict] | None = None,
+             install: bool = False) -> dict:
     """In the editor at `editor`; unless the release is pinned, a project saved by a
     newer release than that editor's, which it refuses as saved in a newer version,
     is opened in the latest beta instead. Once it opened, `then` previews it, given
     the browser and the editor's target and page, and its answer is the result's
-    `preview`."""
+    `preview`. A bundled addon the profile lacks is installed only with install, the user's word."""
     staged.write_bytes(pack(project))
     target, page = browser.page(editor)
     try:
@@ -1077,7 +1091,7 @@ def open_one(browser: Browser, editor: str, project: Path, staged: Path, shot: P
         set_up(page)
         started = time.monotonic()
         put_file(page, staged)
-        result = page.evaluate(f"({RESULT_JS})()", wait=RESULT_WAIT)
+        result = page.evaluate(f"({RESULT_JS})({json.dumps(install)})", wait=RESULT_WAIT)
         if shot:
             shot.write_bytes(base64.b64decode(page.call("Page.captureScreenshot")["data"]))
         if isinstance(result, str):
@@ -1099,10 +1113,12 @@ def open_one(browser: Browser, editor: str, project: Path, staged: Path, shot: P
         browser.devtools.call("Target.closeTarget", targetId=target)
         staged.unlink(missing_ok=True)
 
-    status = "opened" if result["opened"] else "failed" if result["dialogs"] or result["errors"] else "timeout"
+    status = ("opened" if result["opened"] else "addon" if result.get("addon")
+              else "failed" if result["dialogs"] or result["errors"] else "timeout")
     return {"project": str(project), "status": status, "title": result["title"], "dialogs": result["dialogs"],
             "warnings": result["warnings"], "exception": next(iter(result["errors"]), ""), "editor": editor,
-            "release": release, "seconds": round(time.monotonic() - started, 1), **({"preview": ran} if ran else {})}
+            "release": release, "seconds": round(time.monotonic() - started, 1), **({"preview": ran} if ran else {}),
+            **({"addon": result["addon"]} if result.get("addon") else {})}
 
 
 def typescript(page: DevTools, project: Path) -> dict:
@@ -1225,6 +1241,12 @@ def report(result: dict, label: Callable[[str], str] = key_name) -> list[str]:
             lines += [f"  preview did not run: {e}" for e in ran["errors"]]
         return lines
     lines = [f"{result['status']:<8} {result['project']}"]
+    if result["status"] == "addon":
+        return lines + [f"  editor: {result['addon']}", *bundled_lines(Path(result["project"])),
+                        "  not opened: the project bundles an addon the editor's profile lacks, and installing it "
+                        "runs its code in the editor. Tell the user what it is and where the project came from; "
+                        "with their yes, run open_in_editor.py --install-bundled-addons on the project once, with "
+                        "the same --profile if one was given: the profile keeps the addon"]
     lines += [f"  editor: {d}" for d in result["dialogs"]]
     lines += [f"  warning: {w}" for w in result.get("warnings", [])]
     if result["status"] == "timeout":
@@ -1232,6 +1254,17 @@ def report(result: dict, label: Callable[[str], str] = key_name) -> list[str]:
                      f"its screenshot shows what the editor shows")
     if result["exception"]:
         lines.append(f"  exception: {result['exception'].splitlines()[0]}")
+    return lines
+
+
+def bundled_lines(project: Path) -> list[str]:
+    """The addons a folder project saved with Bundle addons carries, as their addon.json names them."""
+    lines = []
+    for addon in sorted(project.glob("addons/*/*.c3addon")) if project.is_dir() else []:
+        a = addon_json(addon)
+        lines.append(f"  bundled: {a.get('id', addon.stem)} ({a.get('name', '?')} {a.get('version', '?')}, "
+                     f"{a.get('type', addon.parent.name)}, by {a.get('author', 'no author given')})"
+                     if isinstance(a, dict) else f"  bundled: {addon.relative_to(project).as_posix()} ({a})")
     return lines
 
 
@@ -1519,7 +1552,8 @@ def run(projects: list[Path], editor: str, exe: str, args, label: Callable[[str]
 
         try:
             result = open_one(browser, editor, project, browser.profile / f"project-{i}.c3p", shot,
-                              bool(args.release), then if args.typescript or args.preview is not None else None)
+                              bool(args.release), then if args.typescript or args.preview is not None else None,
+                              args.install_bundled_addons)
             if wrote:
                 result["typescript"] = wrote
         except (EditorNotLoaded, DevToolsError, OSError) as e:
@@ -1575,6 +1609,8 @@ def main() -> int:
     ap.add_argument("--install-addon", type=Path, nargs="+", default=[], metavar="FILE",
                     help="install these .c3addon files into the editor of the browser profile before opening the "
                          "project, which keeps them for later runs; an addon the editor refuses stops the run")
+    ap.add_argument("--install-bundled-addons", action="store_true",
+                    help="install a bundled addon when asked (runs its code), on the user's word")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
                     help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/, for a "
                          "project too deep for the preview's IndexedDB, which it then names")

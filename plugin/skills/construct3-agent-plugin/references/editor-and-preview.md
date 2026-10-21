@@ -197,8 +197,14 @@ which cases to play and how to reach and read them to
   generator template does. A project saved with it asks, while it opens, to
   install each bundled addon the profile lacks, and waits at
   `#addonConfirmInstallDialog` with the progress dialog still open.
-  `open_in_editor.py` clicks Install and names the addon in a `warning:`
-  line; the preview then runs with it. A project that uses a custom addon
+  Installing runs the addon's code in the editor, so `open_in_editor.py`,
+  `export_project.py` and the scripts that open a project through them
+  answer no and stop: `open_in_editor.py` prints `addon` with the dialog's
+  text and each addon of the project's `addons/` folder by id, name,
+  version and author. Tell the user what it is and where the project came
+  from; on their yes, `--install-bundled-addons` clicks Install, names the
+  addon in a `warning:` line, and the profile keeps it, so the preview runs
+  with it. A project that uses a custom addon
   without bundling it fails with "Missing addons" in any profile that has
   not installed it, the headless one included. [observed in r504,
   2026-10-03: an effect addon bundled in its test project installed from

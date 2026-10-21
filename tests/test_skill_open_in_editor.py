@@ -2,6 +2,7 @@
 import itertools
 import json
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -54,7 +55,7 @@ def test_open_in_editor_hands_the_editor_the_project_the_current_directory_is_in
     c3p = project / ".tmp" / "open-in-editor.c3p"
     assert code == 3 and str(c3p) in out and 'the input "Project to open"' in out, out
     assert (project / ".tmp" / ".gitignore").read_text(encoding="utf-8") == "*\n"
-    assert "\nSETUP:\nasync () => {\n" in out and "\nRESULT:\nasync () => {\n" in out
+    assert "\nSETUP:\nasync () => {\n" in out and "\nRESULT:\nasync (install = false) => {\n" in out
     assert "https://editor.construct.net/" in out
 
     code, out = run(project, SCRIPT, "--steps", "--preview")
@@ -490,6 +491,72 @@ def test_install_addon_reads_addon_json_before_the_editor(tmp_path):
     assert "zip the files of the addon, not its folder" in oe.addon_json(folder)
     assert "not valid JSON" in oe.addon_json(broken)
     assert "not a zip file" in oe.addon_json(tmp_path / "missing.c3addon")
+
+
+# A stand-in for the editor's page while a project saved with Bundle addons opens: the confirmation the
+# editor shows for a bundled addon the profile lacks, whose OK button installs it and lets the project open.
+BUNDLED_PAGE = r"""
+globalThis.window = globalThis;
+const state = {installed: false, cancelled: false};
+const ask = {id: 'addonConfirmInstallDialog', open: true,
+  innerText: 'Install addon? This project uses a bundled addon. Name Mallory Tools Version 1.2.0.0 Type Plugin ' +
+             'Author Mallory ID MalloryTools',
+  querySelector(sel) {
+    const parts = sel.split(',').map(s => s.trim());
+    if (parts.includes('.okButton')) return {click() { state.installed = true; ask.open = false;
+                                                       document.title = 'Game - Construct 3'; }};
+    if (parts.includes('.cancelButton') || parts.includes('ui-close-button'))
+      return {click() { state.cancelled = true; ask.open = false; }};
+    return null; }};
+globalThis.document = {title: 'Construct 3',
+  querySelector: sel => sel == '#addonConfirmInstallDialog[open]' && ask.open ? ask : null,
+  querySelectorAll: sel => sel == 'dialog[open]' && ask.open ? [ask] : []};
+window.__c3Title = 'Construct 3';
+window.__c3Errors = [];
+"""
+
+
+def bundled_open(tmp_path: Path, call: str) -> dict:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("no Node here")
+    probe = tmp_path / "probe.js"
+    probe.write_text(f"{BUNDLED_PAGE}\n({oe.RESULT_JS}){call}.then(r => console.log(JSON.stringify({{r, state}})));",
+                     encoding="utf-8")
+    return json.loads(subprocess.run([node, str(probe)], capture_output=True, text=True, encoding="utf-8",
+                                     check=True, timeout=60).stdout)
+
+
+def test_a_bundled_addon_is_named_and_not_installed_without_the_users_word(tmp_path):
+    """A project saved with Bundle addons asks to install each addon the profile lacks, and RESULT clicked
+    its OK button, so opening a project from elsewhere ran the addon's code in the editor without the user
+    (the audit of 2026-10-07, R10). The confirmation is now answered no, and the addon named as the dialog
+    shows it; --install-bundled-addons, given on the user's word, installs it."""
+    got = bundled_open(tmp_path, "()")
+    assert not got["state"]["installed"] and got["state"]["cancelled"], got
+    assert not got["r"]["opened"] and "Name Mallory Tools Version 1.2.0.0" in got["r"]["addon"], got
+    assert "Author Mallory ID MalloryTools" in got["r"]["addon"], got
+    got = bundled_open(tmp_path, "(true)")
+    assert got["state"]["installed"] and got["r"]["opened"], got
+    assert got["r"]["warnings"] == ["installed the bundled addon Mallory Tools 1.2.0.0 (plugin)"], got
+    for script in (oe.SETUP_JS, oe.TYPESCRIPT_JS, script_module("export_project").DISMISS_JS):     # never by OK
+        assert "addonConfirmInstallDialog" in script
+
+
+def test_a_project_stopped_on_a_bundled_addon_says_what_it_is_and_how_to_go_on(tmp_path):
+    """The run names the addon from the dialog and from the project's addons/ folder, and stops."""
+    project = tmp_path / "Game"
+    (project / "addons" / "plugin").mkdir(parents=True)
+    with zipfile.ZipFile(project / "addons" / "plugin" / "MalloryTools.c3addon", "w") as z:
+        z.writestr("addon.json", '{"id": "MalloryTools", "type": "plugin", "name": "Mallory Tools", '
+                                 '"version": "1.2.0.0", "author": "Mallory"}')
+    dialog = "Install addon? Name Mallory Tools Version 1.2.0.0 Type Plugin"
+    result = {**OPENED, "project": str(project), "status": "addon", "title": "Construct 3", "addon": dialog}
+    lines = oe.report(result)
+    assert lines[:3] == [f"addon    {project}", f"  editor: {dialog}",
+                         "  bundled: MalloryTools (Mallory Tools 1.2.0.0, plugin, by Mallory)"], lines
+    assert "--install-bundled-addons" in lines[-1] and "runs its code" in lines[-1], lines
+    assert oe.failed(result) and oe.refusal(result) == []
 
 
 def test_open_in_editor_says_what_a_passing_preview_left_untested_only_when_it_passed():

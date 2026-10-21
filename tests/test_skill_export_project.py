@@ -420,3 +420,35 @@ def test_an_export_whose_version_cannot_be_written_says_where_it_is_and_how_to_s
     assert path.read_bytes() == before
     monkeypatch.setattr(Path, "write_bytes", write_bytes)
     assert export.main() == 0 and export.project_version(project) == "1.2.0.0"
+
+
+@pytest.mark.parametrize("install", [False, True])
+def test_export_stops_on_a_bundled_addon_unless_the_user_said_yes(monkeypatch, tmp_path, install):
+    """The export opens the project in a profile of its own, so it answers the confirmation of a bundled
+    addon as open_in_editor.py does: no, naming the addon, unless --install-bundled-addons is given."""
+    export = script_module("export_project")
+    asked = []
+
+    class Page:
+        def evaluate(self, expression, by_value=True, wait=None):
+            if "install = false" in expression:
+                asked.append(expression)
+                return ({"opened": True, "title": "Game", "dialogs": [], "warnings": [], "errors": []} if install
+                        else {"opened": False, "title": "", "dialogs": [], "warnings": [], "errors": [],
+                              "addon": "Install addon? Name Mallory Tools Version 1.2.0.0 Type Plugin"})
+            if expression == "document.title":
+                return "Game - Construct 3"
+            return "ready" if "async" in expression else {"objectId": "1"} if "aria-label" in expression else False
+
+        def call(self, method, **params):
+            return {}
+    monkeypatch.setattr(export, "close_project", lambda page: None)
+    monkeypatch.setattr(export, "project_title", lambda project: "Game")
+    monkeypatch.setattr(export, "bundled", install)
+    if install:
+        export.open_project(Page(), tmp_path, tmp_path / "game.c3p")
+        assert [e[-7:] for e in asked] == [")(true)"], asked
+    else:
+        with pytest.raises(export.Stop, match="Name Mallory Tools.*--install-bundled-addons"):
+            export.open_project(Page(), tmp_path, tmp_path / "game.c3p")
+        assert [e[-8:] for e in asked] == [")(false)"], asked

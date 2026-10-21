@@ -43,6 +43,11 @@ in `<folder>.old-<8 hex digits>`; the next run puts it back in `--to`
 before it clears anything, and names it when it cannot. A folder beside
 `--to` without the list stays as it is.
 
+A project saved with Bundle addons stops the export when this profile
+lacks one of its addons: the editor asks to install it, which runs its
+code, and the script answers no and names it. Tell the user what it is;
+on their yes, pass `--install-bundled-addons`.
+
 The copy handed to the editor sets *Use worker* to Auto, so the engine
 decides: a worker, unless the project has a script or an addon without worker
 support. `project.c3proj` keeps its own setting, so a project set to No for a
