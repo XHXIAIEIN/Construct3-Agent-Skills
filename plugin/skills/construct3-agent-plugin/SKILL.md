@@ -63,31 +63,25 @@ once before it is handed over.
 
 | Script | Use |
 |--------|-----|
-| `scripts/lookup_ace.py OBJECT [WORD ...]` | Conditions, actions and expressions of an object of the project, of `System`, or of a plugin or behavior, each with its parameters, the JSON to write, the official examples using it, and its pitfalls file or the built-in to prefer; or an effect, with its parameters |
-| `scripts/lookup_script_api.py NAME ...` | The scripting API: an interface with its members, or a member with its declaration and its file and line |
-| `scripts/search_guides.py WORD ...` | The pitfall entries and the official examples that hold the words, with the command that prints their events: before writing an interaction, and for events that do not behave as expected |
-| `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet, or a range of its events, as the editor words it, under the editor's event numbers; `--map` one line per sheet with the layouts that run it, `--find NAME` the events that use a name, `--outline` numbers and sids, `--show N` one event as JSON, `--since COMMIT` what changed since a commit |
-| `scripts/print_layout.py [LAYOUT ...] [--layer NAME]` | Layers bottom to top and each instance in Z order with its box, size, opacity and text, and the object a text lies on, `on no object` for a label off its button |
-| `scripts/edit_sheet.py SHEET PLAN.json` | Events put into a sheet, moved, replaced or removed by their numbers, conditions and actions added, changed or removed, variables and comments by name; checked before anything is written; `--new` creates the sheet first |
-| `scripts/check_project.py` | Every project file against the schemas and the editor's load rules, and a warning for a string shaped like a key; exit 0 when the last line starts with `ok:`. `--style` adds the warnings of the official examples' style, for a project the agent wrote; `--review`, here and in `print_sheet.py`, for a project someone asks about |
-| `scripts/review_design.py` | `--check` runs the full checker, then design findings and questions; `--prepare FOLDER --resume` for saved judgements, after reading [references/design-review.md](references/design-review.md) |
-| `scripts/open_in_editor.py` | Open the project in the Construct 3 editor and print `opened`, or `failed` with the editor's message. `--preview` then runs the game for a few seconds and prints its errors, each with its event, `--state [TYPE ...]` what it holds at the end, and `--install-addon FILE.c3addon` installs a custom addon first. A refusal the checker passed ends with a report, which goes out only at the user's word. It drives the machine's Edge, Chrome or Chromium headless, 4 to 7 seconds a run after the first, which takes 7 to 40; without one, or with `--steps`, it prints the same check as steps for a browser tool of the agent's |
-| `scripts/preview_project.py PLAN.json` | Preview the project and play it from a plan: tap, hold and drag instances by name, press keys, wait `until` an expression holds, read the state, take screenshots and record, one line per step with the runtime errors. `--keep NAME` keeps a plan that passes in `tools/plans/`, `--all` replays every kept plan |
-| `scripts/check_design.py DESIGN.json` | A new game's design before any project file: refuses a gap by its path, then plays its acceptance tests on the rules as a prototype, without the editor |
-| `scripts/play_design.py DESIGN.json` | The same tests played in the editor on the game built from the design, then the first screen against the prototype; each failure names the test, the step and the rules to compare |
-| `scripts/review_look.py` | Preview the project, visit every layout and print a screenshot of each, the faults the runtime shows on it, and fixed yes/no questions to answer from the screenshots |
-| `scripts/check_look.py` | The strict rules of `assets/look-manifest.json` on a project built from `assets/build_project.py`, after the generator's check ends with `ok:` |
-| `scripts/check_sounds.py` | Sounds measured against `tools/sounds.json` |
-| `scripts/make_sounds.py` | Placeholder sounds for `tools/sounds.json` |
-| `scripts/screenshot_sheet.py [SHEET] [--group TITLE]` | A picture of an event sheet or one group of it as the editor shows it, for a forum post, a bug report or a doc |
-| `scripts/advanced_random.py SEED` | The numbers an Advanced Random object gives after *Update seed* SEED, computed offline as the plugin does |
-| `scripts/export_project.py` | Export the project to Web (HTML5) in the editor into `--to`; a string shaped like a key stops it first. The editor exports for a subscribed account the user logs in to: read [references/export-project.md](references/export-project.md) before the first export, when the script stops, or before `--attach` |
-| `scripts/pack_project.py` | Save the project as a .c3p or .zip, or a .c3p or .zip as a project folder, with project.c3proj at the archive's root as the editor needs it; a project handed over as a file is packed with it, only after the checker passed its files as they are (`--unchecked` packs them anyway), and `--open` opens the result once in the editor |
-| `scripts/prepare_art.py` | The art from the image tool of this session: `--list` prints the next step toward the pictures the generator's `art()` asks for; without it, each picture saved in `art/raw/` is cut out and fitted to its box. Needs Pillow |
-| `scripts/new_project.py FOLDER` | A new game project in an empty FOLDER, copied from the empty project the editor saves for Project > New; for a game that has no project yet |
-| `scripts/install.py` | Install this skill in a game project, or refresh a copy, the Construct 3 block of the project's `AGENTS.md` and the helpers of its `tools/build_project.py` from the clone |
-| `assets/build_project.py` | Template of a generator, copied to the project's `tools/` and rewritten for the game above and below its helpers, which stay the skill's between two markers |
-| `assets/runtime-probe.js` | Evaluated in a running preview by a script of the agent's, reads the game's state. Read [references/reading-the-runtime.md](references/reading-the-runtime.md) before checking what an event did in the preview |
+| `scripts/lookup_ace.py OBJECT [WORD ...]` | The conditions, actions and expressions of a project object, `System`, a plugin or a behavior, with their parameters and the JSON to write; or an effect's parameters |
+| `scripts/lookup_script_api.py NAME ...` | The scripting API: an interface's members, or a member's declaration |
+| `scripts/search_guides.py WORD ...` | The pitfalls and official examples that hold the words: before writing an interaction, and for events that do not behave as expected |
+| `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet as the editor words it, under its event numbers; `--map` the layouts that run each sheet, `--find NAME` the events that use a name, `--since COMMIT` what changed |
+| `scripts/print_layout.py [LAYOUT ...]` | Layers and instances in Z order with box, size and text, `on no object` for a label off its button |
+| `scripts/edit_sheet.py SHEET PLAN.json` | Every change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |
+| `scripts/check_project.py` | Every project file against the schemas and the editor's load rules; it passes when the last line starts with `ok:`. `--style` for a project the agent wrote, `--review` for one someone asks about |
+| `scripts/review_design.py` | `--check`: the full checker, then design findings and questions; read [references/design-review.md](references/design-review.md) before `--prepare` |
+| `scripts/open_in_editor.py` | Open the project in the Construct 3 editor: `opened`, or `failed` with the editor's message; `--preview` also runs the game for a few seconds and prints its errors, `--install-addon` installs a custom addon first. The first run takes up to 40 seconds |
+| `scripts/preview_project.py PLAN.json` | Play the preview from a plan: tap, drag, press keys, wait `until` an expression holds, read the state, take screenshots. `--keep NAME` keeps a plan that passes, `--all` replays the kept ones |
+
+The scripts for a new game's design, the look, sounds, a picture of a
+sheet, Advanced Random, export, packing, art, a new project and the
+install, with the generator template and the runtime probe, are in
+[references/scripts.md](references/scripts.md): read it when a task needs
+one. Read [references/export-project.md](references/export-project.md)
+before the first export, and
+[references/reading-the-runtime.md](references/reading-the-runtime.md)
+before checking what an event did in the preview.
 
 Each prints its options and examples with `--help`. A harness cuts long
 tool output without saying where, so a script stops at about 10 000

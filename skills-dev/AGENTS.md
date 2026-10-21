@@ -4,7 +4,8 @@ The skill lives in the plugin folder, `plugin/skills/construct3-agent-plugin/`,
 an Agent Skill in the open format of <https://agentskills.io/specification>:
 a `SKILL.md` with `name` and `description`, and `scripts/`, `references/` and
 `assets/` beside it. It holds the project tools for a Construct 3 folder
-project, listed under "Scripts" in its `SKILL.md`, and the Construct 3 block
+project, listed under "Scripts" in its `SKILL.md` and in
+`references/scripts.md`, and the Construct 3 block
 for the project's instruction file. Beside it, `plugin/skills/<name>/SKILL.md`
 is one thin skill per user-facing script of it, and `plugin/skills/run.py`
 the runner they share. They give the Claude Code plugin's `/` menu one row
@@ -60,10 +61,14 @@ repository root.
   `tests/test_skill_spec.py` holds both limits; the token estimate and its
   source are in `docs/decisions/skill-body-budget.md`. Every run reads all
   of it before its first command, so it holds only what every activation
-  needs and no script says at the moment it matters. A new script or
-  feature gets one row in the table of scripts and, when it needs more, one
-  sentence saying when to read its file in `references/`; what a script
-  prints when it is needed is not repeated. Evidence:
+  needs and no script says at the moment it matters. A script that most
+  changes use gets one row in the table of scripts of `SKILL.md`; any
+  other script gets its row in `references/scripts.md`, and the sentence
+  under the table that names what those scripts are for gets its task.
+  Every script is named in one of the two tables, which a test holds. A
+  row says what picks the script, not its flags and outputs, and when it
+  needs more, one sentence says when to read its file in `references/`;
+  what a script prints when it is needed is not repeated. Evidence:
   `docs/decisions/project-tools-skill.md`, "What holds the design in place".
 - Paths inside the skill are relative to its folder. A file of the folder
   the Construct 3 block names, `plugin/` with its `data/`, is

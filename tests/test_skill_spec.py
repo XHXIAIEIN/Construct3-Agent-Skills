@@ -85,6 +85,19 @@ def test_the_check_loop_survives_a_compaction():
     print(report)
 
 
+def test_every_script_has_a_row_in_one_table_of_scripts():
+    """SKILL.md keeps the rows most changes use and references/scripts.md the others, so that the check loop
+    keeps its room (docs/decisions/skill-body-budget.md). A script with a row in neither is one no agent picks."""
+    rows = {}
+    for doc in (SKILL_MD, SKILL / "references" / "scripts.md"):
+        for line in doc.read_text(encoding="utf-8").splitlines():
+            if line.startswith("| `"):
+                rows.setdefault(line.split("`")[1].split()[0], []).append(doc.name)
+    scripts = {f"scripts/{p.name}" for p in (SKILL / "scripts").glob("*.py") if "__main__" in p.read_text(encoding="utf-8")}
+    assert not scripts - set(rows), f"no row in SKILL.md or references/scripts.md: {sorted(scripts - set(rows))}"
+    assert not {name: docs for name, docs in rows.items() if len(docs) > 1}, "a script has a row in both tables"
+
+
 def test_skill_md_reads_under_any_locale_codec():
     """skills-ref and plain clients read SKILL.md without naming an encoding; under cp936 a UTF-8 sign does not decode."""
     SKILL_MD.read_bytes().decode("ascii")
