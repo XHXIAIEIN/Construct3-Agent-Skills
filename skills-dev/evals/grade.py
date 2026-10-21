@@ -23,8 +23,9 @@ interval, and with_skill less each other arm. A run with a trace.json
 output tokens, and the route columns of its transcript: read_skill_md,
 chain_depth, chain_attempts, preview_failed, help_reads, repeat_help,
 plan_refusals, hand_edits, lookups_before_first_edit, data_reads,
-other_clone_reads, entry_chars, printed_command_failures, print_sheet_chars
-and whole_sheet_prints, averaged like the cost columns; first_script, chain_end and chain_reached are counted
+other_clone_reads, entry_chars, printed_command_failures, print_sheet_chars,
+whole_sheet_prints, cookbook_reads, pointers_printed, pointer_follows,
+read_design_guide and cookbook_misses, averaged like the cost columns; first_script, chain_end and chain_reached are counted
 per cell. Time
 comes from timing.json, else from the trace; tokens come from timing.json. A
 case marked held_out in evals.json is reported separately, under held_out,
@@ -1448,11 +1449,13 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
 TRACE_COLUMNS = ("tool_calls", "lost_calls", "turns", "output_tokens", "read_skill_md", "first_script", "chain_depth",
                  "chain_end", "chain_reached", "chain_attempts", "preview_failed", "help_reads", "repeat_help",
                  "plan_refusals", "hand_edits", "lookups_before_first_edit", "data_reads", "other_clone_reads",
-                 "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints")
+                 "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints",
+                 "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses")
 METRICS = ("pass_rate", "runtime_rate", "seconds", "tokens", "turns", "output_tokens", "tool_calls", "lost_calls",
            "play_seconds", "read_skill_md", "chain_depth", "chain_attempts", "preview_failed", "help_reads",
            "repeat_help", "plan_refusals", "hand_edits", "lookups_before_first_edit", "data_reads",
-           "other_clone_reads", "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints")
+           "other_clone_reads", "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints",
+           "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses")
 COUNTED = ("first_script", "chain_end", "chain_reached")    # per cell: how many runs started with, passed, or called each
 LEVELS = ("checker", "files", "runtime")      # in the order a run reaches them
 
