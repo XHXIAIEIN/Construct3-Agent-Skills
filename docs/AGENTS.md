@@ -34,6 +34,11 @@ it is not in the problem, `Options`, `Decision`, and `Re-evaluate when`.
 
 ## The records
 
+The records of the event sheet guides' layout, naming and index, among
+them why the pitfalls are an index of one-line conclusions and which parts
+of the design guide are split out by task, live with the guides in
+[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
+
 The project skill, the event sheet guides and the plugin:
 
 | Record | What it settles |
@@ -66,9 +71,7 @@ The project skill, the event sheet guides and the plugin:
 | `game-design-prototype.md` | Why a new game starts as a design whose rules a local prototype plays before the build, and how the same tests reach the editor |
 | `event-sheet-design-guidance.md` | The event sheet prompts, the style checks and the generator's placement helpers |
 | `design-review-packets.md` | Why the design review prints its questions by default and prepares their complete evidence only with `--prepare`, how saved judgements are reused, and which checks a reused judgement does not replace |
-| `pitfalls-index-and-topics.md` | Why the pitfalls are an index of one-line conclusions with a page per group, and which lessons belong in them; the pages now live in Construct3-Cookbook (`guides-in-cookbook.md`) |
 | `lookup-pointers.md` | Why `lookup_ace.py` ends an entry with its addon's pitfalls page and the Native first row that replaces the addon, where each list lives, and what it costs |
-| `prompt-references-by-task.md` | Which parts of the design and style prompts live in `prompts/references/`, why Native first stays inline, and what a row of Native first holds |
 | `borrowed-numbers.md` | Which numbers and rules of other agent frameworks were measured here before the template or a check took them, and the result for each |
 | `game-look-from-design-skills.md` | What the design and game-art skills on GitHub do to steady an agent's output, and the palette, text and pixel-art defaults the generator template took from them |
 | `look-judge-calibration.md` | How often a judge that sees only the screenshots answers `review_look.py`'s questions as a panel of labeller agents does, and why the questions ask what a player sees as a mistake |

@@ -56,7 +56,10 @@ Option 3.
   `project-primitives/` (`primitives/events/how-events-work.md`), so that a
   name is never a noun of the repository's own; `guides/pitfalls.md` is the
   one-line index. `design/`, `recipes/` and `project-files/` sit beside
-  them. Its CI checks the links, the index against the pages and each page
+  them. The options weighed for that layout and its known gaps are in the
+  Cookbook's record
+  [guides-layout.md](https://github.com/XHXIAIEIN/Construct3-Cookbook/blob/main/docs/decisions/guides-layout.md).
+  Its CI checks the links, the index against the pages and each page
   name against those three sources.
 - `plugin/prompts/` is gone, and the build copies nothing in its place.
   The note on placing the game project's block, which is about this

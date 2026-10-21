@@ -139,7 +139,7 @@ const REPO_RULES = `This repository overrules general guidance where its rules o
 - The skill's name stays, because installed copies and the plugin id depend on it (docs/decisions/skill-and-plugin-names.md).
 - AGENTS.md is read by other clients too (install.py serves .agents/skills and .trae/skills besides Claude Code): content they need stays plain Markdown, not behind Claude Code's @imports or HTML comments.
 - Decision records carry Date and Schema lines by design and keep the reasons behind a decision; they still state what holds now (docs/AGENTS.md).
-- A pitfall entry is a sourced record (docs/decisions/pitfalls-index-and-topics.md): entries merge only when they state the same fact, never into a few examples.
+- A pitfall entry is a sourced record (https://github.com/XHXIAIEIN/Construct3-Cookbook/blob/main/docs/decisions/pitfalls-index-and-topics.md): entries merge only when they state the same fact, never into a few examples.
 `
 
 const TEXT_RULES = `How this repository writes (the root AGENTS.md, the AGENTS.md of the area and docs/AGENTS.md give the details):

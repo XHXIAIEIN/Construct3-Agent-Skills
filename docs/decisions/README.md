@@ -48,8 +48,6 @@ A new record is added below as its own title, with the date of its `Date:` line,
 - [New Projects Allocate Uids at Random](random-uid-allocation.md) — 2026-10-03
 - [A Preview Is Played from a Plan of Steps](preview-player.md) — 2026-10-02
 - [The Skill Is `construct3-agent-plugin`, the Plugin `construct3`](skill-and-plugin-names.md) — 2026-10-02
-- [Design and Style Prompts Keep What Every Task Reads](prompt-references-by-task.md) — 2026-09-30
-- [The Pitfalls Are an Index with Topic Files](pitfalls-index-and-topics.md) — 2026-09-29
 - [Greybox Blockout: The Stand-in Look and the Level's Pacing](greybox-blockout.md) — 2026-09-26
 - [Setting a Machine Up from the URL Alone](bootstrap-from-the-url.md) — 2026-09-22
 - [Events Go into a Sheet through a Checked Plan](edit-sheet-script.md) — 2026-09-22
