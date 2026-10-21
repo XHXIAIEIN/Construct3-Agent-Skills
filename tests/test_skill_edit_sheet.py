@@ -607,6 +607,55 @@ def test_new_leaves_no_draft_when_a_file_cannot_take_its_place(project, monkeypa
     assert all(p.read_bytes() == raw for p, raw in files.items()) and not (project / SHEET).exists()
 
 
+def saved_elsewhere(path: Path) -> bytes:
+    """path as another process saves it meanwhile, the editor or another run; the bytes it now holds."""
+    raw = path.read_bytes().replace(b"{", b'{\n\t"savedElsewhere": true,', 1)
+    path.write_bytes(raw)
+    return raw
+
+
+@pytest.mark.parametrize("when", ["after the check", "while project.c3proj is written",
+                                  "after project.c3proj is written"])
+def test_new_keeps_a_save_made_while_it_runs(project, monkeypatch, capsys, when):
+    """--new read project.c3proj at the start and took its snapshot after the check, and put_back() wrote every
+    snapshot that differed, so a save made meanwhile by the editor or another run was lost: on success to the
+    project.data read at the start, on a failure to the snapshot of a layout this run never wrote (the audit
+    of 2026-10-07, S03). The run now stops on a file that changed and puts back only what it wrote itself."""
+    layouts = without_a_sheet(project)
+    manifest, layout = project / "project.c3proj", layouts[-1]
+    files = {p: p.read_bytes() for p in (manifest, *layouts)}
+    write_plan(project, {"into": 0, "events": [{"eventType": "comment", "text": "Score from zero."}]})
+    edit_sheet = script_module("edit_sheet", project / INSTALLED / "scripts")
+    if when == "after the check":
+        laid_out = edit_sheet.laid_out
+
+        def save_then_lay_out(sheet):
+            files[manifest] = saved_elsewhere(manifest)
+            monkeypatch.setattr(edit_sheet, "laid_out", laid_out)
+            return laid_out(sheet)
+        monkeypatch.setattr(edit_sheet, "laid_out", save_then_lay_out)
+    else:
+        write = edit_sheet.write_editor_json
+
+        def save_meanwhile(path, data):
+            if path != manifest:
+                return write(path, data)
+            files[layout] = saved_elsewhere(layout)
+            if when == "while project.c3proj is written":
+                raise PermissionError(13, "Access is denied", str(path))
+            return write(path, data)
+        monkeypatch.setattr(edit_sheet, "write_editor_json", save_meanwhile)
+    monkeypatch.setattr(sys, "argv", ["edit_sheet.py", "--project", str(project), "--rag", str(PLUGIN), "Game",
+                                      str(project / "plan.json"), "--new"])
+    assert edit_sheet.main() == 1
+    out = capsys.readouterr().out
+    assert "nothing was written" in out, out
+    if when != "while project.c3proj is written":
+        assert "changed on disk" in out, out
+    assert all(p.read_bytes() == raw for p, raw in files.items()), out
+    assert not (project / SHEET).exists()
+
+
 def test_a_new_sheet_beside_others_says_no_layout_runs_it(project):
     layouts = {p: p.read_bytes() for p in (project / "layouts").glob("*.json")}
     write_plan(project, {"into": 0, "events": [{"eventType": "variable", "name": "menuShown"}]})

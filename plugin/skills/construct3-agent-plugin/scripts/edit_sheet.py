@@ -847,37 +847,52 @@ def as_on_disk(path: Path) -> Path:
     return next((path.with_name(n) for n in names if n.lower() == path.name.lower()), path)
 
 
-def write_editor_json(path: Path, data: dict) -> None:
-    """data in path as the editor lays its files out, tabs and LF, a byte order mark kept. The draft it writes
-    beside path goes again when path cannot take its place, so that a failed write leaves nothing behind."""
+def write_editor_json(path: Path, data: dict) -> bytes:
+    """data in path as the editor lays its files out, tabs and LF, a byte order mark kept; the bytes written.
+    The draft it writes beside path goes again when path cannot take its place, so that a failed write leaves
+    nothing behind."""
     bom = path.read_bytes().startswith(codecs.BOM_UTF8)
     draft = path.with_name(path.name + ".tmp")
+    raw = (codecs.BOM_UTF8 if bom else b"") + json.dumps(data, indent="\t", ensure_ascii=False).encode("utf-8")
     try:
-        draft.write_bytes((codecs.BOM_UTF8 if bom else b"")
-                          + json.dumps(data, indent="\t", ensure_ascii=False).encode("utf-8"))
+        draft.write_bytes(raw)
         os.replace(draft, path)
     except OSError:
         with contextlib.suppress(OSError):
             draft.unlink(missing_ok=True)
         raise
+    return raw
 
 
-def put_back(sheet: Path, before: dict[Path, bytes]) -> list[str]:
-    """Removes a new sheet and its draft and writes the files of before back as they were; the ones that
-    could not be."""
+class Changed(Exception):
+    """A file another process saved after this run read it: the editor, or another run."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"{path.name} changed on disk while the plan was applied, saved in the editor or by "
+                         f"another run; it is left as that save made it, run the plan again")
+
+
+def put_back(sheet: Path, before: dict[Path, bytes], wrote: dict[Path, bytes]) -> list[str]:
+    """Removes the draft of a new sheet and puts the files this run wrote, the new sheet among them, back as
+    before holds them; the ones that were not, and why. A file saved again after this run wrote it keeps
+    that save."""
     left = []
-    for p in (sheet, sheet.with_name(sheet.name + ".tmp")):
-        try:
-            if p.is_file():         # a folder there is not one this run wrote
-                p.unlink()
-        except OSError:
-            left.append(str(p))
-    for p, raw in before.items():
+    draft = sheet.with_name(sheet.name + ".tmp")
+    try:
+        if draft.is_file():         # a folder there is not one this run wrote
+            draft.unlink()
+    except OSError as e:
+        left.append(f"{draft} ({e.strerror})")
+    for p, raw in wrote.items():
         try:
             if p.read_bytes() != raw:
-                p.write_bytes(raw)
-        except OSError:
-            left.append(str(p))
+                left.append(f"{p} (saved again after this run wrote it)")
+            elif p in before:
+                p.write_bytes(before[p])
+            else:
+                p.unlink()
+        except OSError as e:
+            left.append(f"{p} ({e.strerror})")
     return left
 
 
@@ -971,6 +986,12 @@ def main() -> int:
               f"sheet")
         return 1
     if new:
+        # project.c3proj as project.data was read from it, which the run writes back with the sheet listed
+        manifest = project.root / "project.c3proj"
+        read = {manifest: manifest.read_bytes()}
+        if json.loads(read[manifest].decode("utf-8-sig")) != project.data:
+            print(f"{Changed(manifest)}\nnothing was written")
+            return 1
         # A sheet as the editor makes it, with a sid no checked entry of the project uses
         raw, on_disk = b"", ""
         sheet = {"name": args.sheet, "events": [], "sid": 0}
@@ -1052,35 +1073,48 @@ def main() -> int:
     # Layouts a new sheet runs on
     # A sheet runs only on a layout that names it. In a project without sheets every layout gets it. Beside
     # other sheets, a layout without one may only hold objects, so it stays as it is and the user chooses.
-    runs_on = ({name: p for name, p in project.listed_files("layouts").items()
-                if p and not json.loads(p.read_text(encoding="utf-8-sig")).get("eventSheet")}
-               if new and not sheets else {})
+    runs_on = {}
+    if new and not sheets:
+        for name, p in project.listed_files("layouts").items():
+            if p and not json.loads(read.setdefault(p, p.read_bytes()).decode("utf-8-sig")).get("eventSheet"):
+                runs_on[name] = p
     if not args.dry_run:
         if (path.exists() if new else path.read_bytes() != raw):
             print(f"{args.sheet} changed on disk while the plan was applied; run it again\nnothing was written")
             return 1
-        # A new sheet writes three kinds of file; one that fails puts back those written before it, so that the
-        # project is as it was and the same plan runs again.
-        saved = {p: p.read_bytes() for p in (project.root / "project.c3proj", *runs_on.values())} if new else {}
+        # A new sheet writes three kinds of file, each from the bytes the run read. A file saved since stops the
+        # run before it is written, and a stop puts back only what this run wrote, so that the project is as it
+        # was with the other save kept, and the same plan runs again.
+        before = {p: read[p] for p in (manifest, *runs_on.values())} if new else {}
+        wrote: dict[Path, bytes] = {}
+
+        def write(p: Path, data: dict) -> None:
+            if p.read_bytes() != before[p]:
+                raise Changed(p)
+            wrote[p] = write_editor_json(p, data)
         try:
+            for p in before:
+                if p.read_bytes() != before[p]:
+                    raise Changed(p)
             path.parent.mkdir(exist_ok=True)
             draft = path.with_name(path.name + ".tmp")
             draft.write_text(layout, encoding="utf-8", newline="\n")
             os.replace(draft, path if new else as_on_disk(path))
             if new:
+                wrote[path] = layout.encode("utf-8")
                 listed = project.data.setdefault("eventSheets", {"items": [], "subfolders": []})
                 listed.setdefault("items", []).append(args.sheet)
-                write_editor_json(project.root / "project.c3proj", project.data)
+                write(manifest, project.data)
                 for p in runs_on.values():
-                    data = json.loads(p.read_text(encoding="utf-8-sig"))
+                    data = json.loads(before[p].decode("utf-8-sig"))
                     data["eventSheet"] = args.sheet
-                    write_editor_json(p, data)
-        except OSError as e:
+                    write(p, data)
+        except (OSError, Changed) as e:
             if not new:
                 raise
-            left = put_back(path, saved)
-            print(f"{args.sheet}: a file could not be written: {e}\n"
-                  + (f"these could not be put back as they were: {', '.join(left)}; restore them from Git"
+            left = put_back(path, before, wrote)
+            print(f"{args.sheet}: {e if isinstance(e, Changed) else f'a file could not be written: {e}'}\n"
+                  + (f"these were not put back as they were: {'; '.join(left)}; compare them with Git"
                      if left else "the files written before it are put back: nothing was written"))
             return 1
         c3.stamp(path)
