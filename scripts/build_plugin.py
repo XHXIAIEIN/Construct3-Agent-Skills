@@ -7,7 +7,7 @@
 
 plugin/ is the Claude Code plugin and holds its sources: the skill under
 skills/construct3-agent-plugin/, the rows of the / menu under skills/<name>/,
-the prompts, the manifest, the README, the icon and the agents. Only its
+the manifest, the README, the icon and the agents. Only its
 data/ is built, from the Construct3-RAG clone beside this repository, or from
 --rag or CONSTRUCT3_RAG_DATA, which must be a Git clone, because the build
 takes the tracked files. Why: docs/decisions/plugin-repository.md.

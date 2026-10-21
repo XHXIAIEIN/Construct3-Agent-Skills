@@ -56,10 +56,11 @@ def save(path: Path, value: object, *, compact: bool = False) -> None:
 
 
 def rules(p: c3.Project) -> dict:
-    """Hashes of the scripts and prompts that shape a question; a change invalidates saved answers."""
+    """Hashes of the scripts and guides that shape a question; a change invalidates saved answers."""
     scripts = Path(__file__).parent
     paths = [scripts / name for name in ("review_design.py", "design_review.py", "print_sheet.py", "c3project.py")]
-    paths += [c3.prompts_folder(p.rag) / name for name in ("event-sheet-thinking.md", "event-sheet-style.md")]
+    guides = c3.guides_folder(p.rag, p.root)
+    paths += [guides / "design" / name for name in ("thinking.md", "style.md")] if guides else []
     return {path.name: hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
             for path in paths}
 
@@ -277,13 +278,14 @@ def packets(p: c3.Project, d: Design, found: list[dict], sheets: list[str], ques
             script = (p.root / path).read_text(encoding="utf-8")
             add(path.as_posix(), script, script)
             missing.append("Script imports and runtime effects are unresolved; verify them in the preview")
-        guide = c3.prompts_folder(p.rag) / "event-sheet-thinking.md"
-        if guide.exists():
+        guides = c3.guides_folder(p.rag, p.root)
+        guide = guides / "design" / "thinking.md" if guides else None
+        if guide and guide.exists():
             text = guide.read_text(encoding="utf-8")
             model = text.split("## The model\n", 1)[-1].split("## Rules\n", 1)[0]
-            add("prompts/event-sheet-thinking.md#the-model", model, text)
+            add("design/thinking.md#the-model", model, text)
         else:
-            missing.append("Design constraints are missing; supply prompts/event-sheet-thinking.md")
+            missing.append(f"Design constraints are missing: {c3.missing_cookbook(p.rag)}")
         identity = {"sheet": sheet, "question": spec["ask"], "rule": spec["rule"], "variant": spec["variant"],
                     "sids": [e.ev.get("sid") for e in seeds] if not broad else [],
                     "subject": spec["short"] if broad and spec["rule"] != "coverage" else ""}

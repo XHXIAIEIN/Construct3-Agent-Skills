@@ -47,13 +47,15 @@ commands that print up to three of those uses, the smallest sheets first. The
 commands need the Construct-Example-Projects clone beside Construct3-RAG. An
 entry that no example uses prints no count.
 
-After them, an entry of an addon or an ACE that a pitfalls topic names in its
-`addons:` line (`Construct3-RAG/prompts/pitfalls/*.md`) ends with
-`pitfalls:` and the file to read before writing it. An entry of an addon that
-`Construct3-RAG/prompts/native-first.json` lists ends with `prefer:`, the
-built-in a new project uses in its place and the Native first row that says
-so; the editor still offers the addon, and an existing project may keep it.
-Other entries print neither line.
+After them, an entry ends with `pitfalls:` and the pages to read before
+writing it, from the Construct3-Cookbook clone: the page its addon's id names
+(`Construct3-Cookbook/guides/behaviors/tween.md`), and a category or
+primitives page whose `addons:` line names the addon or the ACE. An entry of
+an addon that `Construct3-Cookbook/guides/design/native-first.json` lists
+ends with `prefer:`, the built-in a new project uses in its place and the
+Native first row that says so; the editor still offers the addon, and an
+existing project may keep it. Other entries, and every entry without a
+Cookbook clone, print neither line.
 """
 import json
 import sys
@@ -304,20 +306,24 @@ def front_matter(path: Path) -> dict[str, str]:
 
 
 class Pointers:
-    """What to read before writing an entry: the pitfalls topic files whose `addons:` line names the
-    entry's addon or the ACE itself (prompts/pitfalls/*.md), and the Native first row that replaces the
-    addon (prompts/native-first.json). The clone and the plugin both hold prompts/; a folder without it
-    prints neither line. The deprecation list is the editor's and stays apart (c3.DEPRECATED)."""
+    """What to read before writing an entry, from the Cookbook clone's guides/: the page an addon's id
+    names (plugins/{id}.md, behaviors/{id}.md), the category and primitives pages whose `addons:` line
+    names the addon or the ACE itself, and the Native first row that replaces the addon
+    (design/native-first.json). Without a clone neither line prints. The deprecation list is the
+    editor's and stays apart (c3.DEPRECATED)."""
 
-    def __init__(self, rag: Path) -> None:
-        self.rag = rag
-        self.topics: dict[str, list[Path]] = {}      # addon id, or addon/ace id -> the topic files
-        for path in sorted((rag / "prompts" / "pitfalls").glob("*.md")):
+    def __init__(self, rag: Path, root: Path | None = None) -> None:
+        self.guides = c3.guides_folder(rag, root)
+        self.topics: dict[str, list[Path]] = {}      # addon id, or addon/ace id -> the pages
+        pages = sorted(p for folder in c3.PITFALL_FOLDERS for p in (self.guides / folder).rglob("*.md"))             if self.guides else []
+        for path in pages:
+            if path.parent.name in ("plugins", "behaviors", "effects"):
+                self.topics.setdefault(path.stem.lower(), []).append(path)
             for key in front_matter(path).get("addons", "").split(","):
                 if key.strip() and key.strip() != "none":
                     self.topics.setdefault(key.strip().lower(), []).append(path)
-        prefer = rag / "prompts" / "native-first.json"
-        self.prefer = c3.load(prefer) if prefer.is_file() else {}
+        prefer = self.guides / "design" / "native-first.json" if self.guides else None
+        self.prefer = c3.load(prefer) if prefer and prefer.is_file() else {}
 
     def lines(self, addon: str, ace_id: str) -> list[str]:
         files = self.topics.get(addon.lower(), []) + self.topics.get(f"{addon}/{ace_id}".lower(), [])
@@ -327,7 +333,7 @@ class Pointers:
         row = self.prefer.get("addons", {}).get(addon.lower())
         if row:
             out.append(f"  prefer: {row['use']}; {self.prefer.get('table', 'Native first')}, \"{row['row']}\", "
-                       f"in {c3.shown_path(self.rag / self.prefer['file'])}")
+                       f"in {c3.shown_path(self.guides / self.prefer['file'])}")
         return out
 
     def tails(self, entries: list[tuple]) -> list[list[str]]:
@@ -466,7 +472,7 @@ def addon_word_lines(p: c3.Project, sources: list[tuple[str, str | None, dict]],
 def ace_lookup(p: c3.Project, target: str, words: list[str], limit: int) -> int:
     sources = sources_of(p, target)
     usage = Usage(p.rag)
-    pointers = Pointers(p.rag)
+    pointers = Pointers(p.rag, p.root if p.data else None)
     if LOWER(target) == LOWER(p.functions_object):
         # A model that has not met it writes an object type and a usedAddons entry, and the editor
         # reports a missing legacy addon.

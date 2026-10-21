@@ -157,7 +157,8 @@ TEXT_EDGE = 1
 TEXT_CONTRAST = 3
 SHORT_TEXT = 12             # characters: a number or a word, the thing a screen of one or two texts is about
 # Instances created in a top-level event or trigger join the instance lists when it ends: until then only
-# Pick by unique ID finds them outside the creating event (prompts/pitfalls/creating-objects.md). The
+# Pick by unique ID finds them outside the creating event
+# (Construct3-Cookbook/guides/primitives/events/how-events-work.md). The
 # actions that create an instance of a named type, with the parameter that names it; spawn-another-object
 # is on every world object. Create object by name is left out: its type is an expression.
 CREATING = {("System", "create-object"): "object-to-create", ("System", "recreate-initial-objects"): "object"}
@@ -265,7 +266,8 @@ SOLID_CHANGES = {"destroy", "set-x", "set-y", "set-position", "set-position-to-a
                  "erase-tile-with-brush-by-name", "set-tile-with-patch-brush", "erase-tile-with-patch-brush",
                  "set-tile-with-patch-brush-by-name", "erase-tile-with-patch-brush-by-name"}
 REGENERATE = {"regenerate-obstacle-map", "regenerate-region", "regenerate-region-around-object"}
-# Is overlapping between a Platform object and a Solid (Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md): the
+# Is overlapping between a Platform object and a Solid
+# (Construct3-Cookbook/guides/behaviors/platform.md): the
 # Platform behavior pushes its object out of every enabled Solid each tick, so the two touch and do not overlap.
 # On collision still fires, because the behavior registers the collision as it pushes out (exported c3runtime.js,
 # Platform: PushOutSolidAxis, then RegisterCollision). An object that something else moves, or a Solid switched
@@ -2502,7 +2504,7 @@ class Checker:
 
     def check_none_left(self, c: dict, where: str, gone: dict[str, str] | None, earlier: list[dict]) -> None:
         """X.Count = 0 after a Destroy of X earlier in the same top-level event: the destroyed instance counts
-        until the top-level event ends (prompts/pitfalls/picking.md), so the test fails for the last one.
+        until the top-level event ends (Construct3-Cookbook/guides/primitives/events/how-events-work.md), so the test fails for the last one.
         X.PickedCount = 0 below a condition that picks X: a pick of no X stops the event, Pick all included.
         gone: object type -> where an action destroyed it before this condition runs; earlier: the conditions
         that run before this one in its branch, those of OR blocks left out."""
@@ -2625,7 +2627,7 @@ class Checker:
                 f"never runs. Test touching with Is overlapping at offset, 1 pixel towards {solid}: {offset} for a "
                 f"{solid} on the right, \"offset-x\": \"-1\" on the left, \"offset-x\": \"0\", \"offset-y\": "
                 f"\"1\" below; two events, or an OR block, for both sides. {mover} On collision with {solid} also "
-                f"fires when they touch (Construct3-Agent-Skills/plugin/prompts/pitfalls/picking.md)")
+                f"fires when they touch ({c3.guide_path(self.p.rag, 'behaviors/platform.md', self.p.root)})")
 
     def dragged(self, obj) -> bool:
         """An object type with Drag & Drop, or a family that has it or has a member with it."""
@@ -2756,7 +2758,7 @@ class Checker:
                     f"timer {shown} never fires after that. Start it in the trigger of what it times: for a reset N "
                     f"seconds after the last tap or key (a combo, an idle screen), start it in the input's trigger "
                     f"on every input, {start}, which restarts it, and reset in On timer {shown}; no variable "
-                    f"needs to count the time (Construct3-Agent-Skills/plugin/prompts/pitfalls/timer.md)")
+                    f"needs to count the time ({c3.guide_path(self.p.rag, 'behaviors/timer.md', self.p.root)})")
 
     def not_leaving(self, c: dict) -> bool:
         """Whether a condition above a Destroy says nothing about an instance on its way out: a hit, an input or a
@@ -3503,7 +3505,7 @@ class Checker:
                                       f"event that created it. Set the new {t} up in the event that creates "
                                       f"it, pass its UID to {name} and pick it there by unique ID, or call "
                                       f"{name} from a later top-level event or trigger "
-                                      f"({(c3.prompts_folder(self.p.rag) / 'pitfalls' / 'creating-objects.md').as_posix()})")
+                                      f"({c3.guide_path(self.p.rag, 'primitives/events/how-events-work.md', self.p.root)})")
                 for t, chain in sub[0].items():
                     made.setdefault(t, (i, [name] + chain))
 
@@ -3975,6 +3977,9 @@ def main() -> int:
     project = c3.Project.open(args, findings)
     if c3.offline():
         print(f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clone at {project.rag} was not compared with its upstream")
+    # The checks run without the guides; only the pitfalls their findings cite are missing
+    if not c3.guides_folder(project.rag, project.root):
+        print(f"note: {c3.missing_cookbook(project.rag)}")
     # Stale tools are a problem to fix first: a warning above a passing check's last line goes unread
     behind = c3.clone_behind(project.rag)
     if behind:

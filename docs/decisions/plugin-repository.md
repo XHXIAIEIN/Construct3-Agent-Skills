@@ -68,7 +68,7 @@ beside this repository, a scheduled workflow refreshes the build, and the
 plugin keeps its name.
 
 - `plugin/` holds the sources: the skill under `plugin/skills/`, the
-  prompts under `plugin/prompts/`, the manifest, the README, the icon and
+  manifest, the README, the icon and
   the sub-agents (`plugin-folder.md`). Only `plugin/data/` is built:
   `scripts/build_plugin.py` writes it from the `data/` of the
   Construct3-RAG clone beside this repository; `--rag` or
@@ -95,8 +95,8 @@ plugin keeps its name.
   request, with the clone beside the checkout.
 - The plugin is `construct3` (`skill-and-plugin-names.md`), and the
   marketplace is `construct3-agent-skills`.
-- In the skill's text, `Construct3-RAG/` before `data/` or `prompts/`
-  names the folder that holds both, and the block's line is
+- In the skill's text, `Construct3-RAG/` before `data/` names the folder
+  that holds it, and the block's line is
   `Construct3-RAG:`, because installed blocks, their stamps and the plugin
   bullet of `SKILL.md` carry the name. For an install from this repository
   that folder is `plugin/`.

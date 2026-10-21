@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import PLUGIN, DATA, REPO, SKILL, INSTALLED, SHEET, run, streams, tool, check, edit
+from tests.skill_helpers import (PLUGIN, DATA, GUIDES, NEEDS_COOKBOOK, REPO, SKILL, INSTALLED, SHEET, run, streams, tool,
+                                  check, edit)
 
 
 @pytest.fixture
@@ -412,25 +413,31 @@ def test_the_note_on_a_missing_clone_counts_against_the_limit(tmp_path):
         assert len(out) <= int(limit), (limit, out)
 
 
+@NEEDS_COOKBOOK
 def test_an_entry_ends_with_the_pitfalls_of_its_addon(skill_only):
-    """The topic file a model needs before writing the ACE comes after the example commands. An entry ends
-    with it when the topic's addons: line names its addon or the ACE itself; other System entries print none."""
+    """The page a model needs before writing the ACE comes after the example commands: the Cookbook page its
+    addon's id names, and a category or primitives page whose addons: line names the addon or the ACE."""
     code, out = tool(skill_only, "lookup_ace", "Tween", "tween-one-property")
     assert code == 0, out
     lines = out.splitlines()
     at = [i for i, line in enumerate(lines) if line.startswith("  pitfalls: ")]
-    assert len(at) == 1 and lines[at[0]].endswith("prompts/pitfalls/tween.md"), out
-    assert lines[at[0] - 1].startswith("    python ") and "print_sheet.py" in lines[at[0] - 1], out
-    assert at[0] == len(lines) - 1 or lines[at[0] + 1].startswith(("action ", "condition ", "expression ")), out
+    assert len(at) == 1 and lines[at[0]].endswith("guides/behaviors/tween.md"), out
+    # After the example commands, or after the count alone when no examples clone gives the commands
+    assert (lines[at[0] - 1].startswith("    python ") and "print_sheet.py" in lines[at[0] - 1]
+            or lines[at[0] - 1].strip().startswith("used in ")), out
+    assert at[0] == len(lines) - 1 or lines[at[0] + 1].startswith(("action ", "condition ", "expression ", "(no ")), out
     code, out = tool(skill_only, "lookup_ace", "Tween")
     assert code == 0 and out.rstrip().endswith("\n  pitfalls: " + out.rstrip().rsplit("pitfalls: ", 1)[1]), out
     code, out = tool(skill_only, "lookup_ace", "System", "wait")
     waits = [block for block in ("\n" + out).split("\naction ") if block.startswith("wait ")]
-    assert waits and waits[0].rstrip().endswith("prompts/pitfalls/wait-and-time-scale.md"), out
-    code, out = tool(skill_only, "lookup_ace", "System", "every", "tick")
-    assert code == 0 and "pitfalls:" not in out, out
+    assert waits and waits[0].rstrip().endswith("guides/plugins/system.md"), out
+    code, out = tool(skill_only, "lookup_ace", "System", "else")
+    elses = [line for line in out.splitlines() if line.startswith("  pitfalls: ")]
+    assert elses and elses[0].endswith("guides/plugins/system.md, " + (GUIDES / "primitives" / "events" /
+                                                                     "conditions.md").as_posix()), out
 
 
+@NEEDS_COOKBOOK
 def test_an_entry_of_a_superseded_addon_points_at_the_built_in_preferred_to_it(skill_only):
     """A pointer to the Native first row, not a finding: the editor offers Fade, the checker says nothing,
     and the deprecation marks stay the editor's."""
@@ -439,7 +446,7 @@ def test_an_entry_of_a_superseded_addon_points_at_the_built_in_preferred_to_it(s
     prefer = sorted(set(line for line in out.splitlines() if line.startswith("  prefer: ")))
     assert prefer == ["  prefer: a Tween (one property) on Opacity; Native first, \"Repeating or periodic movement, "
                       "flashing, fading out\", in " + prefer[0].rsplit(" in ", 1)[1]], out
-    assert prefer[0].endswith("prompts/event-sheet-thinking.md") and "deprecated" not in out, out
+    assert prefer[0].endswith("guides/design/thinking.md") and "deprecated" not in out, out
     code, out = tool(skill_only, "lookup_ace", "Fade")
     assert code == 0 and out.rstrip().endswith(prefer[0]) and out.count("prefer:") == 1, out
     code, out = tool(skill_only, "lookup_ace", "Pin", "pin", "to", "object")
@@ -449,7 +456,8 @@ def test_an_entry_of_a_superseded_addon_points_at_the_built_in_preferred_to_it(s
 
 
 def test_an_entry_with_no_pointer_prints_no_extra_line(skill_only):
-    code, out = tool(skill_only, "lookup_ace", "Anchor")
+    """An addon with no page of its own and on no addons: line prints neither line, with a clone or without."""
+    code, out = tool(skill_only, "lookup_ace", "Rotate")
     assert code == 0 and "pitfalls:" not in out and "prefer:" not in out, out
     code, out = tool(skill_only, "lookup_ace", "Sine", "set", "period")
     assert code == 0 and "pitfalls:" not in out and "prefer:" not in out, out

@@ -201,7 +201,7 @@ def template(folder: Path) -> Path:
 
 
 def siblings(folder: Path) -> Path:
-    for name in ("Construct3-Manual", "Construct-Addon-SDK", "Construct-Example-Projects"):
+    for name in ("Construct3-Cookbook", "Construct3-Manual", "Construct-Addon-SDK", "Construct-Example-Projects"):
         (folder / name).mkdir(parents=True)
         (folder / name / "README.md").write_text("", encoding="utf-8")
     return folder
@@ -213,7 +213,7 @@ def test_bootstrap_creates_the_project_from_the_template_and_installs_the_skill(
     code, out = bootstrap(tmp_path, "--beside", str(beside), "--template", str(template(tmp_path / "tmpl")),
                           "--project", str(game))
     assert code == 0, out
-    assert out.count("already at") == 3 and f"MyGame: created from tmpl at {game}" in out
+    assert out.count("already at") == 4 and f"MyGame: created from tmpl at {game}" in out
     assert out.rstrip().splitlines()[-1] == f"ok: read {INSTALLED}/SKILL.md"
     proj = json.loads((game / "project.c3proj").read_text(encoding="utf-8"))
     assert proj["name"] == "MyGame" and re.fullmatch(r"[a-z0-9]{11}", proj["uniqueId"]) and proj["uniqueId"] != "he3qe448adg"
@@ -233,7 +233,7 @@ def test_bootstrap_creates_the_project_from_the_template_and_installs_the_skill(
 
 def test_bootstrap_without_the_examples_says_what_they_are_missing_for(tmp_path):
     beside = tmp_path / "GitHub"
-    for name in ("Construct3-Manual", "Construct-Addon-SDK"):
+    for name in ("Construct3-Cookbook", "Construct3-Manual", "Construct-Addon-SDK"):
         (beside / name).mkdir(parents=True)
         (beside / name / "README.md").write_text("", encoding="utf-8")
     code, out = bootstrap(tmp_path, "--beside", str(beside), "--no-examples")
@@ -284,7 +284,7 @@ def test_bootstrap_dry_run_says_the_clones_it_would_make(tmp_path):
     code, out = bootstrap(tmp_path, "--beside", str(tmp_path / "GitHub"), "--project", str(tmp_path / "MyGame"),
                           "--dry-run")
     assert code == 0 and "nothing was done" in out, out
-    assert out.count("would run git clone") == 3 and "--depth 1 https://github.com/Scirra/Construct-Example-Projects" in out
+    assert out.count("would run git clone") == 4 and "--depth 1 https://github.com/Scirra/Construct-Example-Projects" in out
     assert not (tmp_path / "GitHub").exists() and not (tmp_path / "MyGame").exists()
 
 
@@ -591,7 +591,9 @@ PAST_BLOCK = (REPO / "tests" / "fixtures" / "game-project-block-2026-10-02.md").
 def rendered(places: list[str] = PLACES, skill: str = INSTALLED) -> list[str]:
     """The skill's block as a project holds it, markers included: its lines that name a clone's folder
     in place of the template's one, and the folder its copy of the skill is in."""
-    lines = [line.replace(".agents/skills/construct3-agent-plugin", skill) for line in BLOCK_LINES[:-1]]
+    cookbook = c3.locate_cookbook(PLUGIN)[0] or c3.cookbook_places(PLUGIN)[0]
+    lines = [line.replace(".agents/skills/construct3-agent-plugin", skill)
+             .replace("<path-to>/Construct3-Cookbook", cookbook.as_posix()) for line in BLOCK_LINES[:-1]]
     at = lines.index("- Construct3-RAG: <path-to>/Construct3-RAG")
     return lines[:at] + places + lines[at + 1:]
 

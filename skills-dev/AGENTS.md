@@ -32,7 +32,7 @@ repository root.
 | Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem but can leave the problems already there, so keep the final full `check_project.py` run and its fix-loop record |
 | Open or play a game | `scripts/open_in_editor.py --preview`; `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `skills-dev/evals/play_cases.py`, `tests/test_skill_preview_project.py` | Opening without input tests startup. Reaching a scene directly does not test the path to it |
 | Ship the skill to a game | `scripts/install.py --project FOLDER` mirrors the skill except `skills-dev/evals/` | `assets/game-project-block.md`, `c3project.py`, `tests/test_skill_install.py` | An edited Construct 3 block and edited generator helpers keep their edits until `--replace-edited-block` or `--replace-edited-helpers` replaces them |
-| Ship the plugin | `scripts/build_plugin.py` builds `plugin/` from the skill, the menu, the prompts and the data of the Construct3-RAG clone beside this repository | `tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit HEAD shares with `origin/main` |
+| Ship the plugin | `scripts/build_plugin.py` builds `plugin/` from the skill, the menu and the data of the Construct3-RAG clone beside this repository | `tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit HEAD shares with `origin/main` |
 | Give a script a row in the plugin's `/` menu | `plugin/skills/<name>/SKILL.md`, `name` the script's stem with hyphens, runs the script with the user's arguments through `plugin/skills/run.py` and goes to `plugin/skills/<name>/` | `tests/test_plugin_folder.py`, `docs/decisions/plugin-script-menu.md` | `disable-model-invocation: true`, so the row costs the model nothing; a description in the third person; an `argument-hint` made of groups of the script's usage line, in double quotes, because a hint that starts with `[` is a sequence to a YAML parser. The body teaches nothing, because the main skill does. A script without a row fails the build unless `NOT_IN_MENU` of `build_plugin.py` names it. These two fields are Claude Code's, outside the open format, so the reference validator fails on a row by design and the test pins its frontmatter instead |
 
 ## Rules
@@ -66,8 +66,9 @@ repository root.
   prints when it is needed is not repeated. Evidence:
   `docs/decisions/project-tools-skill.md`, "What holds the design in place".
 - Paths inside the skill are relative to its folder. A file of the folder
-  the Construct 3 block names, `plugin/` with its `data/` and `prompts/`, is
-  written `Construct3-RAG/<path>`, as the block writes it; a relative link
+  the Construct 3 block names, `plugin/` with its `data/`, is
+  written `Construct3-RAG/<path>`, as the block writes it, and a guide of
+  the Cookbook clone `Construct3-Cookbook/guides/<path>`; a relative link
   out of the folder breaks in a copy. A record of this repository is
   written `Construct3-Agent-Skills/docs/decisions/<file>`, a record of
   Construct3-RAG by its URL, since neither is in `plugin/`.

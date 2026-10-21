@@ -5,15 +5,15 @@ Date: 2026-10-16
 ## Problem
 
 An entry of `lookup_ace.py` holds the parameters, the JSON to write and the
-official examples that use the ACE. The traps of its addon are elsewhere, in
-`prompts/pitfalls/<topic>.md`, which a model reaches through
-`prompts/event-sheet-pitfalls.md`. A small model does not read that index
+official examples that use the ACE. The traps of its addon are elsewhere, on
+a page of the Construct3-Cookbook clone (`guides-in-cookbook.md`), which a
+model reaches through `guides/pitfalls.md`. A small model does not read that index
 (`event-sheet-design-guidance.md`, "What small models read"), so the
 entry is the only text it sees before it writes the ACE.
 
 The repository also prefers some built-ins over addons the editor still
 ships: a Tween on Opacity instead of Fade, a hierarchy instead of Pin
-(`prompts/event-sheet-thinking.md`, "Native first"). The checker cannot
+(`Construct3-Cookbook/guides/design/thinking.md`, "Native first"). The checker cannot
 carry that preference. A check becomes an error only when a run over the
 official examples adds no finding, and the examples use Fade
 (`data/c3-example-usage/behaviors/fade.json`). So the lookup is the
@@ -33,20 +33,23 @@ place where the preference can reach a model.
 
 Option 2 for the pitfalls, a separate list for the preferences.
 
-- Each topic file opens with `---`, `addons: <ids>`, `---`. An id is a
-  plugin or behavior (`tween`), an ACE of one (`system/wait`,
-  `_common/pick-children`), or `none` for a topic that holds for every sheet
-  (Expressions). A topic lists an addon when it holds an entry about that
-  addon's own behaviour, and an ACE when the entry is about that ACE and the
-  rest of its plugin is not concerned: Wait, Create object and Restart layout
-  are System's, and the other System entries print nothing.
-- `prompts/native-first.json` lists the addons a row of the Native first
+- A pitfall page named by an addon's id (`guides/behaviors/tween.md`,
+  `guides/plugins/system.md`) is that addon's, with no list. The Cookbook
+  names a page by the id of what owns its entries, so these pages replaced
+  most `addons:` lines: every System entry now points to the System page.
+  A category page or a `primitives/` page still opens with `---`,
+  `addons: <ids>`, `---`, where an id is a plugin or behavior (`eightdir`)
+  or an ACE of one (`system/else`), because its name does not say which
+  addons it covers. The Cookbook's `check.py` fails on an id that the
+  schemas do not hold.
+- `guides/design/native-first.json` lists the addons a row of the Native first
   table replaces, with the built-in to use and the row's Need text. The test
   checks that the row exists in the table and names the addon in its Not
   column, and that the editor has not deprecated the addon: a deprecated one
   belongs to `_deprecated.json` and prints as before.
-- `lookup_ace.py` ends an entry printed in full with `pitfalls: <file>` for
-  the topics that name its addon or the ACE, then `prefer: <built-in>; Native
+- `lookup_ace.py` ends an entry printed in full with `pitfalls: <pages>`,
+  the page its addon's id names and the pages whose `addons:` line names its
+  addon or the ACE, then `prefer: <built-in>; Native
   first, "<row>", in <file>`, after the example commands. Paths are printed
   as every command the scripts print is, relative to the current directory
   or absolute, so they open from the clone and from the plugin. Under
@@ -68,8 +71,8 @@ characters of output:
 | `System wait` | 3119 | 3278 |
 
 An entry of a mapped addon grows by one line, and a brief list by one line
-at its end. The `addons:` lines reach the plugin with `prompts/`, which the
-build copies whole.
+at its end. The pages and the list are read from the Cookbook clone; without
+one, no entry prints either line.
 
 ## Re-evaluate when
 

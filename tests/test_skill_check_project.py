@@ -1337,9 +1337,9 @@ WAIT_0 = {"id": "wait", "objectClass": "System", "sid": 39, "parameters": {"seco
 ])
 def test_a_function_that_picks_what_an_earlier_call_created_is_named(project, rows, said):
     """A created instance joins the others when the top-level event or trigger that created it ends; until then
-    only Pick by unique ID finds it outside its own event (prompts/pitfalls/creating-objects.md)."""
+    only Pick by unique ID finds it outside its own event (Construct3-Cookbook/guides/primitives/events/how-events-work.md)."""
     out = findings(project, lambda s: s["events"].extend(rows))
-    assert_one_warning(out, "pitfalls/creating-objects.md", said)
+    assert_one_warning(out, "primitives/events/how-events-work.md", said)
 
 
 def side_and_phase(rows: list):

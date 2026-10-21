@@ -19,7 +19,7 @@ export const meta = {
 //   scope: 'changed' | 'all'    'changed' (default) polishes what the commits since the last run touched, and what
 //                                that run carried over; the first run, with no recorded base, polishes everything.
 //   base: '<commit>'            start the changed scope at this commit instead of the recorded base.
-//   paths: ['plugin/prompts/']  polish only files under these prefixes.
+//   paths: ['plugin/skills/']   polish only files under these prefixes.
 //   busy: 'skip' | 'stop'       'skip' (default) leaves out the files that other sessions hold; 'stop' ends the run
 //                                when there are any.
 //   stale_days: 14              a holder with no change for this many days and no uncommitted file is stale.
@@ -50,8 +50,9 @@ export const meta = {
 //   what a script prints a new eval iteration, and the evals showed small-model behavior moving with wording
 //   a polish would call cosmetic. Those files get proposals in the report, not edits. The guarded files are
 //   listed in WHOLE_GUARDS below, so that no agent can drop one.
-// - plugin/ is the shipped folder, and it holds the sources: the skill, the rows of the / menu, the prompts and
-//   the plugin's manifest, README, icon and agents. Only plugin/data/ is built. scripts/build_plugin.py refreshes
+// - plugin/ is the shipped folder, and it holds the sources: the skill, the rows of the / menu and the plugin's
+//   manifest, README, icon and agents. The event sheet guides live in Construct3-Cookbook, outside this run.
+//   Only plugin/data/ is built. scripts/build_plugin.py refreshes
 //   it from the Construct3-RAG clone beside this repository and sets the plugin's version; the commit step
 //   rebuilds it after the polished sources are committed.
 // - This file is never polished: no check runs it, and a broken template literal would stop the next run.
@@ -95,12 +96,10 @@ const WHOLE_GUARDS = [
   [/^plugin\/skills\/construct3-agent-plugin\/SKILL\.md$/, 'skills-dev/AGENTS.md, "Evals": a change to SKILL.md is a new eval iteration, and its description changes only through the trigger eval'],
   [/^plugin\/skills\/construct3-agent-plugin\/references\//, 'skills-dev/AGENTS.md, "Evals": a change to a reference is a new eval iteration'],
   [/^plugin\/skills\/construct3-agent-plugin\/assets\//, 'a game project copies the assets and its agent reads and edits them; the evals measured the template and the block (docs/decisions/generator-helpers-inline.md, docs/decisions/project-tools-skill.md)'],
-  [/^plugin\/prompts\/event-sheet-thinking\.md$/, 'docs/decisions/event-sheet-design-guidance.md: an edit moved small-model structure on tasks it does not mention, so each edit is rerun beside the old file'],
   [/^\.claude-plugin\//, 'docs/decisions/directory-listing.md: the plugin directory publishes it'],
 ]
 // Passages every run keeps, besides those the guard agents find.
 const FIXED_PASSAGES = [
-  { path: 'plugin/prompts/event-sheet-pitfalls.md', what: 'the Topics structure (one ### group per topic file, with one link to it), every when-to-read line, and the wording of every conclusion line; a conclusion line may move to follow its topic file\'s order', rule: 'docs/decisions/pitfalls-index-and-topics.md, tests/test_prompts.py' },
   { path: 'AGENTS.md', what: 'the section numbers, section 2\'s route to lookup_ace.py, and section 4\'s install commands', rule: 'the game-project block and decision records cite them' },
   { path: 'README.md', what: 'the agent notice at the top, and the Agent guide section, which stays the first section', rule: 'docs/decisions/bootstrap-from-the-url.md' },
   { path: 'README_CN.md', what: 'the agent notice at the top, and the Agent guide section, which stays the first section', rule: 'docs/decisions/bootstrap-from-the-url.md' },
@@ -119,7 +118,6 @@ const UNIT_RULES = `A unit is a set of files that must stay consistent with each
 - readme (text): README.md with README_CN.md, because README_CN.md carries the content of README.md; plugin/README.md, the plugin's README, on its own.
 - docs (text): docs/dev/.
 - records (text): docs/decisions/, in batches of up to six records that share a group of the table in docs/AGENTS.md.
-- prompts (text): plugin/prompts/event-sheet-pitfalls.md on its own (the index); the topic files of plugin/prompts/pitfalls/ in batches; every other file of plugin/prompts/ and plugin/prompts/references/ on its own or in small batches by topic.
 - skill (text): plugin/skills/construct3-agent-plugin/SKILL.md; its references/ in batches; its assets/*.md.
 - agents (text): .claude/agents/; plugin/agents/.
 - code: scripts/*.py in batches by topic; plugin/skills/construct3-agent-plugin/scripts/, one large script per unit and small ones in batches; skills-dev/evals/*.py; plugin/skills/construct3-agent-plugin/assets/*.py; plugin/skills/run.py; tests/ in batches by the module they test, test_skill_<script>.py with nothing else.
@@ -129,8 +127,7 @@ const GUARD_RULES = `Guarded text needs more than a polish to change: an eval it
 - Whatever a decision record, an AGENTS.md or an eval says must not change without an eval, a measurement or a decision.
 - Any sentence, path or heading a test asserts: grep tests/ for the file's name and its distinctive sentences.
 - A heading, a section number or a file name that another file cites, above all text that ships into game projects (plugin/skills/construct3-agent-plugin/assets/game-project-block.md, SKILL.md, references) or that scripts print.
-- In plugin/prompts/pitfalls/: the number and order of top-level entries and each entry's bracketed source, because the index holds one conclusion line per entry in the same order.
-- In plugin/prompts/event-sheet-style.md and plugin/prompts/game-project-AGENTS.md: what a record or an eval pins (the habits mapped to the checks, the account of the block's step 1).
+- In skills-dev/game-project-AGENTS.md: what a record or an eval pins (the account of the block's step 1).
 - In decision records: the Date and Schema lines; measured eval results that settle a decision (pass rates, run counts), never rounded or dropped; decisions the user took, reworded at most, never reversed or softened; quoted editor and script messages; what a record names as removed, renamed or replaced, and its account of the state before the change (remove-*.md and any other record), which name files that are gone on purpose; licence attributions.
 - In Markdown code examples: the calls, which must name helpers that exist; a broken one gets a proposal, not a silent change of the example.
 - In code: names that a test patches or imports, names that JSON files such as skills-dev/evals/evals.json or plugin/skills/construct3-agent-plugin/assets/look-manifest.json cite, wrappers an AGENTS.md orders kept, and every string a test asserts.
@@ -557,7 +554,7 @@ Run git as \`git -C "${root}" ...\`. Use Grep and Read with absolute paths under
 
 ${GUARD_RULES}
 
-For each file below: grep tests/ for its name and for its distinctive sentences, headings and strings (\`git -C "${root}" grep -n -F "<text>"\`); grep docs/decisions/, every AGENTS.md, plugin/skills/, plugin/prompts/, skills-dev/ and the scripts for citations of its headings, section numbers and name; read the decision records the file's area cites. Report each guarded passage with the file; in what, the passage itself, so that a later agent can find it and compare it byte for byte: the heading text, a sentence's first words and its line, a function or constant name, or a block's first line and line range. what is never empty: a whole file that must stay, beyond those below, is reported with what set to "the whole file". Add the rule it rests on and the evidence (the test, the record or the citing file and line). Whole files that need an eval are known already: ${JSON.stringify(WHOLE_GUARDS.map(([r]) => String(r)))}; do not list them.
+For each file below: grep tests/ for its name and for its distinctive sentences, headings and strings (\`git -C "${root}" grep -n -F "<text>"\`); grep docs/decisions/, every AGENTS.md, plugin/skills/, skills-dev/ and the scripts for citations of its headings, section numbers and name; read the decision records the file's area cites. Report each guarded passage with the file; in what, the passage itself, so that a later agent can find it and compare it byte for byte: the heading text, a sentence's first words and its line, a function or constant name, or a block's first line and line range. what is never empty: a whole file that must stay, beyond those below, is reported with what set to "the whole file". Add the rule it rests on and the evidence (the test, the record or the citing file and line). Whole files that need an eval are known already: ${JSON.stringify(WHOLE_GUARDS.map(([r]) => String(r)))}; do not list them.
 
 Files:
 ${JSON.stringify(units.map(u => ({ unit: u.id, paths: u.paths })))}`
@@ -628,7 +625,7 @@ ${env(pre)}
 
 For each move, in order:
 1. Read every file in from, to and pointers.
-2. Move the content as planned, meeting the judges' conditions. Keep every fact, rule, condition, number, command, path, example and reason. Update every pointer and every routing table that names the old place (the root AGENTS.md sections 2 and 6, docs/AGENTS.md's table of records, the index of plugin/prompts/event-sheet-pitfalls.md, skills-dev/AGENTS.md).
+2. Move the content as planned, meeting the judges' conditions. Keep every fact, rule, condition, number, command, path, example and reason. Update every pointer and every routing table that names the old place (the root AGENTS.md sections 2 and 6, docs/AGENTS.md's table of records, the index of Construct3-Cookbook/guides/pitfalls.md, skills-dev/AGENTS.md).
 3. Leave these alone; skip a move that needs one of them changed. Whole files and busy files: ${JSON.stringify(lockedFiles(units))}. Passages, which stay byte-identical and in their file: ${JSON.stringify(uniq(moves.flatMap(m => guardsOf(units, [...m.from, ...m.to, ...m.pointers]))).filter(g => g.what))}.
 4. Run \`cd "${pre.worktree}" && python -m pytest -q -p no:cacheprovider\` and \`git -C "${pre.worktree}" diff --check\`. A failure that is not among ${JSON.stringify(pre.failing_before)} belongs to the move: restore its files with \`git -C "${pre.worktree}" checkout HEAD -- <file>\`, delete the files it created, and list the move under skipped with the failure.
 5. \`git -C "${pre.worktree}" add -- <the move's files>\`, then commit. Subject in the repository's style (\`git -C "${pre.worktree}" log --format=%s -20\` shows it); a deleted record's message says why its subject is gone; end the message with the attribution trailer your instructions give for commits, if they give one.
@@ -845,7 +842,7 @@ ${JSON.stringify(kept.map(r => ({ id: r.unit.id, area: r.unit.area, files: uniq(
 ok is true when the tree is clean and every check passes beyond failing_before.`
 
 const REVIEW_LENSES = [
-  { key: 'routes', prompt: pre => `Lens: routes. An agent arrives cold. Take every question of the table in section 2 of the root AGENTS.md and every row of section 6, and the steps of the game-project block (plugin/skills/construct3-agent-plugin/assets/game-project-block.md); follow each route and confirm it lands on content that answers it. Check every relative link, backticked path and cited heading in the files the branch changed, the table of records in docs/AGENTS.md against docs/decisions/, the index of plugin/prompts/event-sheet-pitfalls.md against its topic files, and README.md against README_CN.md (the same content, apart from the Chinese examples that stay in README_CN.md).` },
+  { key: 'routes', prompt: pre => `Lens: routes. An agent arrives cold. Take every question of the table in section 2 of the root AGENTS.md and every row of section 6, and the steps of the game-project block (plugin/skills/construct3-agent-plugin/assets/game-project-block.md); follow each route and confirm it lands on content that answers it. Check every relative link, backticked path and cited heading in the files the branch changed, the table of records in docs/AGENTS.md against docs/decisions/, the index of Construct3-Cookbook/guides/pitfalls.md against its topic files, and README.md against README_CN.md (the same content, apart from the Chinese examples that stay in README_CN.md).` },
   { key: 'rules', prompt: pre => `Lens: project rules over the branch's changes and its commit messages (\`git -C "${pre.worktree}" log ${pre.head}..HEAD\`).\n\n${TEXT_RULES}\n\nAlso: a commit message names an issue of another repository in words or as a URL in backticks, never as owner/repo#N or #N, because GitHub turns those into a permanent cross-reference on that issue.${FORBIDDEN.length || pre.forbidden_files.length ? ` Grep the tracked files and the commit messages case-insensitively for every name in ${FORBIDDEN.length ? JSON.stringify(FORBIDDEN) : ''}${FORBIDDEN.length && pre.forbidden_files.length ? ' and in ' : ''}${pre.forbidden_files.length ? JSON.stringify(pre.forbidden_files) + ' (names, titles and authors)' : ''}; report a hit as its first letter and length, never in full.` : ''}` },
   { key: 'meaning', prompt: pre => `Lens: meaning across files. Units were polished separately, so the branch can contradict itself. Look for a rule that one file states differently from another, content that two units both dropped as "kept by the owner", a pointer to a section that the branch renamed, and a guarded passage that changed.` },
 ]

@@ -1,5 +1,6 @@
 """plugin/, the Claude Code plugin: its data/ equal to a fresh build, the folder under the directory's limits,
-and holding every data and prompt file the skill's text sends an agent to (docs/decisions/plugin-folder.md)."""
+and holding every data file the skill's text sends an agent to (docs/decisions/plugin-folder.md); the guides
+live in Construct3-Cookbook, not here (docs/decisions/guides-in-cookbook.md)."""
 import json
 import os
 import re
@@ -12,7 +13,13 @@ from scripts import build_plugin
 from tests.skill_helpers import DATA, PLUGIN, REPO, SKILL, run, streams
 
 MENU = PLUGIN / "skills"        # the rows of the / menu lie beside the skill
-NAMED = re.compile(r"Construct3-(?:RAG|Agent-Skills/plugin)/((?:data|prompts)/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
+NAMED = re.compile(r"Construct3-(?:RAG|Agent-Skills/plugin)/(data/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
+
+
+def test_the_plugin_holds_no_copy_of_the_guides():
+    """The guides reach users by git pull of Construct3-Cookbook; a copy here would go stale between releases."""
+    assert not (PLUGIN / "prompts").exists()
+    assert not list(PLUGIN.rglob("event-sheet-pitfalls.md"))
 
 
 def test_plugin_folder_is_a_fresh_build_under_the_limits():
@@ -72,7 +79,7 @@ def test_the_limits_hold_the_folder_size(tmp_path, monkeypatch):
     assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
 
 
-def test_every_data_and_prompt_file_the_skill_names_is_in_the_plugin():
+def test_every_data_file_the_skill_names_is_in_the_plugin():
     """SKILL.md tells a plugin user that such a path lies under the plugin's folder, so it names a file
     there, not one that only a bundle holds."""
     texts = [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md")), SKILL / "assets" / "game-project-block.md"]
@@ -82,7 +89,7 @@ def test_every_data_and_prompt_file_the_skill_names_is_in_the_plugin():
             names += 1
             if not (PLUGIN / rel).exists():
                 missing.add(f"{path.name}: {rel}")
-    assert names > 10 and not missing, sorted(missing)
+    assert names > 5 and not missing, sorted(missing)
 
 
 def test_the_language_packs_keep_what_check_project_and_a_preview_inspector_read():
@@ -126,8 +133,9 @@ def test_scripts_in_the_plugin_read_the_bundled_data_and_print_what_opens(tmp_pa
     plugin = tmp_path / "construct3"
     shutil.copytree(PLUGIN, plugin, ignore=shutil.ignore_patterns("__pycache__"))
     scripts = plugin / "skills" / "construct3-agent-plugin" / "scripts"
-    # No CONSTRUCT3_RAG: the scripts find the plugin folder above them, as an installed plugin does
-    env = {k: v for k, v in os.environ.items() if k != "CONSTRUCT3_RAG"}
+    # No CONSTRUCT3_RAG: the scripts find the plugin folder above them, as an installed plugin does;
+    # no CONSTRUCT3_COOKBOOK either, so no Cookbook clone holds the pitfalls
+    env = {k: v for k, v in os.environ.items() if k not in ("CONSTRUCT3_RAG", "CONSTRUCT3_COOKBOOK")}
     env.update(PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_OFFLINE="1")
 
     def run(script: str, *args: str) -> str:
@@ -139,16 +147,14 @@ def test_scripts_in_the_plugin_read_the_bundled_data_and_print_what_opens(tmp_pa
     out = run("lookup_script_api.py", "IRuntime.callFunction")
     assert out.startswith("IRuntime.callFunction   lookup_script_api.py IRuntime.callFunction\n"), out
     out = run("search_guides.py", "wait", "platformer")
-    pitfalls = re.findall(r"^(.+\.md):\d+$", out, re.M)
-    assert pitfalls and all(Path(p).is_file() and Path(p).is_relative_to(plugin) for p in pitfalls), out
+    assert out.startswith("note: pitfalls not searched: no Construct3-Cookbook clone") and "git clone" in out, out
+    assert not re.findall(r"^(.+\.md):\d+$", out, re.M), out
     assert "\n  https://editor.construct.net/#open=3d-platformer\n" in out and "beside Construct3-RAG" not in out, out
-    # The pointers of an entry name the plugin's own prompt files, as the run's directory sees them
+    # The pointers come from a Cookbook clone, which no copy of the plugin holds: an entry prints none
     out = run("lookup_ace.py", "Tween", "tween-one-property")
-    pointed = [tmp_path / p for p in re.findall(r"^  pitfalls: (.+)$", out, re.M)]
-    assert pointed == [plugin / "prompts" / "pitfalls" / "tween.md"] and pointed[0].is_file(), out
+    assert "tween-one-property" in out and "  pitfalls: " not in out, out
     out = run("lookup_ace.py", "Fade", "start", "fade")
-    pointed = {tmp_path / p for p in re.findall(r"^  prefer: .*, in (.+)$", out, re.M)}
-    assert pointed == {plugin / "prompts" / "event-sheet-thinking.md"}, out
+    assert "  prefer: " not in out, out
 
 
 def groups(usage: str) -> list[str]:

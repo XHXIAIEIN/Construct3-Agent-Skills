@@ -1,6 +1,7 @@
 This folder holds the decision records: the evidence, the options and the trade-offs behind a product choice.
 A new record is added below as its own title, with the date of its `Date:` line, newest first.
 
+- [The Event Sheet Guides Live in Construct3-Cookbook](guides-in-cookbook.md) — 2026-10-21
 - [--attach Names the Browser; the Script Reads No Browser Folder of the User's](attach-names-the-browser.md) — 2026-10-16
 - [The Type the Editor Records for a Listed File](file-types-in-project-c3proj.md) — 2026-10-16
 - [An Entry of the Lookup Ends With Its Pitfalls File and the Built-In Preferred to Its Addon](lookup-pointers.md) — 2026-10-16

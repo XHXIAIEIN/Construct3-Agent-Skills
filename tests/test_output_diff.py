@@ -12,11 +12,11 @@ REPO = Path(__file__).resolve().parent.parent
 def test_mask_replaces_every_spelling_of_a_path(tmp_path):
     rag = tmp_path / "clone"
     game = tmp_path / "side" / "game"
-    text = "\n".join([f"python {rag / 'skills'}", f"{rag.as_posix()}/prompts/pitfalls/a.md:3",
+    text = "\n".join([f"python {rag / 'skills'}", f"{rag.as_posix()}/skills/a.md:3",
                       json.dumps({"path": str(game / 'x')}), f"at {game}"])
     masked = od.mask(text, {rag: "<rag>", game: "<game>", tmp_path / "side": "<tmp>"})
     assert str(tmp_path) not in masked and tmp_path.as_posix() not in masked
-    assert masked.splitlines()[1] == "<rag>/prompts/pitfalls/a.md:3"
+    assert masked.splitlines()[1] == "<rag>/skills/a.md:3"
     assert masked.splitlines()[3] == "at <game>"
 
 

@@ -22,7 +22,7 @@ import pytest
 
 
 REPO = Path(__file__).resolve().parent.parent
-# The folder the scripts get as the clone: plugin/, which holds the skill, the prompts and the built data, and
+# The folder the scripts get as the clone: plugin/, which holds the skill and the built data, and
 # is where every install and link runs them from (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
@@ -31,7 +31,7 @@ INSTALLED = ".agents/skills/construct3-agent-plugin"
 SHEET = "eventSheets/Game.json"
 
 sys.path.insert(0, str(SKILL / "scripts"))
-from c3project import siblings_folder  # noqa: E402
+from c3project import locate_cookbook, siblings_folder  # noqa: E402
 
 # The sibling clones are beside the main clone, also when the tests run in one of its
 # worktrees: build every sibling path from siblings_folder, never from REPO.parent.
@@ -40,6 +40,12 @@ DATA = siblings_folder(REPO) / "Construct3-RAG" / "data"
 EXAMPLES = siblings_folder(REPO) / "Construct-Example-Projects" / "example-projects"
 NO_EXAMPLES = (f"no Construct-Example-Projects clone at {EXAMPLES.parent}; "
                f"python {(REPO / 'scripts' / 'bootstrap.py').as_posix()} clones it")
+# The Construct3-Cookbook clone that holds the event sheet guides, found as the scripts find it from plugin/:
+# CONSTRUCT3_COOKBOOK, else a Construct3-Cookbook folder beside the clones. None without one.
+COOKBOOK = locate_cookbook(PLUGIN, None)[0]
+GUIDES = COOKBOOK / "guides" if COOKBOOK else None
+NO_COOKBOOK = (f"no Construct3-Cookbook clone beside the clones or in CONSTRUCT3_COOKBOOK; git clone --depth 1 "
+               f"https://github.com/XHXIAIEIN/Construct3-Cookbook \"{(siblings_folder(REPO) / 'Construct3-Cookbook').as_posix()}\"")
 
 
 def script_module(name: str, folder: Path = SKILL / "scripts"):
@@ -60,6 +66,7 @@ def script_module(name: str, folder: Path = SKILL / "scripts"):
 
 
 NEEDS_EXAMPLES = pytest.mark.skipif(not EXAMPLES.is_dir(), reason=NO_EXAMPLES)
+NEEDS_COOKBOOK = pytest.mark.skipif(COOKBOOK is None, reason=NO_COOKBOOK)
 NEEDS_GIT = pytest.mark.skipif(not shutil.which("git"), reason="git is not installed")
 
 

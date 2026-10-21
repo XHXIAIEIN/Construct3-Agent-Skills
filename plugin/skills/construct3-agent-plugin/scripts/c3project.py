@@ -412,10 +412,15 @@ def open_command(root: Path) -> str:
 
 
 def rag_line(text: str) -> str | None:
-    """The path on the `Construct3-RAG:` line of an instruction file. The line
-    may spell the folder out or keep `<path-to>` and define it once above, as
+    """The path on the `Construct3-RAG:` line of an instruction file."""
+    return clone_line(text, "Construct3-RAG")
+
+
+def clone_line(text: str, name: str) -> str | None:
+    """The path on the line of an instruction file that names a clone, such as `Construct3-RAG:`.
+    The line may spell the folder out or keep `<path-to>` and define it once above, as
     `path-to = D:\\GitHub` or `<path-to>: D:/GitHub`; a path may hold spaces."""
-    m = re.search(r"^[ \t>*-]*Construct3-RAG\s*[:=][ \t]*(.+)$", text, re.M)
+    m = re.search(rf"^[ \t>*-]*{re.escape(name)}\s*[:=][ \t]*(.+)$", text, re.M)
     if not m:
         return None
     value = m.group(1).strip().strip("`\"'")
@@ -490,14 +495,7 @@ def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, li
     """The clone or None, and the places tried before it; for a script that runs without a clone."""
     tried = []
     candidates = [("--rag", override), ("CONSTRUCT3_RAG", os.environ.get("CONSTRUCT3_RAG"))]
-    # The project being read, then the one this copy of the skill is installed in:
-    # an official example printed from a game project has no instruction file of its own.
-    folders = (root, Path.cwd(), above(SKILL_DIR, "project.c3proj"))
-    for folder in dict.fromkeys(f for f in folders if f):
-        for name in ("CLAUDE.md", "AGENTS.md"):
-            f = folder / name
-            if f.exists():
-                candidates.append((str(f), rag_line(f.read_text(encoding="utf-8"))))
+    candidates += instruction_lines(root, "Construct3-RAG")
     for source, c in candidates:
         if not c:
             continue
@@ -508,14 +506,81 @@ def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, li
     return above(SKILL_DIR, "data/c3-schemas/_index.json"), tried
 
 
-def prompts_folder(rag: Path) -> Path:
-    """The prompts beside the selected data, in this plugin, or in the sibling Agent-Skills plugin."""
-    own = above(SKILL_DIR, "prompts/event-sheet-pitfalls.md")
-    candidates = [rag / "prompts"]
-    if own:
-        candidates.append(own / "prompts")
-    candidates.append(siblings_folder(rag) / "Construct3-Agent-Skills" / "plugin" / "prompts")
-    return next((path for path in candidates if path.is_dir()), rag / "prompts")
+def instruction_lines(root: Path | None, name: str) -> list[tuple[str, str | None]]:
+    """The `<name>:` lines of the instruction files as (file, path): the project being read, then the
+    current directory and the project this copy of the skill is installed in, since an official
+    example printed from a game project has no instruction file of its own."""
+    found = []
+    for folder in dict.fromkeys(f for f in (root, Path.cwd(), above(SKILL_DIR, "project.c3proj")) if f):
+        for file in ("CLAUDE.md", "AGENTS.md"):
+            f = folder / file
+            if f.exists():
+                found.append((str(f), clone_line(f.read_text(encoding="utf-8"), name)))
+    return found
+
+
+# The event sheet guides, the pitfalls among them, live in the public Construct3-Cookbook repository,
+# so that a new pitfall reaches users by git pull, without a plugin release (docs/decisions/guides-in-cookbook.md).
+COOKBOOK_CLONE = "Construct3-Cookbook"
+COOKBOOK_URL = "https://github.com/XHXIAIEIN/Construct3-Cookbook"
+GUIDES = "guides"     # pitfalls.md, the index; a page per id, category or manual page; design/, recipes/, project-files/
+# The folders of pitfall pages: an add-on id, a c3-lang category key, or a page of the manual's project-primitives/
+PITFALL_FOLDERS = ("plugins", "behaviors", "effects", "behavior-category", "plugin-category", "effect-category",
+                   "primitives")
+
+
+def cookbook_places(rag: Path | None) -> list[Path]:
+    """Where a Cookbook clone lies when no line names it: beside the clone of the selected data, and
+    beside the Construct3-Agent-Skills clone this skill runs from."""
+    bases = [rag] if rag else []
+    plugin = above(SKILL_DIR, ".claude-plugin/plugin.json")
+    if plugin:
+        bases.append(plugin)
+    return list(dict.fromkeys(siblings_folder(base) / COOKBOOK_CLONE for base in bases))
+
+
+def locate_cookbook(rag: Path | None, root: Path | None = None,
+                    override: str | None = None) -> tuple[Path | None, list[str]]:
+    """The Cookbook clone or None, and the places tried before it. In order: --cookbook,
+    CONSTRUCT3_COOKBOOK, the `Construct3-Cookbook:` line of an instruction file, a Construct3-Cookbook
+    folder beside the clones. A folder counts when it holds the pitfalls index."""
+    candidates = [("--cookbook", override), ("CONSTRUCT3_COOKBOOK", os.environ.get("CONSTRUCT3_COOKBOOK"))]
+    candidates += instruction_lines(root, COOKBOOK_CLONE)
+    candidates += [("beside the clones", str(place)) for place in cookbook_places(rag)]
+    tried = []
+    for source, c in candidates:
+        if not c:
+            continue
+        if (Path(c) / GUIDES / "pitfalls.md").is_file():
+            return Path(c), tried
+        tried.append(f"{source}: {c}")
+    return None, tried
+
+
+def guides_folder(rag: Path | None, root: Path | None = None, override: str | None = None) -> Path | None:
+    """The guides/ folder of the Cookbook clone, or None without a clone."""
+    cookbook = locate_cookbook(rag, root, override)[0]
+    return cookbook / GUIDES if cookbook else None
+
+
+def cookbook_clone_command(rag: Path | None) -> str:
+    """The git clone that puts the Cookbook where the scripts look for it."""
+    places = cookbook_places(rag)
+    into = places[0].as_posix() if places else f"<the folder that holds Construct3-RAG>/{COOKBOOK_CLONE}"
+    return f'git clone --depth 1 {COOKBOOK_URL} "{into}"'
+
+
+def missing_cookbook(rag: Path | None) -> str:
+    """Why the guides are not there, with the clone to get and the ways to name a clone elsewhere."""
+    return (f"no {COOKBOOK_CLONE} clone (it holds the event sheet pitfalls and design guides). "
+            f"Run: {cookbook_clone_command(rag)}. For a clone elsewhere, set CONSTRUCT3_COOKBOOK or add "
+            f"'- {COOKBOOK_CLONE}: <folder>' to the project's AGENTS.md")
+
+
+def guide_path(rag: Path | None, rel: str, root: Path | None = None) -> str:
+    """A guide as a message cites it: its file in the Cookbook clone, else Construct3-Cookbook/guides/<rel>."""
+    folder = guides_folder(rag, root)
+    return (folder / rel).as_posix() if folder else f"{COOKBOOK_CLONE}/{GUIDES}/{rel}"
 
 
 def find_rag(root: Path | None, override: str | None) -> Path:
@@ -1118,7 +1183,7 @@ BLOCK_IN_CLONE = f"skills/{SKILL}/assets/game-project-block.md"
 BLOCK_BEGIN = re.compile(r"<!-- construct3-agent-plugin block: begin\b")
 BLOCK_END = re.compile(r"<!-- construct3-agent-plugin block: end\b")
 BLOCK_HEADING = "# Construct 3"
-BLOCK_PLACE = re.compile(r"^[ \t>*-]*(?:Construct3-RAG|Construct3-Manual|Construct-Example-Projects|"
+BLOCK_PLACE = re.compile(r"^[ \t>*-]*(?:Construct3-RAG|Construct3-Cookbook|Construct3-Manual|Construct-Example-Projects|"
                          r"Construct-Addon-SDK|<?path-to>?)[ \t]*[:=]")
 # The skill's folder as the block names it, inside backticks; construct3-project is its former name
 BLOCK_SKILL = re.compile(r"(?<=`)(python )?([^`]*?/)construct3-(?:agent-plugin|project)(?=/)")
@@ -1256,11 +1321,16 @@ def block_lines(rag: Path, skill_path: str, places: list[str] | None = None,
     lines = text_lines(template)[0]
     if lines and not lines[-1]:
         lines.pop()
-    lines = [line.replace("<path-to>/Construct3-RAG", rag.as_posix()).replace(BLOCK_SKILL_DEFAULT, skill_path)
+    cookbook = locate_cookbook(rag)[0] or cookbook_places(rag)[0]
+    lines = [line.replace("<path-to>/Construct3-RAG", rag.as_posix())
+             .replace(f"<path-to>/{COOKBOOK_CLONE}", cookbook.as_posix()).replace(BLOCK_SKILL_DEFAULT, skill_path)
              for line in lines]
     if places:
-        at = next(i for i, line in enumerate(lines) if BLOCK_PLACE.match(line))
-        lines[at:at + 1] = places
+        # The block's own lines stay, and a line the template adds for another clone joins them
+        at = [i for i, line in enumerate(lines) if BLOCK_PLACE.match(line)]
+        named = {BLOCK_PLACE.match(line)[0].strip(" \t>*-:=") for line in places}
+        added = [lines[i] for i in at if BLOCK_PLACE.match(lines[i])[0].strip(" \t>*-:=") not in named]
+        lines[at[0]:at[-1] + 1] = places + added
     return lines
 
 

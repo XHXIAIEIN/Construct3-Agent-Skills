@@ -54,7 +54,7 @@ paths in its scripts, `SKILL.md`, `references/` and the Construct 3 block:
 | `data/c3-examples/` | `search_guides.py`, `check_design.py` | two bundles per locale, from about a thousand small files |
 | `data/c3-example-usage/` | `lookup_ace.py` | one bundle, from about a hundred small files |
 | `data/c3-lang/` | `check_project.py`, two subtrees of about 10 KiB; `open_in_editor.py`, `preview_project.py` and agents, the texts of the plugins and behaviors that label a preview's inspector values (`reading-the-runtime.md`) | the two subtrees and those texts, about 100 KiB per locale |
-| `data/c3-guides/`, `prompts/` | agents, from `SKILL.md` and the block | their files |
+| `data/c3-guides/` | agents, from `SKILL.md` and the block | its files |
 | `data/c3-new-project/` | `new_project.py`; `check_project.py` names its `project.c3proj` for a project file without a `properties` block | its files, the icons included |
 | `plugin/skills/construct3-agent-plugin/` except `skills-dev/evals/` | | its files |
 
@@ -73,7 +73,7 @@ they stay as files.
 ## Decision
 
 `plugin/` is the plugin, and the plugin folder holds its sources. The
-skill, the rows of the `/` menu, the prompts, the manifest, the README, the
+skill, the rows of the `/` menu, the manifest, the README, the
 icon, the licence and the sub-agents are edited in place under `plugin/`.
 Only `plugin/data/` is built: `scripts/build_plugin.py` writes it from the
 `data/` of the Construct3-RAG clone beside this repository, and the result
@@ -159,11 +159,11 @@ the directory refuses to validate a repository whose attributes could
 rewrite files at checkout, and it refused this one while
 `* text=auto eol=lf` was there. A test keeps the file out.
 
-The skill names a file of the data and prompts folder as
+The skill names a file of the data folder as
 `Construct3-RAG/<path>`. A game project resolves it through its
 `Construct3-RAG:` line, which a plugin user's project often lacks. So the
-plugin bullet of `SKILL.md` says that `Construct3-RAG/` before `data/` or
-`prompts/` stands for `${CLAUDE_PLUGIN_ROOT}/`, and the skill's text names
+plugin bullet of `SKILL.md` says that `Construct3-RAG/` before `data/`
+stands for `${CLAUDE_PLUGIN_ROOT}/`, and the skill's text names
 no file that the plugin holds only in a bundle. Claude Code replaces that
 variable with the plugin's folder in the Markdown body of a skill when it
 loads the skill (Claude Code docs, "Plugin manifest reference",
@@ -181,16 +181,17 @@ folder into a temporary directory and fails when it differs from
 `plugin/data/`, when the plugin's files are more than 512 or more than
 7,000,000 bytes in all, hold a binary file other than a PNG or a file over
 256 KiB other than an image, name in `icon` a file the folder does not hold,
-or lack a file or folder under `data/` or `prompts/` that `SKILL.md`,
+or lack a file or folder under `data/` that `SKILL.md`,
 `references/` or the game-project block names as `Construct3-RAG/<path>`.
-Another runs the plugin's scripts with no other clone, and fails when a
-pitfall path that `search_guides.py` prints does not open, or when
+Another runs the plugin's scripts with no other clone, and fails when
+`search_guides.py` does not print the command that clones Construct3-Cookbook
+(`guides-in-cookbook.md`), or when
 `lookup_script_api.py` prints a file path instead of a command. The refresh
 workflow builds the data folder again from the current data of
 Construct3-RAG every day and pushes the build when it changed
 (`plugin-repository.md`).
 
-Edit the skill, the prompts and the plugin's own files under `plugin/`;
+Edit the skill and the plugin's own files under `plugin/`;
 never edit `plugin/data/` by hand, because the next build overwrites it and
 the test fails until then.
 

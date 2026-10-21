@@ -7,7 +7,7 @@ per FILE named. The line holds the duration, channels, sample rate, codec
 and bit rate, the loudest 400 ms (3 s for music) K-weighted above 150 Hz,
 the integrated loudness, the true peak, and the silence at the head and the
 tail. Then it compares the file with the tier and the ceiling of its role
-(Construct3-RAG/prompts/references/sound.md, "Tiers and loudness"):
+(Construct3-Cookbook/guides/recipes/sound.md, "Tiers and loudness"):
 
   tools/sounds.json   the cue table: one entry per file, with "role"
                       (reward, impact or music) and "tier" (key, action or

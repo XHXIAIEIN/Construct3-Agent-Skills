@@ -30,7 +30,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    layout* bring the instances back as placed but keep every global
    variable and static local at its end value, so a case that passes the
    first time can fail the second
-   (`Construct3-Agent-Skills/plugin/prompts/pitfalls/restarting-a-layout.md`). A change
+   (`Construct3-Cookbook/guides/plugins/system.md`). A change
    with no condition of its own, a colour, a size, a duration, a volume,
    has one case: reach the scene where it shows and read it as step 5
    says. [observed in a game project, r504 preview, 2026-10-02: an
@@ -107,7 +107,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    feels in a `record` step with that value in `watch`: the time from the
    press to the top of a jump, how long a tween takes to rest, how far a
    dragged piece lags. Write the target in the same measure, from the row
-   for the effect in `Construct3-Agent-Skills/plugin/prompts/references/feel.md` where
+   for the effect in `Construct3-Cookbook/guides/recipes/feel.md` where
    there is one, otherwise from the user. The change is done when the
    recording measures the target, not when the motion looks better.
    [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullet
@@ -119,7 +119,7 @@ about the editor or the preview goes to `editor-and-preview.md`.
    the plan forced. Judge a motion's feel and timing from the recording
    first: where it starts, overshoots and rests, and how long each part
    takes, against the row for the same effect in
-   `Construct3-Agent-Skills/plugin/prompts/references/feel.md` where there is one. Then
+   `Construct3-Cookbook/guides/recipes/feel.md` where there is one. Then
    open the recording's contact sheet, `NN-NAME-sheet.png`, with the image
    tool and judge only what the frames show, not what the events were
    meant to do. Name the three worst defects, each with its time, what the
@@ -273,7 +273,7 @@ kinds takes the rows of each.
   the page, as [editor-and-preview.md](editor-and-preview.md) describes. The
   audio clock does not run until the first release, click or key, so a plan
   that checks music sends one first.
-  [`Construct3-Agent-Skills/plugin/prompts/pitfalls/audio.md`, the bullet on the audio
+  [`Construct3-Cookbook/guides/plugins/audio.md`, the bullet on the audio
   clock]
 - Layouts: the preview starts on the layout open in the editor, not the
   project's first layout. [editor-and-preview.md, the first bullet]

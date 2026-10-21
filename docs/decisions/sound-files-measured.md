@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Problem
 
-`prompts/references/sound.md` states loudness tiers over a reference M, a
+`Construct3-Cookbook/guides/recipes/sound.md` states loudness tiers over a reference M, a
 true peak ceiling of −3 dBFS for an effect and −12 dBFS for music, the
 Opus rates, and a four-layer recipe for placeholder files. The loudness,
 the peak and the silence of a sound file are invisible to

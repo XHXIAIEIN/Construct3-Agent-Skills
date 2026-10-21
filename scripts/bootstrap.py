@@ -5,8 +5,8 @@ project, and the skill inside it.
     python scripts/bootstrap.py --project MyGame    # ... and install the skill in MyGame beside them;
                                                     # a folder that does not exist yet gets the empty project
 
-Clones Construct3-Manual, Construct-Example-Projects and Construct-Addon-SDK
-into the folder that holds this repository, each one only when it is not
+Clones Construct3-Cookbook, Construct3-Manual, Construct-Example-Projects and
+Construct-Addon-SDK into the folder that holds this repository, each one only when it is not
 there yet. A missing or empty project folder gets a copy of the empty project,
 then the skill's install.py runs on the project. Safe to run again: a clone
 already present is left as it is, and install.py refreshes rather than overwrites.
@@ -29,6 +29,7 @@ INSTALL = SKILL_SCRIPTS / "install.py"
 # is enough. The examples are hundreds of megabytes of history; one commit
 # holds every project the block and the skill read.
 SIBLINGS = {
+    c3.COOKBOOK_CLONE: (c3.COOKBOOK_URL, False),      # the event sheet guides, updated by git pull
     "Construct3-Manual": ("https://github.com/XHXIAIEIN/Construct3-Manual", False),
     "Construct-Addon-SDK": ("https://github.com/Scirra/Construct-Addon-SDK", False),
     "Construct-Example-Projects": ("https://github.com/Scirra/Construct-Example-Projects", True),

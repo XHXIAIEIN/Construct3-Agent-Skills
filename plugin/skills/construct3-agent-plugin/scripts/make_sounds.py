@@ -12,7 +12,7 @@ on by default for the key tier), "stereo" and "bars" for music, and
 sounds/ can be scheduled on the grid. --example prints a table to start
 from.
 
-Each effect is four layers (Construct3-RAG/prompts/references/sound.md,
+Each effect is four layers (Construct3-Cookbook/guides/recipes/sound.md,
 "Making placeholder files"): an attack of filtered noise, a body of harmonic
 partials, a low layer for rare accents, and a room baked in at the ratio of
 its tier, driest for the repeat tier. A music stem is one pass of chords,
@@ -212,16 +212,17 @@ def main() -> int:
         print(f"no project.c3proj in {root or Path.cwd()}: run this from the project folder or pass "
               f"--project <folder>", file=sys.stderr)
         return 1
-    found = cs.tools()
-    if found is None:
-        print(cs.INSTALL)
-        return 1
-    ffmpeg, ffprobe = found
     table_path = root / cs.CUES
     if not table_path.exists():
         print(f"no {cs.CUES.as_posix()} in {root}: write the cue table first; --example prints one to start from, "
               f"python {c3.shown_path(Path(__file__))} --example > {cs.CUES.as_posix()}")
         return 1
+    # The missing table comes first: it is the next step whether or not ffmpeg is installed
+    found = cs.tools()
+    if found is None:
+        print(cs.INSTALL)
+        return 1
+    ffmpeg, ffprobe = found
     try:
         table = json.loads(table_path.read_text(encoding="utf-8"))
         cues = table["cues"]

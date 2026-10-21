@@ -97,7 +97,7 @@ EXCERPT = 160
 class Side(NamedTuple):
     """One side of the comparison: the clone whose scripts run, and the folders its output is masked by."""
     label: str
-    rag: Path       # the clone: its skills/ holds the scripts, its plugin/ the data and the prompts they read
+    rag: Path       # the clone: its skills/ holds the scripts, its plugin/ the data they read
     tmp: Path
     env: dict[str, str]
 

@@ -26,6 +26,9 @@ jobs:
       - name: Clone Construct3-RAG beside this repository
         run: git clone --quiet --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "$GITHUB_WORKSPACE/../Construct3-RAG"
 
+      - name: Clone Construct3-Cookbook beside this repository
+        run: git clone --quiet --depth 1 https://github.com/XHXIAIEIN/Construct3-Cookbook "$GITHUB_WORKSPACE/../Construct3-Cookbook"
+
       - name: Build plugin/data/
         id: build
         run: |

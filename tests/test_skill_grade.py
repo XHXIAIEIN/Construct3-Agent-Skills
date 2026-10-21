@@ -429,7 +429,7 @@ def test_trace_sees_a_write_made_inside_a_script(tmp_path: Path, command: str, e
 
 
 @pytest.mark.parametrize(("command", "reads"), [
-    ('cd "{c}" && cat prompts/event-sheet-thinking.md | head -c 9000', ["prompts/event-sheet-thinking.md"]),
+    ('cd "{c}" && cat Construct3-Cookbook/guides/design/thinking.md | head -c 9000', ["Construct3-Cookbook/guides/design/thinking.md"]),
     ('cd "{c}" && ls data/c3-schemas/ && ls data/c3-schemas/en-US/', ["data/c3-schemas", "data/c3-schemas/en-US"]),
     ('cd "{c}" && python skills/construct3-agent-plugin/scripts/print_sheet.py --project "{c}/x" Game', []),
     ('cd "{c}" && grep -rn "isKeyDown" --include=*.md . | head', ["."]),

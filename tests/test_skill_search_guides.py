@@ -2,18 +2,20 @@
 import json
 from pathlib import Path
 
-from tests.skill_helpers import DATA, INSTALLED, PLUGIN, REPO, SKILL, NEEDS_GIT, git, run, tool, script_module
+from tests.skill_helpers import (DATA, GUIDES, INSTALLED, NEEDS_COOKBOOK, PLUGIN, REPO, SKILL, NEEDS_GIT, git, run,
+                                  tool, script_module)
 
 c3 = script_module("c3project")
 
 
+@NEEDS_COOKBOOK
 def test_the_entry_with_most_of_the_words_comes_first_in_full(built):
     """Words about a click on a button with another behind it print the entry on Pick top/bottom first,
     without its sources."""
     code, out = tool(built, "search_guides", "click", "button", "behind", "--examples", "0")
     assert code == 0
     lines = out.splitlines()
-    assert lines[0] == "pitfalls:" and lines[1].startswith(f"{PLUGIN.as_posix()}/prompts/pitfalls/input.md:")
+    assert lines[0] == "pitfalls:" and lines[1].startswith(f"{GUIDES.as_posix()}/plugins/touch.md:")
     assert "*Pick top/bottom* (top)" in lines[2]
     assert "[manual:" not in out
 
@@ -99,10 +101,40 @@ def test_examples_without_the_clone_say_how_to_get_it(tmp_path):
             f'"{clone.as_posix()}" clones it') in snake_output(plugin, tmp_path)
 
 
+@NEEDS_COOKBOOK
 def test_raw_data_override_keeps_pitfalls_for_source_and_installed_scripts(project):
     for script in (SKILL / "scripts" / "search_guides.py", project / INSTALLED / "scripts" / "search_guides.py"):
         code, out = run(project, script, "click", "button", "behind", "--examples", "0", "--rag", str(DATA.parent))
         assert code == 0, out
         assert "pitfalls:" in out and "*Pick top/bottom* (top)" in out, out
-        location = next(line for line in out.splitlines() if "/prompts/pitfalls/input.md:" in line)
+        location = next(line for line in out.splitlines() if "/plugins/touch.md:" in line)
         assert Path(location.rsplit(":", 1)[0]).is_file(), out
+
+
+def test_without_a_cookbook_the_pitfalls_give_the_clone_and_the_examples_still_print(project, tmp_path, monkeypatch):
+    """The installed copy, which lies in no Agent-Skills clone, so only the data's folder has siblings."""
+    monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
+    # install.py named the machine's clone in the block; without that line no clone is named
+    agents = project / "AGENTS.md"
+    agents.write_text("".join(line for line in agents.read_text(encoding="utf-8").splitlines(keepends=True)
+                              if not line.startswith("- Construct3-Cookbook:")), encoding="utf-8")
+    rag = fake_rag(tmp_path / "clones" / "Construct3-RAG", snake=True)
+    code, out = run(project, project / INSTALLED / "scripts" / "search_guides.py", "snake", "--rag", str(rag))
+    assert code == 0, out
+    assert out.startswith("note: pitfalls not searched: no Construct3-Cookbook clone"), out
+    assert (f'git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-Cookbook '
+            f'"{(tmp_path / "clones" / "Construct3-Cookbook").as_posix()}"') in out, out
+    assert "\ntemplate-snake: " in out, out
+
+
+def test_the_cookbook_flag_names_a_clone_elsewhere(tmp_path):
+    rag = fake_rag(tmp_path / "Construct3-RAG")
+    guides = tmp_path / "elsewhere" / "guides"
+    topic = guides / "plugins"
+    topic.mkdir(parents=True)
+    (guides / "pitfalls.md").write_text("# Pitfalls\n\n- A snake eats. [manual: x]\n", encoding="utf-8")
+    (topic / "snakes.md").write_text("# Snakes\n\n- A snake grows when it eats. [manual: x]\n", encoding="utf-8")
+    code, out = run(tmp_path, SKILL / "scripts" / "search_guides.py", "snake", "--examples", "0", "--rag", str(rag),
+                    "--cookbook", str(tmp_path / "elsewhere"))
+    assert code == 0, out
+    assert out.splitlines()[:3] == ["pitfalls:", f"{topic.as_posix()}/snakes.md:3", "  A snake grows when it eats."], out

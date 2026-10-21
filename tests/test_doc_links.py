@@ -20,7 +20,6 @@ DOCUMENTS = sorted(
         *REPO.glob("*/AGENTS.md"),
         *REPO.glob("AGENTS.md"),
         *REPO.glob(".claude/agents/*.md"),
-        *(REPO / "plugin" / "prompts").rglob("*.md"),
         *(REPO / "plugin" / "skills").rglob("*.md"),
         *(REPO / "plugin" / "agents").rglob("*.md"),
         REPO / "plugin" / "README.md",
