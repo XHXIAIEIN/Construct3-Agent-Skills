@@ -150,6 +150,23 @@ def test_the_restart_reads_the_countdown_running_out(tmp_path: Path, project: Pa
     assert result["passed"] is restarts, result
 
 
+def test_an_old_arm_is_not_failed_on_its_older_block(tmp_path: Path, project: Path) -> None:
+    """An old_ arm installed the older skill, whose Construct 3 block the current checker warns about: grade.py leaves
+    that warning out of an old_ run's checker output and keeps it in a with_skill run's."""
+    from tests.test_skill_install import older_block
+    outs = {}
+    for arm in ("old_skill_2", "with_skill"):
+        root = tmp_path / arm / "project"
+        shutil.copytree(project, root)
+        older_block(root)
+        outs[arm] = grader.checker(root)
+    code, out = outs["with_skill"]
+    assert code == 0 and grader.STALE_BLOCK.search(out), out
+    assert [line for line in out.splitlines() if line.startswith("warning:")] == [grader.STALE_BLOCK.search(out)[0].strip()]
+    code, out = outs["old_skill_2"]
+    assert code == 0 and "warning:" not in out and out.splitlines()[-1].startswith("ok: "), out
+
+
 def test_a_function_call_on_start_is_graded_with_the_countdown(tmp_path: Path, project: Path) -> None:
     """A call of a function lists its arguments, not named parameters: iteration 65's add-countdown/with_skill
     called ShowScore under On start of layout, and the grader stopped on the list."""

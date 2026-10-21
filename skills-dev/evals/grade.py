@@ -6,7 +6,10 @@ ITERATION_DIR holds <case>/<arm>/ with project/, outputs/answer.md,
 fixture.json and, once the run has reported, timing.json. Every assertion of
 evals/evals.json is checked by code against the files the run left, with the
 clone's own checker, and written to <case>/<arm>/grading.json with the
-evidence and its level: checker or files. A case whose request changes what
+evidence and its level: checker or files. A run of an old_ arm installed
+the older skill, so the checker's warning that the project's Construct 3
+block is older than the skill's is left out of its output, and nothing
+else is. A case whose request changes what
 the game does also has the runtime assertions of its plan in
 evals/play_cases.py. --play plays the plan on the run's project in the
 editor's preview, into <case>/<arm>/play/. Without --play, grade.py reads a
@@ -86,12 +89,22 @@ COMPARE = {0: lambda a, b: a == b, 1: lambda a, b: a != b, 2: lambda a, b: a < b
            3: lambda a, b: a <= b, 4: lambda a, b: a > b, 5: lambda a, b: a >= b}
 
 
+# check_project.py's block_behind warning on an instruction file whose Construct 3 block is older than the skill's.
+STALE_BLOCK = re.compile(r"^warning: [^\n]*: its Construct 3 block is the skill's of [^\n]* and the skill's is now "
+                         r"of [^\n]*; refresh it,[^\n]*\n?", re.M)
+
+
 def checker(project: Path) -> tuple[int, str]:
+    """check_project.py's exit code and output on the project. A run of an old_ arm installed the older skill,
+    whose block the current checker warns about, so that one warning is left out of its output."""
     p = subprocess.run([sys.executable, str(SKILL / "scripts" / "check_project.py"),
                         "--project", str(project), "--rag", str(PLUGIN)],
                        capture_output=True, text=True, encoding="utf-8",
                        env=dict(os.environ, PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_NO_RECORD="1"))
-    return p.returncode, (p.stdout + p.stderr).strip()
+    out = (p.stdout + p.stderr).strip()
+    if project.parent.name.startswith("old_"):
+        out = STALE_BLOCK.sub("", out).strip()
+    return p.returncode, out
 
 
 def walk(events: list, above: tuple = ()):
