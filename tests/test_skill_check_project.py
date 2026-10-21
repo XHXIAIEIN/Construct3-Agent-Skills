@@ -5,6 +5,7 @@ import json
 import random
 import re
 import string
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -944,6 +945,52 @@ def test_third_party_addon_stays_a_warning(project):
     out = findings(project, lambda t: t.update({"plugin-id": "Spriter"}), "objectTypes/ScoreText.json")
     assert "warning: no schema for plugin Spriter" in out
     assert out.rstrip().splitlines()[-1].startswith("ok:"), out     # its ACEs pass unchecked
+
+
+def bundle(project: Path, kind: str, addon: dict) -> None:
+    """A copy of an addon in addons/<type>/<id>.c3addon, where the editor's Bundle addons keeps it."""
+    folder = project / "addons" / kind
+    folder.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(folder / f"{addon['id']}.c3addon", "w") as z:
+        z.writestr("addon.json", json.dumps({"type": kind, **addon}))
+
+
+@pytest.mark.parametrize("evidence", ["bundled", "recorded", "saved"])
+def test_a_legacy_sdk_v1_addon_stops_the_check(project, evidence):
+    """r450 and later load only SDK v2 third-party plugins and behaviors; the editor lists one made with SDK v1
+    in its Missing addons dialog, marked (legacy SDK v1), and opens nothing."""
+    listed = {"type": "behavior", "id": "MyTrail", "name": "My trail", "author": "Someone", "bundled": True}
+    if evidence == "bundled":
+        bundle(project, "behavior", {"id": "MyTrail", "name": "My trail", "version": "1.0.0.0"})
+    if evidence == "recorded":
+        listed["sdkVersion"] = 1
+    edit(project, "project.c3proj", lambda p: (p["usedAddons"].append(listed),
+                                               evidence == "saved" and p.update({"savedWithRelease": 38000})))
+    code, out = check(project)
+    said = next((line for line in out.splitlines() if "behavior MyTrail (My trail) by Someone" in line), "")
+    assert code == 1 and "is a legacy SDK v1 addon" in said and "r449 LTS" in said, out
+    assert {"bundled": "addons/behavior/MyTrail.c3addon", "recorded": '"sdkVersion": 1',
+            "saved": "savedWithRelease is 38000"}[evidence] in said, said
+    assert "no schema for behavior MyTrail" not in out
+
+
+def test_an_sdk_v2_addon_stays_a_warning(project):
+    bundle(project, "behavior", {"id": "MyTrail", "name": "My trail", "version": "2.0.0.0", "sdk-version": 2})
+    edit(project, "project.c3proj", lambda p: (p["usedAddons"].append(
+        {"type": "behavior", "id": "MyTrail", "name": "My trail", "author": "Someone", "bundled": True}),
+        p.update({"savedWithRelease": 38000})))     # the bundled copy settles it before the release does
+    code, out = check(project)
+    assert "warning: no schema for behavior MyTrail" in out and "SDK v1" not in out, out
+
+
+def test_an_addon_by_scirra_is_known_by_its_id_not_its_author(project):
+    """usedAddons can record an author other than Scirra for an addon of Scirra's, such as "Scirra.com", and the
+    editor credits a bundled effect to its shader's author: the id decides."""
+    edit(project, "project.c3proj", lambda p: (p["usedAddons"].append(
+        {"type": "plugin", "id": "NodeWebkit", "name": "NW.js", "author": "Scirra.com", "bundled": False}),
+        p.update({"savedWithRelease": 38000})))
+    code, out = check(project)
+    assert "warning: plugin NodeWebkit (NW.js) is deprecated" in out and "SDK v1" not in out, out
 
 
 def test_an_invented_functions_object_type_is_refused(project):

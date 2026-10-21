@@ -36,7 +36,12 @@ gives all but one another uid, so a hierarchy link or a *Pick by unique ID*
 written for one may reach the other.
 
 A missing schema (a third-party addon) is a warning, and its ACEs pass
-unchecked. So is what the editor has deprecated, from
+unchecked, unless the project shows that the addon is a plugin or behavior
+made with the legacy Addon SDK v1, which the current editor does not load
+(the table below). The checker tells an addon of Scirra's by its id, not by
+the author that `usedAddons` records, since the editor credits some bundled
+effects to their shader's author. What the editor has deprecated is a
+warning too, from
 `Construct3-RAG/data/c3-schemas/{locale}/_deprecated.json`: an addon, and an
 ACE or expression, once each at its first use with the count of the others,
 and the current ACE of the same name when there is one. The editor opens a
@@ -264,6 +269,7 @@ How each was read from the editor and confirmed:
 | An object or family name is not `self`, `true`, `false`, a device name Windows reserves (`con`, `nul`, `com1`) or a system expression (`Floor`, `Time`, `Random`, `Max`), compared without case | `Not an object: 'Floor' is not an object name`, for `Floor.X` in an expression; `Invalid use of 'self'`, for `self.X` in a System action; `name is reserved`, for `Com1`, which the editor renames to the reserved `Com2`. Otherwise the project opens with the object renamed, `Floor` to `Floor2`, and its conditions and actions follow it |
 | Object types, families, the Functions object and the System object share one namespace, compared without case, and `project.c3proj` lists each object type once | `object class name 'X' already used`, `object type name 'X' already used` |
 | Functions are built in: `project.c3proj` names the object in `functionsName`, and no object type has that name, compared without case. A plugin or behavior id that `usedAddons` lists by Scirra is in `Construct3-RAG/data/c3-schemas/_index.json`, which holds every addon by Scirra; an id by another author is a third-party addon, a warning | `Missing addons ... Plugin Functions (Functions) by Scirra (legacy SDK v1)` |
+| A third-party plugin or behavior that `usedAddons` lists, used or not, is made with the Addon SDK v2. Its SDK comes from the first that applies: the `addon.json` of its bundled copy in `addons/<type>/`, where no `"sdk-version": 2` is v1; its entry's `sdkVersion`; a `savedWithRelease` before r391, which is v1. With none of them it stays a warning. One made with SDK v1 loads only up to r449 LTS, and no edit of the project fixes it | `Missing addons ... (legacy SDK v1)`, with the note that r449 LTS is the last release that supports legacy addons |
 | A global or local variable or a function parameter is not named like a system expression (`mid`, `max`, `round`), compared without case: inside an expression the name reads as the system expression | `Invalid expressions ... parameter 0 does not take 'string'`, for a local `mid` passed to a function; `'round' does not accept 0 parameters`, for a parameter `round` |
 | A function without parameters is called without parentheses: `Functions.settling`, not `Functions.settling()` | `Syntax error: ')' can't go here` |
 | A call to a function or a custom action writes `parameters` as a list, `"parameters": ["1"]`, or leaves the key out when it passes none | `TypeError: expected array`, for `"parameters": {}` |

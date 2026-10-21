@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 import zlib
 from collections import Counter
 from collections.abc import Iterator
@@ -72,6 +73,11 @@ SCRIPT_NUMBER = re.compile(r"(?<![\w.$])(?:\d+(?:\.\d+)?|\.\d+)(?![\w.])")
 # What a deprecated addon or ACE is, in the words of the Addon SDK reference
 # (SetIsDeprecated, isDeprecated, is-deprecated).
 DEPRECATED = "Construct 3 no longer offers it and keeps it only so that old projects open"
+
+# savedWithRelease of r391, the beta that introduced the Addon SDK v2: a project saved before it holds only
+# SDK v1 addons. Since r450 the editor loads only SDK v2 third-party plugins and behaviors (release notes,
+# stable r458), and its Missing addons dialog marks any other one " (legacy SDK v1)".
+SDK_V2_FIRST = 39100
 
 # The ACEs of the built-in Functions object. The System schema holds them, and a
 # project writes them under the name project.c3proj gives in functionsName: the
@@ -275,6 +281,22 @@ def load(path: Path):
             return json.load(f)
     except json.JSONDecodeError as e:
         sys.exit(f"{path}: not valid JSON, line {e.lineno} column {e.colno}: {e.msg}")
+
+
+def addon_json(addon: Path) -> dict | str:
+    """The addon.json of a .c3addon, or what is wrong with it, before the editor reads it."""
+    try:
+        with zipfile.ZipFile(addon) as z:
+            raw = z.read("addon.json")
+    except KeyError:
+        return "no addon.json at the root of the zip: zip the files of the addon, not its folder"
+    except (OSError, zipfile.BadZipFile) as e:
+        return f"not a zip file: {e}"
+    try:
+        data = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        return f"addon.json is not valid JSON: {e}"
+    return data if isinstance(data, dict) else "addon.json is not a JSON object"
 
 
 def data_texts(rag: Path, folder: str, pattern: str) -> dict[str, str]:
@@ -1476,6 +1498,7 @@ class Project:
         self._expression_names: dict[tuple[str, str], dict[str, str]] = {}
         self._common_of: dict[str, dict] = {}
         self._deprecated: dict[str, dict] = {}
+        self._bundled: dict[tuple[str, str], tuple[int, str]] | None = None
         self.index = load(rag / "data" / "c3-schemas" / "_index.json")
         if not self.schemas.is_dir():
             sys.exit(f"no schemas for --locale {locale}; the clone has: {', '.join(self.index.get('languages', []))}")
@@ -1598,16 +1621,28 @@ class Project:
             path = self.schemas / kind / f"{addon_id.lower()}.json"
             self._schema_cache[key] = load(path) if path.exists() else None
             if self._schema_cache[key] is None:
-                # An addon the project lists under another author is a third-party one: no schema, no hint.
-                third_party = self.used_addons.get(addon_id, {}).get("author", "Scirra") != "Scirra"
-                retired = None if third_party else self.deprecated_addon(kind, addon_id)
+                # The id says whether an addon is Scirra's, not the author usedAddons records: the editor
+                # credits a bundled effect to its shader's author (vignette, Brad Larson).
+                retired = self.deprecated_addon(kind, addon_id)
+                # Any other id the project lists under another author is a third-party one: no schema, no hint.
+                third_party = not retired and self.used_addons.get(addon_id, {}).get("author", "Scirra") != "Scirra"
                 hint = None if third_party or retired else self.addon_hint(kind, addon_id)
+                legacy = self.legacy_sdk(kind, addon_id) if third_party and kind != "effects" else None
                 if retired:
                     unchecked = "its parameters are" if kind == "effects" else "its ACEs and properties are"
                     self.warn(f"{kind[:-1]} {addon_id} ({retired.get('name', addon_id)}) is deprecated: "
                               f"{DEPRECATED}; {unchecked} not checked")
                 elif hint:
                     self.err(f"{kind[:-1]} id {addon_id!r} does not exist: the editor's id is {hint!r}")
+                elif legacy:
+                    listed = self.used_addons[addon_id]
+                    self.err(f"{kind[:-1]} {addon_id} ({listed.get('name', addon_id)}) by {listed.get('author')} is a "
+                             f"legacy SDK v1 addon: {legacy}. Construct r450 and later load only SDK v2 third-party "
+                             f"plugins and behaviors, so the current editor stops with \"Missing addons ... (legacy "
+                             f"SDK v1)\" and neither opens nor previews the project; r449 LTS is the last release "
+                             f"that does. No edit of the project fixes this, so tell the user. Ask whether the "
+                             f"addon's developer offers an SDK v2 version to install, or whether to rebuild what its "
+                             f"objects do with built-in plugins and behaviors. Its ACEs and properties are not checked")
                 elif kind != "effects" and self.used_addons.get(addon_id, {}).get("author") == "Scirra":
                     # Every addon by Scirra is in the schema index, so one that is not there was made up.
                     # The editor reports it as a missing legacy (SDK v1) addon and does not open the project.
@@ -1619,6 +1654,39 @@ class Project:
                 else:
                     self.warn(f"no schema for {kind[:-1]} {addon_id}: its ACEs and properties are not checked")
         return self._schema_cache[key]
+
+    def bundled_sdk(self) -> dict[tuple[str, str], tuple[int, str]]:
+        """(type, id in lower case) -> (sdk-version, path) of each copy in addons/<type>/<id>.c3addon, where
+        Bundle addons saves the project's addons. An addon.json without "sdk-version" is SDK v1."""
+        if self._bundled is None:
+            self._bundled = {}
+            for addon in sorted(self.root.glob("addons/*/*.c3addon")):
+                a = addon_json(addon)
+                if not isinstance(a, dict):
+                    continue        # open_in_editor.py names what is wrong with it
+                try:
+                    sdk = int(a.get("sdk-version") or 1)
+                except (TypeError, ValueError):
+                    sdk = 1
+                key = (str(a.get("type") or addon.parent.name), str(a.get("id") or addon.stem).lower())
+                self._bundled[key] = sdk, addon.relative_to(self.root).as_posix()
+        return self._bundled
+
+    def legacy_sdk(self, kind: str, addon_id: str) -> str | None:
+        """Why a third-party plugin or behavior of usedAddons is a legacy SDK v1 addon, or None when nothing
+        shows it. The first source that applies decides: the addon.json of the bundled copy, the sdkVersion
+        of the usedAddons entry, a savedWithRelease before r391."""
+        bundled = self.bundled_sdk().get((kind[:-1], addon_id.lower()))
+        if bundled:
+            sdk, path = bundled
+            return None if sdk >= 2 else f"its addon.json in {path} has no \"sdk-version\": 2"
+        recorded = self.used_addons.get(addon_id, {}).get("sdkVersion")
+        if isinstance(recorded, int) and not isinstance(recorded, bool):
+            return None if recorded >= 2 else f"usedAddons records \"sdkVersion\": {recorded}"
+        release = self.data.get("savedWithRelease")
+        if isinstance(release, int) and not isinstance(release, bool) and 0 < release < SDK_V2_FIRST:
+            return f"savedWithRelease is {release}, before r391 brought the Addon SDK v2"
+        return None
 
     def expression_names(self, schema: dict | None) -> dict[str, str]:
         """ACE id -> the name an expression is written under: its `scriptName`, the

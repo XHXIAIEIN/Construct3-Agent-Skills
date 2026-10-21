@@ -301,6 +301,29 @@ Option 2 as the default, and option 3 as the step after it.
   Scirra but the schema index lacks, since the index holds every addon by
   Scirra; an id by another author stays a warning. None of the 524 official
   examples has either finding.
+- A third-party plugin or behavior made with the legacy Addon SDK v1 stops
+  the editor too. The release notes of stable r458 say that r450 and later
+  support only SDK v2 third-party plugins and behaviors, and the editor's
+  Missing addons dialog marks such an addon ` (legacy SDK v1)` and adds that
+  r449 LTS is the last release that supports it
+  (`missingAddons.legacy-sdk-v1-addon-suffix` and `sdk-v1-note` in
+  `data/c3-lang/en-US.json` of the Construct3-RAG clone). The checker takes
+  the addon's SDK from the first of these sources that applies:
+  1. the `addon.json` of the copy that *Bundle addons* saves in
+     `addons/<type>/<id>.c3addon`, where a missing `"sdk-version": 2` is v1;
+  2. the `sdkVersion` of the addon's `usedAddons` entry;
+  3. a `savedWithRelease` before r391, the beta that introduced SDK v2,
+     which is v1.
+
+  Such an addon is an error, because no edit of the files lets the current
+  editor open the project, and the agent has to hand the choice to the
+  user. The rule follows `usedAddons`, used or not, as the editor's dialog
+  does. An addon of unknown SDK stays a warning. The checker tells an addon
+  of Scirra's by its id, in the schema index or among the deprecated
+  addons, not by the author that `usedAddons` records: the editor credits
+  some bundled effects to their shader's author, `vignette` to Brad Larson.
+  No official example lists a plugin or behavior by another author, so none
+  has the finding.
 - The same project's `project.c3proj`, copied from the editor's new project,
   listed `Timeline 1` and `Flowchart 1` without the `timelines/` and
   `flowcharts/` folders; the editor stopped with `missing file path

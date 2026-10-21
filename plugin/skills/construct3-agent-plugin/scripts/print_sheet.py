@@ -9,7 +9,8 @@ has deprecated ends in [deprecated], and the schema may not word it. One the
 editor has disabled ends in [condition disabled] or [action disabled]: the
 event runs as if that line were not there, and its other lines run. A
 disabled event or group ends its first line in [event disabled], so that it
-does not read as a disabled first condition. The script reads any folder
+does not read as a disabled first condition. A print that shows one of these
+marks closes with a line that says what they mean. The script reads any folder
 project, an official example included. An event without conditions reads
 (every tick) at the top of the sheet, in a group or not, and (runs with its
 parent) as a sub-event, which runs each time the event it sits in runs:
@@ -89,6 +90,7 @@ from c3project import NUMBERED, STRING_LITERAL, describe
 
 COMPARISONS = ("=", "≠", "<", "≤", ">", "≥")
 VARIABLE_ROW = re.compile(r"\s*(?:global|local)(?: constant)?(?: static)? (?:number|string|boolean) (\S+) = (.*)")
+DISABLED_MARKS = (" [condition disabled]", " [action disabled]", " [event disabled]")
 OUTLINE_COMMENT = 30    # characters of a comment's first line --outline keeps: a CJK character is about a token
 FUNCTION_BLOCKS = ("function-block", "custom-ace-block")
 
@@ -295,6 +297,20 @@ def part(rows: list[Row], first: int, last: int | None, room: int | None) -> tup
         lines += new
         used += size
     return lines, None
+
+
+def disabled_note(lines: list[str]) -> str | None:
+    """What a disabled mark means, when the lines show one. A model that described events read most disabled
+    conditions and actions as lines that run, with the mark at the end of each line."""
+    if not any(mark in line for line in lines for mark in DISABLED_MARKS):
+        return None
+    return ("-- a line marked [condition disabled] or [action disabled] does not run, but the other lines of its "
+            "event run. An event or group marked [event disabled] does not run")
+
+
+def notes(lines: list[str]) -> str | None:
+    """The lines a print of these ends with: what a disabled mark means, then how a plan names a variable."""
+    return "\n".join(note for note in (disabled_note(lines), naming_note(lines)) if note) or None
 
 
 def naming_note(lines: list[str]) -> str | None:
@@ -1144,8 +1160,8 @@ def main() -> int:
 
     whole = {name: part(rows[name], first, last, None)[0] for name in names}
     size = {name: printed_length([f"== {name}", *whole[name]]) for name in names}
-    # The line on naming a variable, with room for a longer name or value than this one's in a part.
-    note = None if args.outline else naming_note([line for name in names for line in whole[name]])
+    # The closing lines, with room for a longer name or value than this one's in a part.
+    note = None if args.outline else notes([line for name in names for line in whole[name]])
     reserved = (len(note) + 70 if note else 0) + (len(c3.REVIEW) + 1 if args.review else 0)
     fits = not args.limit or sum(size.values()) + reserved <= args.limit
     if args.map or (not fits and not args.sheets and len(names) > 1):
@@ -1179,7 +1195,7 @@ def main() -> int:
             room -= printed_length(lines)
         rest = names[i + 1:]
         shown += lines
-        said = note and (not rest or stopped is not None or (room is not None and room <= 0)) and naming_note(shown)
+        said = note and (not rest or stopped is not None or (room is not None and room <= 0)) and notes(shown)
         if said:
             print(said)
         if stopped is not None or (rest and room is not None and room <= 0):

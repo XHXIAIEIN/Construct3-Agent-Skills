@@ -487,10 +487,10 @@ def test_install_addon_reads_addon_json_before_the_editor(tmp_path):
         z.writestr("MyFx/addon.json", "{}")
     with zipfile.ZipFile(broken, "w") as z:
         z.writestr("addon.json", '{"id": "MyFx",}')
-    assert oe.addon_json(good)["type"] == "effect"
-    assert "zip the files of the addon, not its folder" in oe.addon_json(folder)
-    assert "not valid JSON" in oe.addon_json(broken)
-    assert "not a zip file" in oe.addon_json(tmp_path / "missing.c3addon")
+    assert oe.c3.addon_json(good)["type"] == "effect"
+    assert "zip the files of the addon, not its folder" in oe.c3.addon_json(folder)
+    assert "not valid JSON" in oe.c3.addon_json(broken)
+    assert "not a zip file" in oe.c3.addon_json(tmp_path / "missing.c3addon")
 
 
 # A stand-in for the editor's page while a project saved with Bundle addons opens: the confirmation the

@@ -204,8 +204,9 @@ def test_print_of_a_project_without_sheets_points_to_its_scripts(project):
 
 def test_print_marks_what_the_editor_has_disabled(project):
     """The editor skips a disabled condition or action and runs the event without it. Printed like the others,
-    a disabled NOT condition was read as a check the event still makes. The event's own marker ends the line
-    of its first condition, so it names the event."""
+    a disabled NOT condition was read as a check the event still makes, and with the marks a model describing
+    events still read most of them as lines that run, so the print ends with what they mean. The event's own
+    marker ends the line of its first condition, so it names the event."""
     def disable(sheet):
         rows = events(sheet)
         rows["input"]["conditions"][1]["disabled"] = True         # an inverted condition
@@ -218,8 +219,14 @@ def test_print_marks_what_the_editor_has_disabled(project):
     printed = {locale: tool(project, "print_sheet", "Game", "--locale", locale) for locale in ("en-US", "zh-CN")}
     for code, out in printed.values():
         assert code == 0, out
-        assert out.count(" [condition disabled]") == 2 and out.count(" [action disabled]") == 2, out
-        assert out.count(" [event disabled]") == 2, out
+        note = ("-- a line marked [condition disabled] or [action disabled] does not run, but the other lines of "
+                "its event run. An event or group marked [event disabled] does not run")
+        lines = out.splitlines()
+        assert lines.count(note) == 1 and lines[-1].startswith("-- a variable"), out     # above the naming note
+        rows = "\n".join(line for line in lines if line != note)
+        assert rows.count(" [condition disabled]") == 2 and rows.count(" [action disabled]") == 2, out
+        assert rows.count(" [event disabled]") == 2, out
+    assert "disabled" not in tool(project, "print_sheet", "Game", "--events", "1-4")[1]
     _, out = printed["en-US"]
     assert "   5   Touch: On touched Coin (start)\n       Coin: NOT Is any Tween playing [condition disabled]\n" \
            "           -> Coin: Collect() [action disabled]" in out

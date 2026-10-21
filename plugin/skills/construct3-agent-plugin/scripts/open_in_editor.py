@@ -1144,25 +1144,9 @@ def typescript(page: DevTools, project: Path) -> dict:
     return {"written": written}
 
 
-def addon_json(addon: Path) -> dict | str:
-    """The addon.json of a .c3addon, or what is wrong with it, before the editor reads it."""
-    try:
-        with zipfile.ZipFile(addon) as z:
-            raw = z.read("addon.json")
-    except KeyError:
-        return "no addon.json at the root of the zip: zip the files of the addon, not its folder"
-    except (OSError, zipfile.BadZipFile) as e:
-        return f"not a zip file: {e}"
-    try:
-        data = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        return f"addon.json is not valid JSON: {e}"
-    return data if isinstance(data, dict) else "addon.json is not a JSON object"
-
-
 def install_addon(browser: Browser, editor: str, addon: Path) -> dict:
     """Drop the addon on the editor of the profile and answer its dialogs."""
-    found = addon_json(addon)
+    found = c3.addon_json(addon)
     if isinstance(found, str):
         return {"addon": str(addon), "status": "refused", "dialog": "", "exception": found}
     target, page = browser.page(editor)
@@ -1261,7 +1245,7 @@ def bundled_lines(project: Path) -> list[str]:
     """The addons a folder project saved with Bundle addons carries, as their addon.json names them."""
     lines = []
     for addon in sorted(project.glob("addons/*/*.c3addon")) if project.is_dir() else []:
-        a = addon_json(addon)
+        a = c3.addon_json(addon)
         lines.append(f"  bundled: {a.get('id', addon.stem)} ({a.get('name', '?')} {a.get('version', '?')}, "
                      f"{a.get('type', addon.parent.name)}, by {a.get('author', 'no author given')})"
                      if isinstance(a, dict) else f"  bundled: {addon.relative_to(project).as_posix()} ({a})")
