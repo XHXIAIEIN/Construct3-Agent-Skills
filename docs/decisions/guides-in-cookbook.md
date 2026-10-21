@@ -82,6 +82,8 @@ Option 3.
   repository, so the tests that read the guides run in CI; without the
   clone they skip and name the command.
 - A new pitfall is committed to Construct3-Cookbook, not here.
+- `lookup_ace.py` ends an entry with the Cookbook page of its addon and the
+  Native first row of `guides/design/native-first.json` (`lookup-pointers.md`).
 
 What it costs:
 

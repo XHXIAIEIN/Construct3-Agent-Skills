@@ -28,9 +28,9 @@ once before it is handed over.
   environment variable, or the `Construct3-RAG: <folder>` line in the
   project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found`: fill
   that line in with the Agent-Skills clone's `plugin/` folder.
-  `check_project.py` fetches the clone at most once an hour to say when it
-  is behind its upstream; `CONSTRUCT3_RAG_OFFLINE=1` turns the fetch and
-  the comparison off.
+  Hourly at most, `check_project.py` reads the upstream's plugin version
+  on GitHub to say when the clone is behind;
+  `CONSTRUCT3_RAG_OFFLINE=1` turns this off.
 - Loaded as the Claude Code plugin (the skill is named
   `construct3:construct3-agent-plugin`): the game project needs no copy; run
   the scripts from this folder. In the files of this skill, `Construct3-RAG/`
@@ -64,7 +64,7 @@ once before it is handed over.
 
 | Script | Use |
 |--------|-----|
-| `scripts/lookup_ace.py OBJECT [WORD ...]` | Conditions, actions and expressions of an object of the project, of `System`, or of a plugin or behavior, each with its parameters, the JSON to write and the official examples that use it; or an effect, with its parameters |
+| `scripts/lookup_ace.py OBJECT [WORD ...]` | Conditions, actions and expressions of an object of the project, of `System`, or of a plugin or behavior, each with its parameters, the JSON to write, the official examples using it, and its pitfalls file or the built-in to prefer; or an effect, with its parameters |
 | `scripts/lookup_script_api.py NAME ...` | The scripting API: an interface with its members, or a member with its declaration and its file and line |
 | `scripts/search_guides.py WORD ...` | The pitfall entries and the official examples that hold the words, with the command that prints their events: before writing an interaction, and for events that do not behave as expected |
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet, or a range of its events, as the editor words it, under the editor's event numbers; `--map` one line per sheet with the layouts that run it, `--find NAME` the events that use a name, `--outline` numbers and sids, `--show N` one event as JSON, `--since COMMIT` what changed since a commit |
@@ -78,6 +78,8 @@ once before it is handed over.
 | `scripts/play_design.py DESIGN.json` | The same tests played in the editor on the game built from the design, then the first screen against the prototype; each failure names the test, the step and the rules to compare |
 | `scripts/review_look.py` | Preview the project, visit every layout and print a screenshot of each, the faults the runtime shows on it, and fixed yes/no questions to answer from the screenshots |
 | `scripts/check_look.py` | The strict rules of `assets/look-manifest.json` on a project built from `assets/build_project.py`, after the generator's check ends with `ok:` |
+| `scripts/check_sounds.py` | Sounds measured against `tools/sounds.json` |
+| `scripts/make_sounds.py` | Placeholder sounds for `tools/sounds.json` |
 | `scripts/screenshot_sheet.py [SHEET] [--group TITLE]` | A picture of an event sheet or one group of it as the editor shows it, for a forum post, a bug report or a doc |
 | `scripts/advanced_random.py SEED` | The numbers an Advanced Random object gives after *Update seed* SEED, computed offline as the plugin does |
 | `scripts/export_project.py` | Export the project to Web (HTML5) in the editor into `--to`; a string shaped like a key stops it first. The editor exports for a subscribed account the user logs in to: read [references/export-project.md](references/export-project.md) before the first export, when the script stops, or before `--attach` |
@@ -88,11 +90,10 @@ once before it is handed over.
 | `assets/build_project.py` | Template of a generator, copied to the project's `tools/` and rewritten for the game above and below its helpers, which stay the skill's between two markers |
 | `assets/runtime-probe.js` | Evaluated in a running preview by a script of the agent's, reads the game's state. Read [references/reading-the-runtime.md](references/reading-the-runtime.md) before checking what an event did in the preview |
 
-Each prints its options and examples with `--help`. A script that prints
-the editor's wording prints it in Chinese with `--locale zh-CN`; ids are the
-same in every locale. A harness cuts long tool output without saying where,
-so a script whose output can run long stops at about 10 000 characters and
-its last line says how to get the rest; `--limit 0` prints everything.
+Each prints its options and examples with `--help`. A harness cuts long
+tool output without saying where, so a script stops at about 10 000
+characters and its last line says how to get the rest; `--limit 0` prints
+everything.
 
 ## Check after every change
 
@@ -120,9 +121,9 @@ its last line says how to get the rest; `--limit 0` prints everything.
    numbers it. A `runtime:` line names it as `Event sheet 1, event 3, action
    1`. Fix either as a finding and go back to step 2. The preview runs the
    layout the editor opens on without input, so it catches what breaks on
-   start, not what a player does later. Check what a player does, a drag, a
-   merge, a jump, by playing it: `python scripts/preview_project.py
-   PLAN.json` with a plan that does it and waits `until` the result holds.
+   start, not what a player does later. Check what a player does by
+   playing it: `python scripts/preview_project.py PLAN.json` with a plan
+   that does it and waits `until` the result holds.
    If `tools/plans/` holds kept plans, run
    `python scripts/preview_project.py --all` after every change. Read
    [references/verifying-a-change.md](references/verifying-a-change.md)

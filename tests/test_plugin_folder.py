@@ -150,6 +150,11 @@ def test_scripts_in_the_plugin_read_the_bundled_data_and_print_what_opens(tmp_pa
     assert out.startswith("note: pitfalls not searched: no Construct3-Cookbook clone") and "git clone" in out, out
     assert not re.findall(r"^(.+\.md):\d+$", out, re.M), out
     assert "\n  https://editor.construct.net/#open=3d-platformer\n" in out and "beside Construct3-RAG" not in out, out
+    # The pointers come from a Cookbook clone, which no copy of the plugin holds: an entry prints none
+    out = run("lookup_ace.py", "Tween", "tween-one-property")
+    assert "tween-one-property" in out and "  pitfalls: " not in out, out
+    out = run("lookup_ace.py", "Fade", "start", "fade")
+    assert "  prefer: " not in out, out
 
 
 def groups(usage: str) -> list[str]:

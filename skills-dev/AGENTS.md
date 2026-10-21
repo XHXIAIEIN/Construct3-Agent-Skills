@@ -84,7 +84,9 @@ repository root.
   ffmpeg alone tiles unnumbered, and joins a recording into a GIF when
   ffmpeg is missing. `open_in_editor.py` drives the machine's Edge or Chrome
   over the DevTools protocol; where there is neither, it prints its check as
-  steps for the agent's own browser tool.
+  steps for the agent's own browser tool. `check_sounds.py` and
+  `make_sounds.py` need ffmpeg and ffprobe on PATH; without them the
+  measurer measures nothing and exits 0.
 - Scripts take everything from flags, never prompt, print `--help` with
   examples and exit codes, and say in every error what to write or run
   next. They find the project from the current directory upward and the
@@ -161,7 +163,10 @@ repository root.
   measurement over the official examples, recorded with the finding.
 - Guidance meant for a small model goes where that model reads: the line a
   script prints (a finding that names the event and the JSON to write) or
-  the generator's helpers, which make the good shape the default. Prose
+  the generator's helpers, which make the good shape the default.
+  `lookup_ace.py` ends an entry with `pitfalls:` and `prefer:` lines, which
+  point at the addon's topic file and its Native first row
+  (`docs/decisions/lookup-pointers.md`). Prose
   reaches only the model that knows it needs it, so a prompt keeps a
   when-clause pointer, not the rule. A habit with no mechanical form that
   passes the official corpus stays prose. Evidence: the runs read in
