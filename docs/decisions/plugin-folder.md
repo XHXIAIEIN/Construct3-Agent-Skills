@@ -100,7 +100,10 @@ The build of `plugin/data/`:
   Construct3-RAG clone, and from its bundles, as here. `lookup_script_api.py`,
   `search_guides.py`, `check_design.py` and `lookup_ace.py` read through
   it, so in the plugin the TypeScript definitions, the examples and their
-  index are read through those scripts only.
+  index are read through those scripts only. A bundled JSON file is
+  written without its indent, since only those scripts parse it: on
+  2026-10-20 that took 200 KiB off the folder, which had passed
+  7,000,000 bytes with `check_sounds.py` and `make_sounds.py`.
 - Writes `data/c3-lang/{locale}.json` with the two subtrees that
   `check_project.py` reads. It also keeps the `name`, `properties` and
   `debugger` texts of every plugin and behavior, at the same JSON paths.
@@ -221,7 +224,7 @@ the test fails until then.
   should remove. If the icons are the only hold left, the next step is to
   draw placeholder icons in code and bundle no image.
 - The plugin folder nears 7,000,000 bytes. The next cuts, in order: the
-  bundles without their indent, which saves little; the empty project's
+  bundles' own indent, which saves little; the empty project's
   icons drawn in code, 140 KiB; the schemas without the fields no script
   or agent reads, which needs a survey of what the skill's text and the
   scripts read first.

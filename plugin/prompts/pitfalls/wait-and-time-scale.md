@@ -1,3 +1,7 @@
+---
+addons: system/wait, system/wait-for-signal, system/wait-for-previous-actions, system/set-time-scale, system/set-object-time-scale, system/set-group-active, scrollto/shake
+---
+
 # Event Sheet Pitfalls: Wait and time scale
 
 Sources and the rule for adding an entry are in the index,

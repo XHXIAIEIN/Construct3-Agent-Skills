@@ -1,3 +1,7 @@
+---
+addons: system/set-function-return-value, system/map-function, system/map-function-default, system/call-mapped-function, system/call-mapped-function-expression
+---
+
 # Event Sheet Pitfalls: Functions
 
 Sources and the rule for adding an entry are in the index,

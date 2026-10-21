@@ -1,3 +1,7 @@
+---
+addons: eightdir, follow, moveto
+---
+
 # Event Sheet Pitfalls: Moving toward a target
 
 Sources and the rule for adding an entry are in the index,

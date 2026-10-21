@@ -1,3 +1,7 @@
+---
+addons: system/else, system/trigger-once-while-true, system/every-x-seconds, touch/on-tap, touch/on-tap-object
+---
+
 # Event Sheet Pitfalls: Triggers and Else
 
 Sources and the rule for adding an entry are in the index,

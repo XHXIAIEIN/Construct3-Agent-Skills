@@ -1,3 +1,7 @@
+---
+addons: none
+---
+
 # Event Sheet Pitfalls: Expressions
 
 Sources and the rule for adding an entry are in the index,

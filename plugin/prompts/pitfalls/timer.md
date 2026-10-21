@@ -1,3 +1,7 @@
+---
+addons: timer
+---
+
 # Event Sheet Pitfalls: Timer
 
 Sources and the rule for adding an entry are in the index,

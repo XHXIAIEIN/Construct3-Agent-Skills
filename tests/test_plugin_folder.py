@@ -142,6 +142,13 @@ def test_scripts_in_the_plugin_read_the_bundled_data_and_print_what_opens(tmp_pa
     pitfalls = re.findall(r"^(.+\.md):\d+$", out, re.M)
     assert pitfalls and all(Path(p).is_file() and Path(p).is_relative_to(plugin) for p in pitfalls), out
     assert "\n  https://editor.construct.net/#open=3d-platformer\n" in out and "beside Construct3-RAG" not in out, out
+    # The pointers of an entry name the plugin's own prompt files, as the run's directory sees them
+    out = run("lookup_ace.py", "Tween", "tween-one-property")
+    pointed = [tmp_path / p for p in re.findall(r"^  pitfalls: (.+)$", out, re.M)]
+    assert pointed == [plugin / "prompts" / "pitfalls" / "tween.md"] and pointed[0].is_file(), out
+    out = run("lookup_ace.py", "Fade", "start", "fade")
+    pointed = {tmp_path / p for p in re.findall(r"^  prefer: .*, in (.+)$", out, re.M)}
+    assert pointed == {plugin / "prompts" / "event-sheet-thinking.md"}, out
 
 
 def groups(usage: str) -> list[str]:

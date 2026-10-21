@@ -1,3 +1,7 @@
+---
+addons: advancedrandom, system/random, system/choose, system/pick-random-instance
+---
+
 # Event Sheet Pitfalls: Random
 
 Sources and the rule for adding an entry are in the index,

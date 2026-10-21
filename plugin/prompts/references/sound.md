@@ -97,6 +97,11 @@ Measure every file the same way: K-weighted (ITU-R BS.1770), above 150 Hz
 only, the loudest 400 ms (3 s for music). The reference M is the music
 with every stem on, set at −30 LUFS in the game.
 
+The skill's `scripts/check_sounds.py` measures every file this way and
+compares it with the tier and the ceiling of its role, which it reads from
+the project's `tools/sounds.json`; `scripts/make_sounds.py` writes
+placeholders that pass it from the same table.
+
 | Tier | Sounds | Over M | Rule |
 |------|--------|--------|------|
 | Key | kill, the rare merge tiers, level clear, stage start, an error | +8 to +14 dB | never skipped, immediate, ducks the music |

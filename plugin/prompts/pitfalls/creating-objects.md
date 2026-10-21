@@ -1,3 +1,7 @@
+---
+addons: system/create-object, system/create-object-by-name, system/pick-last-created, particles
+---
+
 # Event Sheet Pitfalls: Creating objects
 
 Sources and the rule for adding an entry are in the index,
