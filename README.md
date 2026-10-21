@@ -82,7 +82,7 @@ The plugin holds no event sheet guides. Clone [Construct3-Cookbook](https://gith
 
 ## Update checks
 
-If the skill runs from a Git clone of GitHub, the checker reads the plugin version on the clone's upstream branch. It reads the version over HTTPS, at most once an hour, and without the user's Git credentials. If that version is newer, the checker gives the agent the `git pull --ff-only` that updates the clone. If the clone holds work of its own, the checker tells the agent to ask the user instead. To turn the check off, set `CONSTRUCT3_RAG_OFFLINE=1`.
+If the skill runs from a Git clone of GitHub, the checker reads the plugin version on the clone's upstream branch. It reads the version over HTTPS, at most once an hour, and without the user's Git credentials. If that version is newer, the checker gives the agent the `git pull --ff-only` that updates the clone. If the clone holds work of its own, the checker tells the agent to ask the user instead. The checker does the same for the Construct3-Cookbook clone, which holds the pitfalls: it reads the newest commit of the clone's upstream branch from GitHub's API in the same way, and if the clone lacks it, gives the agent the `git pull --ff-only`. To turn the checks off, set `CONSTRUCT3_RAG_OFFLINE=1`.
 
 ## Repository
 

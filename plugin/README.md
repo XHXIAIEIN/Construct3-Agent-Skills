@@ -22,7 +22,7 @@ The plugin also adds the sub-agent type `construct3:project-worker`, for a chang
 
 - The scripts run on the machine with Python, on the files of the project and of this plugin.
 - Opening, previewing, exporting or taking a picture of a project starts Edge, Chrome or Chromium, or the agent's browser tool, on the Construct 3 editor at `editor.construct.net`, with the project loaded from the machine. A preview runs at `preview.construct.net`. An export uses the Construct account that the user signs in to in that browser; the scripts store no password.
-- When the plugin is a Git clone of its GitHub repository, the checker reads the plugin version on the clone's upstream branch from `raw.githubusercontent.com`, at most once an hour and without the user's Git credentials, to say when the clone is behind. Set `CONSTRUCT3_RAG_OFFLINE=1` to turn this off; the checker then says that it did not compare the clone.
+- When the plugin is a Git clone of its GitHub repository, the checker reads the plugin version on the clone's upstream branch from `raw.githubusercontent.com`, at most once an hour and without the user's Git credentials, to say when the clone is behind. In the same way it reads the newest commit of the Construct3-Cookbook clone's upstream branch from `api.github.com`. Set `CONSTRUCT3_RAG_OFFLINE=1` to turn this off; the checker then says that it did not compare the clones.
 
 ## Source
 

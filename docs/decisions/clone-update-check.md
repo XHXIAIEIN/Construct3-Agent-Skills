@@ -1,6 +1,6 @@
 # A Clone Behind Its Upstream Fails the Check
 
-Date: 2026-10-04, revised 2026-10-16
+Date: 2026-10-04, revised 2026-10-16 and 2026-10-21
 
 ## Problem
 
@@ -72,6 +72,48 @@ Construct3-Agent-Skills at <clone> holds version 1.1.27 of the plugin, and origi
   upstream. Only `1` sets it, so that `0` keeps the check. The tests set it,
   so that a test run reads no network and its output does not depend on the
   remote.
+
+## The Cookbook clone (2026-10-21)
+
+The event sheet guides and pitfalls moved to the public Construct3-Cookbook
+repository (`guides-in-cookbook.md`), so that a new pitfall reaches users by
+`git pull` without a plugin release. A Cookbook clone that is never pulled
+undoes that, and the clone command the scripts print is `--depth 1`, made
+once. So `check_project.py` checks the clone that `locate_cookbook()` finds
+too, as it checks the plugin's:
+
+```
+Construct3-Cookbook at <cookbook> lacks the newer guides of origin/main, so the agent misses the pitfalls added since. Run git -C "<cookbook>" pull --ff-only, then run this check again
+```
+
+- The Cookbook has no version, so the check compares commits. It reads
+  the newest commit of the branch the clone tracks from GitHub's API,
+  `api.github.com/repos/<owner>/<repo>/commits/<branch>` with the
+  `application/vnd.github.sha` media type, which answers with the bare id.
+  The read is anonymous and runs no `git fetch`, as for the plugin.
+  Anonymous API reads are limited to 60 an hour per address, and the check
+  makes one an hour per clone.
+- The clone is behind when that commit is not an ancestor of its `HEAD`
+  (`git merge-base --is-ancestor`). A commit the clone lacks fails the same
+  way, so a `--depth 1` clone is answered without its history, and a commit
+  fetched but not merged still counts as behind.
+- The rest is the plugin's check: the stamp written before the read, once
+  an hour per clone; an error from a read in this run and a warning from an
+  earlier one; a warning that asks for the user when the clone holds
+  commits or uncommitted changes of its own; nothing for a detached `HEAD`,
+  a branch that tracks nothing, a remote off GitHub or a failed read; and
+  `CONSTRUCT3_RAG_OFFLINE=1` turns it off, with the Cookbook named in the
+  `note:` line. The line has no install step, because the scripts read the
+  clone in place.
+- Without a Cookbook clone the check says nothing more: the scripts already
+  print the clone command.
+
+Trade-off: a pitfall is often one small commit, and the Cookbook gets them
+in bursts. Each push makes the next check of a stale clone fail once, for
+one round trip, the pull, which is the price of the pitfall reaching the
+agent. A failing check costs that round trip even when the new commits
+touch no page the project's findings cite; the check does not read which
+files changed, since that needs the history the shallow clone lacks.
 
 ## The Claude Code plugin
 

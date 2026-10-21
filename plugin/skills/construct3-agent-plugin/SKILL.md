@@ -28,9 +28,8 @@ once before it is handed over.
   environment variable, or the `Construct3-RAG: <folder>` line in the
   project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found`: fill
   that line in with the Agent-Skills clone's `plugin/` folder.
-  Hourly at most, `check_project.py` reads the upstream's plugin version
-  on GitHub to say when the clone is behind;
-  `CONSTRUCT3_RAG_OFFLINE=1` turns this off.
+  Hourly at most, `check_project.py` asks GitHub whether the clone or the
+  Cookbook is behind; `CONSTRUCT3_RAG_OFFLINE=1` turns this off.
 - Loaded as the Claude Code plugin (the skill is named
   `construct3:construct3-agent-plugin`): the game project needs no copy; run
   the scripts from this folder. In the files of this skill, `Construct3-RAG/`

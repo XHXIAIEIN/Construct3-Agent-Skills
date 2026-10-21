@@ -1,6 +1,7 @@
-"""The checker's line about a clone whose plugin version is older than its upstream's,
-against a bare repository on disk as the upstream. The read of the upstream's version,
-an HTTPS request to GitHub in use, reads the bare repository here."""
+"""The checker's lines about a clone whose plugin version is older than its upstream's and about a
+Cookbook clone that lacks its upstream's newest commit, against a bare repository on disk as the
+upstream. The read of the upstream's version or commit, an HTTPS request to GitHub in use, reads the
+bare repository here."""
 import subprocess
 from pathlib import Path
 
@@ -161,3 +162,127 @@ def test_the_manifest_url_is_the_public_raw_file(remote):
 def test_a_remote_off_github_has_no_manifest_url():
     assert c3.manifest_url("https://gitlab.com/someone/repo.git", "main", MANIFEST) is None
     assert c3.manifest_url("D:/clones/upstream.git", "main", MANIFEST) is None
+
+
+PITFALLS = "guides/pitfalls.md"
+
+
+@pytest.fixture
+def cookbooks(tmp_path, monkeypatch) -> tuple[Path, Path, Path]:
+    """A Cookbook clone the checker reads, another one that pushes pitfalls to their upstream, and the upstream."""
+    monkeypatch.delenv("CONSTRUCT3_RAG_OFFLINE", raising=False)
+    monkeypatch.setattr(c3, "VERSION_STAMPS", tmp_path / "stamps")
+    upstream, mine, other = tmp_path / "upstream.git", tmp_path / "Construct3-Cookbook", tmp_path / "other"
+    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(upstream))
+    git(tmp_path, "clone", "-q", str(upstream), str(mine))
+    (mine / PITFALLS).parent.mkdir(parents=True)
+    (mine / PITFALLS).write_text("# Pitfalls\n", encoding="utf-8")
+    git(mine, "add", PITFALLS)
+    git(mine, "commit", "-q", "-m", "first")
+    git(mine, "push", "-q", "-u", "origin", "main")
+    git(tmp_path, "clone", "-q", str(upstream), str(other))
+    monkeypatch.setattr(c3, "commit_url", lambda remote_url, branch: f"{upstream}|{branch}")  # any spelling of the remote
+
+    def read_commit(url):
+        READS.append(url)
+        remote, branch = url.split("|")
+        p = subprocess.run(["git", "-C", remote, "rev-parse", branch], capture_output=True, text=True)
+        return p.stdout.strip() if p.returncode == 0 else None
+    monkeypatch.setattr(c3, "read_commit", read_commit)
+    READS.clear()
+    return mine, other, upstream
+
+
+def add_pitfall(other: Path) -> None:
+    git(other, "pull", "-q")
+    with (other / PITFALLS).open("a", encoding="utf-8") as f:
+        f.write("- a new pitfall\n")
+    git(other, "commit", "-q", "-am", "pitfall")
+    git(other, "push", "-q")
+
+
+def test_a_current_cookbook_says_nothing(cookbooks):
+    mine, _, _ = cookbooks
+    assert c3.cookbook_behind(mine) is None
+    assert len(READS) == 1
+
+
+def test_a_cookbook_behind_gives_the_pull_for_the_agent(cookbooks):
+    mine, other, _ = cookbooks
+    add_pitfall(other)
+    line, error = c3.cookbook_behind(mine)
+    assert error and f"Construct3-Cookbook at {mine} lacks the newer guides of origin/main" in line
+    assert line.endswith(f'Run git -C "{mine}" pull --ff-only, then run this check again')
+    command = line.split("Run ", 1)[1].split(", then")[0]
+    assert subprocess.run(command, shell=True, capture_output=True, timeout=60).returncode == 0, command
+    assert c3.cookbook_behind(mine) is None
+
+
+def test_a_shallow_cookbook_behind_and_current(cookbooks, tmp_path):
+    """A --depth 1 clone, as the printed clone command makes, lacks the history; the new commit is still not in it."""
+    _, other, upstream = cookbooks
+    shallow = tmp_path / "shallow"
+    git(tmp_path, "clone", "-q", "--depth", "1", upstream.as_uri(), str(shallow))
+    assert c3.cookbook_behind(shallow) is None
+    add_pitfall(other)
+    expire(tmp_path)
+    line, error = c3.cookbook_behind(shallow)
+    assert error and "lacks the newer guides" in line
+    git(shallow, "pull", "-q", "--ff-only")
+    assert c3.cookbook_behind(shallow) is None
+
+
+@pytest.mark.parametrize("own", ["commit", "change"])
+def test_a_cookbook_behind_with_the_users_own_work_is_the_users(cookbooks, own):
+    mine, other, _ = cookbooks
+    add_pitfall(other)
+    if own == "commit":
+        git(mine, "commit", "-q", "--allow-empty", "-m", "mine")
+    else:
+        (mine / PITFALLS).write_text("# Mine\n", encoding="utf-8")
+    line, error = c3.cookbook_behind(mine)
+    assert not error and "lacks the newer guides" in line and "pull" not in line
+    assert ("1 commit of its own" if own == "commit" else "uncommitted changes of its own") in line
+    assert "tell the user" in line
+
+
+def test_a_cookbook_read_once_a_period_and_a_later_check_warns(cookbooks, tmp_path):
+    mine, other, _ = cookbooks
+    assert c3.cookbook_behind(mine) is None
+    add_pitfall(other)
+    assert c3.cookbook_behind(mine) is None
+    assert len(READS) == 1
+    expire(tmp_path)
+    line, error = c3.cookbook_behind(mine)
+    assert error and len(READS) == 2
+    assert c3.cookbook_behind(mine) == (line, False)
+    assert len(READS) == 2
+
+
+def test_a_failed_cookbook_read_says_nothing_and_waits_a_period(cookbooks, monkeypatch):
+    mine, other, _ = cookbooks
+    add_pitfall(other)
+    reads = []
+    monkeypatch.setattr(c3, "read_commit", lambda url: reads.append(url))
+    assert c3.cookbook_behind(mine) is None
+    assert c3.cookbook_behind(mine) is None
+    assert len(reads) == 1
+
+
+def test_no_cookbook_offline_or_untracked_says_nothing(cookbooks, monkeypatch):
+    mine, other, _ = cookbooks
+    add_pitfall(other)
+    assert c3.cookbook_behind(None) is None
+    monkeypatch.setenv("CONSTRUCT3_RAG_OFFLINE", "1")
+    assert c3.cookbook_behind(mine) is None
+    assert not READS
+    monkeypatch.delenv("CONSTRUCT3_RAG_OFFLINE")
+    git(mine, "switch", "-q", "--detach")
+    assert c3.cookbook_behind(mine) is None
+    assert c3.cookbook_behind(mine.parent) is None
+    assert not READS
+
+
+def test_the_commit_url_is_the_public_api():
+    assert c3.commit_url("git@github.com:XHXIAIEIN/Construct3-Cookbook.git", "main") ==         "https://api.github.com/repos/XHXIAIEIN/Construct3-Cookbook/commits/main"
+    assert c3.commit_url("https://gitlab.com/someone/repo.git", "main") is None

@@ -82,7 +82,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 ## 自动检查更新
 
-如果 skill 从 GitHub 的 Git clone 运行，检查器会读取 clone 上游分支的插件版本号。它通过 HTTPS 读取，每小时最多一次，不使用用户的 Git 凭据。如果上游的版本较新，检查器把更新 clone 的 `git pull --ff-only` 交给 agent 执行。如果 clone 里有它自己的改动，检查器让 agent 询问用户。要关掉这项检查，设 `CONSTRUCT3_RAG_OFFLINE=1`。
+如果 skill 从 GitHub 的 Git clone 运行，检查器会读取 clone 上游分支的插件版本号。它通过 HTTPS 读取，每小时最多一次，不使用用户的 Git 凭据。如果上游的版本较新，检查器把更新 clone 的 `git pull --ff-only` 交给 agent 执行。如果 clone 里有它自己的改动，检查器让 agent 询问用户。对存放坑点的 Construct3-Cookbook clone，检查器也这样做：它用同样的方式从 GitHub 的 API 读取 clone 上游分支的最新提交，如果 clone 里没有这个提交，就把 `git pull --ff-only` 交给 agent。要关掉这些检查，设 `CONSTRUCT3_RAG_OFFLINE=1`。
 
 ## 仓库结构
 

@@ -669,7 +669,7 @@ def note_drift(rag: Path) -> None:
 
 
 VERSION_STAMPS = Path(tempfile.gettempdir()) / "construct3-rag-version"
-VERSION_EVERY = 3600        # seconds between two reads of one clone's upstream version
+VERSION_EVERY = 3600        # seconds between two reads of one clone's upstream version or commit
 VERSION_WAIT = 8            # seconds a read may take before the check goes on without it
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
 GITHUB_REMOTE = re.compile(r"github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
@@ -713,6 +713,24 @@ def manifest_url(remote_url: str, branch: str, rel: str) -> str | None:
     return f"https://raw.githubusercontent.com/{m[1]}/{m[2]}/{branch}/{rel}" if m else None
 
 
+def commit_url(remote_url: str, branch: str) -> str | None:
+    """The public API address of the newest commit on branch of a GitHub remote; None for any other host."""
+    m = GITHUB_REMOTE.search(remote_url.strip())
+    return f"https://api.github.com/repos/{m[1]}/{m[2]}/commits/{branch}" if m else None
+
+
+def read_commit(url: str) -> str | None:
+    """The commit id at url, read anonymously, which the sha media type gives as the bare id; None when the read fails."""
+    import urllib.request
+    try:
+        request = urllib.request.Request(url, headers={"Accept": "application/vnd.github.sha"})
+        with urllib.request.urlopen(request, timeout=VERSION_WAIT) as r:
+            sha = r.read().decode("ascii").strip()
+    except (OSError, ValueError):
+        return None
+    return sha if re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", sha) else None
+
+
 def read_version(url: str) -> str | None:
     """The version in the manifest at url, read anonymously; None when the read fails."""
     import urllib.request
@@ -723,10 +741,10 @@ def read_version(url: str) -> str | None:
         return None
 
 
-def upstream_version(rag: Path, url: str) -> tuple[str | None, bool]:
-    """The upstream's version, and whether it was read in this run. It is read at most every
-    VERSION_EVERY seconds per clone; in between, the last read's version is used."""
-    stamp_file = VERSION_STAMPS / path_key(rag)
+def upstream_value(clone: Path, url: str, read) -> tuple[str | None, bool]:
+    """What read gives for url, the upstream's version or commit, and whether it was read in this run.
+    It is read at most every VERSION_EVERY seconds per clone; in between, the last read's value is used."""
+    stamp_file = VERSION_STAMPS / path_key(clone)
     try:
         if time.time() - stamp_file.stat().st_mtime <= VERSION_EVERY:
             return stamp_file.read_text(encoding="utf-8").strip() or None, False
@@ -738,13 +756,33 @@ def upstream_version(rag: Path, url: str) -> tuple[str | None, bool]:
         stamp_file.write_text("", encoding="utf-8")
     except OSError:
         pass
-    version = read_version(url)
-    if version:
+    value = read(url)
+    if value:
         try:
-            stamp_file.write_text(version, encoding="utf-8")
+            stamp_file.write_text(value, encoding="utf-8")
         except OSError:
             pass
-    return version, True
+    return value, True
+
+
+def tracked_branch(clone: Path) -> tuple[str, str, str] | None:
+    """The upstream branch HEAD tracks, as remote/branch, the remote and the branch. None offline(),
+    for a folder that is not a Git clone, a detached HEAD or a branch that tracks nothing."""
+    if offline() or not (clone / ".git").exists() or not shutil.which("git"):
+        return None
+    upstream = git_out(clone, "rev-parse", "--abbrev-ref", "@{u}")
+    if not upstream or "/" not in upstream:
+        return None
+    return upstream, *upstream.split("/", 1)
+
+
+def own_work(clone: Path) -> str | None:
+    """The commits ahead of the upstream and the uncommitted changes that the clone holds, in words; None for neither."""
+    ahead = git_out(clone, "rev-list", "--count", "@{u}..HEAD")
+    own = [f"{ahead} commit{'s' if ahead != '1' else ''}"] if ahead and ahead != "0" else []
+    if git_out(clone, "status", "--porcelain", "--untracked-files=no"):
+        own.append("uncommitted changes")
+    return " and ".join(own) or None
 
 
 def clone_behind(rag: Path) -> tuple[str, bool] | None:
@@ -757,31 +795,52 @@ def clone_behind(rag: Path) -> tuple[str, bool] | None:
     until the next read. A clone that holds the user's work is the user's to update.
     offline(), with no upstream or with no version, nothing is said."""
     data, rag = rag, clone_root(rag)
-    if offline() or not (rag / ".git").exists() or not shutil.which("git"):
+    track = tracked_branch(rag)
+    if not track:
         return None
-    upstream = git_out(rag, "rev-parse", "--abbrev-ref", "@{u}")
-    if not upstream or "/" not in upstream:     # detached, or a branch that tracks nothing
-        return None
-    remote, branch = upstream.split("/", 1)
+    upstream, remote, branch = track
     plugin = next((f for f in (data, rag / "plugin") if plugin_version(f)), None)
     url = plugin and manifest_url(git_out(rag, "remote", "get-url", remote) or "", branch,
                                   (plugin / PLUGIN_MANIFEST).relative_to(rag).as_posix())
     if not url:
         return None
     have = plugin_version(plugin)
-    newest, fresh = upstream_version(rag, url)
+    newest, fresh = upstream_value(rag, url, read_version)
     if not (version_key(newest) and version_key(have) and version_key(newest) > version_key(have)):
         return None
     lag = f"{rag.name} at {rag} holds version {have} of the plugin, and {upstream} holds {newest}"
-    ahead = git_out(rag, "rev-list", "--count", "@{u}..HEAD")
-    own = [f"{ahead} commit{'s' if ahead != '1' else ''}"] if ahead and ahead != "0" else []
-    if git_out(rag, "status", "--porcelain", "--untracked-files=no"):
-        own.append("uncommitted changes")
+    own = own_work(rag)
     if own:
-        return f"{lag}; it holds {' and '.join(own)} of its own, so tell the user, who decides how to update it", False
+        return f"{lag}; it holds {own} of its own, so tell the user, who decides how to update it", False
     refresh = refresh_command(data)
     return (f"{lag}, so the scripts lack the fixes and checks of the newer version. Run git -C \"{rag}\" pull --ff-only, "
             f"{f'then {refresh}, ' if refresh else ''}then run this check again"), fresh
+
+
+def cookbook_behind(cookbook: Path | None) -> tuple[str, bool] | None:
+    """As clone_behind, for the Cookbook clone: a sentence when it lacks the newest commit of its
+    upstream branch, and whether the agent updates it now. The Cookbook has no version, and every
+    pitfall it gains is a commit, so the check compares commits. The upstream's commit is read from
+    GitHub's API, anonymously and at most every VERSION_EVERY seconds; the clone is behind when that
+    commit is not an ancestor of its HEAD, which a --depth 1 clone answers too. Without a Cookbook
+    nothing is said: the scripts print the clone command."""
+    track = cookbook and tracked_branch(cookbook)
+    if not track:
+        return None
+    upstream, remote, branch = track
+    url = commit_url(git_out(cookbook, "remote", "get-url", remote) or "", branch)
+    if not url:
+        return None
+    newest, fresh = upstream_value(cookbook, url, read_commit)
+    # An id the clone lacks fails like one that is not an ancestor: both are behind
+    if not newest or git_out(cookbook, "merge-base", "--is-ancestor", newest, "HEAD") is not None:
+        return None
+    lag = f"{COOKBOOK_CLONE} at {cookbook} lacks the newer guides of {upstream}"
+    own = own_work(cookbook)
+    if own:
+        return f"{lag}; it holds {own} of its own, so tell the user, who decides how to update it", False
+    return (f"{lag}, so the agent misses the pitfalls added since. Run git -C \"{cookbook}\" pull --ff-only, "
+            "then run this check again"), fresh
 
 
 def project_file(root: Path, kind: str, name: str, folder: Path) -> Path | None:

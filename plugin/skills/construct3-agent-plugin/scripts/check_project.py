@@ -3975,16 +3975,19 @@ def main() -> int:
     findings = c3.Findings()
     c3.stop_with_a_sentence("check_project.py", findings)
     project = c3.Project.open(args, findings)
+    cookbook = c3.locate_cookbook(project.rag, project.root)[0]
     if c3.offline():
-        print(f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clone at {project.rag} was not compared with its upstream")
+        print(f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clone at {project.rag} was not compared with its upstream"
+              f"{f', nor the {c3.COOKBOOK_CLONE} clone at {cookbook} with its' if cookbook else ''}")
     # The checks run without the guides; only the pitfalls their findings cite are missing
-    if not c3.guides_folder(project.rag, project.root):
+    if not cookbook:
         print(f"note: {c3.missing_cookbook(project.rag)}")
-    # Stale tools are a problem to fix first: a warning above a passing check's last line goes unread
+    # Stale tools and guides are a problem to fix first: a warning above a passing check's last line goes unread
     behind = c3.clone_behind(project.rag)
-    if behind:
-        line, error = behind
-        (findings.err if error else findings.warn)(line)
+    for lag in (behind, c3.cookbook_behind(cookbook)):
+        if lag:
+            line, error = lag
+            (findings.err if error else findings.warn)(line)
     drift = None if behind and behind[1] else c3.skill_drift(project.rag)     # the update above refreshes the copy too
     if drift:
         findings.err(drift)
