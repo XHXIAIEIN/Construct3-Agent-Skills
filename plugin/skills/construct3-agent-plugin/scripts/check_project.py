@@ -3978,8 +3978,8 @@ def main() -> int:
     # Stale tools are a problem to fix first: a warning above a passing check's last line goes unread
     behind = c3.clone_behind(project.rag)
     if behind:
-        line, agent_updates = behind
-        (findings.err if agent_updates else findings.warn)(line)
+        line, error = behind
+        (findings.err if error else findings.warn)(line)
     drift = None if behind and behind[1] else c3.skill_drift(project.rag)     # the update above refreshes the copy too
     if drift:
         findings.err(drift)

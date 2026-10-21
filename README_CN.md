@@ -74,7 +74,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 ## 自动检查更新
 
-skill 从 Git clone 运行时，检查器每小时最多拉取一次远端，用来提示它落后了。设 `CONSTRUCT3_RAG_OFFLINE=1` 可以关掉。
+skill 从 GitHub 的 Git clone 运行时，检查器每小时最多一次，通过 HTTPS 读取 clone 上游分支的插件版本号，不使用用户的 Git 凭据。上游版本更新时，检查器把更新 clone 的 `git pull --ff-only` 交给 agent 执行；clone 里有用户自己的改动时，则让 agent 询问用户。设 `CONSTRUCT3_RAG_OFFLINE=1` 可以关掉。
 
 ## 仓库结构
 

@@ -74,7 +74,7 @@ When the marketplace install or the linked clone is present, Claude Code loads t
 
 ## Update checks
 
-When the skill runs from a Git clone, the checker fetches that clone's remote at most once an hour to say when it is behind. Set `CONSTRUCT3_RAG_OFFLINE=1` to turn this off.
+When the skill runs from a Git clone of GitHub, the checker reads the plugin version on the clone's upstream branch over HTTPS, at most once an hour and without the user's Git credentials. When that version is newer, the checker gives the agent the `git pull --ff-only` that updates the clone, or asks the user when the clone holds work of its own. Set `CONSTRUCT3_RAG_OFFLINE=1` to turn this off.
 
 ## Repository
 

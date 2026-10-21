@@ -603,69 +603,120 @@ def note_drift(rag: Path) -> None:
         print(f"note: {drift}")
 
 
-FETCH_STAMPS = Path(tempfile.gettempdir()) / "construct3-rag-fetch"
-FETCH_EVERY = 3600          # seconds between two fetches of one clone
-FETCH_WAIT = 8              # seconds a fetch may take before the check goes on without it
+VERSION_STAMPS = Path(tempfile.gettempdir()) / "construct3-rag-version"
+VERSION_EVERY = 3600        # seconds between two reads of one clone's upstream version
+VERSION_WAIT = 8            # seconds a read may take before the check goes on without it
+PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
+GITHUB_REMOTE = re.compile(r"github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
 
 
 def git_out(rag: Path, *args: str, wait: float = 5) -> str | None:
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-    env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+    """The output of a local git command in rag; None when it fails."""
     try:
         p = subprocess.run(["git", "-C", str(rag), *args], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=wait, env=env)
+                           encoding="utf-8", errors="replace", timeout=wait,
+                           env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
     except (OSError, subprocess.TimeoutExpired):
         return None
     return p.stdout.strip() if p.returncode == 0 else None
 
 
 def offline() -> bool:
-    """CONSTRUCT3_RAG_OFFLINE=1: the clone is neither fetched nor compared with its upstream. Only "1"
+    """CONSTRUCT3_RAG_OFFLINE=1: the clone is not compared with its upstream. Only "1"
     sets it, so that 0 or an empty value keeps the check."""
     return os.environ.get("CONSTRUCT3_RAG_OFFLINE") == "1"
 
 
+def version_key(version: str) -> tuple[int, ...] | None:
+    try:
+        return tuple(int(n) for n in version.split("."))
+    except (AttributeError, ValueError):
+        return None
+
+
+def plugin_version(folder: Path) -> str | None:
+    """The version in folder's .claude-plugin/plugin.json; None without one."""
+    try:
+        return json.loads((folder / PLUGIN_MANIFEST).read_text(encoding="utf-8-sig")).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def manifest_url(remote_url: str, branch: str, rel: str) -> str | None:
+    """The public raw address of the plugin manifest at rel on branch of a GitHub remote; None for any other host."""
+    m = GITHUB_REMOTE.search(remote_url.strip())
+    return f"https://raw.githubusercontent.com/{m[1]}/{m[2]}/{branch}/{rel}" if m else None
+
+
+def read_version(url: str) -> str | None:
+    """The version in the manifest at url, read anonymously; None when the read fails."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(url, timeout=VERSION_WAIT) as r:
+            return json.loads(r.read().decode("utf-8-sig")).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def upstream_version(rag: Path, url: str) -> tuple[str | None, bool]:
+    """The upstream's version, and whether it was read in this run. It is read at most every
+    VERSION_EVERY seconds per clone; in between, the last read's version is used."""
+    stamp_file = VERSION_STAMPS / path_key(rag)
+    try:
+        if time.time() - stamp_file.stat().st_mtime <= VERSION_EVERY:
+            return stamp_file.read_text(encoding="utf-8").strip() or None, False
+    except OSError:
+        pass
+    # Stamped before the read, so that an offline machine waits once per period, not on every check
+    try:
+        VERSION_STAMPS.mkdir(exist_ok=True)
+        stamp_file.write_text("", encoding="utf-8")
+    except OSError:
+        pass
+    version = read_version(url)
+    if version:
+        try:
+            stamp_file.write_text(version, encoding="utf-8")
+        except OSError:
+            pass
+    return version, True
+
+
 def clone_behind(rag: Path) -> tuple[str, bool] | None:
-    """A sentence when the clone's branch is behind its upstream, and whether the
-    agent updates it. A clone with no commits or changes of its own fast-forwards:
-    the sentence gives the fast-forward to the fetched upstream, which needs no network,
-    and, for a copy of the skill, its refresh. A clone that holds the user's work is
-    the user's to update. The clone is fetched at most every FETCH_EVERY seconds;
-    offline(), or with no upstream, nothing is said."""
+    """A sentence when the clone's plugin version is older than its upstream's, and whether
+    the agent updates it now. The upstream's version is read over HTTPS from the public
+    GitHub repository, anonymously, so that no credential of the user's is used. A clone with no
+    commits or changes of its own gets the pull, run by the agent, and, for a copy of the
+    skill, its refresh: an error when the version was read in this run, a warning when it
+    comes from an earlier read, so that a pull that failed offline does not hold the check
+    until the next read. A clone that holds the user's work is the user's to update.
+    offline(), with no upstream or with no version, nothing is said."""
     data, rag = rag, clone_root(rag)
     if offline() or not (rag / ".git").exists() or not shutil.which("git"):
         return None
     upstream = git_out(rag, "rev-parse", "--abbrev-ref", "@{u}")
-    if not upstream:        # detached, or a branch that tracks nothing
+    if not upstream or "/" not in upstream:     # detached, or a branch that tracks nothing
         return None
-    stamp_file = FETCH_STAMPS / path_key(rag)
-    try:
-        due = time.time() - stamp_file.stat().st_mtime > FETCH_EVERY
-    except OSError:
-        due = True
-    if due:
-        # Stamped before the fetch, so that an offline machine waits once per period, not on every check
-        try:
-            FETCH_STAMPS.mkdir(exist_ok=True)
-            stamp_file.touch()
-        except OSError:
-            pass
-        git_out(rag, "fetch", "--quiet", upstream.split("/")[0], wait=FETCH_WAIT)
-    try:
-        ahead, behind = (int(n) for n in git_out(rag, "rev-list", "--left-right", "--count", "HEAD...@{u}").split())
-    except (AttributeError, ValueError):
+    remote, branch = upstream.split("/", 1)
+    plugin = next((f for f in (data, rag / "plugin") if plugin_version(f)), None)
+    url = plugin and manifest_url(git_out(rag, "remote", "get-url", remote) or "", branch,
+                                  (plugin / PLUGIN_MANIFEST).relative_to(rag).as_posix())
+    if not url:
         return None
-    if not behind:
+    have = plugin_version(plugin)
+    newest, fresh = upstream_version(rag, url)
+    if not (version_key(newest) and version_key(have) and version_key(newest) > version_key(have)):
         return None
-    lag = f"{rag.name} at {rag} is {behind} commit{'s' if behind != 1 else ''} behind {upstream}"
-    own = [f"{ahead} commit{'s' if ahead != 1 else ''}"] if ahead else []
+    lag = f"{rag.name} at {rag} holds version {have} of the plugin, and {upstream} holds {newest}"
+    ahead = git_out(rag, "rev-list", "--count", "@{u}..HEAD")
+    own = [f"{ahead} commit{'s' if ahead != '1' else ''}"] if ahead and ahead != "0" else []
     if git_out(rag, "status", "--porcelain", "--untracked-files=no"):
         own.append("uncommitted changes")
     if own:
-        return f"{lag}, and it holds {' and '.join(own)} of its own; tell the user, who decides how to update it", False
+        return f"{lag}; it holds {' and '.join(own)} of its own, so tell the user, who decides how to update it", False
     refresh = refresh_command(data)
-    return (f"{lag}, so the scripts lack the fixes and checks of those commits. Run git -C \"{rag}\" merge --ff-only {upstream}, "
-            f"{f'then {refresh}, ' if refresh else ''}then run this check again"), True
+    return (f"{lag}, so the scripts lack the fixes and checks of the newer version. Run git -C \"{rag}\" pull --ff-only, "
+            f"{f'then {refresh}, ' if refresh else ''}then run this check again"), fresh
 
 
 def project_file(root: Path, kind: str, name: str, folder: Path) -> Path | None:

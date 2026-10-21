@@ -53,7 +53,7 @@ The project skill, the prompts and the plugin:
 | `pack-after-check.md` | Why `pack_project.py` packs a folder project only when the checker's record holds the digest of its files and a problem count of 0, what the digest covers, and what `--unchecked` does |
 | `editor-refusal-report.md` | What the report of a refusal the checker passed holds, what it leaves out, and why the user sends it |
 | `secret-scan.md` | Which strings shaped like a key the checker warns of and the export stops on, and how one meant to be public is marked |
-| `clone-update-check.md` | Why the checker fetches the clone and fails when it is behind its upstream, and how plugin users get updates |
+| `clone-update-check.md` | Why the checker reads the upstream's plugin version over HTTPS and fails when the clone is behind, and how plugin users get updates |
 | `project-format-guide.md` | Where each statement of Scirra's project format guide, the one `llm-context.md` links, is written and what checks it, and how its copy in `data/c3-guides/` is kept |
 | `preview-player.md` | Why a preview is played from a JSON plan of steps, and what the steps cover |
 | `skill-body-budget.md` | Why everything through the check loop of `SKILL.md` stays inside its first 5000 tokens, which Claude Code re-attaches after a compaction, and how the budget is measured |
