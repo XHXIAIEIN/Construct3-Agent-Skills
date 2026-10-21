@@ -28,9 +28,9 @@ once before it is handed over.
   environment variable, or the `Construct3-RAG: <folder>` line in the
   project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found`: fill
   that line in with the Agent-Skills clone's `plugin/` folder.
-  `check_project.py` reads the plugin version of the clone's GitHub
-  upstream at most once an hour to say when the clone is behind;
-  `CONSTRUCT3_RAG_OFFLINE=1` turns the read and the comparison off.
+  Hourly at most, `check_project.py` reads the upstream's plugin version
+  on GitHub to say when the clone is behind;
+  `CONSTRUCT3_RAG_OFFLINE=1` turns this off.
 - Loaded as the Claude Code plugin (the skill is named
   `construct3:construct3-agent-plugin`): the game project needs no copy; run
   the scripts from this folder. In the files of this skill, `Construct3-RAG/`
@@ -64,7 +64,7 @@ once before it is handed over.
 
 | Script | Use |
 |--------|-----|
-| `scripts/lookup_ace.py OBJECT [WORD ...]` | Conditions, actions and expressions of an object of the project, of `System`, or of a plugin or behavior, each with its parameters, the JSON to write, the official examples that use it, and its pitfalls file or the built-in to prefer; or an effect, with its parameters |
+| `scripts/lookup_ace.py OBJECT [WORD ...]` | Conditions, actions and expressions of an object of the project, of `System`, or of a plugin or behavior, each with its parameters, the JSON to write, the official examples using it, and its pitfalls file or the built-in to prefer; or an effect, with its parameters |
 | `scripts/lookup_script_api.py NAME ...` | The scripting API: an interface with its members, or a member with its declaration and its file and line |
 | `scripts/search_guides.py WORD ...` | The pitfall entries and the official examples that hold the words, with the command that prints their events: before writing an interaction, and for events that do not behave as expected |
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet, or a range of its events, as the editor words it, under the editor's event numbers; `--map` one line per sheet with the layouts that run it, `--find NAME` the events that use a name, `--outline` numbers and sids, `--show N` one event as JSON, `--since COMMIT` what changed since a commit |
@@ -122,7 +122,8 @@ everything.
    1`. Fix either as a finding and go back to step 2. The preview runs the
    layout the editor opens on without input, so it catches what breaks on
    start, not what a player does later. Check what a player does by
-   playing it: `python scripts/preview_project.py PLAN.json` with a plan that does it and waits `until` the result holds.
+   playing it: `python scripts/preview_project.py PLAN.json` with a plan
+   that does it and waits `until` the result holds.
    If `tools/plans/` holds kept plans, run
    `python scripts/preview_project.py --all` after every change. Read
    [references/verifying-a-change.md](references/verifying-a-change.md)
