@@ -422,7 +422,9 @@ def test_an_entry_ends_with_the_pitfalls_of_its_addon(skill_only):
     lines = out.splitlines()
     at = [i for i, line in enumerate(lines) if line.startswith("  pitfalls: ")]
     assert len(at) == 1 and lines[at[0]].endswith("guides/behaviors/tween.md"), out
-    assert lines[at[0] - 1].startswith("    python ") and "print_sheet.py" in lines[at[0] - 1], out
+    # After the example commands, or after the count alone when no examples clone gives the commands
+    assert (lines[at[0] - 1].startswith("    python ") and "print_sheet.py" in lines[at[0] - 1]
+            or lines[at[0] - 1].strip().startswith("used in ")), out
     assert at[0] == len(lines) - 1 or lines[at[0] + 1].startswith(("action ", "condition ", "expression ")), out
     code, out = tool(skill_only, "lookup_ace", "Tween")
     assert code == 0 and out.rstrip().endswith("\n  pitfalls: " + out.rstrip().rsplit("pitfalls: ", 1)[1]), out
