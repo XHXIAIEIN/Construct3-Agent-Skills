@@ -350,7 +350,7 @@ def unchanged(run: Path, allowed: tuple[str, ...] = ()) -> tuple[bool, str]:
     """Whether no project file differs from the fixture, with the list of those that do. A path that starts
     with one of `allowed` is skipped, and so are .tmp, where the skill's scripts write their results, and .git,
     which SKILL.md tells a run to create."""
-    want = {k: v for k, v in json.loads((run / "fixture.json").read_text(encoding="utf-8")).items() if not k.endswith((".sids", ".warnings"))}
+    want = {k: v for k, v in json.loads((run / "fixture.json").read_text(encoding="utf-8")).items() if not k.endswith((".sids", ".warnings", ".commit"))}
     project = run / "project"
     have = {p.relative_to(project).as_posix(): hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
             for p in sorted(project.rglob("*"))

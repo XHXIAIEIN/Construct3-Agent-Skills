@@ -216,7 +216,7 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | File in `skills-dev/evals/` | Holds |
 |-------------------------------------|-------|
 | `evals.json` | The test cases: prompt, expected output, assertions a script can check, `held_out` on the cases kept out of tuning |
-| `make_fixtures.py` | One project per case and arm, outside the clone: the stand-in game, an official example or the empty project of `new_project.py`, with this skill, the previous one or none |
+| `make_fixtures.py` | One project per case and arm, outside the clone: the stand-in game, an official example or the empty project of `new_project.py`, with this skill from a worktree of the commit tested, the previous one or none |
 | `play_cases.py` | The plan of `scripts/preview_project.py` for each case whose request changes what the game does, and the runtime verdicts read from it; `play_cases.py CASE --project FOLDER` plays one |
 | `trace.py` | What a run did, from its transcript: every tool call, the ones it lost, its turns, tokens and seconds, and the route it took (the first script, how far the check chain got, help reads, refused plans, hand edits, the calls before the first edit, reads of the clone, the Cookbook pages read and the `lookup_ace.py` and `search_guides.py` pointers followed), `trace.json`, with the transcript kept beside it |
 | `token_share.py` | Where the tokens of one transcript or many went: the cost at Opus price ratios shared out among the baseline, each script's output, the reads by file kind, the model's tool inputs and its output, the sum checked against the cost from usage; `--files` gives each transcript's first context |
@@ -260,11 +260,17 @@ python skills-dev/evals/run_trigger_eval.py skills-dev/evals/train_queries.json 
   arm, `old_skill`, names a checkout of the previous commit as its clone
   (`--old-clone`), because an old copy pointed at this clone reports that it
   differs and the agent refreshes it.
-- Make fixtures from a worktree branch that tracks nothing, or from a clone
-  level with its upstream. A fixture names the clone that
-  `make_fixtures.py` ran from, and if that clone's branch trails its
-  upstream, the checker gives the runs a pull of it in the middle of the
-  iteration.
+- Commit the change before `make_fixtures.py`. It lays out the `with_`
+  arms from a detached worktree of the commit, HEAD unless `--pin REV`
+  names another, at `<runs folder>/clone-<sha>`, and their copies name that
+  worktree as their clone. A pull of main during the iteration then changes
+  nothing the runs read: in iteration 67, main moved while the runs went
+  on, later runs met "this copy of the skill differs from the clone's" and
+  one was voided. `clone.json` in the runs folder and `clone.commit` in each
+  fixture name the commit. `--no-pin` lays out from the checkout as it
+  stands, uncommitted changes included, and its fixtures name that
+  checkout, so the checker gives the runs a pull of it if its branch trails
+  its upstream.
 - Read the transcript of every run, not only its answer, because the answer
   lists only the commands a run remembers. Claude Code keeps the transcript
   as `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl`.

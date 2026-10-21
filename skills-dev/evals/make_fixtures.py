@@ -1,7 +1,7 @@
 """Lay out the project folders of one eval iteration, one per test case and arm.
 
     python skills-dev/evals/make_fixtures.py RUNS_DIR [--arms with_skill without_skill] [--cases NAME ...] [--held-out]
-                                  [--old-clone FOLDER] [--examples FOLDER]
+                                  [--old-clone FOLDER] [--examples FOLDER] [--pin REV | --no-pin]
 
 RUNS_DIR must lie outside the Construct3-Agent-Skills clone: an agent started below
 the clone reads its AGENTS.md, which routes to this skill, and a baseline
@@ -21,6 +21,16 @@ the skill, installed by the install.py of --old-clone: a checkout of the
 commit before the change, such as `git worktree add --detach FOLDER HEAD`
 made before editing. The old copy then names the old checkout as its clone;
 pointed at this one it would report that it differs and be refreshed.
+
+The with_... arms are pinned to one commit: the fixtures are laid out from
+a detached worktree of --pin (HEAD by default) at RUNS_DIR/clone-<sha>, so
+their copies name that worktree as their clone, and a pull of main during
+the iteration changes nothing the runs read. RUNS_DIR/clone.json records
+the commit, the folder and the commit of --old-clone, and each
+fixture.json the commit of the clone
+its arm installed from, as clone.commit. A change that is not committed is
+not in the worktree, so commit it first; --no-pin lays out from this
+checkout as it stands.
 
 exit codes: 0 laid out, 1 RUNS_DIR is inside the clone, a target exists, or
 an example or the old clone is missing
@@ -67,15 +77,40 @@ def edit_json(path: Path, change: Callable[[dict], object]) -> None:
     write_json(path, data)
 
 
-def stand_in(root: Path) -> Path:
+def commit_of(folder: Path) -> str | None:
+    """The commit a checkout is at, or None when it is not one."""
+    p = subprocess.run(["git", "-C", str(folder), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=60)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def pin(out: Path, rev: str) -> tuple[Path, str]:
+    """A detached worktree of rev at out/clone-<sha>, made once, and its commit. A note goes out when plugin/ has
+    changes that the commit does not hold."""
+    p = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--verify", f"{rev}^{{commit}}"],
+                       capture_output=True, text=True, timeout=60)
+    if p.returncode:
+        sys.exit(f"--pin {rev} names no commit of {REPO}: {p.stderr.strip()}")
+    sha = p.stdout.strip()
+    folder = out / f"clone-{sha[:12]}"
+    if commit_of(folder) != sha:
+        p = subprocess.run(["git", "-C", str(REPO), "worktree", "add", "--detach", str(folder), sha],
+                           capture_output=True, text=True, timeout=300)
+        if p.returncode:
+            sys.exit(f"git worktree add {folder} {sha} failed: {p.stderr.strip()}")
+    if subprocess.run(["git", "-C", str(REPO), "diff", "--quiet", sha, "--", "plugin"], timeout=60).returncode:
+        print(f"note: plugin/ has changes that {sha[:12]} does not hold; the with_... arms read {sha[:12]}")
+    return folder, sha
+
+
+def stand_in(root: Path, skill: Path = SKILL) -> Path:
     """The generated game, as tests/conftest.py builds it, with the
     generator and the skill taken out again: each arm installs its own. The
     seed holds what the editor would not write itself; the generator fills the
     rest of project.c3proj, so the fixture opens in the editor."""
     (root / "tools").mkdir(parents=True)
     (root / "project.c3proj").write_text(json.dumps({"uniqueId": "eval", "properties": {}}), encoding="utf-8")
-    run(str(SKILL / "scripts" / "install.py"), "--project", str(root), cwd=root)
-    shutil.copy(SKILL / "assets" / "build_project.py", root / "tools" / "build_project.py")
+    run(str(skill / "scripts" / "install.py"), "--project", str(root), cwd=root)
+    shutil.copy(skill / "assets" / "build_project.py", root / "tools" / "build_project.py")
     run("tools/build_project.py", cwd=root)
     for left in ("tools", ".agents"):
         shutil.rmtree(root / left)
@@ -400,10 +435,10 @@ def digest(project: Path) -> dict:
     return out
 
 
-def warnings_of(project: Path) -> list[str]:
+def warnings_of(project: Path, plugin: Path = PLUGIN) -> list[str]:
     """The checker's warning lines on the fixture: the project's own, which grade.py does not charge to a run."""
-    p = subprocess.run([sys.executable, str(SKILL / "scripts" / "check_project.py"), "--project", str(project),
-                        "--rag", str(PLUGIN), "--limit", "0"], capture_output=True, text=True, encoding="utf-8",
+    p = subprocess.run([sys.executable, str(plugin / SKILL.relative_to(PLUGIN) / "scripts" / "check_project.py"),
+                        "--project", str(project), "--rag", str(plugin), "--limit", "0"], capture_output=True, text=True, encoding="utf-8",
                        env=dict(os.environ, PYTHONIOENCODING="utf-8"))
     return [line for line in p.stdout.splitlines() if line.startswith("warning:")]
 
@@ -422,6 +457,11 @@ def main() -> int:
                     default=str(c3.siblings_folder(REPO) / "Construct-Example-Projects" / "example-projects"),
                     help="the example-projects folder of the Construct-Example-Projects clone (default: beside this "
                          "clone, or beside its main working tree from a worktree)")
+    pinning = ap.add_mutually_exclusive_group()
+    pinning.add_argument("--pin", default="HEAD", metavar="REV",
+                         help="the commit the with_... arms are laid out from, as a detached worktree in RUNS_DIR "
+                              "(default: HEAD)")
+    pinning.add_argument("--no-pin", action="store_true", help="lay out from this checkout as it stands")
     args = ap.parse_args()
 
     out = Path(args.runs_dir).resolve()
@@ -429,7 +469,7 @@ def main() -> int:
         sys.exit(f"{out} is inside the clone {REPO}: an agent started there reads the clone's AGENTS.md; "
                  f"name a folder outside it, such as one under the system's temporary directory")
 
-    installers = {"with_": SKILL / "scripts" / "install.py"}
+    installers = {}
     if any(arm.startswith("old_") for arm in args.arms):
         installers["old_"] = Path(args.old_clone or "") / SKILL.relative_to(REPO) / "scripts" / "install.py"
         if not args.old_clone or not installers["old_"].exists():
@@ -444,15 +484,25 @@ def main() -> int:
                  f"add --held-out once the change is otherwise done, or name the other cases")
     chosen = [c for c in CASES if (c["name"] in args.cases if args.cases else args.held_out or not c.get("held_out"))]
 
+    plugin, commits = PLUGIN, {"with_": None, "old_": commit_of(Path(args.old_clone)) if "old_" in installers else None}
+    if not args.no_pin:
+        out.mkdir(parents=True, exist_ok=True)
+        folder, commits["with_"] = pin(out, args.pin)
+        plugin = folder / PLUGIN.relative_to(REPO)
+        (out / "clone.json").write_text(json.dumps({"commit": commits["with_"], "folder": folder.as_posix(),
+                                                    "old_clone": commits["old_"]}, indent=2), encoding="utf-8")
+    skill = plugin / SKILL.relative_to(PLUGIN)
+    installers["with_"] = skill / "scripts" / "install.py"
+
     with tempfile.TemporaryDirectory() as tmp:
-        game = stand_in(Path(tmp) / "coins")
+        game = stand_in(Path(tmp) / "coins", skill)
         for case in chosen:
             fixture, seed = SEEDS.get(case["fixture"], (case["fixture"], None))
             source = game
             if fixture == "empty":
                 source = Path(tmp) / "empty"
                 if not source.exists():
-                    run(str(SKILL / "scripts" / "new_project.py"), str(source), cwd=Path(tmp))
+                    run(str(skill / "scripts" / "new_project.py"), str(source), cwd=Path(tmp))
             elif fixture.startswith("example:"):
                 source = Path(args.examples) / fixture.split(":", 1)[1]
                 if not (source / "project.c3proj").exists():
@@ -468,7 +518,8 @@ def main() -> int:
                     seed_load_errors(target)
                 if seed:
                     seed(target)
-                installer = next((script for prefix, script in installers.items() if arm.startswith(prefix)), None)
+                prefix = next((prefix for prefix in installers if arm.startswith(prefix)), None)
+                installer = installers.get(prefix)
                 if installer:
                     run(str(installer), "--project", str(target), cwd=target)
                 if case["fixture"] == "coins-generator":
@@ -487,8 +538,9 @@ def main() -> int:
                     (target / "tools").mkdir()
                     shutil.copy(installer.parent.parent / "assets" / "build_project.py", target / "tools" / "build_project.py")
                     run("tools/build_project.py", cwd=target)
-                (target.parent / "fixture.json").write_text(json.dumps(digest(target) | {
-                    "check_project.warnings": warnings_of(target)}, indent=2), encoding="utf-8")
+                commit = {"clone.commit": commits[prefix]} if commits.get(prefix) else {}
+                (target.parent / "fixture.json").write_text(json.dumps(digest(target) | commit | {
+                    "check_project.warnings": warnings_of(target, plugin)}, indent=2), encoding="utf-8")
                 print(target)
     return 0
 

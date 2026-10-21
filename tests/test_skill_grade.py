@@ -8,13 +8,14 @@ passes throughout. An add-countdown run is the stand-in game with the events it 
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, SKILL, SHEET, run
+from tests.skill_helpers import EVALS, NEEDS_GIT, SKILL, SHEET, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -282,6 +283,28 @@ def test_make_fixtures_finds_the_old_installer_under_plugin(tmp_path: Path) -> N
     code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--arms", "old_skill",
                     "--old-clone", str(tmp_path))
     assert code == 1 and "plugin/skills/construct3-agent-plugin/scripts/install.py" in out
+
+
+@NEEDS_GIT
+def test_make_fixtures_pins_the_with_arm_to_a_worktree_of_the_commit(tmp_path: Path) -> None:
+    """The with_skill fixture is installed from a detached worktree of HEAD in the runs folder and names its commit;
+    the without_skill fixture installed nothing and names none."""
+    repo, runs = EVALS.parents[1], tmp_path / "runs"
+    sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True,
+                         check=True).stdout.strip()
+    folder = runs / f"clone-{sha[:12]}"
+    try:
+        code, out = run(tmp_path, EVALS / "make_fixtures.py", str(runs), "--cases", "name-the-restart-event",
+                        "--arms", "with_skill", "without_skill")
+        assert code == 0, out
+        assert read_json(runs / "clone.json") == {"commit": sha, "folder": folder.resolve().as_posix(), "old_clone": None}
+        case = runs / "name-the-restart-event"
+        assert read_json(case / "with_skill" / "fixture.json")["clone.commit"] == sha
+        assert "clone.commit" not in read_json(case / "without_skill" / "fixture.json")
+        block = (case / "with_skill" / "project" / "AGENTS.md").read_text(encoding="utf-8")
+        assert f"- Construct3-RAG: {(folder / 'plugin').resolve().as_posix()}" in block, block
+    finally:
+        subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(folder)], capture_output=True)
 
 
 def test_sweep_outputs_runs_the_skill_scripts_of_this_checkout_by_default(tmp_path: Path) -> None:
