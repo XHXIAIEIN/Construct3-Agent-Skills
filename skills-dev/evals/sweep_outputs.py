@@ -12,9 +12,10 @@ writes the exit code, a hash of stdout and of stderr, and their length per
 run. Nothing is written to a project. Record the old side
 before a change and the new side after it; --limit 0 lifts the scripts'
 output limit, so that what they print in full can be compared with a version
-that had none. For an old side that was not recorded, --scripts names the
-scripts folder of another checkout of the clone, such as a git worktree of
-the previous commit; its own data/ is then the clone it reads, so that it
+that had none. The scripts are those of plugin/skills/construct3-agent-plugin/
+in this checkout. For an old side that was not recorded, --scripts names that
+scripts folder in another checkout of the clone, such as a git worktree of
+the previous commit; its own plugin/ is then the clone it reads, so that it
 does not report itself as a copy that differs.
 
 The second form lists the runs whose exit code, stdout or stderr differ, and
@@ -37,7 +38,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1] / "plugin" / "skills" / "construct3-agent-plugin" / "scripts"))
+SCRIPTS = HERE.parents[1] / "plugin" / "skills" / "construct3-agent-plugin" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 import c3project as c3  # noqa: E402
 
 # The runs on each project: the word that starts a run's key, then the script and its flags
@@ -75,11 +77,11 @@ def first_sheet(project: Path) -> str | None:
 
 
 def record(args: argparse.Namespace) -> int:
-    scripts = Path(args.scripts).resolve() if args.scripts else HERE.parent / "scripts"
+    scripts = Path(args.scripts).resolve() if args.scripts else SCRIPTS
     rag = scripts.parent.parent.parent
     if not c3.is_clone(rag):
-        print(f"{scripts} is not skills/<skill>/scripts of a checkout of the clone: no data/c3-schemas three "
-              f"folders up", file=sys.stderr)
+        print(f"{scripts} is not plugin/skills/<skill>/scripts of a checkout of the clone: no data/c3-schemas "
+              f"three folders up", file=sys.stderr)
         return 2
     projects = [p.parent for folder in args.examples for p in sorted(Path(folder).glob("*/project.c3proj"))]
     projects += [Path(p) for p in args.projects]
@@ -133,7 +135,8 @@ def main() -> int:
                     help="a folder of folder projects, such as Construct-Example-Projects/example-projects")
     ap.add_argument("--projects", nargs="*", default=[], metavar="FOLDER", help="single game projects")
     ap.add_argument("--scripts", metavar="DIR",
-                    help="the scripts folder of another checkout of the clone (default: the one beside evals/)")
+                    help="plugin/skills/construct3-agent-plugin/scripts of another checkout of the clone "
+                         "(default: the one of this checkout)")
     ap.add_argument("--limit", type=int, metavar="CHARS", help="passed to every script; 0 lifts their output limit")
     ap.add_argument("--workers", type=int, default=8, help="runs in parallel (default: 8)")
     ap.add_argument("--compare", nargs=2, metavar=("OLD.json", "NEW.json"), help="compare two records")

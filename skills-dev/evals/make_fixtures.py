@@ -431,9 +431,10 @@ def main() -> int:
 
     installers = {"with_": SKILL / "scripts" / "install.py"}
     if any(arm.startswith("old_") for arm in args.arms):
-        installers["old_"] = Path(args.old_clone or "") / "skills" / SKILL.name / "scripts" / "install.py"
+        installers["old_"] = Path(args.old_clone or "") / SKILL.relative_to(REPO) / "scripts" / "install.py"
         if not args.old_clone or not installers["old_"].exists():
-            sys.exit(f"an old_... arm needs --old-clone, a checkout that holds skills/{SKILL.name}/scripts/install.py")
+            sys.exit(f"an old_... arm needs --old-clone, a checkout that holds "
+                     f"{SKILL.relative_to(REPO).as_posix()}/scripts/install.py")
     unknown = set(args.cases or []) - {c["name"] for c in CASES}
     if unknown:
         sys.exit(f"no test case named {', '.join(sorted(unknown))}; evals.json has: {', '.join(c['name'] for c in CASES)}")

@@ -257,6 +257,25 @@ def test_make_fixtures_lays_out_a_held_out_case_only_when_asked(tmp_path: Path) 
     assert code == 1 and "held out of tuning" in out and "--held-out" in out
 
 
+def test_make_fixtures_finds_the_old_installer_under_plugin(tmp_path: Path) -> None:
+    # This checkout stands in for the old one: its installer is found, so the next check, the case name, fails.
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--arms", "old_skill",
+                    "--old-clone", str(EVALS.parents[1]), "--cases", "no-such-case")
+    assert code == 1 and "no test case named no-such-case" in out
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--arms", "old_skill",
+                    "--old-clone", str(tmp_path))
+    assert code == 1 and "plugin/skills/construct3-agent-plugin/scripts/install.py" in out
+
+
+def test_sweep_outputs_runs_the_skill_scripts_of_this_checkout_by_default(tmp_path: Path) -> None:
+    # Past the check of the scripts folder, the sweep stops at the empty project list.
+    code, out = run(tmp_path, EVALS / "sweep_outputs.py", str(tmp_path / "out.json"), "--projects", str(tmp_path))
+    assert code == 2 and "no folder with a project.c3proj" in out
+    code, out = run(tmp_path, EVALS / "sweep_outputs.py", str(tmp_path / "out.json"), "--projects", str(tmp_path),
+                    "--scripts", str(EVALS))
+    assert code == 2 and "is not plugin/skills/<skill>/scripts of a checkout of the clone" in out
+
+
 @pytest.mark.parametrize(("k", "n", "interval"), [(0, 0, [0.0, 1.0]), (2, 2, [0.342, 1.0]), (1, 2, [0.095, 0.905]),
                                                   (8, 10, [0.49, 0.943])])
 def test_the_interval_of_fully_passed_runs(k: int, n: int, interval: list[float]) -> None:
