@@ -288,7 +288,9 @@ python skills-dev/evals/run_trigger_eval.py skills-dev/evals/train_queries.json 
   tools and from the words of shell commands, so a relative path, a
   variable or a write made inside a script escapes it. The text of a
   heredoc or a here-string is input, not words, so a path in an answer
-  written by `cat > answer.md <<'EOF'` is no write.
+  written by `cat > answer.md <<'EOF'` is no write. Nor is a call that
+  failed before it wrote: an Edit that came back "File does not exist"
+  and a command a hook refused, which voided four runs of iteration 68.
 - When a run's completion notice arrives, write the tokens and the duration
   it gives into the run's `timing.json`. `trace.py` reads the turns, the
   output and input tokens and the seconds from the transcript. The

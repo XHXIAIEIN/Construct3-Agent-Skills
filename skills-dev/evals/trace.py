@@ -22,7 +22,10 @@ lists the writes outside the run folder (--root, by default RUN_DIR of
 shell command redirects to or gives to a command that writes (cp, mv,
 mkdir, rm, tee, Set-Content, Copy-Item ...); outside_reads lists the other
 absolute paths outside it. The text of a heredoc or a here-string is a
-command's input, not its words, and /dev/null is no file. A relative path,
+command's input, not its words, and /dev/null is no file. Quoted strings and
+bare text that touch are one word, as the shell reads them: "$B"/ is the
+folder $B names, not the root. A file tool that returned an error and a shell
+command a hook refused wrote nothing, so their paths count as reads. A relative path,
 a variable and a path built inside a script are not resolved, so the list
 is a floor: an empty one proves nothing. read_skill_md is true when this skill's SKILL.md reached the
 model: the Skill tool called with this skill, its SKILL.md read, or a shell
@@ -148,7 +151,8 @@ def short(value: object, n: int) -> str:
 
 
 def calls_of(path: Path) -> list[dict]:
-    """Tool calls in order, each with the size and the failure of its result."""
+    """Tool calls in order, each with the size and the failure of its result. A tool_use whose id came before is the
+    same call written again (an api-request-blob entry repeats one), not a second call."""
     calls, by_id = [], {}
     for line in path.read_text(encoding="utf-8").splitlines():
         try:
@@ -156,7 +160,7 @@ def calls_of(path: Path) -> list[dict]:
         except ValueError:
             continue
         for part in content if isinstance(content, list) else []:
-            if part.get("type") == "tool_use":
+            if part.get("type") == "tool_use" and part.get("id") not in by_id:
                 given = part.get("input", {})
                 what = given.get("command") or given.get("file_path") or given.get("pattern") or given.get("skill") or given
                 by_id[part["id"]] = {"tool": part.get("name"), "what": str(what), "chars": None, "failed": False,
@@ -176,8 +180,9 @@ SHELLS = ("Bash", "PowerShell")
 
 
 # Shell text in words: 2>&1, a redirection, a separator (a bracket of a subshell or a $( ) or ` ` substitution too),
-# a quoted string, or a bare word.
-WORD = re.compile(r"""\d?>>?&\d|\d?>>?|&&|\|\||[|;&\n()`]|"[^"]*"|'[^']*'|[^\s"'|;&>()`]+""")
+# or a word: quoted strings and bare text that touch, as the shell joins them ("$B"/ is one word, not "$B" and /).
+WORD = re.compile(r"""\d?>>?&\d|\d?>>?|&&|\|\||[|;&\n()`]|(?:"[^"]*"|'[^']*'|[^\s"'|;&>()`]+)+""")
+QUOTED = re.compile(r""""([^"]*)"|'([^']*)'""")
 REDIRECT = re.compile(r"\d?>>?")
 SEPARATORS = {"&&", "||", "|", ";", "&", "\n", "(", ")", "`"}
 NOWHERE = {"/dev/null", "/dev/stdout", "/dev/stderr", "$null", "nul"}
@@ -195,10 +200,15 @@ FILE_WRITES = {"Write": "file_path", "Edit": "file_path", "MultiEdit": "file_pat
 FILE_READS = {"Read": "file_path", "Glob": "path", "Grep": "path"}
 
 
+def unquoted(word: str) -> str:
+    """A shell word without its quotes: "$B"/x is $B/x."""
+    return QUOTED.sub(lambda m: m.group(1) if m.group(1) is not None else m.group(2), word)
+
+
 def absolute(word: str) -> str | None:
     """word as an absolute path, or None: a relative path or a variable is not resolved.
     Git Bash's /c/Users is C:/Users."""
-    word = word.strip("\"'")
+    word = unquoted(word)
     if word.lower() in NOWHERE:
         return None
     word = re.sub(r"^/([A-Za-z])(?=/|$)", r"\1:", word)
@@ -207,7 +217,7 @@ def absolute(word: str) -> str | None:
 
 
 def command_name(word: str) -> str:
-    return Path(word.strip("\"'")).name.lower().removesuffix(".exe")
+    return Path(unquoted(word)).name.lower().removesuffix(".exe")
 
 
 def without_sed_script(words: list[str]) -> list[str]:
@@ -305,7 +315,7 @@ REDIRECT_TARGET = re.compile(r"""(?<![\d&])>>?\s*("[^"]+"|'[^']+'|[^\s;&|<>()`]+
 
 def resolved(word: str, cwd: str | None) -> str | None:
     """word as an absolute path: given so, or relative to the cwd a cd in the same command set."""
-    value = word.strip("\"'")
+    value = unquoted(word)
     if p := absolute(value):
         return p
     return os.path.abspath(os.path.join(cwd, value)) if cwd and PATH_LIKE.fullmatch(value) else None
@@ -363,7 +373,7 @@ def inline_writes(command: str) -> list[str]:
 def reads_skill_md(command: str) -> bool:
     """A shell command that prints this skill's SKILL.md."""
     return any(command_name(words[0]) in READERS
-               and any(("/" + w.strip("\"'").replace("\\", "/")).endswith(f"/{SKILL}/SKILL.md") for w in words[1:])
+               and any(("/" + unquoted(w).replace("\\", "/")).endswith(f"/{SKILL}/SKILL.md") for w in words[1:])
                for words in split_shell(command)[0])
 
 
@@ -383,11 +393,24 @@ def parts_below(path: str, folder: Path) -> list[str]:
     return [p for p in re.split(r"[\\/]", os.path.normcase(path)[len(base_of(folder)):]) if p]
 
 
+# The result of a shell command that a PreToolUse hook refused before it ran.
+HOOK_REFUSED = re.compile(r"^PreToolUse:\w+ hook error")
+
+
+def wrote_nothing(c: dict) -> bool:
+    """A call that failed before it could write: a file tool that returned an error (iteration 68: an Edit of a
+    mistyped run folder came back "File does not exist"), or a shell command a hook refused."""
+    return c["failed"] and (c["tool"] in FILE_WRITES or bool(HOOK_REFUSED.match(c["result"])))
+
+
 def outside(calls: list[dict], root: Path) -> tuple[list[dict], list[dict]]:
-    """The writes and the reads of absolute paths outside root, each with its tool."""
+    """The writes and the reads of absolute paths outside root, each with its tool. A call that wrote nothing
+    names its paths as reads."""
     writes, reads = [], []
     for c in calls:
         wrote, named = paths_of(c)
+        if wrote_nothing(c):
+            wrote, named = [], wrote + named
         writes += [{"tool": c["tool"], "path": p} for p in wrote if not within(p, root)]
         reads += [{"tool": c["tool"], "path": p} for p in named if not within(p, root)]
     return writes, reads
@@ -428,10 +451,11 @@ def usage_of(path: Path) -> dict:
 
 
 def scripts_of(c: dict) -> list[tuple[str, list[str]]]:
-    """The scripts of this skill a call runs, each with its argument words."""
+    """The scripts of this skill a call runs, each with its argument words. A script named in the text of a heredoc,
+    such as an answer.md that lists the commands, is input and not run."""
     if c["tool"] not in SHELLS:
         return []
-    return [(m.group(1), m.group(2).split()) for m in SCRIPT.finditer(c["what"])]
+    return [(m.group(1), m.group(2).split()) for m in SCRIPT.finditer(without_bodies(c["what"]))]
 
 
 def work_scripts(c: dict) -> set[str]:

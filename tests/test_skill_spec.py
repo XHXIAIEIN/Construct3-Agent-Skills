@@ -362,6 +362,10 @@ def test_trace_lists_writes_outside_the_run_folder(tmp_path):
     # iteration 67, design-a-catch-game/with_skill_3: a mistyped sibling of the run folder is a real write outside
     ('mkdir -p "{run}-3/project/tools" && cp "{run}/answer.md" "{run}-3/answer.md"',
      ["case/with_skill-3/project/tools", "case/with_skill-3/answer.md"]),
+    # iteration 68, double-jump/old_skill and with_skill_2: "$B"/ is one word, the folder $B names, not / and the root
+    ('P="{run}/project"; B="$P/.tmp/baseline"; mkdir -p "$B" && cp -r layouts eventSheets "$B"/ '
+     '&& git show HEAD:"layouts/layout 1.json" > "$B/layouts/layout 1.json"', []),
+    ('cd "{run}/project" && B=.tmp/baseline && cp -r layouts "$B"/', []),
 ])
 def test_trace_reads_writes_from_the_words_of_the_shell(tmp_path, command, wrote):
     """Only the shell's own words are paths: /dev/null and the brackets of a substitution are not, and the text of
@@ -373,3 +377,49 @@ def test_trace_reads_writes_from_the_words_of_the_shell(tmp_path, command, wrote
     _, trace = run_trace(tmp_path, [{"message": {"content": [
         {"type": "tool_use", "id": "t", "name": "Bash", "input": given}]}}], run_dir)
     assert [Path(w["path"]) for w in trace["outside"]] == [tmp_path / p for p in wrote]
+
+
+def test_trace_counts_no_write_for_a_call_that_wrote_nothing(tmp_path):
+    """Iteration 68, add-countdown/with_skill_2: an Edit of a mistyped run folder came back "File does not exist" and
+    wrote nothing, yet voided the run. A failed file tool and a shell command a hook refused write nothing; their
+    paths are reads. A write that succeeded outside stays listed."""
+    run_dir = tmp_path / "case" / "with_skill"
+    (run_dir / "project").mkdir(parents=True)
+    typo = (tmp_path / "case" / "with_skill-2" / "project" / "project.c3proj").as_posix()
+    calls = [("Edit", {"file_path": typo, "old_string": "a", "new_string": "b"}, True,
+              "<tool_use_error>File does not exist.</tool_use_error>"),
+             ("Bash", {"command": f"rm -rf {tmp_path.as_posix()}/elsewhere"}, True,
+              "PreToolUse:Bash hook error: [python guard.py]: Delete target(s) ..."),
+             ("Write", {"file_path": typo, "content": "x"}, False, "File created")]
+    entries = []
+    for n, (name, given, error, result) in enumerate(calls):
+        entries += [{"message": {"content": [{"type": "tool_use", "id": f"t{n}", "name": name, "input": given}]}},
+                    {"message": {"content": [{"type": "tool_result", "tool_use_id": f"t{n}", "is_error": error,
+                                              "content": result}]}}]
+    _, trace = run_trace(tmp_path, entries, run_dir)
+    assert [(w["tool"], Path(w["path"])) for w in trace["outside"]] == [("Write", Path(typo))]
+    assert [Path(r["path"]) for r in trace["outside_reads"]] == [Path(typo), tmp_path / "elsewhere"]
+
+
+def test_trace_counts_a_call_written_twice_once(tmp_path):
+    """The transcript writes some tool calls a second time in an api-request-blob entry with the same id. Iteration 68
+    counted those twice: every run had more tool calls than its completion notice, and lost calls with them."""
+    use = {"type": "tool_use", "id": "t", "name": "Edit", "input": {"file_path": "/x/a.json", "old_string": "a",
+                                                                       "new_string": "b"}}
+    _, trace = run_trace(tmp_path, [
+        {"type": "assistant", "message": {"content": [use]}},
+        {"type": "api-request-blob", "message": {"role": "assistant", "content": [use]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "t", "is_error": True, "content": "no match"}]}},
+    ], tmp_path)
+    assert (trace["tool_calls"], trace["lost_calls"]) == (1, 1)
+
+
+def test_trace_runs_no_script_named_in_the_text_of_a_heredoc(tmp_path):
+    """Iteration 68, fix-next-round/with_skill: an answer.md written by a heredoc lists the commands the run made;
+    they are its text, not scripts it ran."""
+    command = ("cat > /x/outputs/answer.md <<'EOF'\n- python .agents/skills/construct3-agent-plugin/scripts/"
+               "check_project.py\n- python scripts/review_design.py --check\nEOF\n"
+               "python .agents/skills/construct3-agent-plugin/scripts/print_sheet.py Game")
+    _, trace = run_trace(tmp_path, [{"message": {"content": [
+        {"type": "tool_use", "id": "t", "name": "Bash", "input": {"command": command}}]}}], tmp_path)
+    assert [s["script"] for s in trace["scripts"]] == ["print_sheet"]

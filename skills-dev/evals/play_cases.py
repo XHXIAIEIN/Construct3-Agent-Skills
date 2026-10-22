@@ -153,10 +153,14 @@ def add_countdown() -> dict:
               "let s = '';",
               "for (let n = 0; n < 20; n++) { s = h.text('ScoreText') || ''; if (/time\\D{0,6}?\\d/i.test(s)) break; await wait(0.1); }",
               "return {ok: /time\\D{0,6}?\\d/i.test(s) && (s.match(/\\d+/g) || []).length >= 2, said: `ScoreText says ${JSON.stringify(s)}`};"),
+        # The game runs a few seconds before the plan attaches, more or less from one play to the next (iteration
+        # 68: 1 to 7 s), so the first value is compared with 30 less the game time since the layout started.
         check("The time shown loses one a second",
               f"const t = () => ({TIME})(h.text('ScoreText'));",
+              "const ran = runtime.gameTime - vars.startGame[vars.startGame.length - 1];",
               "const a = t(); await wait(3); const b = t();",
-              "return {ok: a >= 26 && a <= 30 && a - b >= 2 && a - b <= 4, said: `time ${a}, 3 s later ${b}`};"),
+              "return {ok: a !== null && Math.abs(a - (30 - ran)) <= 1.5 && a - b >= 2 && a - b <= 4, "
+              "said: `time ${a} after ${ran.toFixed(1)} s of the layout, 3 s later ${b}`};"),
         check("The layout restarts when the time reaches 0, and not before",
               "const before = vars.starts, began = vars.startGame[vars.startGame.length - 1];",
               "runtime.timeScale = 6;",
