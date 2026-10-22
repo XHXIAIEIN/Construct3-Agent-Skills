@@ -29,10 +29,10 @@ standard library. The numbers are therefore coarser than a per-pixel
 measure, and a count of cells is not a count of particles.
 
 Needs ffmpeg and ffprobe on PATH. Without them nothing is measured, and the
-script says so and exits 0.
+script says so and exits 3: the video is not checked, which is not a pass.
 
-Exit 0: the last line starts with ok:, or nothing was measured. Exit 1: an
-event differs from the recipe, or the video could not be read.
+Exit 0: the last line starts with ok:. Exit 1: an event differs from the
+recipe, or the video could not be read. Exit 3: no ffmpeg, nothing measured.
 """
 import argparse
 import json
@@ -253,7 +253,7 @@ def main(argv: list[str]) -> int:
     ffmpeg, ffprobe = shutil.which("ffmpeg"), shutil.which("ffprobe")
     if not ffmpeg or not ffprobe:
         print("ffmpeg and ffprobe are needed on PATH; nothing was measured")
-        return 0
+        return 3
     if not args.video.is_file():
         print(f"no video at {args.video}; name a recording of the effect")
         return 1

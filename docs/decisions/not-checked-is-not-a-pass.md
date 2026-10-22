@@ -6,11 +6,11 @@ Date: 2026-10-22
 
 An agent reads a script's exit code and its last line, and `SKILL.md`
 counts a step as passed when that line starts with `ok:` or the code is 0.
-Two checks said in words that they had checked nothing and still gave a
-pass: `check_sounds.py` without ffmpeg printed `nothing measured` and exited
-0, and `check_design.py` without the Construct3-RAG clone left the reference
-example unchecked and printed nothing about it. A hand-over could then name a
-check that never ran.
+Three checks said in words that they had checked nothing and still gave a
+pass: `check_sounds.py` and `measure_timing.py` without ffmpeg printed
+that they measured nothing and exited 0, and `check_design.py` without the
+Construct3-RAG clone left the reference example unchecked and printed
+nothing about it. A hand-over could then name a check that never ran.
 
 Evidence: the scripts that drive the editor already exit 3 when no browser
 is there, and `pack_project.py` exits 3 when no passing check covers the
@@ -29,9 +29,9 @@ scope, so its report never reads a skipped analyzer as clean.
 
 ## Decision
 
-The third for a whole check that did not run: `check_sounds.py` without
-ffmpeg and ffprobe prints the install command and `nothing measured: no
-ffmpeg`, and exits 3.
+The third for a whole check that did not run: `check_sounds.py` and
+`measure_timing.py` without ffmpeg and ffprobe say that nothing was
+measured, and exit 3.
 
 A part of a check that did not run, while the rest did, keeps the run's
 code and names the part: `check_design.py` without the clone prints

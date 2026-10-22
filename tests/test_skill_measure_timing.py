@@ -72,11 +72,11 @@ def test_a_video_that_is_not_there_is_a_finding(tmp_path):
 
 
 def test_without_ffmpeg_nothing_is_measured(monkeypatch, tmp_path):
-    """The script says so and exits 0, as check_sounds.py does."""
+    """The script says so and exits 3, as check_sounds.py does: a check that did not run is no pass."""
     monkeypatch.setenv("PATH", str(tmp_path))
     code, text = run(str(tmp_path / "any.mp4"))
     assert "nothing was measured" in text, text
-    assert code == 0, text
+    assert code == 3, text
 
 
 def test_the_ratio_rows_are_the_ones_the_page_states():
