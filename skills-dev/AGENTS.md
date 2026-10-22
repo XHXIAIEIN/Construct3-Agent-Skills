@@ -91,7 +91,8 @@ repository root.
   over the DevTools protocol; where there is neither, it prints its check as
   steps for the agent's own browser tool. `check_sounds.py` and
   `make_sounds.py` need ffmpeg and ffprobe on PATH; without them the
-  measurer measures nothing and exits 0.
+  measurer measures nothing and exits 3, the code of a check that did not
+  run (`docs/decisions/not-checked-is-not-a-pass.md`).
 - Scripts take everything from flags, never prompt, print `--help` with
   examples and exit codes, and say in every error what to write or run
   next. They find the project from the current directory upward and the

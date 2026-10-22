@@ -50,6 +50,21 @@ def test_check_design_passes_the_reference_example_and_prints_its_tables(tmp_pat
     assert last.endswith("design.json")
 
 
+def test_check_design_without_the_clone_says_the_reference_example_is_not_checked(tmp_path):
+    """A copy of the scripts outside the plugin finds no data beside itself: every other check runs, and the
+    output names the one that did not, in its own line and in the ok line, instead of passing it silently."""
+    scripts = tmp_path / "skill" / "scripts"
+    shutil.copytree(SCRIPTS, scripts, ignore=shutil.ignore_patterns("__pycache__"))
+    path = tmp_path / "design.json"
+    path.write_text(json.dumps(example(), ensure_ascii=False), encoding="utf-8")
+    code, out = run(tmp_path, scripts / "check_design.py", str(path))
+    assert code == 0, out
+    assert re.search(r"^skipped: reference\.example is not checked: Construct3-RAG not found; pass --rag ", out, re.M), out
+    last = out.splitlines()[-1]
+    assert last.startswith("ok: design complete; 4 tests pass in the prototype"), out
+    assert "; left for later: sounds; moles that get faster. reference.example is not checked (the skipped line above)." in last
+
+
 def test_check_design_names_every_missing_table(tmp_path):
     code, out = check(tmp_path, {"game": "X"})
     assert code == 1

@@ -20,7 +20,8 @@ shows before the build and a bug in the events after it.
    not its events: the design names it under `reference`.
 2. Write the design, below, to `tools/design.json` in the project.
 3. `python scripts/check_design.py tools/design.json` until its last line
-   starts with `ok:`. Each finding names its path in the design.
+   starts with `ok:`. Each finding names its path in the design. A
+   `skipped:` line names a check that did not run and what it needs.
 4. Build the game from it: one event per rule, the rule's id in the comment
    above the event, each state row where its `stored_in` says.
 5. `python scripts/check_project.py`, then

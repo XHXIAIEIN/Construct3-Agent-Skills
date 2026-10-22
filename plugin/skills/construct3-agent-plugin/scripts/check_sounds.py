@@ -25,10 +25,10 @@ delays it and is a finding; tail silence is printed only. A loudness finding nam
 dB and the ffmpeg command that applies it.
 
 Needs ffmpeg and ffprobe on PATH. Without them nothing is measured, and the
-script says so and exits 0.
+script says so and exits 3: the files are not checked, which is not a pass.
 
-Exit 0: the last line starts with ok:, or nothing was measured. Exit 1:
-findings, or no project.
+Exit 0: the last line starts with ok:. Exit 1: findings, or no project.
+Exit 3: no ffmpeg, nothing measured.
 """
 import json
 import re
@@ -237,8 +237,8 @@ def main() -> int:
     ap = c3.argument_parser(__doc__.split("\n\n")[0], "examples:\n"
                             "  python scripts/check_sounds.py\n"
                             "  python scripts/check_sounds.py --project D:/games/Coins sounds/merge.webm\n\n"
-                            "exit codes: 0 when the last line starts with ok: or nothing was measured, 1 on "
-                            "findings or no project")
+                            "exit codes: 0 when the last line starts with ok:, 1 on findings or no project, 3 no "
+                            "ffmpeg: nothing was measured")
     ap.add_argument("files", nargs="*", metavar="FILE", help="measure only these files, named from the project root")
     args = ap.parse_args()
     root = c3.find_project(args.project)
@@ -250,7 +250,7 @@ def main() -> int:
     if found is None:
         print(INSTALL)
         print("nothing measured: no ffmpeg")
-        return 0
+        return 3
     ffmpeg, ffprobe = found
     files = audio_files(root, args.files)
     table, cues = cue_table(root)

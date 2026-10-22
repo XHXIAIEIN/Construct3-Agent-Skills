@@ -552,13 +552,18 @@ def tables(design: gm.Design) -> list[str]:
     return lines
 
 
-def reference(design: gm.Design, rag: Path | None) -> None:
-    """Refuse a reference example that is no official example; without the clone it is not checked."""
+def reference(design: gm.Design, rag: Path | None) -> str | None:
+    """Refuse a reference example that is no official example; without the clone, the reason it is not checked."""
     ref = design.data.get("reference")
-    if not rag or not isinstance(ref, dict) or not isinstance(ref.get("example"), str):
-        return
+    if not isinstance(ref, dict) or not isinstance(ref.get("example"), str):
+        return None
+    if not rag:
+        return ("Construct3-RAG not found; pass --rag <the Agent-Skills clone's plugin/ folder> or fill in the "
+                "project's Construct3-RAG: line")
     ids = {k.removesuffix(".json") for k in c3.data_texts(rag, "data/c3-examples/en-US", "*.json")}
-    if ids and ref["example"] not in ids:
+    if not ids:
+        return f"{c3.shown_path(rag)} holds no data/c3-examples; pass --rag the Agent-Skills clone's plugin/ folder"
+    if ref["example"] not in ids:
         design.bad("reference.example", f"{ref['example']!r} is no official example{c3.closest(ref['example'], ids)}; "
                                         f"find one with the same input or genre in data/c3-examples by its tags")
 
@@ -577,9 +582,9 @@ def main() -> int:
     try:
         rag = c3.find_rag(root, args.rag)
     except SystemExit:
-        pass        # without the clone the example's id is not checked
+        pass        # without the clone the example's id is not checked, and the output says so
     design = gm.Design(data)
-    reference(design, rag)
+    unchecked = reference(design, rag)
     out = [f"design {design.data.get('game', '?')!r}: {len(design.inputs)} inputs, {len(design.all_rules())} rules, "
            f"{len(design.state)} state rows, {len(design.tests)} tests"]
     # a gap that leaves the rules runnable (a feedback not written) does not hold the tests back
@@ -594,6 +599,8 @@ def main() -> int:
     else:
         out.append("the tests did not run: the rules, state, inputs or tests have the problems below")
     out += [f"{path}: {what}" for path, what in design.problems]
+    if unchecked:
+        out.append(f"skipped: reference.example is not checked: {unchecked}")
     n = len(design.problems)
     if n:
         out.append(f"design: {n} finding{'s' if n != 1 else ''}; fix each at its path and run this again")
@@ -607,6 +614,7 @@ def main() -> int:
         later = "nothing is left for later" if whole else "left for later: " + "; ".join(design.later)
         out.append(f"ok: design complete; {len(design.tests)} tests pass in the prototype, {said}. Request: "
                    f"\"{brief(design.request)}\"; {later}."
+                   + (" reference.example is not checked (the skipped line above)." if unchecked else "")
                    + ("" if whole else " When you report, name what is left for later.")
                    + " Next, build the game, one event per rule with the rule's id in the comment above it, then play "
                    f"the same tests in the editor: "

@@ -129,12 +129,12 @@ def test_check_sounds_passes_a_project_without_audio_and_caps_its_output(project
     assert out.splitlines()[-1].startswith("13 findings: 6 files measured"), out
 
 
-def test_check_sounds_without_ffmpeg_measures_nothing_and_passes(project):
+def test_check_sounds_without_ffmpeg_measures_nothing_and_does_not_pass(project):
     env = {k: v for k, v in os.environ.items() if k not in ("CONSTRUCT3_RAG", "PATH")}
     env.update(PATH="", PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_OFFLINE="1")
     p = subprocess.run([sys.executable, f"{INSTALLED}/scripts/check_sounds.py", "--rag", str(Path(__file__).parents[1])],
                        cwd=project, env=env, capture_output=True, text=True, encoding="utf-8", timeout=60)
-    assert p.returncode == 0, p.stdout + p.stderr
+    assert p.returncode == 3, p.stdout + p.stderr
     lines = p.stdout.splitlines()
     assert lines[0].startswith("ffmpeg and ffprobe are not on PATH: install ffmpeg (")
     assert lines[-1] == "nothing measured: no ffmpeg"

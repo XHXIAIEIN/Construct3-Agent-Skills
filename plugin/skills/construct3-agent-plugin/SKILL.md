@@ -132,7 +132,8 @@ everything.
 
 In the hand-over, name the last of these steps that passed: checked,
 reviewed, opened, previewed, played or looked. Then say what that step
-leaves untested. After a check or a review, the game has not run: `ok:` is
+leaves untested. Exit code 3 or a `skipped:` line is a check that did not
+run, not a pass. After a check or a review, the game has not run: `ok:` is
 about the files, not the game, because the checker cannot run the events.
 A project handed over as a file is packed after the last check, because
 `pack_project.py` refuses files that the check has not passed.

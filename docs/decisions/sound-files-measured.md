@@ -33,7 +33,8 @@ puts the file inside its window (`tests/test_skill_check_sounds.py`).
   the scripts do not carry, and a second implementation of BS.1770.
 - Measure with ffmpeg's filters and parse what they print: one dependency
   the preview recording already uses, nothing to carry, and the measures
-  are the standard's. Without ffmpeg nothing is measured.
+  are the standard's. Without ffmpeg nothing is measured, and the run
+  exits 3 (`not-checked-is-not-a-pass.md`).
 - Know a file's role by a name prefix: `sound.md` names files after their
   moments, so a prefix would be a new convention the examples do not
   follow.
