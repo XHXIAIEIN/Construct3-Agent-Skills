@@ -6,6 +6,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A Bundled Addon Is Installed Only on the User's Word](bundled-addon-consent.md) — 2026-10-22
 - [An Export Replaces Only the Folders It Recorded](export-folder-record.md) — 2026-10-22
 - [The Event Sheet Guides Live in Construct3-Cookbook](guides-in-cookbook.md) — 2026-10-21
+- [The Check Loop Stays Inside the First 5000 Tokens of SKILL.md](skill-body-budget.md) — 2026-10-21
 - [--attach Names the Browser; the Script Reads No Browser Folder of the User's](attach-names-the-browser.md) — 2026-10-16
 - [The Type the Editor Records for a Listed File](file-types-in-project-c3proj.md) — 2026-10-16
 - [An Entry of the Lookup Ends With Its Pitfalls File and the Built-In Preferred to Its Addon](lookup-pointers.md) — 2026-10-16
@@ -14,7 +15,6 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [The Plugin's `/` Menu Lists Each Script; the Model Routes Through One Skill](plugin-script-menu.md) — 2026-10-16
 - [One Run at a Time Holds a Browser Profile](profile-lock.md) — 2026-10-16
 - [A Map of the Sheets: Which Layouts Run Each, and What It Holds](sheet-map.md) — 2026-10-16
-- [The Check Loop Stays Inside the First 5000 Tokens of SKILL.md](skill-body-budget.md) — 2026-10-16
 - [Sound Files Are Measured, and Placeholders Pass the Measure](sound-files-measured.md) — 2026-10-16
 - [The Hand-Entry Format Prompt Is Removed](remove-event-sheet-assistant.md) — 2026-10-15
 - [A Game Project's Long Documents Are Read in Parts](long-docs-in-parts.md) — 2026-10-14
