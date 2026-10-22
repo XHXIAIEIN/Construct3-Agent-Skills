@@ -89,7 +89,7 @@ If the skill runs from a Git clone of GitHub, the checker reads the plugin versi
 ```
 plugin/                 The plugin: the skill and the / menu rows under skills/, the manifest, README and icon, and the built data/
 skills-dev/             The skill's evals and the guide to changing the skill
-scripts/                build_plugin.py (refreshes plugin/data/), bootstrap.py, output_diff.py, measure_examples.py
+scripts/                build_plugin.py (refreshes plugin/data/), bootstrap.py, output_diff.py, measure_examples.py, measure_timing.py
 tests/                  The pytest suite
 docs/                   The decision records and the audit
 .claude-plugin/         The marketplace manifest for Claude Code, which names plugin/

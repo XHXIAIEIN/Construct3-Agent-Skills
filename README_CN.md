@@ -89,7 +89,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 ```
 plugin/                 plugin 本身：skills/ 下是 skill 和 / 菜单的条目，还有清单、README、图标，以及构建出的 data/
 skills-dev/             skill 的 evals 和改 skill 的指南
-scripts/                build_plugin.py（刷新 plugin/data/）、bootstrap.py、output_diff.py、measure_examples.py
+scripts/                build_plugin.py（刷新 plugin/data/）、bootstrap.py、output_diff.py、measure_examples.py、measure_timing.py
 tests/                  pytest 测试
 docs/                   决策记录和审查
 .claude-plugin/         给 Claude Code 的 marketplace 清单，指向 plugin/
