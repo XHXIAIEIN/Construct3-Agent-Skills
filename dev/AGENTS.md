@@ -13,7 +13,7 @@ per script and never load on their own (`docs/decisions/plugin-script-menu.md`).
 
 This folder holds what the skill's maintainers need and the plugin does not
 ship: this guide, `evals/`, which tests the skill with agents, `tests/`, the
-pytest suite (`tests/AGENTS.md`), and `scripts/`, the data build and the
+pytest suite (`dev/tests/AGENTS.md`), and `scripts/`, the data build and the
 measurements (`scripts/AGENTS.md`). The
 plugin folder is held to Claude's directory limits
 (`docs/decisions/plugin-folder.md`), so a file the skill does not read at
@@ -226,7 +226,8 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | `evals.json` | The test cases: prompt, expected output, assertions a script can check, `held_out` on the cases kept out of tuning |
 | `make_fixtures.py` | One project per case and arm, outside the clone: the stand-in game, an official example or the empty project of `new_project.py`, with this skill from a worktree of the commit tested, the previous one or none |
 | `play_cases.py` | The plan of `scripts/preview_project.py` for each case whose request changes what the game does, and the runtime verdicts read from it; `play_cases.py CASE --project FOLDER` plays one |
-| `trace.py` | What a run did, from its transcript: every tool call, the ones it lost, its turns, tokens and seconds, and the route it took (the first script, how far the check chain got, help reads, refused plans, hand edits, the calls before the first edit, reads of the clone, the Cookbook pages read and the `lookup_ace.py` and `search_guides.py` pointers followed), `trace.json`, with the transcript kept beside it |
+| `trace.py` | What a run did, from its transcript: every tool call, the ones it lost, its turns, tokens and seconds, and the route it took (the first script, how far the check chain got, help reads, refused plans, hand edits, the calls before the first edit, reads of the clone, the Cookbook pages read and the `lookup_ace.py` and `search_guides.py` pointers followed, whether a passing check followed the last edit, and for each compaction what it kept of SKILL.md and what the run did after it), `trace.json`, with the transcript kept beside it |
+| `run_session.py` | A case with `turns` run as one `claude -p` session, `/compact` between the turns in an arm named with the word compact, and the case's `between` change written into the project before the second turn |
 | `token_share.py` | Where the tokens of one transcript or many went: the cost at the price ratios of each response's model shared out among the baseline, each script's output, the reads by file kind, the model's tool inputs and its output, the sum checked against the cost from usage; `--files` gives each transcript's first context |
 | `grade.py` | `grading.json` per run with the evidence and the level of each assertion, `benchmark.json` per iteration: mean and deviation per case and arm (`<arm>_2` is a second run of `<arm>`) of every cost and route column, the Cookbook columns among them, runs that passed everything with a 95% interval, the difference between arms, and the verdict of the iteration's `decision.json` |
 | `compare.py` | The within-task permutation test of one column between two arms over a `benchmark.json`: the test `grade.py` runs for the verdict |
@@ -264,6 +265,15 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
   nothing outside the project folder. Then read the commands its answer
   lists. If a run broke its arm, put the reason in its
   `void.txt`; `grade.py` does not score that run.
+- A case with `turns`, `keep-checking-after-compaction`, is not a
+  sub-agent run: `run_session.py <run folder>` runs its turns as one
+  `claude -p` session and writes `answer.md`, `timing.json` and
+  `outputs/session.json`, then prints the `trace.py` command for its
+  transcript. Lay it out with `--arms with_skill with_compact
+  with_claude_compact`: `with_skill` runs the turns without a compaction,
+  and `with_claude...` installs the skill under `.claude/skills`, where
+  Claude Code can call it through the Skill tool. Decide on
+  `checked_after_last_edit` (`docs/decisions/compaction-eval.md`).
 - The previous version of the skill is the baseline of a change to it. Its
   arm, `old_skill`, names a checkout of the previous commit as its clone
   (`--old-clone`), because an old copy pointed at this clone reports that it

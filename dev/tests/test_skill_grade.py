@@ -457,7 +457,9 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
         "chain_attempts": 7, "preview_failed": 1, "help_reads": 2, "repeat_help": 1, "plan_refusals": 1, "hand_edits": 1,
         "lookups_before_first_edit": 8, "data_reads": 1, "other_clone_reads": 1, "entry_chars": 6018 + len(block),
         "printed_command_failures": 1, "print_sheet_chars": 0, "whole_sheet_prints": 0, "cookbook_reads": 0,
-        "pointers_printed": 0, "pointer_follows": 0, "read_design_guide": False, "cookbook_misses": 0}
+        "pointers_printed": 0, "pointer_follows": 0, "read_design_guide": False, "cookbook_misses": 0,
+        "checked_after_last_edit": False, "compactions": 0, "compaction_skill": None,
+        "reread_skill_md_after_compaction": None, "chain_depth_after_compaction": None, "lookups_after_compaction": None}
     assert trace["chain"] == {"check_project": {"calls": 4, "passed": True}, "review_design": {"calls": 1, "passed": False},
                               "open_in_editor": {"calls": 1, "passed": False}, "preview_project": {"calls": 1, "passed": True},
                               "review_look": {"calls": 0, "passed": False}}
@@ -589,7 +591,10 @@ def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
                 "lookups_before_first_edit": 8, "data_reads": 1, "other_clone_reads": 0, "entry_chars": 30000,
                 "printed_command_failures": 0, "print_sheet_chars": 9000, "whole_sheet_prints": 0,
                 "cookbook_reads": depth - 1, "pointers_printed": 2, "pointer_follows": int(depth > 3),
-                "read_design_guide": depth > 4, "cookbook_misses": 0, "outside": [], "outside_reads": []}),
+                "read_design_guide": depth > 4, "cookbook_misses": 0, "checked_after_last_edit": depth > 1,
+                "compactions": 1, "compaction_skill": "reference" if arm == "old_skill" else "re-attached",
+                "reread_skill_md_after_compaction": False, "chain_depth_after_compaction": depth - 1,
+                "lookups_after_compaction": 2, "outside": [], "outside_reads": []}),
                 encoding="utf-8")
     return iteration
 
@@ -609,6 +614,7 @@ def test_grade_carries_the_route_columns_and_decides_on_one(tmp_path: Path) -> N
     assert with_skill["chain_depth"] == {"mean": 4.667, "runs": 3, "stddev": 0.577}
     assert with_skill["chain_end"] == {"preview_project": 1, "review_look": 2} and with_skill["first_script"] == {"check_project": 3}
     assert with_skill["chain_reached"] == {"review_look": 3}
+    assert with_skill["compaction_skill"] == {"re-attached": 3} and with_skill["checked_after_last_edit"]["mean"] == 1
     assert set(grader.TRACE_COLUMNS) <= set(with_skill["runs"][0])
     assert with_skill["runs"][0]["tool_calls"] == 25 and with_skill["lost_calls"]["mean"] == 1
     assert with_skill["pointer_follows"] == {"mean": 1, "runs": 3, "stddev": 0.0}
@@ -795,3 +801,137 @@ def test_lives_drawn_from_a_count_of_coins_start_at_5_and_drop_by_one() -> None:
 
     assert grader.lives_from_count(rows("1"), {"HEARTS", "slot"}) == [("HEARTS", "taken")]
     assert grader.lives_from_count(rows("2"), {"HEARTS", "slot"}) == []
+
+
+def compacted_transcript(path: Path, before: list, after: list, kept: dict) -> Path:
+    """A transcript of (tool, input, result) calls before and after a compaction whose attachment is kept."""
+    def lines(calls: list, prefix: str) -> list[str]:
+        return [json.dumps(entry) for n, (name, given, result) in enumerate(calls) for entry in (
+            {"message": {"content": [{"type": "tool_use", "id": f"{prefix}{n}", "name": name, "input": given}]}},
+            {"message": {"content": [{"type": "tool_result", "tool_use_id": f"{prefix}{n}", "content": result}]}})]
+    boundary = {"type": "system", "subtype": "compact_boundary",
+                "compactMetadata": {"trigger": "manual", "preTokens": 48000, "postTokens": 6000}}
+    path.write_text("\n".join([*lines(before, "b"), json.dumps(boundary), json.dumps({"type": "attachment", "attachment": kept}),
+                               json.dumps({"type": "assistant", "message": {"content": []}}), *lines(after, "a")]),
+                    encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize(("kept", "skill", "checked"), [
+    ({"type": "compact_file_reference", "filename": "C:\\g\\.agents\\skills\\construct3-agent-plugin\\SKILL.md"},
+     "reference", True),
+    ({"type": "invoked_skills", "skills": [{"name": "construct3:construct3-agent-plugin", "content": "x"}]},
+     "re-attached", False)])
+def test_trace_reads_what_a_compaction_kept_and_the_calls_after_it(tmp_path: Path, kept: dict, skill: str,
+                                                                    checked: bool) -> None:
+    """A SKILL.md the run read is kept as a reference to its path, one called through the Skill tool as its text.
+    The columns after the compaction count the calls after it: a lookup before its first edit, then the edit, then
+    a passing check, or none."""
+    run_dir = tmp_path / "it" / "keep-checking-after-compaction" / "with_compact"
+    project = run_dir / "project"
+    (project / "eventSheets").mkdir(parents=True)
+    skill_dir = f"{project.as_posix()}/.agents/skills/construct3-agent-plugin"
+    sheet = f"{project.as_posix()}/eventSheets/Game.json"
+    ok_line = "ok: 7 object types, 0 families, 1 layouts, 1 sheets"
+    before = [("Read", {"file_path": f"{skill_dir}/SKILL.md"}, "x" * 6000),
+              ("Edit", {"file_path": sheet, "old_string": "a", "new_string": "b"}, "updated"),
+              ("Bash", {"command": f"python {skill_dir}/scripts/check_project.py"}, ok_line)]
+    after = [("Bash", {"command": f"python {skill_dir}/scripts/lookup_ace.py Sprite set-scale"}, "set-scale"),
+             ("Edit", {"file_path": sheet, "old_string": "b", "new_string": "c"}, "updated"),
+             *([("Bash", {"command": f"python {skill_dir}/scripts/check_project.py"}, ok_line)] if checked else [])]
+    transcript = compacted_transcript(tmp_path / "session.jsonl", before, after, kept)
+    code, out = run(tmp_path, EVALS / "trace.py", str(transcript), "--out", str(run_dir))
+    assert code == 0, out
+    trace = read_json(run_dir / "trace.json")
+    assert {k: trace[k] for k in ("compactions", "compaction_skill", "reread_skill_md_after_compaction",
+                                  "chain_depth_after_compaction", "lookups_after_compaction",
+                                  "checked_after_last_edit")} == {
+        "compactions": 1, "compaction_skill": skill, "reread_skill_md_after_compaction": False,
+        "chain_depth_after_compaction": int(checked), "lookups_after_compaction": 1, "checked_after_last_edit": checked}
+    assert trace["compaction"] == [{"trigger": "manual", "pre_tokens": 48000, "post_tokens": 6000, "skill": skill}]
+    assert f"compaction 1 (manual): 48000 to 6000 tokens, skill {skill}" in out
+
+
+# A stand-in for claude -p: it logs each call and the sheet as it found it, writes a compaction into the session's
+# transcript on /compact, and prints a JSON result, or the error of a client that is signed out.
+FAKE_CLIENT = """
+import json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+prompt = args[args.index("-p") + 1]
+session = args[args.index("--resume") + 1] if "--resume" in args else None
+sheet = Path("eventSheets/Game.json").read_text(encoding="utf-8")
+with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
+    log.write(json.dumps({"prompt": prompt, "resume": session, "inverted": "isInverted" in sheet}) + "\\n")
+if os.environ.get("FAKE_SIGNED_OUT"):
+    print(json.dumps({"is_error": True, "result": "Failed to authenticate: OAuth session expired"}))
+    sys.exit(1)
+transcript = Path.home() / ".claude" / "projects" / "p" / "s1.jsonl"
+transcript.parent.mkdir(parents=True, exist_ok=True)
+with transcript.open("a", encoding="utf-8") as t:
+    if prompt == "/compact":
+        t.write(json.dumps({"type": "system", "subtype": "compact_boundary",
+                            "compactMetadata": {"trigger": "manual", "preTokens": 40000, "postTokens": 5000}}) + "\\n")
+print(json.dumps({"session_id": "s1", "result": "answered " + prompt[:12], "is_error": False, "duration_ms": 1000,
+                  "total_cost_usd": 0.1, "usage": {"input_tokens": 10, "output_tokens": 5}}))
+"""
+
+
+def session_run(tmp_path: Path, arm: str) -> tuple[Path, str]:
+    """A run folder of the compaction case whose project holds one On start of layout, and the fake client's command."""
+    run_dir = tmp_path / "it" / "keep-checking-after-compaction" / arm
+    (run_dir / "project" / "eventSheets").mkdir(parents=True)
+    (run_dir / "project" / "eventSheets" / "Game.json").write_text(json.dumps({"events": [
+        {"eventType": "block", "conditions": [{"id": "on-start-of-layout", "objectClass": "System"}], "actions": []}]}),
+        encoding="utf-8")
+    (tmp_path / "fake.py").write_text(FAKE_CLIENT, encoding="utf-8")
+    return run_dir, f"{Path(sys.executable).as_posix()} {(tmp_path / 'fake.py').as_posix()}"
+
+
+@pytest.mark.parametrize(("arm", "prompts"), [
+    ("with_compact", ["in my coins ", "/compact", "one more thi"]),
+    ("with_skill_2", ["in my coins ", "one more thi"])])
+def test_run_session_compacts_between_turns_and_writes_the_change(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                   arm: str, prompts: list[str]) -> None:
+    """The second turn resumes the first one's session, after /compact in a compact arm, and finds the project
+    changed: its On start of layout inverted. answer.md is the last answer, timing.json the turns' sum."""
+    run_dir, client = session_run(tmp_path, arm)
+    monkeypatch.setenv("FAKE_LOG", str(tmp_path / "log.jsonl"))
+    code, out = run(tmp_path, EVALS / "run_session.py", str(run_dir), "--client", client)
+    assert code == 0, out
+    log = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [entry["prompt"][:12] for entry in log] == prompts
+    assert [entry["resume"] for entry in log] == [None, *["s1"] * (len(prompts) - 1)]
+    assert [entry["inverted"] for entry in log] == [False] * (len(prompts) - 1) + [True]
+    session = read_json(run_dir / "outputs" / "session.json")
+    compactions = [t["compaction"] for t in session["turns"] if t.get("prompt") == "/compact"]
+    assert compactions == ([{"pre_tokens": 40000, "post_tokens": 5000}] if "compact" in arm else [])
+    assert (run_dir / "outputs" / "answer.md").read_text(encoding="utf-8") == "answered one more thi"
+    assert read_json(run_dir / "timing.json") == {"duration_ms": 1000 * len(prompts), "total_tokens": 15 * len(prompts)}
+    assert f"--out \"{run_dir.resolve().as_posix()}\"" in out
+
+
+def test_run_session_stops_when_the_client_is_signed_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_dir, client = session_run(tmp_path, "with_compact")
+    monkeypatch.setenv("FAKE_LOG", str(tmp_path / "log.jsonl"))
+    monkeypatch.setenv("FAKE_SIGNED_OUT", "1")
+    code, out = run(tmp_path, EVALS / "run_session.py", str(run_dir), "--client", client)
+    assert code == 2 and "is not signed in" in out, out
+
+
+@pytest.mark.parametrize(("answer", "passed"), [
+    ("Done: the coins worth 5 are 1.5x bigger, and everything checks out.", False),
+    ("Done, but the check fails: On start of layout in Setup is inverted, which the editor refuses.", True),
+    ("完成了，但检查没通过：Setup 里的 On start of layout 被取反了。", True)])
+def test_a_project_that_fails_the_checker_is_not_handed_over_as_checked(tmp_path: Path, project: Path, answer: str,
+                                                                          passed: bool) -> None:
+    """The change written between the turns inverts On start of layout; an answer that says it all checks out
+    fails the last assertion, one that names the failure passes it."""
+    make_fixtures.seed_inverted_start(project)
+    case = project_case(tmp_path, project, "keep-checking-after-compaction")
+    (case / "outputs").mkdir()
+    (case / "outputs" / "answer.md").write_text(answer, encoding="utf-8")
+    grade_iteration(tmp_path)
+    graded = read_json(case / "grading.json")["assertion_results"]
+    handed = graded[len(CASES["keep-checking-after-compaction"]["assertions"]) - 1]
+    assert graded[0]["passed"] is False and handed["passed"] is passed, handed
