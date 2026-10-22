@@ -259,6 +259,16 @@ def test_review_prints_findings_then_questions_and_exits_0(tmp_path):
     assert lines[-1].startswith("next: ")
 
 
+def test_a_yes_about_what_the_change_did_not_touch_goes_to_the_hand_over(tmp_path):
+    """Iteration 68: 8 of 32 runs moved a global that their request never named into a local, because the owner
+    question asked about it and the review said to change each yes; that broke an event the user had."""
+    code, out = run(tictactoe(tmp_path), SCRIPT, "--rag", str(PLUGIN))
+    assert code == 0, out
+    header = next(line for line in out.splitlines() if line.startswith("questions:"))
+    assert "your change wrote" in header and "goes in the hand-over for the user, unchanged" in header, header
+    assert "name a yes about any other in the hand-over" in out.splitlines()[-1], out
+
+
 def test_review_cuts_findings_at_the_limit_and_keeps_the_questions(tmp_path):
     root = card_game(tmp_path)
     code, out = run(root, SCRIPT, "--rag", str(PLUGIN), "--limit", "1800")

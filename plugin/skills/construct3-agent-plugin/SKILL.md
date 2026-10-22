@@ -102,7 +102,9 @@ everything.
    names a finding that two changes left standing: do not change that place
    again, fix the other findings, and give that finding to the user as the
    line says before you go on. After `ok:`, answer every design question
-   from `print_sheet.py`, change with `edit_sheet.py`, then repeat step 2.
+   from `print_sheet.py`, change with `edit_sheet.py` what you answered yes
+   about the events and globals your change wrote, then repeat step 2. A yes
+   about one the task did not touch goes in the hand-over, not into an edit.
 5. Open and preview it in the editor: `python scripts/check_project.py` as
    the final complete file check, then
    `python scripts/open_in_editor.py --preview`. The browser runs headless,
