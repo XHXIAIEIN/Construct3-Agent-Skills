@@ -11,12 +11,17 @@ boundary, the count of each part, and the ratio of the rise to the fall.
 
 The ratio separates the two kinds of effect that the page's table holds:
 
-  an impact   rise : fall of 1.2 to 2.0
+  an impact   rise : fall of 1.0 to 2.0
   a charge    rise : fall of 4.4 to 5.4
 
 A ratio between the rows is not an error; the page's sample holds no
 effect there. The script names it as such, because the shape is then one
 the page does not cover.
+
+An event that ends at its peak has no fall inside it: the effect holds, or
+the recording ends before it falls. A ratio there would be the rise over a
+forced 1, which is not a ratio of two parts, so the script names the effect
+an ambient field and says which of the two readings it cannot tell apart.
 
 --from leaves out a title card. A reel that opens on a white card shows a
 brightness jump at the cut, and a measure that starts at the card takes
@@ -160,11 +165,18 @@ def diff(prev: bytes | None, grey: bytes) -> float:
 
 
 def events(rows: list[dict], floor: float) -> list[tuple[int, int]]:
-    """The runs of frames whose change is over the floor, merged across short gaps."""
+    """The runs of frames whose change is at or over the floor, merged across short gaps.
+
+    A frame at the floor counts. The floor is the 60th percentile of every
+    frame's change, and a slow ramp makes many frames whose change is the same
+    size, so that size is the floor. A strict test would drop every one of
+    them and lose the first frames of a charge or an ambient field, which moves
+    the baseline into the rise and shortens the fall as well.
+    """
     spans: list[list[int]] = []
     start = None
     for i, r in enumerate(rows):
-        if r["mo"] > floor:
+        if r["mo"] >= floor:
             if start is None:
                 start = i
         elif start is not None:
@@ -178,7 +190,26 @@ def events(rows: list[dict], floor: float) -> list[tuple[int, int]]:
             merged[-1][1] = e
         else:
             merged.append([s, e])
-    return [(s, e) for s, e in merged if e - s >= 4]
+    return [(rise_start(rows, s), e) for s, e in merged if e - s >= 4]
+
+
+def rise_start(rows: list[dict], a: int, cap: int = 30) -> int:
+    """The frame where the rise begins, walked back from the detected start.
+
+    A rise that starts in the dark changes few bits a frame, so its first
+    frames can fall under the floor and be left out: the baseline then takes
+    them for the background, which lifts it into the rise and shortens the
+    fall as well. Those frames are still dimmer than the frame after them and
+    brighter than the plateau before them, so the walk stops at the plateau.
+    """
+    steps = 0
+    while a >= 2 and steps < cap:
+        before, before_that = rows[a - 1]["lum"], rows[a - 2]["lum"]
+        if not (before < rows[a]["lum"] and before > before_that):
+            break
+        a -= 1
+        steps += 1
+    return a
 
 
 def parts(rows: list[dict], a: int, b: int) -> dict:
@@ -198,7 +229,7 @@ def parts(rows: list[dict], a: int, b: int) -> dict:
     pk = lums.index(top)
     if gain <= 1e-6:
         return {"frames": len(seg), "base": base, "top": top, "rise": 0, "peak": 0,
-                "fall": 0, "tail": 0, "ratio": 0.0, "flat": True, "peak_at": pk}
+                "fall": 0, "tail": 0, "ratio": 0.0, "flat": True, "hold": False, "peak_at": pk}
     # The peak part ends where the brightness has lost 8 % of the gain.
     peak_end = pk
     while peak_end + 1 < len(lums) and lums[peak_end + 1] >= base + gain * 0.92:
@@ -208,21 +239,35 @@ def parts(rows: list[dict], a: int, b: int) -> dict:
     fall_end = pk
     while fall_end + 1 < len(lums) and lums[fall_end + 1] >= half:
         fall_end += 1
+    # An event that ends on its peak has no fall inside it: the effect holds,
+    # or the recording stops before it falls. There is nothing to divide the
+    # rise by, so the ratio stays 0 rather than becoming the rise over 1.
+    hold = fall_end == pk and pk == len(lums) - 1
     # The tail ends where the brightness is back within 5 % of the gain.
     tail_end = fall_end
     while tail_end + 1 < len(lums) and lums[tail_end + 1] >= base + gain * 0.05:
         tail_end += 1
-    fall = max(1, fall_end - pk)
+    fall = 0 if hold else max(1, fall_end - pk)
     return {"frames": len(seg), "base": base, "top": top, "rise": pk,
             "peak": max(1, peak_end - pk + 1), "fall": fall,
-            "tail": max(0, tail_end - fall_end), "ratio": pk / fall,
-            "flat": False, "peak_at": pk}
+            "tail": 0 if hold else max(0, tail_end - fall_end),
+            "ratio": 0.0 if hold else pk / fall,
+            "flat": False, "hold": hold, "peak_at": pk}
 
 
-def kind(ratio: float, flat: bool) -> tuple[str, str]:
+def kind(ratio: float, flat: bool, hold: bool = False, rise: int = 1) -> tuple[str, str]:
     """The kind of effect a ratio names, and a finding when the page has no row for it."""
     if flat:
         return "ambient", ""
+    if hold:
+        return "ambient", ("the event ends at its peak, so it has no fall to count: either the "
+                           "effect holds, which vfx-timing.md builds as a state with its own on "
+                           "and off, or the recording stops before the effect falls; record past "
+                           "the end of the effect to tell the two apart")
+    if rise <= 0:
+        return "no rise", ("the effect is at its brightest in its first frame and only fades, so "
+                           "there is no rise to count; vfx-timing.md starts the measure after a "
+                           "title card, whose cut reads the same way")
     if IMPACT[0] <= ratio <= IMPACT[1]:
         return "an impact", ""
     if CHARGE[0] <= ratio <= CHARGE[1]:
@@ -301,11 +346,12 @@ def main(argv: list[str]) -> int:
         return 0
     for a, b in found:
         p = parts(rows, a, b)
-        name, finding = kind(p["ratio"], p["flat"])
+        name, finding = kind(p["ratio"], p["flat"], p["hold"], p["rise"])
+        ratio_text = "  -  " if p["hold"] else f"{p['ratio']:.2f}"
         lines.append(
             f"{rows[a]['ms']:8.1f}-{rows[b]['ms']:8.1f} ms  {p['frames']:3d} frames  "
             f"rise {p['rise']:2d}  peak {p['peak']:2d}  fall {p['fall']:2d}  tail {p['tail']:2d}  "
-            f"rise:fall {p['ratio']:.2f}  {name}")
+            f"rise:fall {ratio_text}  {name}")
         if finding:
             findings.append(f"event at {rows[a]['ms']:.1f} ms: {finding}")
     out = lines + findings

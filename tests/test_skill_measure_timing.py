@@ -37,6 +37,12 @@ def run(*args: str) -> tuple[int, str]:
     return p.returncode, p.stdout + p.stderr
 
 
+def ramp(start: int, end: int, steps: int) -> list[int]:
+    """`steps` values from start to end, both ends kept, no repeats."""
+    span = end - start
+    return [round(start + span * i / (steps - 1)) for i in range(steps)]
+
+
 # The effect's first frame is 140 and its brightest is 255, seven frames
 # later. Its fall reaches half of the gain (191) on its sixth frame, then a
 # tail runs back to the base.
@@ -63,6 +69,44 @@ def test_a_flat_video_has_no_event(tmp_path):
     code, text = run(str(video))
     assert "no event" in text, text
     assert code == 0, text
+
+
+# A charge: 28 frames of small steps, then a fall of 6. The steps are the size
+# the event floor sits on, and a strict test at the floor drops the first two
+# of them, which moves the baseline into the rise and shortens the fall too.
+CHARGE = ([128] * 10 + ramp(136, 255, 29)
+          + [255, 245, 225, 210, 200, 192, 185, 160, 145, 138, 132] + [128] * 20)
+
+
+@NEEDS_FFMPEG
+def test_a_slow_rise_keeps_its_first_frames(tmp_path):
+    video = tmp_path / "charge.mp4"
+    synth(video, CHARGE)
+    code, text = run(str(video))
+    assert "a charge" in text, text
+    assert "rise 28" in text, text
+    assert "fall  6" in text, text
+
+
+@NEEDS_FFMPEG
+def test_an_effect_that_holds_is_an_ambient_field_without_a_ratio(tmp_path):
+    """A rise of 90 that then holds: the event ends at its peak, so there is no
+    fall to divide the rise by, and a ratio would be the rise over a forced 1."""
+    video = tmp_path / "hold.mp4"
+    synth(video, [128] * 10 + ramp(130, 255, 91) + [255] * 40 + [128] * 20)
+    code, text = run(str(video))
+    assert "ambient" in text, text
+    assert "rise:fall   -" in text, text
+    assert code == 1, text
+
+
+@NEEDS_FFMPEG
+def test_a_fade_with_no_rise_says_so(tmp_path):
+    video = tmp_path / "fade.mp4"
+    synth(video, [128] * 10 + [255] * 6 + ramp(250, 128, 12) + [128] * 20)
+    code, text = run(str(video))
+    assert "no rise" in text, text
+    assert code == 1, text
 
 
 def test_a_video_that_is_not_there_is_a_finding(tmp_path):
@@ -93,3 +137,5 @@ def test_the_ratio_rows_are_the_ones_the_page_states():
     assert mt.kind(3.0, False)[0] == "unusual"
     assert mt.kind(0.8, False)[0] == "unusual"
     assert mt.kind(0.0, True)[0] == "ambient"
+    assert mt.kind(0.0, False, True)[0] == "ambient"        # an event that ends at its peak
+    assert mt.kind(0.0, False, False, 0)[0] == "no rise"   # a fade with no rise
