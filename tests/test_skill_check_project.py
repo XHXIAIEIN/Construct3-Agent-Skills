@@ -19,24 +19,17 @@ from tests.skill_helpers import (
 
 
 # --- what the editor reads as it opens a project --------------------------------------------------
-def test_a_passing_check_ends_with_the_command_that_opens_the_project(built):
+def test_a_passing_check_ends_with_the_command_that_checks_the_rest(built, monkeypatch):
+    """The ok: line names verify_change.py, which goes on to the review, the editor and the plays; under
+    verify_change.py itself it names no next step."""
     code, out = check(built)
-    assert code == 0 and out.splitlines()[-1].endswith(f"python {INSTALLED}/scripts/open_in_editor.py --preview"), out
+    assert code == 0 and "next, run python .agents/skills/construct3-agent-plugin/scripts/verify_change.py, "         "which goes on" in out.splitlines()[-1], out
     code, out = run(built.parent, SKILL / "scripts" / "check_project.py", "--rag", str(PLUGIN), "--project", str(built))
-    assert code == 0 and out.splitlines()[-1].endswith(
-        f"open_in_editor.py --project {built.resolve().as_posix()} --preview"), out
-    assert "play_design.py" not in out
-
-
-def test_a_passing_check_of_a_designed_game_ends_with_its_tests(project):
-    (project / "tools" / "design.json").write_text("{}", encoding="utf-8")
-    code, out = check(project)
-    assert code == 0 and out.splitlines()[-1].endswith(
-        f"--preview, then play the design's tests in the editor: "
-        f"python {INSTALLED}/scripts/play_design.py tools/design.json"), out
-    code, out = run(project.parent, SKILL / "scripts" / "check_project.py", "--rag", str(PLUGIN), "--project", str(project))
-    assert code == 0 and out.splitlines()[-1].endswith(
-        f"play_design.py --project {project.resolve().as_posix()} game/tools/design.json"), out
+    assert code == 0 and f"verify_change.py --project {built.resolve().as_posix()}, which" in out.splitlines()[-1], out
+    assert "open_in_editor.py" not in out and "play_design.py" not in out
+    monkeypatch.setenv("CONSTRUCT3_RAG_IN_VERIFY", "1")
+    code, out = check(built)
+    assert code == 0 and out.splitlines()[-1].endswith(" custom actions") and "next" not in out.splitlines()[-1], out
 
 
 def test_checker_prints_the_findings_that_fit_and_counts_the_rest(project):

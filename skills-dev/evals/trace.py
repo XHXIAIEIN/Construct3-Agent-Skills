@@ -48,7 +48,9 @@ calls and their results:
   chain_depth is the position of the deepest step that passed (0 to 5),
   chain_end its name, chain_reached the deepest step called whether it
   passed or not, chain_attempts the calls of chain scripts, and chain the
-  calls and the outcome of each step.
+  calls and the outcome of each step. A verify_change.py run counts as a
+  call of each step it printed a line for, passed when the line says
+  passed; its previewed line is open_in_editor's.
 - preview_failed: script calls whose result says that no preview window
   opened or that the editor did not load.
 - help_reads, repeat_help, help_reads_by_script: --help reads, the reads
@@ -496,6 +498,8 @@ def is_lost(c: dict) -> bool:
         return False
     if runs_script(c, "check_project") and CHECK_FINDINGS.search(c["result"]):
         return False
+    if runs_script(c, "verify_change") and VERIFY_STEP.search(c["result"]):
+        return False
     return not (runs_script(c, "check_design") and DESIGN_FINDINGS.search(c["result"]))
 
 
@@ -506,13 +510,31 @@ def step_passed(name: str, result: str) -> bool:
     return bool(m)
 
 
+# A step line of verify_change.py, and the chain step it ran: previewed is open_in_editor.py's pass.
+VERIFY_STEP = re.compile(r"^(checked|reviewed|opened|previewed|played|looked)\s+(passed|failed|asked|not run|skipped):",
+                         re.M)
+VERIFIED = {"checked": "check_project", "reviewed": "review_design", "previewed": "open_in_editor",
+            "played": "preview_project", "looked": "review_look"}
+
+
+def chain_steps(c: dict) -> dict[str, bool]:
+    """The chain steps the call ran and whether each passed: a chain script run for its work, or each step a
+    verify_change.py run printed a line for."""
+    out = {name: step_passed(name, c["result"]) for name in work_scripts(c) & set(CHAIN)}
+    if runs_script(c, "verify_change"):
+        for step, state in VERIFY_STEP.findall(c["result"]):
+            if step in VERIFIED:
+                out[VERIFIED[step]] = out.get(VERIFIED[step], False) or state == "passed"
+    return out
+
+
 def chain_of(calls: list[dict]) -> dict:
     """How far the check chain got: the calls and the outcome of each step, the deepest step that passed."""
     steps = {name: {"calls": 0, "passed": False} for name in CHAIN}
     for c in calls:
-        for name in work_scripts(c) & set(CHAIN):
+        for name, passed in chain_steps(c).items():
             steps[name]["calls"] += 1
-            steps[name]["passed"] |= step_passed(name, c["result"])
+            steps[name]["passed"] |= passed
     passed = [name for name in CHAIN if steps[name]["passed"]]
     reached = [name for name in CHAIN if steps[name]["calls"]]
     return {"chain_depth": CHAIN.index(passed[-1]) + 1 if passed else 0, "chain_end": passed[-1] if passed else None,
@@ -720,8 +742,7 @@ def after_compaction(calls: list[dict], compactions: list[dict], project: Path |
         out["lookups_after_compaction"] = sum(runs_script(c, "lookup_ace") for c in after[:first_edit])
     edited = [n for n, c in enumerate(calls) if edits(c, project)]
     if edited:
-        out["checked_after_last_edit"] = any(runs_script(c, "check_project") and step_passed("check_project", c["result"])
-                                             for c in calls[edited[-1] + 1:])
+        out["checked_after_last_edit"] = any(chain_steps(c).get("check_project") for c in calls[edited[-1] + 1:])
     return out
 
 

@@ -144,15 +144,14 @@ above. Then:
    Warnings do not fail the run; read them anyway, a generated project should
    have none. Then read the sheet once as events, `python
    scripts/print_sheet.py`, before anyone opens the editor.
-3. Follow steps 2 to 6 of SKILL.md, "Check after every change", from the
-   design review, `python scripts/review_design.py --check --style --limit 0`,
-   to a `python scripts/review_look.py` run with no finding and every answer
-   no. In step 5 a game with a design also plays its tests,
-   `python scripts/play_design.py tools/design.json`, until every test
+3. Run `python scripts/verify_change.py`, as SKILL.md's "Check after every
+   change" says, until it ends with `ok:`: the design review with `--style`,
+   the editor and its preview, the kept plays and the look. A game with a
+   design also plays its tests there, `tools/design.json`, until every test
    passes in the editor as it passed in the prototype. Fix what a step
    finds, a `failed` or a `runtime:` line included, in the generator, not
    with `edit_sheet.py` or in the JSON; then run the generator again and
-   repeat from the design review.
+   `verify_change.py` after it.
 4. Hand over: ask the user to open the folder (**Menu** > **Project** >
    **Open**, the local project folder option) and to preview, and say what
    to look at. When no tool of the session could open it, ask for the text

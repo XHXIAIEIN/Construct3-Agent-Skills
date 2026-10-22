@@ -45,8 +45,8 @@ from typing import NamedTuple
 import c3project as c3
 import pack_project as pp
 from c3project import (
-    LOWER, NUMBERED, RECORD, RESOURCE_FOLDERS, STRING_LITERAL, closest, describe, folder_items, open_command,
-    project_digest, script_command, shown_path, squash,
+    LOWER, NUMBERED, RECORD, RESOURCE_FOLDERS, STRING_LITERAL, closest, describe, folder_items,
+    project_digest, script_command, squash,
 )
 
 # Names. The editor passes every name through a filter when it opens the
@@ -77,7 +77,6 @@ GENERAL_TYPES = {".css": ("text/css",), ".csv": ("text/csv",), ".glb": ("applica
                  ".json": ("application/json",), ".png": ("image/png",), ".svg": ("image/svg+xml",),
                  ".ts": ("application/typescript",), ".txt": ("text/plain",), ".wasm": ("application/wasm",),
                  ".xml": ("text/xml",)}
-DESIGN = Path("tools") / "design.json"     # where references/designing-a-game.md writes the design
 # The fix loop stops after CAP changes that left one finding standing. The findings of the last run
 # are c3.RECORD in the project's .tmp/ (docs/decisions/fix-loop-cap.md).
 # CONSTRUCT3_RAG_NO_RECORD=1 keeps no record, for the evals that run the checker over many projects at once.
@@ -3705,14 +3704,10 @@ class Checker:
             line += "".join(f"; {clause}" for clause in copied_sizes(p, self.layouts))
             line += (f"; when you write or change a script, look up each API it calls: "
                      f"{script_command(p.root, 'lookup_script_api.py')} NAME")
-        line = (f"{line}; next, review the design of the sheets and act on what it prints, "
-                f"{script_command(p.root, 'review_design.py')}, then open and preview it in the editor, which also "
-                f"reads the expressions and runs the events: {open_command(p.root)}")
-        design = p.root / DESIGN
-        if design.is_file():
-            line += (f", then play the design's tests in the editor: "
-                     f"{script_command(p.root, 'play_design.py', ' ' + shown_path(design))}")
-        return line
+        if os.environ.get(c3.IN_VERIFY) == "1":     # verify_change.py says the next step itself
+            return line
+        return (f"{line}; next, run {script_command(p.root, 'verify_change.py')}, which goes on with the design "
+                f"review, the editor and its preview, the kept plays and the look, and says what to do at each")
 
 
 def digest(value) -> str:

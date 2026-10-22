@@ -1171,11 +1171,13 @@ def main() -> int:
         print(f"note: {c3.GENERATOR} generates this project, and its next run writes "
               f"{path.relative_to(project.root).as_posix()} over {'what this plan would write' if args.dry_run else 'this change'}: "
               f"make the change in the generator, then run python {c3.GENERATOR}")
+    # A plan is one step of the work, not its end: the line names the check of the change as a whole
+    then = "" if args.dry_run else f"; next, run {c3.script_command(project.root, 'verify_change.py')}"
     if found_after.errors:
         print(f"{len(found_after.errors)} problem(s) were in the project before this plan and still are: "
-              f"check_project.py lists them")
+              f"check_project.py lists them{then}")
     else:
-        print(after.ok_line(then_open=False))
+        print(after.ok_line(then_open=False) + then)
     if args.dry_run:
         print("dry run: nothing was written")
     return 0

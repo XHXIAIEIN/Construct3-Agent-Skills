@@ -390,6 +390,8 @@ def find_project(given: str | None) -> Path | None:
 # check_project.py counts changes against it (docs/decisions/fix-loop-cap.md), and pack_project.py
 # packs a folder project only against a passing one (docs/decisions/pack-after-check.md).
 RECORD = "check-project.json"
+# Set by verify_change.py for the scripts it runs: the checker's ok: line then names no next step.
+IN_VERIFY = "CONSTRUCT3_RAG_IN_VERIFY"
 # The folders whose files project.c3proj lists by name, one JSON file each. The editor reads only
 # what the project lists and ignores any other file there. scripts/ is left out of the digest and
 # of the unlisted-file check, since the editor keeps unlisted TypeScript copies and definitions in

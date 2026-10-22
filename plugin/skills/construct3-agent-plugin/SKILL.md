@@ -69,6 +69,7 @@ once before it is handed over.
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet as the editor words it, under its event numbers; `--map` the layouts that run each sheet, `--find NAME` the events that use a name, `--since COMMIT` what changed |
 | `scripts/print_layout.py [LAYOUT ...]` | Layers and instances in Z order with box, size and text, `on no object` for a label off its button |
 | `scripts/edit_sheet.py SHEET PLAN.json` | Every change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |
+| `scripts/verify_change.py` | Every check of a change in order, each run again only when the files changed; its last line is the one thing to do next. `--status` prints where the checks stand |
 | `scripts/check_project.py` | Every project file against the schemas and the editor's load rules; it passes when the last line starts with `ok:`. `--style` for a project the agent wrote, `--review` for one someone asks about |
 | `scripts/review_design.py` | `--check`: the full checker, then design findings and questions; read [references/design-review.md](references/design-review.md) before `--prepare` |
 | `scripts/open_in_editor.py` | Open the project in the Construct 3 editor: `opened`, or `failed` with the editor's message; `--preview` also runs the game for a few seconds and prints its errors, `--install-addon` installs a custom addon first. The first run takes up to 40 seconds |
@@ -90,54 +91,28 @@ everything.
 
 ## Check after every change
 
-1. Change a sheet with `edit_sheet.py`, edit another project file, or rerun
-   the generator.
-2. Run `python scripts/review_design.py --check --limit 0`, after a plan
-   that ended with `ok:` too. It runs the full checker and stops on failure;
-   `--sheets NAME` selects changed sheets.
-3. Fix every line it prints, all of them in one plan: each names its place,
-   `sheet Game event 15 action 2`, and says what to write where it can.
-   Warnings do not fail the run; a project an agent wrote should have none.
-4. Repeat until the checker prints `ok:`. If it prints `stop:` instead, it
-   names a finding that two changes left standing: do not change that place
-   again, fix the other findings, and give that finding to the user as the
-   line says before you go on. After `ok:`, answer every design question
-   from `print_sheet.py`, change with `edit_sheet.py` what you answered yes
-   about the events and globals your change wrote, then repeat step 2. A yes
-   about one the task did not touch goes in the hand-over, not into an edit.
-5. Open and preview it in the editor: `python scripts/check_project.py` as
-   the final complete file check, then
-   `python scripts/open_in_editor.py --preview`. The browser runs headless,
-   so the user sees no window and may think the editor never opened. Show
-   them the saved screenshot, `.tmp/shots/000-<project>.png`, with the
-   result every time the script runs. `opened` with `preview: ... no errors` passes, and step
-   6 follows. `failed` prints the editor's dialog, which names the place as
-   `Game, event 12, condition 1`: event 12 of sheet Game as `print_sheet.py`
-   numbers it. A `runtime:` line names it as `Event sheet 1, event 3, action
-   1`. Fix either as a finding and go back to step 2. The preview runs the
-   layout the editor opens on without input, so it catches what breaks on
-   start, not what a player does later. Check what a player does by
-   playing it: `python scripts/preview_project.py PLAN.json` with a plan
-   that does it and waits `until` the result holds.
-   If `tools/plans/` holds kept plans, run
-   `python scripts/preview_project.py --all` after every change. Read
-   [references/verifying-a-change.md](references/verifying-a-change.md)
-   before writing the plan, and
-   [references/editor-and-preview.md](references/editor-and-preview.md)
-   before a preview that starts on another layout or takes input from a
-   script.
-6. Once the preview passes, run `python scripts/review_look.py` and do what
-   it prints: fix every finding line, have its questions answered from the
-   screenshots as its last line says, then fix each yes and run it again. A
-   run with no finding and every answer no is the hand-over. A scene the
-   game reaches only in play is read the same way from a `shot` of a plan.
+After every change to the project, a plan of `edit_sheet.py`, a hand edit
+or a run of the generator, run `python scripts/verify_change.py` and do
+what its last line says. It runs the checks in order (the checker, the
+design review, the editor and its preview, the kept plays, the look),
+skips each one that passed on the files as they are, and stops at the
+first that finds something or asks you something. Once it opens the
+editor it takes minutes: give the command a timeout of 10 minutes.
 
-In the hand-over, name the last of these steps that passed: checked,
-reviewed, opened, previewed, played or looked. Then say what that step
-leaves untested. Exit code 3 or a `skipped:` line is a check that did not
-run, not a pass. After a check or a review, the game has not run: `ok:` is
-about the files, not the game, because the checker cannot run the events.
-A project handed over as a file is packed after the last check, because
+- A finding names its place, `sheet Game event 15 action 2`, and what to
+  write: fix every one in one plan, then run it again.
+- `stop:` names a finding that two changes left standing: do not change
+  that place again, fix the others, and give it to the user as the line
+  says.
+- Questions are yours to answer from `print_sheet.py`: change what you
+  answer yes about the events your change wrote, name any other yes in the
+  hand-over, then run it with `--answered`.
+
+Hand over on its `ok:` line, or with what `--status` prints: the last
+step that passed on these files and what it leaves untested. Exit code 3
+or a `skipped:` line is a check that did not run, not a pass. Show the
+user the editor screenshot it names; the browser runs headless. A project
+handed over as a file is packed after the last check, because
 `pack_project.py` refuses files that the check has not passed.
 
 Before you design an interaction, read
@@ -246,7 +221,8 @@ line the print shows for that event, so a number from an older print is
 refused. Nothing is written unless the whole plan holds: the sheet it makes
 is checked as `check_project.py` checks, and a problem the plan would add is
 printed under its operation with the file left as it was. A pass ends with
-the changed events under their new numbers and the checker's last line.
+the changed events under their new numbers, the checker's last line and
+the `verify_change.py` command to run next.
 `--dry-run` does all of that and writes nothing.
 
 ## Generate a whole project

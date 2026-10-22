@@ -1021,9 +1021,9 @@ def main() -> int:
           f"event{'' if named == 1 else 's'}")
     print("next: fix every finding line in one plan of edit_sheet.py, each names the event and what to write; "
           "answer every question, change what you answered yes about the events and globals your change wrote, "
-          "and name a yes about any other in the hand-over; then run check_project.py, and this review "
-          "again until it prints no finding. A finding the user asked for on purpose stays, and the hand-over "
-          "says why.")
+          f"and name a yes about any other in the hand-over; then run {c3.script_command(project.root, 'verify_change.py')}, "
+          "which runs the checker and this review again and goes on once it prints no finding. A finding the user "
+          "asked for on purpose stays, and the hand-over says why.")
     return 0
 
 
