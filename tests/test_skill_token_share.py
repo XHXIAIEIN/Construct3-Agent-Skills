@@ -1,4 +1,4 @@
-"""evals/token_share.py: a transcript's cost shared out among what filled its context, at Opus price ratios."""
+"""evals/token_share.py: a transcript's cost shared out among what filled its context, at its model's price ratios."""
 import json
 import subprocess
 import sys
@@ -83,6 +83,27 @@ def test_each_item_pays_its_write_and_a_read_per_later_response(transcript: Path
     assert cost["output:visible"] == (40 + 20 + 10 + 30) * 5
     assert not any(c.startswith("attachment:") for c in cost)
     assert share.per_file[0]["first_context"] == 10003 and share.per_file[0]["largest_context"] == 11505
+
+
+@pytest.mark.parametrize("model, price", [
+    ("claude-opus-5-5", 0.05), ("claude-sonnet-5-5-20261001", 0.05), ("claude-fable-5-1", 0.025),
+    ("claude-opus-5", 0.1), ("claude-haiku-5-5", 0.1), ("qwen3.5:9b-64k", 0.1), ("", 0.1),
+])
+def test_a_read_costs_what_the_pricing_table_gives_its_model(model: str, price: float) -> None:
+    assert token_share.read_price(model) == price
+
+
+def test_an_opus_5_5_transcript_pays_its_reads_at_0_05(tmp_path: Path) -> None:
+    """The same responses from Opus 5.5: every read at 0.05, and the shares still sum to the exact cost."""
+    path = tmp_path / "opus.jsonl"
+    entries = [{**e, "message": {**e["message"], "model": "claude-opus-5-5"}} if e["type"] == "assistant" else e
+               for e in TRANSCRIPT]
+    path.write_text("\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8")
+    share = token_share.share_of(path)
+    reads = 9000 + 10003 + 2000
+    assert share.exact == pytest.approx(EXACT - reads * 0.05)
+    assert share.attributed == pytest.approx(share.exact)
+    assert share.cost["cache-rewrite"] == pytest.approx(10405 * (REWRITE_PRICE - 0.05))
 
 
 def test_the_estimate_splits_a_growth_but_never_changes_it() -> None:

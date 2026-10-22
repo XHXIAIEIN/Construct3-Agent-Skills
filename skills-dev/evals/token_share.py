@@ -21,8 +21,11 @@ starts a new one: its whole size is the baseline (system prompt, tool
 definitions, skill and agent lists, the first messages) or, after a
 compaction, the summary.
 
-Units are input-token equivalents at Opus price ratios: uncached input 1,
-cache write 1.25 (5 minutes) or 2 (1 hour), cache read 0.1, output 5. Context
+Units are input-token equivalents at the price ratios of the model that gave
+the response: uncached input 1, cache write 1.25 (5 minutes) or 2 (1 hour),
+output 5, cache read 0.1, but 0.05 on Opus 5.5 and Sonnet 5.5 and 0.025 on
+Fable 5.1 and Mythos 5.1 (the pricing table of
+https://platform.claude.com/docs/en/build-with-claude/prompt-caching). Context
 written again although it was cached before, because the cache expired or
 broke, costs its items the read they would have cost and the premium over it
 goes to cache-rewrite. The shares add up to the cost computed from the usage
@@ -70,6 +73,8 @@ sys.path.insert(0, str(SCRIPTS))
 import c3project as c3  # noqa: E402
 
 INPUT, WRITE_5M, WRITE_1H, READ, OUT = 1.0, 1.25, 2.0, 0.1, 5.0
+CHEAPER_READS = (("claude-opus-5-5", 0.05), ("claude-sonnet-5-5", 0.05),     # a model id, maybe with a date after it
+                 ("claude-fable-5-1", 0.025), ("claude-mythos-5-1", 0.025))
 NEW_CONTEXT = 0.7            # a context under this share of the previous one starts a new context
 CALL_OVERHEAD = 20           # the tokens a tool_use block adds around its input
 NOT_SENT = {"prompt_snapshot", "deferred_tools_record", "credential_org", "command_permissions", "auto_mode",
@@ -234,6 +239,7 @@ class Response:
     thinking: int
     before: list[Item]
     own: list[Item] = field(default_factory=list)
+    read_price: float = READ
 
     @property
     def written(self) -> int:
@@ -249,7 +255,12 @@ class Response:
 
     @property
     def exact(self) -> float:
-        return self.write_cost + self.read * READ + self.out * OUT
+        return self.write_cost + self.read * self.read_price + self.out * OUT
+
+
+def read_price(model: str) -> float:
+    """A cache read against uncached input for this model: 0.1 unless the pricing table names it cheaper."""
+    return next((price for prefix, price in CHEAPER_READS if model.startswith(prefix)), READ)
 
 
 def response_of(message: dict, before: list[Item]) -> Response:
@@ -264,7 +275,7 @@ def response_of(message: dict, before: list[Item]) -> Response:
                     write_1h=hour, read=usage.get("cache_read_input_tokens", 0) or 0,
                     out=usage.get("output_tokens", 0) or 0,
                     thinking=(usage.get("output_tokens_details") or {}).get("thinking_tokens", 0) or 0,
-                    before=before)
+                    before=before, read_price=read_price(str(message.get("model") or "")))
 
 
 def responses_of(path: Path) -> list[Response]:
@@ -359,7 +370,7 @@ def share_of(path: Path) -> Share | None:
             close()
             # A prefix that other sessions share, the system prompt and the tools, is read from the cache, not written.
             base = Item("baseline" if previous is None else "compaction-summary", 0.0, tok=r.context,
-                        cost=r.write_cost + r.read * READ)
+                        cost=r.write_cost + r.read * r.read_price)
             live, live_tokens, rate = [base], float(r.context), 0.0
         else:
             growth = max(0, r.context - previous.context)
@@ -373,9 +384,9 @@ def share_of(path: Path) -> Share | None:
             old_read = r.read - new_read
             # Old items pay a read for what was read or rewritten; the rewrite's premium is cache-rewrite's.
             if live_tokens:
-                rate += (old_read + rewritten) * READ / live_tokens
-            share.cost["cache-rewrite"] += rewritten * (price - READ)
-            arrival = new_written * price + new_read * READ
+                rate += (old_read + rewritten) * r.read_price / live_tokens
+            share.cost["cache-rewrite"] += rewritten * (price - r.read_price)
+            arrival = new_written * price + new_read * r.read_price
             for it in added:
                 part = it.est / estimate
                 it.tok, it.cost, it.mark = growth * part, arrival * part, rate
