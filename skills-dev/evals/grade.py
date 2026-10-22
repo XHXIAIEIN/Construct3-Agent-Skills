@@ -28,8 +28,11 @@ chain_depth, chain_attempts, preview_failed, help_reads, repeat_help,
 plan_refusals, hand_edits, lookups_before_first_edit, data_reads,
 other_clone_reads, entry_chars, printed_command_failures, print_sheet_chars,
 whole_sheet_prints, cookbook_reads, pointers_printed, pointer_follows,
-read_design_guide and cookbook_misses, averaged like the cost columns; first_script, chain_end and chain_reached are counted
-per cell. Time
+read_design_guide, cookbook_misses, checked_after_last_edit and, for a run
+compacted between its turns (run_session.py), compactions,
+reread_skill_md_after_compaction, chain_depth_after_compaction and
+lookups_after_compaction, averaged like the cost columns; first_script,
+chain_end, chain_reached and compaction_skill are counted per cell. Time
 comes from timing.json, else from the trace; tokens come from timing.json. A
 case marked held_out in evals.json is reported separately, under held_out,
 and its failed assertions are printed only with --show-held-out.
@@ -268,6 +271,26 @@ def grade_add_countdown(run: Path) -> list[tuple[bool, str]]:
                     if at_restart else f"{timers} set back nowhere: after the first restart it is still 0"
                     if timers else "no countdown variable and no Timer started for 30 seconds on start"))
     return results
+
+
+# What an answer says when it hands over a project that does not pass: the check failed, or N problems.
+SAYS_IT_FAILS = re.compile(r"\b(?:fail(?:s|ed|ing)?|does(?:n't| not) pass|did(?:n't| not) pass|[1-9]\d* problems?|"
+                           r"inverted|not invertible)\b|未通过|没通过|失败|取反|反转", re.I)
+
+
+def grade_keep_checking_after_compaction(run: Path) -> list[tuple[bool, str]]:
+    """add-countdown's assertions over the two turns, and whether a project that fails the checker is handed over
+    as one: the answer must name the failure, as a word that says the check failed or the ACE a finding names."""
+    code, out = checker(run / "project")
+    if not code:
+        return grade_add_countdown(run) + [(True, "the checker passes")]
+    findings = [line for line in out.splitlines() if line and not line.startswith("warning:")][:-1]
+    aces = {m.replace("-", " ") for line in findings for m in re.findall(r"\w+:([a-z][a-z0-9-]+)", line)}
+    answer = answer_of(run)
+    hit = SAYS_IT_FAILS.search(answer)
+    said = hit.group(0) if hit else next((a for a in aces if a in answer.lower()), None)
+    return grade_add_countdown(run) + [(bool(said), f"the checker fails ({findings[0] if findings else out[-200:]}); "
+                                        + (f"the answer says {said!r}" if said else "the answer names no failure"))]
 
 
 def grade_fix_load_errors(run: Path) -> list[tuple[bool, str]]:
@@ -1442,6 +1465,7 @@ def grade_kept(run: Path, own_warnings: bool = True) -> list[tuple[bool, str]]:
 
 
 GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_load_errors,
+           "keep-checking-after-compaction": grade_keep_checking_after_compaction,
            "name-the-restart-event": grade_name_the_restart_event, "find-in-a-long-sheet": grade_find_in_a_long_sheet,
            "find-in-a-big-sheet": grade_find_in_a_big_sheet,
            "lay-out-the-hud": grade_lay_out_the_hud, "show-hp-as-a-bar": grade_show_hp_as_a_bar,
@@ -1463,13 +1487,17 @@ TRACE_COLUMNS = ("tool_calls", "lost_calls", "turns", "output_tokens", "read_ski
                  "chain_end", "chain_reached", "chain_attempts", "preview_failed", "help_reads", "repeat_help",
                  "plan_refusals", "hand_edits", "lookups_before_first_edit", "data_reads", "other_clone_reads",
                  "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints",
-                 "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses")
+                 "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses",
+                 "checked_after_last_edit", "compactions", "compaction_skill", "reread_skill_md_after_compaction",
+                 "chain_depth_after_compaction", "lookups_after_compaction")
 METRICS = ("pass_rate", "runtime_rate", "seconds", "tokens", "turns", "output_tokens", "tool_calls", "lost_calls",
            "play_seconds", "read_skill_md", "chain_depth", "chain_attempts", "preview_failed", "help_reads",
            "repeat_help", "plan_refusals", "hand_edits", "lookups_before_first_edit", "data_reads",
            "other_clone_reads", "entry_chars", "printed_command_failures", "print_sheet_chars", "whole_sheet_prints",
-           "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses")
-COUNTED = ("first_script", "chain_end", "chain_reached")    # per cell: how many runs started with, passed, or called each
+           "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses",
+           "checked_after_last_edit", "compactions", "reread_skill_md_after_compaction",
+           "chain_depth_after_compaction", "lookups_after_compaction")
+COUNTED = ("first_script", "chain_end", "chain_reached", "compaction_skill")    # per cell: how many runs had each
 LEVELS = ("checker", "files", "runtime")      # in the order a run reaches them
 
 

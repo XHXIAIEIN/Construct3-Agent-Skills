@@ -94,9 +94,23 @@ calls and their results:
   reported findings is not lost, so the fix loop a printed check starts
   does not count; a refused plan is lost and counts here as well as in
   plan_refusals.
+- checked_after_last_edit: a check_project.py call that passed came after
+  the last call that tried to change the project; null when nothing did.
 
-hand_edits, lookups_before_first_edit, the clone reads and the Cookbook
-columns need the run folder (--out or --root) with its project/; without it
+A compaction is a compact_boundary entry of the transcript. compaction lists
+each one: its trigger (auto or manual), the context before and after it,
+and what of SKILL.md the attachments after it carry: re-attached, the text
+Claude Code keeps of a skill called through the Skill tool; reference, a
+compact_file_reference that names the SKILL.md a Read put in the context,
+without its text; or none. The other columns read the calls after the last
+compaction and are null in a run without one: compactions, the count;
+compaction_skill, what the last one kept; reread_skill_md_after_compaction,
+SKILL.md reached the model again as read_skill_md counts it;
+chain_depth_after_compaction; and lookups_after_compaction, the
+lookup_ace.py runs before the first edit after it.
+
+hand_edits, lookups_before_first_edit, checked_after_last_edit,
+lookups_after_compaction, the clone reads and the Cookbook columns need the run folder (--out or --root) with its project/; without it
 they are null, and the Cookbook columns are null too for a run without a
 Cookbook clone.
 
@@ -150,21 +164,29 @@ def short(value: object, n: int) -> str:
     return text if len(text) <= n else f"{text[:n]} ...[{len(text)} chars]"
 
 
+def is_compaction(entry: dict) -> bool:
+    return entry.get("type") == "system" and entry.get("subtype") == "compact_boundary"
+
+
 def calls_of(path: Path) -> list[dict]:
-    """Tool calls in order, each with the size and the failure of its result. A tool_use whose id came before is the
-    same call written again (an api-request-blob entry repeats one), not a second call."""
-    calls, by_id = [], {}
+    """Tool calls in order, each with the size and the failure of its result, and segment, the compactions before
+    it. A tool_use whose id came before is the same call written again (an api-request-blob entry repeats one), not
+    a second call."""
+    calls, by_id, segment = [], {}, 0
     for line in path.read_text(encoding="utf-8").splitlines():
         try:
-            content = (json.loads(line).get("message") or {}).get("content")
+            entry = json.loads(line)
         except ValueError:
             continue
+        segment += is_compaction(entry)
+        content = (entry.get("message") or {}).get("content")
         for part in content if isinstance(content, list) else []:
             if part.get("type") == "tool_use" and part.get("id") not in by_id:
                 given = part.get("input", {})
                 what = given.get("command") or given.get("file_path") or given.get("pattern") or given.get("skill") or given
                 by_id[part["id"]] = {"tool": part.get("name"), "what": str(what), "chars": None, "failed": False,
-                                     "result": "", "loads_skill": loads_skill(part), "input": given}
+                                     "result": "", "loads_skill": loads_skill(part), "input": given,
+                                     "segment": segment}
                 calls.append(by_id[part["id"]])
             elif part.get("type") == "tool_result" and part.get("tool_use_id") in by_id:
                 body = part.get("content")
@@ -647,6 +669,62 @@ def whole_sheet(args: list[str]) -> bool:
     return unlimited and not {"--events", "--find", "--show", "--since"} & {w.split("=")[0] for w in words}
 
 
+def reaches_skill_md(c: dict) -> bool:
+    """The call put this skill's SKILL.md in front of the model, as read_skill_md counts it."""
+    return c["chars"] is not None and not c["failed"] and (c["loads_skill"] or (
+        c["tool"] in SHELLS and c["chars"] > SKILL_READ_CHARS and reads_skill_md(c["what"])))
+
+
+def compactions_of(path: Path) -> list[dict]:
+    """Each compaction of the transcript: its trigger, the context before and after it, and what of this skill's
+    SKILL.md the attachments after it carry, up to the next response: re-attached when an invoked_skills
+    attachment holds the skill's text, reference when a compact_file_reference names its SKILL.md, else none."""
+    found: list[dict] = []
+    looking = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if is_compaction(entry):
+            meta = entry.get("compactMetadata") or {}
+            found.append({"trigger": meta.get("trigger"), "pre_tokens": meta.get("preTokens"),
+                          "post_tokens": meta.get("postTokens"), "skill": "none"})
+            looking = True
+        elif looking and entry.get("type") == "assistant":
+            looking = False
+        elif looking and entry.get("type") == "attachment":
+            attachment = entry.get("attachment") or {}
+            if attachment.get("type") == "invoked_skills" and any(
+                    str(s.get("name", "")).split(":")[-1] == SKILL for s in attachment.get("skills") or []):
+                found[-1]["skill"] = "re-attached"
+            elif (attachment.get("type") == "compact_file_reference" and found[-1]["skill"] == "none"
+                  and str(attachment.get("filename", "")).replace("\\", "/").endswith(f"/{SKILL}/SKILL.md")):
+                found[-1]["skill"] = "reference"
+    return found
+
+
+def after_compaction(calls: list[dict], compactions: list[dict], project: Path | None) -> dict:
+    """What the run did after its last compaction, and whether a passing check followed its last edit. The
+    columns after a compaction are null without one; the edit columns are null without the project."""
+    last = len(compactions)
+    after = [c for c in calls if c["segment"] == last] if last else []
+    out = {"compactions": last, "compaction_skill": compactions[-1]["skill"] if last else None,
+           "reread_skill_md_after_compaction": any(map(reaches_skill_md, after)) if last else None,
+           "chain_depth_after_compaction": chain_of(after)["chain_depth"] if last else None,
+           "lookups_after_compaction": None, "checked_after_last_edit": None}
+    if not (project and project.is_dir()):
+        return out
+    if last:
+        first_edit = next((n for n, c in enumerate(after) if edits(c, project)), len(after))
+        out["lookups_after_compaction"] = sum(runs_script(c, "lookup_ace") for c in after[:first_edit])
+    edited = [n for n, c in enumerate(calls) if edits(c, project)]
+    if edited:
+        out["checked_after_last_edit"] = any(runs_script(c, "check_project") and step_passed("check_project", c["result"])
+                                             for c in calls[edited[-1] + 1:])
+    return out
+
+
 def summary(calls: list[dict], root: Path | None = None) -> dict:
     scripts = [{"script": name, "args": " ".join(args), "failed": c["failed"], "chars": c["chars"]}
                for c in calls for name, args in scripts_of(c)]
@@ -660,8 +738,7 @@ def summary(calls: list[dict], root: Path | None = None) -> dict:
     before_first = next((n for n, c in enumerate(calls) if scripts_of(c)), len(calls))
     out = {"tool_calls": len(calls), "lost_calls": sum(is_lost(c) for c in calls), "by_tool": by_tool,
            "scripts": scripts,
-           "read_skill_md": any(c["chars"] is not None and not c["failed"] and (c["loads_skill"] or (
-               c["tool"] in SHELLS and c["chars"] > SKILL_READ_CHARS and reads_skill_md(c["what"]))) for c in calls),
+           "read_skill_md": any(map(reaches_skill_md, calls)),
            "first_script": first_script, **chain_of(calls),
            "preview_failed": sum(1 for c in calls if work_scripts(c) and any(p in c["result"] for p in PREVIEW_FAILED)),
            "help_reads": sum(helps.values()), "repeat_help": sum(n - 1 for n in helps.values()),
@@ -718,7 +795,9 @@ def main() -> int:
         print(f"{n:>3} {c['tool']:<6} {short(c['what'], width)}")
         print(f"      -> {c['chars']} chars{' FAILED' if c['failed'] else ''}: {short(c['result'], width)}")
     root = Path(args.root or args.out) if args.root or args.out else None
-    counts = summary(calls, root) | usage_of(transcript)
+    compactions = compactions_of(transcript)
+    counts = (summary(calls, root) | usage_of(transcript)
+              | after_compaction(calls, compactions, root / "project" if root else None) | {"compaction": compactions})
     print(f"{counts['turns']} turns, {counts['output_tokens']} output tokens, {counts['input_tokens']} input tokens, "
           f"{counts['seconds']} s, {counts['model']}")
     print(f"{counts['tool_calls']} tool calls, {counts['lost_calls']} lost; scripts run: "
@@ -733,6 +812,16 @@ def main() -> int:
               f"{counts['pointer_follows']} of {counts['pointers_printed']} pointers followed, design guide "
               f"{'read' if counts['read_design_guide'] else 'not read'} before the first edit, "
               f"{counts['cookbook_misses']} misses")
+    for n, done in enumerate(compactions, 1):
+        print(f"compaction {n} ({done['trigger']}): {done['pre_tokens']} to {done['post_tokens']} tokens, "
+              f"skill {done['skill']}")
+    if compactions:
+        print(f"after the last: SKILL.md {'read again' if counts['reread_skill_md_after_compaction'] else 'not read'}, "
+              f"chain depth {counts['chain_depth_after_compaction']}"
+              + (f", {counts['lookups_after_compaction']} lookups before its first edit"
+                 if counts["lookups_after_compaction"] is not None else ""))
+    if counts["checked_after_last_edit"] is not None:
+        print(f"a passing check {'followed' if counts['checked_after_last_edit'] else 'did not follow'} the last edit")
     if root:
         counts["outside"], counts["outside_reads"] = outside(calls, root)
         writes = counts["outside"]

@@ -671,7 +671,8 @@ def coins_in_a_ring() -> dict:
 
 
 PLANS: dict[str, Callable[[], dict]] = {
-    "add-countdown": add_countdown, "fix-load-errors": fix_load_errors, "lay-out-the-hud": lay_out_the_hud,
+    "add-countdown": add_countdown, "keep-checking-after-compaction": add_countdown,
+    "fix-load-errors": fix_load_errors, "lay-out-the-hud": lay_out_the_hud,
     "show-hp-as-a-bar": show_hp_as_a_bar, "reveal-the-gradient": reveal_the_gradient,
     "lives-as-hearts": lives_as_hearts, "readable-on-a-dark-background": readable_on_a_dark_background,
     "walk-with-wasd": walk_with_wasd, "fix-wasd-twitch": walk_with_wasd,

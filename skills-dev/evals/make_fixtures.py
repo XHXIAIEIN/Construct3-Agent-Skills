@@ -16,7 +16,9 @@ make, for a case that asks to fix it. A case marked held_out in evals.json is
 left out unless --held-out is given (skills-dev/AGENTS.md, Evals).
 
 An arm named with_... holds the skill and the block as install.py leaves
-them, without_... holds neither, and old_... holds the previous version of
+them, under .agents/skills, or under .claude/skills for an arm named
+with_claude..., where Claude Code finds it as a skill of its own;
+without_... holds neither, and old_... holds the previous version of
 the skill, installed by the install.py of --old-clone: a checkout of the
 commit before the change, such as `git worktree add --detach FOLDER HEAD`
 made before editing. The old copy then names the old checkout as its clone;
@@ -419,6 +421,25 @@ SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "coins-big-sheet": ("coins", seed_big_sheet)}
 
 
+def seed_inverted_start(root: Path) -> None:
+    """The first On start of layout of eventSheets/Game.json inverted, a trigger the editor refuses to load: a
+    change made between two turns of a session, which only a check run after it finds. It keeps every sid."""
+    path = root / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+
+    def conditions(events: list):
+        for ev in events:
+            yield from ev.get("conditions", [])
+            yield from conditions(ev.get("children", []))
+
+    next(c for c in conditions(sheet["events"]) if c.get("id") == "on-start-of-layout")["isInverted"] = True
+    write_json(path, sheet)
+
+
+# A case's "between": the change run_session.py writes into the project between two turns.
+BETWEEN = {"inverted-start": seed_inverted_start}
+
+
 def digest(project: Path) -> dict:
     """The game's own files by hash, line endings aside, and the sids of the
     sheet's events; grade.py reads it to see what a run changed or lost."""
@@ -521,7 +542,8 @@ def main() -> int:
                 prefix = next((prefix for prefix in installers if arm.startswith(prefix)), None)
                 installer = installers.get(prefix)
                 if installer:
-                    run(str(installer), "--project", str(target), cwd=target)
+                    into = ["--into", ".claude/skills"] if arm.startswith("with_claude") else []
+                    run(str(installer), "--project", str(target), *into, cwd=target)
                 if case["fixture"] == "coins-generator":
                     # The game keeps its generator, the template of the arm's own skill, run once so the
                     # files are that template's: the task is a change to tools/build_project.py and a rerun.
