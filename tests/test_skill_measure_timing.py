@@ -128,6 +128,7 @@ def test_a_fade_with_no_rise_says_so(tmp_path):
     assert code == 1, text
 
 
+@NEEDS_FFMPEG
 def test_a_video_that_is_not_there_is_a_finding(tmp_path):
     code, text = run(str(tmp_path / "nothing.mp4"))
     assert "no video at" in text, text
