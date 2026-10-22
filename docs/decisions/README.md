@@ -7,6 +7,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-23
 - [A Bundled Addon Is Installed Only on the User's Word](bundled-addon-consent.md) — 2026-10-22
 - [An Export Replaces Only the Folders It Recorded](export-folder-record.md) — 2026-10-22
+- [The Hand-Over Says What Ran](hand-over-says-what-ran.md) — 2026-10-22
 - [A Check That Did Not Run Does Not Pass](not-checked-is-not-a-pass.md) — 2026-10-22
 - [The Event Sheet Guides Live in Construct3-Cookbook](guides-in-cookbook.md) — 2026-10-21
 - [The Check Loop Stays Inside the First 5000 Tokens of SKILL.md](skill-body-budget.md) — 2026-10-21

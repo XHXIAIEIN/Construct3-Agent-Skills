@@ -245,7 +245,8 @@ which cases to play and how to reach and read them to
   `preview_project.py` open such a project in the latest beta and pass; the
   `opened` line names the beta only in its title, `Construct 3 beta,
   https://editor.construct.net/r505/`. While `savedWithRelease` is above the
-  stable release, a pass says nothing about the editor the user opens.
+  stable release, the run is the beta's, and the stable editor the user
+  opens refuses the project.
   [observed in a game project, 2026-10-08: saved once in r505, refused by
   r495.2, and back at r505 after the fix, from a second save in the r505
   tab]

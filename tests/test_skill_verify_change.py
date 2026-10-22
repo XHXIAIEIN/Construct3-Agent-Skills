@@ -46,7 +46,7 @@ def test_questions_are_answered_once_for_the_files_they_were_asked_about(project
     lines = out.splitlines()
     assert code == 0 and steps(out) == {"checked": "passed", "reviewed": "passed"}, out
     assert lines[0].startswith("answered: ") and "answered earlier" in out
-    assert lines[-1].startswith("ok: reviewed on these files; untested: whether the editor opens it"), lines[-1]
+    assert lines[-1].startswith("ok: reviewed on these files; not run: opened, previewed, played, looked."), lines[-1]
     code, out = tool(project, "verify_change", "--status")
     assert code == 0 and steps(out) == {"checked": "passed", "reviewed": "passed", "opened": "not run",
                                         "previewed": "not run", "played": "not run", "looked": "not run"}, out
@@ -85,13 +85,13 @@ def drive(project: Path, monkeypatch: pytest.MonkeyPatch, editor: Editor, *args:
 
 def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: Path,
                                                                        monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without a kept plan the play does not run and does not stop the run; the ok: line names it untested. A
+    """Without a kept plan the play does not run and does not stop the run; the ok: line names it as not run. A
     second run runs the file steps again and not the editor's."""
     editor = Editor()
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and steps(out) == {"checked": "passed", "reviewed": "passed", "opened": "passed",
                                         "previewed": "passed", "played": "not run", "looked": "passed"}, out
-    assert out.splitlines()[-1].startswith("ok: looked on these files; untested: what a player does.")
+    assert out.splitlines()[-1].startswith("ok: looked on these files; not run: played.")
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and editor.runs == {"check_project.py": 2, "review_design.py": 2, "open_in_editor.py": 1,
                                          "review_look.py": 1}, editor.runs
@@ -100,7 +100,7 @@ def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: 
     (project / "tools" / "plans" / "collect.json").write_text("{}", encoding="utf-8")
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and steps(out)["played"] == "passed" and editor.runs["open_in_editor.py"] == 2, out
-    assert "untested" not in out.splitlines()[-1]
+    assert "not run" not in out.splitlines()[-1]
 
 
 def test_no_browser_hands_over_the_last_step_that_passed(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -108,7 +108,7 @@ def test_no_browser_hands_over_the_last_step_that_passed(project: Path, monkeypa
                                                                                "Chromium was found")}))
     assert code == 3 and steps(out) == {"checked": "passed", "reviewed": "passed", "opened": "skipped"}, out
     assert out.splitlines()[-1].startswith("skipped: opened, previewed, played, looked did not run: no browser here")
-    assert "Hand over as reviewed, the last step that passed on these files" in out.splitlines()[-1]
+    assert "The last step that passed on these files is reviewed" in out.splitlines()[-1]
 
 
 def test_a_preview_error_stops_after_the_project_opened(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:

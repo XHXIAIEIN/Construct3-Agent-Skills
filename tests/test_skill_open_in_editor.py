@@ -341,20 +341,20 @@ def test_open_in_editor_reports_how_long_the_game_ran_in_the_preview():
     says what the runtime ran, ticks and its own wall time (measured 2026-10-02, r504)."""
     lines = opened_with({"ticks": 597, "wallTime": 4.3545})
     assert lines[1] == ("  preview: layout 'Game', runtime in the worker, 597 ticks in 4.4 s, no errors; it ran "
-                        "without input for 4.4 s, so what a player does is untested"), lines
+                        "without input for 4.4 s: play what a player does with scripts/preview_project.py"), lines
 
 
 def test_open_in_editor_leaves_the_ticks_out_when_the_runtime_gave_none():
     lines = opened_with({"ticks": None, "wallTime": None})
-    assert lines[1] == ("  preview: layout 'Game', runtime in the worker, no errors; it ran without input, so what "
-                        "a player does is untested"), lines
+    assert lines[1] == ("  preview: layout 'Game', runtime in the worker, no errors; it ran without input: play what a "
+                        "player does with scripts/preview_project.py"), lines
 
 
 def test_open_in_editor_leaves_the_ticks_out_when_the_wall_time_is_missing():
     """A release whose runtime gave no wall time must not end the run of every project."""
     lines = opened_with({"ticks": 597, "wallTime": None})
-    assert lines[1] == ("  preview: layout 'Game', runtime in the worker, no errors; it ran without input, so what "
-                        "a player does is untested"), lines
+    assert lines[1] == ("  preview: layout 'Game', runtime in the worker, no errors; it ran without input: play what a "
+                        "player does with scripts/preview_project.py"), lines
 
 
 def test_open_in_editor_reports_the_crash_report_the_preview_left_in_the_editor(monkeypatch):
@@ -559,7 +559,7 @@ def test_a_project_stopped_on_a_bundled_addon_says_what_it_is_and_how_to_go_on(t
     assert oe.failed(result) and oe.refusal(result) == []
 
 
-def test_open_in_editor_says_what_a_passing_preview_left_untested_only_when_it_passed():
+def test_open_in_editor_says_what_to_play_next_only_when_the_preview_passed():
     lines = opened_with({"ticks": 597, "wallTime": 4.3545, "errors": ["Event sheet 1, event 3: TypeError"]})
     assert lines[1] == "  preview: layout 'Game', runtime in the worker, 597 ticks in 4.4 s, 1 error", lines
 

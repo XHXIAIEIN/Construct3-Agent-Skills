@@ -1185,10 +1185,11 @@ def blank(page: DevTools) -> float | None:
     return c3.blank_share(base64.b64decode(shot["data"]))
 
 
-def untested(ran: dict) -> str:
-    """What a preview that passed did not prove: a passing line read alone reads as the game working."""
+def play_next(ran: dict) -> str:
+    """The step after a preview that passed: it ran without input, so a plan plays the input."""
     wall = ran.get("wallTime")
-    return f"; it ran without input{f' for {wall:.1f} s' if wall is not None else ''}, so what a player does is untested"
+    return (f"; it ran without input{f' for {wall:.1f} s' if wall is not None else ''}: "
+            "play what a player does with scripts/preview_project.py")
 
 
 def opened_lines(result: dict) -> list[str]:
@@ -1215,7 +1216,7 @@ def report(result: dict, label: Callable[[str], str] = key_name) -> list[str]:
             ticks = (f"{ran['ticks']} ticks in {ran['wallTime']:.1f} s, "
                      if ran.get("ticks") is not None and ran.get("wallTime") is not None else "")
             lines.append(f"  preview: layout {ran['layout']!r}, runtime in the {ran['runtime']}, {ticks}"
-                         f"{n or 'no'} error{'' if n == 1 else 's'}{'' if n else untested(ran)}")
+                         f"{n or 'no'} error{'' if n == 1 else 's'}{'' if n else play_next(ran)}")
             if ran.get("editor"):
                 lines.append(f"  editor: {ran['editor']}")
             lines += runtime_lines(ran["errors"])

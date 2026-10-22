@@ -782,7 +782,7 @@ def test_a_failed_play_says_to_fix_the_game_not_the_test(tmp_path, monkeypatch, 
     assert "only when the user agrees that it was wrong" in last
 
 
-def test_a_passing_play_says_what_the_tests_left_untested(tmp_path):
+def test_a_passing_play_counts_the_tests_it_played(tmp_path):
     pd, gm, cd = script_module("play_design"), script_module("game_model"), script_module("check_design")
     whack_project(tmp_path / "game")
     data = gm.Design(example())
@@ -794,7 +794,7 @@ def test_a_passing_play_says_what_the_tests_left_untested(tmp_path):
     lines, code = pd.report(data, meta, {**OPENED, "preview": {"plans": runs}})
     assert code == 0, lines
     assert lines[-1] == (f"  played: {len(data.tests)} of {len(data.tests)} tests pass, 0 findings on the first "
-                         f"screen, 0 runtime errors; what the tests of the design do not play is untested")
+                         f"screen, 0 runtime errors")
 
 
 def test_play_design_keeps_the_reason_a_preview_did_not_run_and_counts_the_runs_it_lacks():

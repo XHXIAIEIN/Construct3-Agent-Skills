@@ -152,10 +152,10 @@ above. Then:
    finds, a `failed` or a `runtime:` line included, in the generator, not
    with `edit_sheet.py` or in the JSON; then run the generator again and
    `verify_change.py` after it.
-4. Hand over: ask the user to open the folder (**Menu** > **Project** >
-   **Open**, the local project folder option) and to preview, and say what
-   to look at. When no tool of the session could open it, ask for the text
-   of any dialog the editor shows on opening as well.
+4. Hand over: tell the user how to open the folder (**Menu** > **Project** >
+   **Open**, the local project folder option) and what the game does now.
+   When no tool of the session could open it, ask the user to open it and
+   paste the text of any dialog the editor shows.
 5. What the preview shows that the checker cannot (an instance picked twice,
    a tween and a timer ending a tick apart, a mask that leaves a corner
    uncovered) is a runtime fact. Fix the generator, and when the fact would

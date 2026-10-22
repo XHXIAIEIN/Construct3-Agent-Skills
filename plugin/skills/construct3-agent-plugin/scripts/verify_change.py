@@ -29,7 +29,7 @@ the checker's ok: line names no next step.
 
 exit codes: 0 every step up to --upto passed on these files, or --status; 1 a step found something or asked
 questions; 2 the project, the clone or the editor could not be used; 3 a step did not run, as with no browser
-here: its line says so and the hand-over names the last step that passed; 5 another run holds the browser
+here: its line names the steps that did not run and the last that passed; 5 another run holds the browser
 profile
 """
 from __future__ import annotations
@@ -52,10 +52,6 @@ DESIGN = Path("tools") / "design.json"
 QUESTION = re.compile(r"^\s+\d+\.\s+(.*\S)")
 SCRIPT_OF = {"checked": "check_project.py", "reviewed": "review_design.py", "opened": "open_in_editor.py",
              "previewed": "open_in_editor.py", "played": "preview_project.py", "looked": "review_look.py"}
-UNTESTED = {"checked": "the project files", "reviewed": "the design of the sheets",
-            "opened": "whether the editor opens it", "previewed": "whether its start layout runs",
-            "played": "what a player does", "looked": "what each layout looks like"}
-
 EPILOG = """examples:
   python scripts/verify_change.py
   python scripts/verify_change.py --answered
@@ -71,7 +67,7 @@ output, one line per step it ran or found passed, the output of the step that st
   looked    asked: look: 0 findings on 2 layouts, 0 runtime errors; 7 questions
   ...
   next: <the one thing to do>
-the last line on a pass: ok: and what the hand-over names; with a step that did not run: skipped:
+the last line on a pass: ok: and the steps that did not run; with a step that did not run: skipped:
 
 exit codes: 0 passed, or --status; 1 findings or questions; 2 the project, the clone or the editor could not be
 used; 3 a step did not run; 5 another run holds the browser profile"""
@@ -272,8 +268,8 @@ def played(run: Run) -> tuple[int, str] | None:
     plans, design = sorted((run.root / PLANS).glob("*.json")), run.root / DESIGN
     if not plans and not design.is_file():
         run.keep("played", "not run", f"no kept plan in {PLANS.as_posix()}/ and no {DESIGN.as_posix()}")
-        show("played", "not run", f"no kept plan in {PLANS.as_posix()}/ and no {DESIGN.as_posix()}, so what a "
-                                  f"player does is untested: write a plan that does what the change does "
+        show("played", "not run", f"no kept plan in {PLANS.as_posix()}/ and no {DESIGN.as_posix()}: write a "
+                                  f"plan that does what the change does "
                                   f"(references/verifying-a-change.md; references/editor-and-preview.md for one that "
                                   f"starts on another layout), play it with "
                                   f"{c3.script_command(run.root, 'preview_project.py', ' PLAN.json --keep NAME')}, "
@@ -329,8 +325,7 @@ def skipped(run: Run, step: str, out: str) -> str:
     done = [s for s in STEPS if run.passed_here(s)]
     left = [s for s in STEPS[STEPS.index(step):] if s not in done]
     return (f"skipped: {', '.join(left)} did not run: {last_line(out)}. "
-            + (f"Hand over as {done[-1]}, the last step that passed on these files, and say that "
-               f"{' and '.join(UNTESTED[s] for s in left)} {'is' if len(left) == 1 else 'are'} untested"
+            + (f"The last step that passed on these files is {done[-1]}; run this again once the step can run"
                if done else "Nothing passed on these files"))
 
 
@@ -338,11 +333,11 @@ RUNNERS = (("checked", checked), ("reviewed", reviewed), ("opened", opened), ("p
 
 
 def handed_over(run: Run, upto: str) -> str:
-    """The ok: line: the last step that passed on these files and what the hand-over leaves untested."""
+    """The ok: line: the last step that passed on these files and the steps that did not run on them."""
     done = [s for s in STEPS[:STEPS.index(upto) + 1] if run.passed_here(s)]
-    untested = [UNTESTED[s] for s in STEPS if not run.passed_here(s)]
+    left = [s for s in STEPS if not run.passed_here(s)]
     return (f"ok: {done[-1]} on these files"
-            + (f"; untested: {', '.join(untested)}" if untested else "")
+            + (f"; not run: {', '.join(left)}" if left else "")
             + f". Hand over with the events that changed: "
             + c3.script_command(run.root, "print_sheet.py", " --since <the user's branch>")
             + "; pack a project handed over as a file with pack_project.py")

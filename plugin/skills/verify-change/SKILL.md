@@ -1,6 +1,6 @@
 ---
 name: verify-change
-description: Runs every check of a change to the Construct 3 folder project in order, the checker, the design review, the editor and its preview, the kept plays and the look, and runs a step that opens the editor again only when a file changed. The last line is the one thing to do next, or ok and what the hand-over leaves untested. --status prints where the checks stand without running them.
+description: Runs every check of a change to the Construct 3 folder project in order, the checker, the design review, the editor and its preview, the kept plays and the look, and runs a step that opens the editor again only when a file changed. The last line is the one thing to do next, or ok and the steps that did not run. --status prints where the checks stand without running them.
 argument-hint: "[--status] [--answered] [--upto STEP] [--project FOLDER]"
 disable-model-invocation: true
 allowed-tools:

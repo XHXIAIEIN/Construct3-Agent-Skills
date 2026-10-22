@@ -38,7 +38,7 @@ code and names the part: `check_design.py` without the clone prints
 `skipped: reference.example is not checked:` with the reason and the flag
 to pass, and its `ok:` line ends by saying the reference example is not
 checked. The design's rules and tests ran, so the design can be built; the
-line tells the hand-over what it leaves untested.
+line names the part to run once the clone is there.
 
 ## Re-evaluate when
 

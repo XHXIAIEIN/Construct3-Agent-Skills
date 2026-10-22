@@ -112,11 +112,11 @@ about the editor or the preview goes to `editor-and-preview.md`.
    recording measures the target, not when the motion looks better.
    [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullet
    on a word of feel]
-7. **Keep what the run logs apart from what the change did.** A run that
-   logs no error and never reached the event says nothing; a run that logs
-   an error after a direct write may say nothing about the events either.
-   Report which cases were played, the result read in each, and any value
-   the plan forced. Judge a motion's feel and timing from the recording
+7. **Judge the change by the cases the run reached.** A run counts for the
+   events it reached: a run that ends before the event fires has checked
+   nothing yet, so extend the plan until it fires, and an error that
+   follows a direct write comes from the write until the same steps without
+   it show it too (step 3). Judge a motion's feel and timing from the recording
    first: where it starts, overshoots and rests, and how long each part
    takes, against the row for the same effect in
    `Construct3-Cookbook/guides/recipes/feel.md` where there is one. Then
@@ -124,10 +124,11 @@ about the editor or the preview goes to `editor-and-preview.md`.
    tool and judge only what the frames show, not what the events were
    meant to do. Name the three worst defects, each with its time, what the
    frame shows and the event to change; fix only those and record that
-   part again. The report says what the values and the sheet show and
-   which part looks off, or that neither settles it. The recording's review
-   page, `NN-NAME.html`, then goes to the user for what is left to the eye: they play it frame by
-   frame, select a part that looks wrong and copy it back as a task.
+   part again, until the values and the sheet show no defect. The
+   hand-over names the cases played, what each read, and any value the
+   plan forced, one line each, with the recording's review page,
+   `NN-NAME.html`, where the user plays it frame by frame, selects a part
+   that looks wrong and copies it back as a task.
    [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
    on `record` and the review page]
 8. **Keep the plan, and replay every kept plan after each change.** Once a

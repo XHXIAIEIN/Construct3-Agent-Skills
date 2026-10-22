@@ -56,8 +56,8 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
   skipped. An answer holds for the files it was asked about: a change asks
   the questions again, as the old loop's "repeat step 2" did.
 - A missing play does not stop the run. Without `tools/plans/` or
-  `tools/design.json`, played does not run, and the `ok:` line names what a
-  player does as untested. A plan for every change would also be demanded
+  `tools/design.json`, played does not run, and the `ok:` line names `played`
+  among the steps that did not run. A plan for every change would also be demanded
   for a rename.
 - Exit 3 and a `skipped:` last line name the steps that did not run and the
   last one that passed. `--status` prints where the steps stand without

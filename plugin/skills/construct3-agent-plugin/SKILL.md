@@ -108,9 +108,11 @@ editor it takes minutes: give the command a timeout of 10 minutes.
   answer yes about the events your change wrote, name any other yes in the
   hand-over, then run it with `--answered`.
 
-Hand over on its `ok:` line, or with what `--status` prints: the last
-step that passed on these files and what it leaves untested. Exit code 3
-or a `skipped:` line is a check that did not run, not a pass. Show the
+Run it until its `ok:` line, then hand over what changed and what the
+plays played. Exit code 3 or a `skipped:` line is a check that did not
+run: run it once what it names is there. A step that could not run is one
+clause, such as "the preview has not run", with no clause on what it
+would have shown, and the user is not asked to run it for you. Show the
 user the editor screenshot it names; the browser runs headless. A project
 handed over as a file is packed after the last check, because
 `pack_project.py` refuses files that the check has not passed.

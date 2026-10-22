@@ -7,8 +7,8 @@ lists, and checks them against the schemas in Construct3-RAG and against the
 rules the editor applies when it opens or previews a project. What is
 checked, and where each rule comes from: references/checker-rules.md.
 
-It cannot run the events: picking, timing and the meaning of an expression
-are the editor's and the preview's to judge.
+Picking, timing and the meaning of an expression run in the preview:
+open_in_editor.py --preview and preview_project.py.
 
 Findings in event sheets are placed as `sheet Game event 15 action 2`, the
 number the editor prints in the margin; print_sheet.py prints that numbering.
