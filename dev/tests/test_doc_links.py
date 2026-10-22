@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from urllib.parse import unquote
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 
 DOCUMENTS = sorted(
     {
@@ -23,7 +23,7 @@ DOCUMENTS = sorted(
         *(REPO / "plugin" / "skills").rglob("*.md"),
         *(REPO / "plugin" / "agents").rglob("*.md"),
         REPO / "plugin" / "README.md",
-        *(REPO / "skills-dev").rglob("*.md"),
+        *(REPO / "dev").rglob("*.md"),
         *(REPO / "docs").rglob("*.md"),
     }
 )

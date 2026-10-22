@@ -117,7 +117,7 @@ user turns on the marketplace's auto-update. The user can also run
   failure lasts one round trip, the pull and the refresh, and the check
   that follows reads the project with the current rules.
 - An eval run follows the line too, so fixtures come from a clone that does
-  not trail its upstream (`skills-dev/AGENTS.md`, "Evals").
+  not trail its upstream (`dev/AGENTS.md`, "Evals").
 - Two clones are checked: this repository through its `plugin/`, and the
   Cookbook. The other sibling clones change rarely, and their content
   reaches the agent through the data. A clone of Construct3-RAG

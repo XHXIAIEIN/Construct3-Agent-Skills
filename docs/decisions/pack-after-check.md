@@ -15,7 +15,7 @@ Evidence: another skill's pipeline refuses to package files whose SHA-256
 differs from its check report's, and tests that refusal. Here, a copy of an
 official example packs after a passing check, refuses after an edit to one
 event sheet, and packs with `--unchecked`
-(`tests/test_skill_pack_project.py` pins the five cases).
+(`dev/tests/test_skill_pack_project.py` pins the five cases).
 
 ## Options
 

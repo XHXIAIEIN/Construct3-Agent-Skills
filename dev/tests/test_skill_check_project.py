@@ -1945,7 +1945,7 @@ def test_a_change_elsewhere_and_a_new_finding_count_apart(project):
 
 def test_a_passing_run_keeps_a_record_the_pack_reads(project):
     """A run with no problem writes the record: the digest of the files and a problem count of 0.
-    pack_project.py reads it (tests/test_skill_pack_project.py)."""
+    pack_project.py reads it (dev/tests/test_skill_pack_project.py)."""
     record = project / ".tmp" / "check-project.json"
     record.unlink()
     code, out = check(project)

@@ -56,7 +56,7 @@ paths in its scripts, `SKILL.md`, `references/` and the Construct 3 block:
 | `data/c3-lang/` | `check_project.py`, two subtrees of about 10 KiB; `open_in_editor.py`, `preview_project.py` and agents, the texts of the plugins and behaviors that label a preview's inspector values (`reading-the-runtime.md`) | the two subtrees and those texts, about 100 KiB per locale |
 | `data/c3-guides/` | agents, from `SKILL.md` and the block | its files |
 | `data/c3-new-project/` | `new_project.py`; `check_project.py` names its `project.c3proj` for a project file without a `properties` block | its files, the icons included |
-| `plugin/skills/construct3-agent-plugin/` except `skills-dev/evals/` | | its files |
+| `plugin/skills/construct3-agent-plugin/` except `dev/evals/` | | its files |
 
 Copied as they are, these parts come to well over 512 files, most of them
 the examples. The schemas fit as files, and agents open them by path, so
@@ -75,11 +75,11 @@ they stay as files.
 `plugin/` is the plugin, and the plugin folder holds its sources. The
 skill, the rows of the `/` menu, the manifest, the README, the
 icon, the licence and the sub-agents are edited in place under `plugin/`.
-Only `plugin/data/` is built: `scripts/build_plugin.py` writes it from the
+Only `plugin/data/` is built: `dev/scripts/build_plugin.py` writes it from the
 `data/` of the Construct3-RAG clone beside this repository, and the result
 is committed. What the plugin does not need at run time lies beside the
-folder: the skill's evals under `skills-dev/evals/`, the maintainers' guide
-`skills-dev/AGENTS.md`, the tests, the docs and the records. The
+folder: the skill's evals under `dev/evals/`, the maintainers' guide
+`dev/AGENTS.md`, the tests, the docs and the records. The
 marketplace entry's source is `./plugin`, and the link into
 `~/.claude/skills/` of `plugin-tracks-commits.md` points at
 `<clone>/plugin`.

@@ -221,14 +221,14 @@ here, the pages' own fallback.
 - The template ships in two copies that are kept equal:
   `plugin/skills/construct3-agent-plugin/assets/` is the source and
   `plugin/skills/construct3-agent-plugin/assets/` is written by the build;
-  change the source, then run `python scripts/build_plugin.py`, because
+  change the source, then run `python dev/scripts/build_plugin.py`, because
   the build also sets the plugin's version, which a copy by hand leaves
   as it was.
 - Verify a change with `node --check` for the script, a computed-style
   probe that reads every declared token's resolved value, screenshots of
   every entry state in both themes through a real browser with no page
   errors, and the pytest suites that read the template
-  (`tests/test_skill_preview_project.py`, `tests/test_skill_review_look.py`).
+  (`dev/tests/test_skill_preview_project.py`, `dev/tests/test_skill_review_look.py`).
 - A token nothing uses is deleted, not kept for later.
 
 ## Re-evaluate when

@@ -1,4 +1,4 @@
-# `skills-dev/` Directory
+# `dev/` Directory
 
 The skill lives in the plugin folder, `plugin/skills/construct3-agent-plugin/`,
 an Agent Skill in the open format of <https://agentskills.io/specification>:
@@ -12,7 +12,9 @@ the runner they share. They give the Claude Code plugin's `/` menu one row
 per script and never load on their own (`docs/decisions/plugin-script-menu.md`).
 
 This folder holds what the skill's maintainers need and the plugin does not
-ship: this guide, and `evals/`, which tests the skill with agents. The
+ship: this guide, `evals/`, which tests the skill with agents, `tests/`, the
+pytest suite (`tests/AGENTS.md`), and `scripts/`, the data build and the
+measurements (`scripts/AGENTS.md`). The
 plugin folder is held to Claude's directory limits
 (`docs/decisions/plugin-folder.md`), so a file the skill does not read at
 run time goes here. A game project holds a copy of the skill, which the
@@ -24,17 +26,17 @@ it differs from the clone's.
 Read the row of the task, then the source and the tests it names. The rows
 locate the contracts; the source decides what a tool does. Paths in the
 table are under `plugin/skills/construct3-agent-plugin/`, except the
-`scripts/`, `tests/`, `docs/` and `skills-dev/` paths, which start at the
+`scripts/`, `dev/tests/`, `docs/` and `dev/` paths, which start at the
 repository root.
 
 | Task | Responsibility and interface | Read together | Constraint and source |
 |------|------------------------------|---------------|-----------------------|
-| Check or resume a design review | `scripts/review_design.py --check` prints findings and questions; optional `--prepare FOLDER --resume` supplies evidence and saved judgements | `design_review.py`, `print_sheet.py`, `c3project.py`, `tests/test_skill_design_review.py`, `references/design-review.md` | A saved judgement is reused only while its input version matches; an edit carries the line `print_sheet.py` printed for its event. `docs/decisions/plan-names-the-event-line.md` |
-| Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem but can leave the problems already there, so keep the final full `check_project.py` run and its fix-loop record |
-| Open or play a game | `scripts/open_in_editor.py --preview`; `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `skills-dev/evals/play_cases.py`, `tests/test_skill_preview_project.py` | Opening without input tests startup. Reaching a scene directly does not test the path to it |
-| Ship the skill to a game | `scripts/install.py --project FOLDER` mirrors the skill except `skills-dev/evals/` | `assets/game-project-block.md`, `c3project.py`, `tests/test_skill_install.py` | An edited Construct 3 block and edited generator helpers keep their edits until `--replace-edited-block` or `--replace-edited-helpers` replaces them |
-| Ship the plugin | `scripts/build_plugin.py` builds `plugin/` from the skill, the menu and the data of the Construct3-RAG clone beside this repository | `tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit HEAD shares with `origin/main` |
-| Give a script a row in the plugin's `/` menu | `plugin/skills/<name>/SKILL.md`, `name` the script's stem with hyphens, runs the script with the user's arguments through `plugin/skills/run.py` and goes to `plugin/skills/<name>/` | `tests/test_plugin_folder.py`, `docs/decisions/plugin-script-menu.md` | `disable-model-invocation: true`, so the row costs the model nothing; a description in the third person; an `argument-hint` made of groups of the script's usage line, in double quotes, because a hint that starts with `[` is a sequence to a YAML parser. The body teaches nothing, because the main skill does. A script without a row fails the build unless `NOT_IN_MENU` of `build_plugin.py` names it. These two fields are Claude Code's, outside the open format, so the reference validator fails on a row by design and the test pins its frontmatter instead |
+| Check or resume a design review | `scripts/review_design.py --check` prints findings and questions; optional `--prepare FOLDER --resume` supplies evidence and saved judgements | `design_review.py`, `print_sheet.py`, `c3project.py`, `dev/tests/test_skill_design_review.py`, `references/design-review.md` | A saved judgement is reused only while its input version matches; an edit carries the line `print_sheet.py` printed for its event. `docs/decisions/plan-names-the-event-line.md` |
+| Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `dev/tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem but can leave the problems already there, so keep the final full `check_project.py` run and its fix-loop record |
+| Open or play a game | `scripts/open_in_editor.py --preview`; `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `dev/evals/play_cases.py`, `dev/tests/test_skill_preview_project.py` | Opening without input tests startup. Reaching a scene directly does not test the path to it |
+| Ship the skill to a game | `scripts/install.py --project FOLDER` mirrors the skill except `dev/evals/` | `assets/game-project-block.md`, `c3project.py`, `dev/tests/test_skill_install.py` | An edited Construct 3 block and edited generator helpers keep their edits until `--replace-edited-block` or `--replace-edited-helpers` replaces them |
+| Ship the plugin | `dev/scripts/build_plugin.py` builds `plugin/` from the skill, the menu and the data of the Construct3-RAG clone beside this repository | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit HEAD shares with `origin/main` |
+| Give a script a row in the plugin's `/` menu | `plugin/skills/<name>/SKILL.md`, `name` the script's stem with hyphens, runs the script with the user's arguments through `plugin/skills/run.py` and goes to `plugin/skills/<name>/` | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-script-menu.md` | `disable-model-invocation: true`, so the row costs the model nothing; a description in the third person; an `argument-hint` made of groups of the script's usage line, in double quotes, because a hint that starts with `[` is a sequence to a YAML parser. The body teaches nothing, because the main skill does. A script without a row fails the build unless `NOT_IN_MENU` of `build_plugin.py` names it. These two fields are Claude Code's, outside the open format, so the reference validator fails on a row by design and the test pins its frontmatter instead |
 
 ## Rules
 
@@ -58,7 +60,7 @@ repository root.
   re-attaches each invoked skill with only its first 5000 tokens (the same
   page, "Skill content lifecycle"). So the check loop comes before the
   sections that teach the tools, whose output teaches them again.
-  `tests/test_skill_spec.py` holds both limits; the token estimate and its
+  `dev/tests/test_skill_spec.py` holds both limits; the token estimate and its
   source are in `docs/decisions/skill-body-budget.md`. Every run reads all
   of it before its first command, so it holds only what every activation
   needs and no script says at the moment it matters. A script that most
@@ -112,7 +114,7 @@ repository root.
   the end line carries their version and the stamp of the lines between:
   `install.py` replaces that part of a game's `tools/build_project.py` when
   it is older and unedited, and keeps every other line. A change between the
-  markers fails `tests/test_skill_build_project.py` until the end line it
+  markers fails `dev/tests/test_skill_build_project.py` until the end line it
   prints is pasted. A helper reads nothing outside the markers but what
   every game's generator has, so a setting a new helper needs gets its
   default between the markers.
@@ -120,7 +122,7 @@ repository root.
   `assets/game-project-block.md`, works the same way: its end marker
   carries its version and the stamp of its text, without the lines that
   name a clone's folder. A change to its text fails
-  `tests/test_skill_install.py` until the end line it prints is pasted.
+  `dev/tests/test_skill_install.py` until the end line it prints is pasted.
   The blocks `install.py` wrote before the markers are known by their stamps
   in `PAST_BLOCKS` of `scripts/c3project.py`, a closed list.
 - The generator template is read in the game project, by its user and by
@@ -130,7 +132,7 @@ repository root.
   its reason, on a line of its own. The finding that settles a value goes in
   the record under `docs/decisions/`, because every agent that writes a game
   reads the whole template. So the template holds no measurement, source or
-  path into this repository. `tests/test_skill_build_project.py` fails on a
+  path into this repository. `dev/tests/test_skill_build_project.py` fails on a
   path into this repository or its records, on "(WCAG" and "(manual:", and
   on the word "survey".
 - A script that changes a project file checks the result before it writes
@@ -148,7 +150,7 @@ repository root.
   of the editor's loader, not from the one message a user pasted, because
   the next assertion in the same function costs another round trip through
   the user. What the editor writes into every project is measured from the
-  official examples, and `tests/test_skill_build_project.py` compares the
+  official examples, and `dev/tests/test_skill_build_project.py` compares the
   generated project with that measurement, so a key missing from the
   generator fails here instead of in the editor.
 - Scirra's guide
@@ -179,9 +181,9 @@ repository root.
   `docs/decisions/event-sheet-design-guidance.md`, "What small models read".
 - A change to a script is compared, old against new, over every official
   example and the game projects: exit code, stdout and stderr
-  (`skills-dev/evals/sweep_outputs.py`). A restructure shows no
+  (`dev/evals/sweep_outputs.py`). A restructure shows no
   difference; a change of output shows exactly the runs it was meant for.
-  `scripts/output_diff.py [REF]` makes the comparison against a git ref in
+  `dev/scripts/output_diff.py [REF]` makes the comparison against a git ref in
   one command and prints the first differing line of each case; it covers
   the official examples and, with `--projects`, the game projects, two
   plans `edit_sheet.py` refuses, every script's `--help`, `new_project.py`
@@ -195,7 +197,7 @@ repository root.
 
 ```bash
 python -m pytest tests -q -k test_skill_
-python -m compileall -q plugin/skills skills-dev
+python -m compileall -q plugin/skills dev/evals
 ```
 
 The tests install the skill in a temporary project and run the copy, and
@@ -219,7 +221,7 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 <https://agentskills.io/skill-creation/optimizing-descriptions>. A change to
 `SKILL.md`, to a reference or to what a script prints is a new iteration.
 
-| File in `skills-dev/evals/` | Holds |
+| File in `dev/evals/` | Holds |
 |-------------------------------------|-------|
 | `evals.json` | The test cases: prompt, expected output, assertions a script can check, `held_out` on the cases kept out of tuning |
 | `make_fixtures.py` | One project per case and arm, outside the clone: the stand-in game, an official example or the empty project of `new_project.py`, with this skill from a worktree of the commit tested, the previous one or none |
@@ -240,20 +242,20 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 ```bash
 # before the change
 git worktree add --detach <folder outside the clone>/rag-old HEAD
-python skills-dev/evals/sweep_outputs.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-old.json --examples <example-projects> --projects <game folder> ...
+python dev/evals/sweep_outputs.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-old.json --examples <example-projects> --projects <game folder> ...
 # after the change
-python skills-dev/evals/sweep_outputs.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-new.json --examples <example-projects> --projects <game folder> ...
-python skills-dev/evals/sweep_outputs.py --compare .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-old.json .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-new.json
-python skills-dev/evals/make_fixtures.py <folder outside the clone>/iteration-N --arms with_skill old_skill --old-clone <folder outside the clone>/rag-old
+python dev/evals/sweep_outputs.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-new.json --examples <example-projects> --projects <game folder> ...
+python dev/evals/sweep_outputs.py --compare .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-old.json .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/sweep-new.json
+python dev/evals/make_fixtures.py <folder outside the clone>/iteration-N --arms with_skill old_skill --old-clone <folder outside the clone>/rag-old
 # after each run has reported
-python skills-dev/evals/trace.py <transcript>.jsonl --out <run folder>
+python dev/evals/trace.py <transcript>.jsonl --out <run folder>
 # where the tokens of the runs went, before and after a change that should save them
-python skills-dev/evals/token_share.py <transcript, folder or @list> ... --out .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/token-share.json
+python dev/evals/token_share.py <transcript, folder or @list> ... --out .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/token-share.json
 # after the last run of the iteration: the file assertions, and the plans played in the editor's preview
-python skills-dev/evals/grade.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N --play
+python dev/evals/grade.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N --play
 python plugin/skills/construct3-agent-plugin/scripts/open_in_editor.py .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N --out .local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-N/opened.json
 # after a change to the description
-python skills-dev/evals/run_trigger_eval.py skills-dev/evals/train_queries.json --project <game with .claude/skills>
+python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <game with .claude/skills>
 ```
 
 - Each run starts clean, one agent per case and arm, and saves

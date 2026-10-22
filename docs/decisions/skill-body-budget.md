@@ -15,7 +15,7 @@ past that budget, and "Check after every change" was its last section but
 one. So the first compaction of a long session dropped the six steps of
 the check loop, the `stop:` rule and the hand-over order, and kept the
 sections on looking an ACE up and reading a sheet. The recorded eval
-transcripts hold no compaction (`skills-dev/evals/token_share.py`), so the evals
+transcripts hold no compaction (`dev/evals/token_share.py`), so the evals
 never showed it.
 
 Moving the loop up fixed that, but left its end 9 tokens under the cut: a
@@ -131,25 +131,25 @@ links deep, then the check loop, the three sections on the tools and the
 generator. The moved rows keep their full wording, since that file is read
 only when a task needs it. About 1360 tokens are left above the loop.
 
-`tests/test_skill_spec.py` holds it:
+`dev/tests/test_skill_spec.py` holds it:
 `test_the_check_loop_survives_a_compaction` fails when the end of "Check
 after every change" passes 5000 tokens at 2.7 characters a token, and
 names the line of the cut and the sections after it;
 `test_every_script_has_a_row_in_one_table_of_scripts` fails when a script
 has a row in neither table or in both. The 500-line test stays.
-`skills-dev/AGENTS.md`, "Rules", says which table a new script goes in.
+`dev/AGENTS.md`, "Rules", says which table a new script goes in.
 
 ## Re-evaluate when
 
 - A signed-in `claude` CLI or an API key is at hand: measure the body with
   `claude -p` twice, with and without it, and replace 2.7 with the measured
   ratio in the test and here.
-- An eval iteration with full cells runs on this text (`skills-dev/AGENTS.md`,
+- An eval iteration with full cells runs on this text (`dev/AGENTS.md`,
   "Evals"), above all a case that needs a moved script that no other
   reference names, such as `advanced_random.py` or the sound scripts: a
   run that never opens `references/scripts.md` and misses the script
   brings its row back to the body.
 - The Claude Code page changes the 5000 or the 25,000, or names the
   tokenizer.
-- A compaction appears in a recorded transcript: `skills-dev/evals/token_share.py`
+- A compaction appears in a recorded transcript: `dev/evals/token_share.py`
   can then show what was re-attached.

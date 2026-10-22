@@ -60,7 +60,7 @@ Option 3 (`CAP` in `check_project.py`).
   a generated project it adds that the generator must run after a change to
   it.
 - `--review` keeps no record. The eval tools that run the checker over many
-  projects at once (`sweep_outputs.py`, `scripts/output_diff.py`,
+  projects at once (`sweep_outputs.py`, `dev/scripts/output_diff.py`,
   `grade.py`) set `CONSTRUCT3_RAG_NO_RECORD=1`, so that their output does not
   depend on an earlier run.
 

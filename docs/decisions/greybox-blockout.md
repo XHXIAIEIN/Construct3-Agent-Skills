@@ -194,7 +194,7 @@ Two more rules from the same sources were measured on the official 2D game
 examples before either became a check: 81 one-screen layouts of the
 examples tagged as games, their content the visible instances of the
 scrolling layers less Text and backdrops
-(`skills-dev/evals/measure_layout.py`).
+(`dev/evals/measure_layout.py`).
 
 | Rule from slide and poster skills | Official layouts that pass | Outcome |
 |-----------------------------------|----------------------------|---------|
@@ -309,7 +309,7 @@ this record and of `paper-and-ink-look.md` with a status: `enforced` when a chec
 `rejected`. Its `deliver` steps are what a model writing the generator is
 given, its `confirm` steps what the agent runs on the result, among them
 `scripts/check_look.py`, which confirms the strict rules on the project's
-files. `tests/test_skill_build_project.py` fails when a rule and the
+files. `dev/tests/test_skill_build_project.py` fails when a rule and the
 template value it names drift apart.
 
 ## Open

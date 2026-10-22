@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Refresh plugin/data/ from the data of Construct3-RAG and set the plugin's version.
 
-    python scripts/build_plugin.py            write plugin/data/ and the version
-    python scripts/build_plugin.py --check    fail when plugin/data/ or the version differs from a fresh build
-    python scripts/build_plugin.py --rag F    read data/ from the Construct3-RAG clone F
+    python dev/scripts/build_plugin.py            write plugin/data/ and the version
+    python dev/scripts/build_plugin.py --check    fail when plugin/data/ or the version differs from a fresh build
+    python dev/scripts/build_plugin.py --rag F    read data/ from the Construct3-RAG clone F
 
 plugin/ is the Claude Code plugin and holds its sources: the skill under
 skills/construct3-agent-plugin/, the rows of the / menu under skills/<name>/,
@@ -54,7 +54,7 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugin"
 SKILL = "plugin/skills/construct3-agent-plugin"
 sys.path.insert(0, str(ROOT / SKILL / "scripts"))
@@ -376,7 +376,7 @@ def main() -> int:
     for line in problems:
         print(line)
     if args.check:
-        print(f"plugin/: {'differs or breaks a limit; run python scripts/build_plugin.py' if problems else 'equal to a fresh build'}")
+        print(f"plugin/: {'differs or breaks a limit; run python dev/scripts/build_plugin.py' if problems else 'equal to a fresh build'}")
     else:
         print(f"plugin/: built, version {manifest()['version']}, {len(files(PLUGIN))} files"
               f"{'; breaks the limits above' if problems else ''}")

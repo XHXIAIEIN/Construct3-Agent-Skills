@@ -25,7 +25,7 @@ An official example mixed for a master limiter has its music above the
 window of M and effect peaks above −3 dBFS, the case `sound.md` warns of;
 the measurer reports both, in a few seconds for a project of ten files.
 The gain a loudness finding names, applied with the command it prints,
-puts the file inside its window (`tests/test_skill_check_sounds.py`).
+puts the file inside its window (`dev/tests/test_skill_check_sounds.py`).
 
 ## Options
 

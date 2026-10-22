@@ -33,7 +33,7 @@ it is not in the problem, `Options`, `Decision`, and `Re-evaluate when`.
 ## The index
 
 `decisions/README.md` lists every record by its own title and date, newest
-first, one line each; `tests/test_decision_index.py` fails when a record
+first, one line each; `dev/tests/test_decision_index.py` fails when a record
 lacks its line and prints the line to paste. A new record gets its line in
 the same change that adds it.
 

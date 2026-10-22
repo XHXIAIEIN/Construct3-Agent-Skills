@@ -32,7 +32,7 @@ jobs:
       - name: Build plugin/data/
         id: build
         run: |
-          python scripts/build_plugin.py
+          python dev/scripts/build_plugin.py
           if [ -n "$(git status --porcelain -- plugin)" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "data=$(git -C "$GITHUB_WORKSPACE/../Construct3-RAG" rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -49,8 +49,8 @@ jobs:
         if: steps.build.outputs.changed == 'true'
         run: |
           python -m pytest -q -rs
-          python -m compileall -q scripts tests skills
-          python scripts/build_plugin.py --check
+          python -m compileall -q dev scripts plugin/skills
+          python dev/scripts/build_plugin.py --check
 
       - name: Push the build
         if: steps.build.outputs.changed == 'true'

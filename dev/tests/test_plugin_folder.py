@@ -23,7 +23,7 @@ def test_the_plugin_holds_no_copy_of_the_guides():
 
 
 def test_plugin_folder_is_a_fresh_build_under_the_limits():
-    p = subprocess.run([sys.executable, str(REPO / "scripts" / "build_plugin.py"), "--check"],
+    p = subprocess.run([sys.executable, str(REPO / "dev" / "scripts" / "build_plugin.py"), "--check"],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert p.returncode == 0, p.stdout + p.stderr
 

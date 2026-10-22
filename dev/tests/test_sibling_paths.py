@@ -18,4 +18,4 @@ def test_no_test_builds_a_sibling_path_from_the_repository_parent():
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
         if SIBLING_FROM_PARENT.search(line) and path != Path(__file__).resolve()
     ]
-    assert not found, "use siblings_folder(REPO), as tests/skill_helpers.py does:\n" + "\n".join(found)
+    assert not found, "use siblings_folder(REPO), as dev/tests/skill_helpers.py does:\n" + "\n".join(found)

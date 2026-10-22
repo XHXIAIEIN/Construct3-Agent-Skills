@@ -61,7 +61,7 @@ Option 2. Where each statement of the guide lives:
 
 `llm-context.md` is the editor's file: `data/c3-new-project/` keeps it, and
 `pack_project.py` packs it. A rule about the folder, a file name or a file
-format starts from the guide (`skills-dev/AGENTS.md`).
+format starts from the guide (`dev/AGENTS.md`).
 
 ### The copy in `data/`
 
@@ -76,7 +76,7 @@ week and writes it only when its text changed (`docs/dev/data-pipeline.md`).
 
 construct.net answers a script with a browser check (HTTP 403) and serves
 the page to a browser. The committed copy is extracted from the page a
-browser received; `tests/fixtures/constructs-project-format.html` is that
+browser received; `dev/tests/fixtures/constructs-project-format.html` is that
 page cut down for the extractor's tests, the parts it reads as the server
 sent them. While the check stays, the weekly fetch logs a warning and keeps
 the copy, and a person refreshes it from a saved page with

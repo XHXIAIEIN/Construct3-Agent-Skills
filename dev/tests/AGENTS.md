@@ -1,4 +1,4 @@
-# `tests/` Directory
+# `dev/tests/` Directory
 
 The pytest suite is offline: it needs no agent, no editor and no network.
 It needs the Construct3-RAG clone beside this repository, whose `data/` the
@@ -18,7 +18,7 @@ build reads and a few tests compare with the plugin's copy.
   `DATA`, the sibling clone's `data/`; the guides from `GUIDES`, the
   Cookbook clone that `CONSTRUCT3_COOKBOOK` or the folder beside the clones
   holds, and a test that reads them is marked `NEEDS_COOKBOOK`.
-- Run `python scripts/build_plugin.py` after the data of the Construct3-RAG
+- Run `python dev/scripts/build_plugin.py` after the data of the Construct3-RAG
   clone changed, because `test_plugin_folder.py` fails while `plugin/data/`
   differs from a fresh build.
 - A skip reason names the command that supplies what is missing
@@ -30,7 +30,7 @@ build reads and a few tests compare with the plugin's copy.
 ## Skill tests
 
 The evals of the skill run agents, not pytest, and live with the skill:
-`skills-dev/AGENTS.md`, "Evals". `test_skill_spec.py` tests the skill's format,
+`dev/AGENTS.md`, "Evals". `test_skill_spec.py` tests the skill's format,
 the trigger runner `run_trigger_eval.py` against a stand-in client, and
 `trace.py` on a written transcript. `test_skill_grade.py` grades recorded
 answers from `fixtures/restart_event_answers/` and runs built from the
@@ -43,7 +43,7 @@ generated once a run.
 ## Commands
 
 ```bash
-python -m pytest tests/ -q
+python -m pytest dev/tests/ -q
 python -m pytest tests -q -k test_skill_
-python -m pytest tests/test_plugin_folder.py -q
+python -m pytest dev/tests/test_plugin_folder.py -q
 ```

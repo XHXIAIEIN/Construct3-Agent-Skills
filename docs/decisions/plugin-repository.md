@@ -70,15 +70,15 @@ plugin keeps its name.
 - `plugin/` holds the sources: the skill under `plugin/skills/`, the
   manifest, the README, the icon and
   the sub-agents (`plugin-folder.md`). Only `plugin/data/` is built:
-  `scripts/build_plugin.py` writes it from the `data/` of the
+  `dev/scripts/build_plugin.py` writes it from the `data/` of the
   Construct3-RAG clone beside this repository; `--rag` or
   `CONSTRUCT3_RAG_DATA` names another clone. The build takes the files Git
-  tracks in that clone, and `tests/test_plugin_folder.py` keeps
+  tracks in that clone, and `dev/tests/test_plugin_folder.py` keeps
   `plugin/data/` equal to a fresh build. The version logic of
   `plugin-tracks-commits.md` reads this repository's `origin/main`, and the
   committed version is its floor, so that no install goes back. What the
   plugin does not ship, the evals and the maintainers' guide, lies under
-  `skills-dev/`, because the directory holds the folder to 512 files and
+  `dev/`, because the directory holds the folder to 512 files and
   7,000,000 bytes.
 - The tests give the scripts `plugin/` as the clone, because that is the
   folder every install and link runs them from, and read raw data files

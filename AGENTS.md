@@ -16,12 +16,12 @@ Any agent that runs a shell and Python uses these files through the skill.
 `plugin/` is also the Claude Code plugin `construct3`, and the folder is the
 source. So edit the skill, the manifest, the README, the icon and the
 sub-agents in place. Only `plugin/data/` is built:
-`scripts/build_plugin.py` writes it from the data of
+`dev/scripts/build_plugin.py` writes it from the data of
 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), a clone
 beside this one. That repository holds the data, its update pipeline and
 the lookup service, and this repository holds everything an agent runs.
 The files that the plugin does not ship are beside it: the skill's evals
-and the maintainers' guide under `skills-dev/`, the tests, the docs and the
+and the maintainers' guide under `dev/`, the tests, the docs and the
 records. The reasons are in `docs/decisions/plugin-repository.md` and
 `docs/decisions/plugin-folder.md`.
 
@@ -35,7 +35,7 @@ new pitfall reaches users by `git pull` without a plugin release. Below,
 | Path | What it holds |
 |------|---------------|
 | `plugin/.claude-plugin/plugin.json` | The plugin's manifest: name, version, description, keywords. The build never sets a version below the committed `version` |
-| `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets. `skills-dev/AGENTS.md` says how to change it |
+| `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets. `dev/AGENTS.md` says how to change it |
 | `plugin/skills/<name>/SKILL.md`, `plugin/skills/run.py` | One row of the `/` menu for each user-facing script, and the runner that they share |
 | `plugin/data/c3-schemas/` | The ACEs of every plugin, behavior and effect, one JSON file each, for each locale (built) |
 | `plugin/data/c3-lang/` | The editor texts that the checker and a preview's inspector read (built) |
@@ -43,9 +43,9 @@ new pitfall reaches users by `git pull` without a plugin release. Below,
 | `plugin/data/*.bundle-*.json` | The TypeScript definitions, the example projects and the index of their ACEs, as bundles that the scripts read (built) |
 | `plugin/agents/` | The `project-worker` sub-agent type, which loads with the plugin |
 | `plugin/README.md`, `plugin/icon.png`, `plugin/LICENSE` | The plugin's page in Claude's directory, its listing icon and its licence |
-| `skills-dev/` | The skill's evals under `evals/`, and `AGENTS.md`, the guide to changing the skill |
-| `scripts/` | The data build, `bootstrap.py`, the output comparison and the measurements. `scripts/AGENTS.md` lists them |
-| `tests/` | The pytest suite, described in `tests/AGENTS.md` |
+| `dev/` | The skill's evals under `evals/`, and `AGENTS.md`, the guide to changing the skill |
+| `scripts/` | The data build, `bootstrap.py`, the output comparison and the measurements. `dev/scripts/AGENTS.md` lists them |
+| `dev/tests/` | The pytest suite, described in `dev/tests/AGENTS.md` |
 | `docs/decisions/` | The records, indexed in `docs/decisions/README.md`; `docs/AGENTS.md` says how to write one |
 | `.claude/agents/` | The `ace-lookup` sub-agent for sessions in this repository |
 | `.claude-plugin/marketplace.json` | The marketplace manifest, which names `plugin/` |
@@ -114,7 +114,7 @@ index says.
 A game project reaches the skill in one of the ways below, and the README
 says how to set up each one. Before you place the block in a project's
 instruction file by hand, or change the block, read
-`skills-dev/game-project-AGENTS.md`.
+`dev/game-project-AGENTS.md`.
 
 - To use the skill with any agent, run `install.py`. It copies the skill
   into the project and adds a block to the project's `AGENTS.md`. The
@@ -147,9 +147,9 @@ Before you edit, read the `AGENTS.md` of every directory you touch and run
 `git status`. Keep the changes that you did not make.
 
 - Edit `plugin/` in place, except `plugin/data/`.
-  `python scripts/build_plugin.py` writes that folder from the `data/` of
+  `python dev/scripts/build_plugin.py` writes that folder from the `data/` of
   the Construct3-RAG clone beside this one. Run the build after a data
-  change, because `tests/test_plugin_folder.py` fails while `plugin/data/`
+  change, because `dev/tests/test_plugin_folder.py` fails while `plugin/data/`
   differs from a fresh build.
 - The build also sets the plugin's version. While the plugin's files equal
   the published files, it sets the published version. When they differ, it
@@ -165,7 +165,7 @@ Before you edit, read the `AGENTS.md` of every directory you touch and run
   for each file other than an image, and 7,000,000 bytes in all
   (`docs/decisions/plugin-folder.md`). The build fails when the folder goes
   past them. Put what the plugin does not need at run time beside it, as
-  the evals are under `skills-dev/`.
+  the evals are under `dev/`.
 - The data belongs to Construct3-RAG. Make a change to a schema, a language
   pack, an example index or a guide in that repository. When its `main`
   changes, pull the clone beside this one and run the build. The workflow
@@ -177,9 +177,9 @@ Before you edit, read the `AGENTS.md` of every directory you touch and run
   `plugin/skills/construct3-agent-plugin/assets/build_project.py` conflicts
   whenever both sides changed its helpers, because the line carries their
   stamp. If it conflicts, keep either side, then paste the end line that
-  `tests/test_skill_build_project.py` prints.
+  `dev/tests/test_skill_build_project.py` prints.
 - A change to `SKILL.md`, to a reference or to what a script prints needs an
-  eval iteration of its own (`skills-dev/AGENTS.md`, "Evals").
+  eval iteration of its own (`dev/AGENTS.md`, "Evals").
 - If a product choice has a visible effect, record its evidence, options and
   trade-offs in `docs/decisions/`, and add its line to `docs/decisions/README.md`.
 - Change the docs and the tests together with the behavior. The READMEs
@@ -197,8 +197,8 @@ quick checks:
 
 ```bash
 python -m pytest -q <test files>
-python -m compileall -q scripts tests skills-dev plugin/skills
-python scripts/build_plugin.py --check
+python -m compileall -q dev scripts plugin/skills
+python dev/scripts/build_plugin.py --check
 git diff --check
 ```
 
@@ -212,7 +212,7 @@ Pick the test files from the paths in the diff:
   that import it. To find the importers, run `grep -l <module>` in the
   scripts' folders. Then find the tests that name any of them.
 - If a change reaches most test files, as a change to
-  `tests/skill_helpers.py` or `tests/conftest.py` does, run the whole suite
+  `dev/tests/skill_helpers.py` or `dev/tests/conftest.py` does, run the whole suite
   with `python -m pytest -q`.
 
 `.github/workflows/checks.yml` runs the whole suite and the other checks on
@@ -228,7 +228,7 @@ names the command.
 | Need | Document |
 |------|----------|
 | Install and use the skill or the plugin | `README.md` |
-| The project tools that the skill carries into a game project, and how to change and evaluate them | `plugin/skills/construct3-agent-plugin/SKILL.md`, `skills-dev/AGENTS.md` |
+| The project tools that the skill carries into a game project, and how to change and evaluate them | `plugin/skills/construct3-agent-plugin/SKILL.md`, `dev/AGENTS.md` |
 | Event sheet design, the sourced pitfalls, the examples' authoring style | `design/thinking.md`, `pitfalls.md` with its pages and `design/style.md` under `Construct3-Cookbook/guides/`, `docs/decisions/event-sheet-design-guidance.md` |
 | The sheets, layers, objects and look of a new project | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
 | The slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, flat layers in depth under a 3D camera | `Construct3-Cookbook/guides/recipes/` and `project-files/` |

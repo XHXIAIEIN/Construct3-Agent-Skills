@@ -140,8 +140,8 @@ Each row:
   row runs under the default permission mode whichever tool Claude Code
   runs it through and pre-approves nothing else. `argument-hint` and
   `disable-model-invocation` are Claude Code's fields, not the open
-  format's, so the reference validator of `skills-dev/AGENTS.md` fails on a
-  row by design; `tests/test_plugin_folder.py` pins the frontmatter
+  format's, so the reference validator of `dev/AGENTS.md` fails on a
+  row by design; `dev/tests/test_plugin_folder.py` pins the frontmatter
   instead.
 - A body of one line before the command, the command
   `` !`python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" <script> $ARGUMENTS` ``,
@@ -149,7 +149,7 @@ Each row:
   in this session, read its `SKILL.md` before acting on the output.
 
 The rows and `plugin/skills/run.py` live in the plugin folder itself,
-beside the skill (`plugin-folder.md`). `scripts/build_plugin.py` fails when
+beside the skill (`plugin-folder.md`). `dev/scripts/build_plugin.py` fails when
 a script under `plugin/skills/construct3-agent-plugin/scripts/` has no row,
 a row names no script, or a row exists for a script that `NOT_IN_MENU` of
 the build names. That set holds the modules the scripts import and `install.py`,
@@ -159,7 +159,7 @@ need (`plugin-tracks-commits.md`). The generator template,
 `tools/build_project.py` and rewritten there, so the plugin holds no
 script to run.
 
-`tests/test_plugin_folder.py` pins the set of rows against the scripts,
+`dev/tests/test_plugin_folder.py` pins the set of rows against the scripts,
 the frontmatter, the command, the sentence on the main skill, the hint
 against the usage line, and the runner's pass-through and exit code.
 
@@ -167,7 +167,7 @@ against the usage line, and the runner's pass-through and exit code.
 
 - A description written by hand goes stale when a script's purpose
   changes; the test catches a changed usage line, not a changed purpose.
-  The row of `skills-dev/AGENTS.md` names the file to change with the script.
+  The row of `dev/AGENTS.md` names the file to change with the script.
 - The runner adds a process per row. The scripts take tenths of a second;
   the editor scripts take seconds, as before.
 - `allowed-tools` grants the row's own command with any arguments for the
@@ -183,7 +183,7 @@ against the usage line, and the runner's pass-through and exit code.
 ## Re-evaluate when
 
 - An eval iteration runs with the menu in the plugin (a plugin arm,
-  `skills-dev/AGENTS.md`, "Evals"): the claim that the rows cost the model
+  `dev/AGENTS.md`, "Evals"): the claim that the rows cost the model
   nothing rests on the attachment of one request, not on a run.
 - A signed-in CLI runs `claude -p "/construct3:check-project"` in a game
   project: the model's reply to a row's text has not been read.

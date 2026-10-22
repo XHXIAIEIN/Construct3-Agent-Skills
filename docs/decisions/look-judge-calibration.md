@@ -30,7 +30,7 @@ Agents play every role, each a Claude Code sub-agent that gets one brief
 and nothing else:
 
 - Labellers: two Opus agents label each screenshot apart, through the
-  brief of `skills-dev/evals/label_look.py`. They answer each question with a reason,
+  brief of `dev/evals/label_look.py`. They answer each question with a reason,
   a no included, and say whether the screen would ship.
 - Adjudicator: an Opus agent settles each question the two labellers
   answered differently. It sees their answers and reasons only, never a
@@ -39,7 +39,7 @@ and nothing else:
   `review_look.brief` writes, one run per brief, the screenshots under
   neutral names.
 
-`skills-dev/evals/judge_look.py --score` counts how often a judge agrees with the
+`dev/evals/judge_look.py --score` counts how often a judge agrees with the
 labels. Most answers are no, so the baseline is a judge that answers no to
 everything. The labels find a fault on 22 screenshots and none on 13.
 Every broken copy got a yes on the question its break was made for.

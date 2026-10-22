@@ -30,7 +30,7 @@ derived from the viewport follow without code changes: `UNIT` 32, `MARGIN`
 off. A phone game sets 720×1280 and `"portrait"`, and gets `TOUCH` 96.
 
 The tests pin the derived numbers at 1920×1080, and the HUD eval case and
-`skills-dev/evals/grade.py` grade at that viewport. A fixture from an older skill,
+`dev/evals/grade.py` grade at that viewport. A fixture from an older skill,
 an `old_` arm, still has 720×1280 and is graded against the new numbers.
 
 ## Re-evaluate when
