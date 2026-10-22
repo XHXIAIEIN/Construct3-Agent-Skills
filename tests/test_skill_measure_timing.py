@@ -100,6 +100,25 @@ def test_an_effect_that_holds_is_an_ambient_field_without_a_ratio(tmp_path):
     assert code == 1, text
 
 
+# A rise of 90 to a peak that does not stay still: the frames after it are
+# what is left of the event, still over half of the gain, and a ratio over
+# them would read 4.50, a charge, for the wobble and 9.00 for the sag.
+WOBBLE = [128] * 10 + ramp(130, 255, 91) + [255, 250] * 10 + [250] * 40 + [128] * 20
+SAG = [128] * 10 + ramp(130, 255, 91) + ramp(254, 245, 10) + [245] * 40 + [128] * 20
+
+
+@NEEDS_FFMPEG
+@pytest.mark.parametrize("name, lums", [("wobble", WOBBLE), ("sag", SAG)])
+def test_a_peak_that_moves_but_does_not_fall_is_a_hold(tmp_path, name, lums):
+    video = tmp_path / f"{name}.mp4"
+    synth(video, lums)
+    code, text = run(str(video))
+    assert "ambient" in text, text
+    assert "a charge" not in text, text
+    assert "rise:fall   -" in text, text
+    assert code == 1, text
+
+
 @NEEDS_FFMPEG
 def test_a_fade_with_no_rise_says_so(tmp_path):
     video = tmp_path / "fade.mp4"
@@ -137,5 +156,5 @@ def test_the_ratio_rows_are_the_ones_the_page_states():
     assert mt.kind(3.0, False)[0] == "unusual"
     assert mt.kind(0.8, False)[0] == "unusual"
     assert mt.kind(0.0, True)[0] == "ambient"
-    assert mt.kind(0.0, False, True)[0] == "ambient"        # an event that ends at its peak
+    assert mt.kind(0.0, False, True)[0] == "ambient"        # an event that never falls to half
     assert mt.kind(0.0, False, False, 0)[0] == "no rise"   # a fade with no rise

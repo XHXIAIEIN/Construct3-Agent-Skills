@@ -18,10 +18,11 @@ A ratio between the rows is not an error; the page's sample holds no
 effect there. The script names it as such, because the shape is then one
 the page does not cover.
 
-An event that ends at its peak has no fall inside it: the effect holds, or
-the recording ends before it falls. A ratio there would be the rise over a
-forced 1, which is not a ratio of two parts, so the script names the effect
-an ambient field and says which of the two readings it cannot tell apart.
+An event whose brightness never falls back to half of its gain has no fall
+inside it: the effect holds, or the recording ends before it falls. A ratio
+there would divide the rise by the frames the event happens to have left
+after its peak, which are not a fall, so the script names the effect an
+ambient field and says which of the two readings it cannot tell apart.
 
 --from leaves out a title card. A reel that opens on a white card shows a
 brightness jump at the cut, and a measure that starts at the card takes
@@ -239,10 +240,12 @@ def parts(rows: list[dict], a: int, b: int) -> dict:
     fall_end = pk
     while fall_end + 1 < len(lums) and lums[fall_end + 1] >= half:
         fall_end += 1
-    # An event that ends on its peak has no fall inside it: the effect holds,
-    # or the recording stops before it falls. There is nothing to divide the
-    # rise by, so the ratio stays 0 rather than becoming the rise over 1.
-    hold = fall_end == pk and pk == len(lums) - 1
+    # An event whose brightness is still over half of the gain at its last
+    # frame has no fall inside it: the effect holds, or the recording stops
+    # before it falls. A peak that wobbles or sags counts too, because the
+    # frames after it are what is left of the event, not a fall, so the ratio
+    # stays 0 rather than dividing the rise by them.
+    hold = fall_end == len(lums) - 1
     # The tail ends where the brightness is back within 5 % of the gain.
     tail_end = fall_end
     while tail_end + 1 < len(lums) and lums[tail_end + 1] >= base + gain * 0.05:
@@ -260,7 +263,8 @@ def kind(ratio: float, flat: bool, hold: bool = False, rise: int = 1) -> tuple[s
     if flat:
         return "ambient", ""
     if hold:
-        return "ambient", ("the event ends at its peak, so it has no fall to count: either the "
+        return "ambient", ("the event ends before its brightness falls back to half, so it has "
+                           "no fall to count: either the "
                            "effect holds, which vfx-timing.md builds as a state with its own on "
                            "and off, or the recording stops before the effect falls; record past "
                            "the end of the effect to tell the two apart")
