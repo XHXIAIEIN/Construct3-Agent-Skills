@@ -916,8 +916,9 @@ def questions(found: list[dict], shown: set[str], root: Path) -> list[str]:
     first = next((f for f in found if f["ask"] and f["event"] and f["sheet"] in shown), None)
     example = f"{c3.quoted(first['sheet'])} --events {first['event']}" if first else "<sheet> --events <number>"
     lines = ["questions: answer each one yes or no, reading the events it names with print_sheet.py, for example "
-             f"{c3.script_command(root, 'print_sheet.py', ' ' + example)}. For each yes, change the sheet as the "
-             f"question says, with edit_sheet.py, and run this review again:"]
+             f"{c3.script_command(root, 'print_sheet.py', ' ' + example)}. For each yes about an event or a "
+             f"global your change wrote, change the sheet as the question says, with edit_sheet.py, and run this "
+             f"review again. A yes about one you did not touch goes in the hand-over for the user, unchanged:"]
     for n, (ask, text) in enumerate(QUESTIONS.items(), 1):
         named = [f for f in found if f["ask"] == ask and f["sheet"] in shown]
         named.sort(key=lambda f: (-leading_count(f["short"]), f["sheet"], f["event"] or 0))
@@ -1019,7 +1020,8 @@ def main() -> int:
           f"{len({f['sheet'] for f in hits})} of {len(sheets)} sheets; the questions name {named} "
           f"event{'' if named == 1 else 's'}")
     print("next: fix every finding line in one plan of edit_sheet.py, each names the event and what to write; "
-          "answer every question and change what you answered yes; then run check_project.py, and this review "
+          "answer every question, change what you answered yes about the events and globals your change wrote, "
+          "and name a yes about any other in the hand-over; then run check_project.py, and this review "
           "again until it prints no finding. A finding the user asked for on purpose stays, and the hand-over "
           "says why.")
     return 0
