@@ -117,9 +117,16 @@ POINTER_STYLE = {"hover": "hover", "pressed": "pressed", "seconds": 0.15}
 # Chinese and other non-Latin text draws in the platform's face. FONT = "system-ui" draws every
 # label in the platform's face and ships no file.
 FONT = {"light": "InterDisplay-Light", "regular": "Inter-Regular", "medium": "Inter-Medium"}
+# Pixel art draws its text in Sprite Fonts, so letters keep the pixel grid and the palette.
+# PIXEL_FONT names a BDF file in the user's font cache: Fusion Pixel Font, 8 px, proportional, with
+# Simplified Chinese, under the SIL Open Font License. build_all() runs the skill's
+# scripts/bake_font.py, which bakes the characters the game uses into the Sprite Fonts' images.
+# Without the file, pixel art's text is a Text in FONT.
+PIXEL_FONT = "fusion-pixel-8px-proportional-zh_hans"
 # Text size in points by kind, scaled to the viewport's shorter side: a tracked tag, the name of a
 # stat or a key, body text and a key's verb, a screen's title, the count the player plays for, a
-# banner. In pixel art the small kinds are one unit and the large two. TEXT_WEIGHT is each kind's
+# banner. In pixel art the small kinds are one unit and the large two: a Sprite Font's size is in
+# px, its scale size / UNIT. TEXT_WEIGHT is each kind's
 # weight of FONT.
 TEXT_SIZE = ({"tag": UNIT, "name": UNIT, "body": UNIT, "title": 2 * UNIT, "number": 2 * UNIT, "display": 2 * UNIT}
              if UNIT == 8 else
@@ -162,6 +169,7 @@ from pathlib import Path
 # so they default here.
 TEXT_WEIGHT = globals().get("TEXT_WEIGHT", {})
 LINE = globals().get("LINE", max(1, round(min(VIEW_W, VIEW_H) / 720)))
+PIXEL_FONT = globals().get("PIXEL_FONT", "fusion-pixel-8px-proportional-zh_hans")
 # Px of this viewport per px of the paper-and-ink prototype, which was drawn at 720 px high: the
 # gaps of the keys and the header scale by it.
 REF = min(VIEW_W, VIEW_H) / 720
@@ -1574,8 +1582,16 @@ def sprite_type(name: str, animations: list, ivars: list = (), behaviors: list =
 
 
 def text_type(name: str, ivars: list = (), behaviors: list = ()) -> dict:
-    return {"name": name, "plugin-id": "Text", "sid": sid(), "isGlobal": False, "editorNewInstanceIsReplica": True,
+    """A Text, or in pixel art with PIXEL_FONT a Sprite Font, whose image bake_font.py draws."""
+    base = {"name": name, "sid": sid(), "isGlobal": False, "editorNewInstanceIsReplica": True,
             "instanceVariables": list(ivars), "behaviorTypes": list(behaviors), "effectTypes": []}
+    if not pixel_font():
+        return {"plugin-id": "Text"} | base
+    if name not in _sprite_fonts:
+        _sprite_fonts.append(name)
+    return {"plugin-id": "Spritefont2"} | base | {"image": {
+        "width": UNIT, "height": UNIT, "originX": 0.5, "originY": 0.5, "originalSource": "", "exportFormat": "lossless",
+        "exportQuality": 0.8, "fileType": "image/png", "imageSpriteId": image_id(), "useCollisionPoly": True, "tag": ""}}
 
 
 def image_type(name: str, plugin_id: str, w: int, h: int, ox: float = 0.5, oy: float = 0.5,
@@ -1758,9 +1774,18 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
               ivars=None, behaviors=None, weight: str = "regular", valign: str = "center") -> dict:
     """A Text in the FONT weight `weight` at a TEXT_SIZE size, in the PALETTE role `color`. `on` is
     the role behind it, which it must read on: canvas_alt, the darker backdrop cell, unless a panel
-    is behind it. Keep `bold` off: a weight is a font file, and the browser fakes a bold."""
+    is behind it. Keep `bold` off: a weight is a font file, and the browser fakes a bold. In pixel
+    art with PIXEL_FONT it is a Sprite Font at scale size / UNIT, its white glyphs tinted to `color`
+    by the instance's colour; bake_fonts() fills its character set."""
     size = size or TEXT_SIZE["body"]
     readable(otype, color, on, size)
+    if pixel_font():
+        return instance(otype, {"text": text, "enable-bbcode": False, "character-width": UNIT,
+                                "character-height": UNIT, "character-set": "", "spacing-data": "",
+                                "scale": size / UNIT, "character-spacing": 0, "line-height": 0,
+                                "horizontal-alignment": halign, "vertical-alignment": valign, "wrapping": "word",
+                                "initially-visible": True, "origin": "top-left", "read-aloud": False},
+                        world(x, y, w, h, 0, 0, color=(*(v / 255 for v in rgb(color)), 1)), ivars, behaviors)
     return instance(otype, {"text": text, "enable-bbcode": False, "font": face(weight), "size": size,
                             "line-height": 0, "bold": bold, "italic": False, "color": rgba(rgb(color)),
                             "horizontal-alignment": halign, "vertical-alignment": valign, "wrapping": "word",
@@ -1784,14 +1809,61 @@ LATIN_EMS = dict(zip(map(chr, range(32, 127)), (
     0.25, 0.89, 0.6, 0.6, 0.62, 0.62, 0.39, 0.54, 0.34, 0.6, 0.57, 0.83, 0.56, 0.58, 0.56, 0.44, 0.35, 0.44, 0.67)))
 
 
+# The spaces of U+2002 to U+200A in em. PIXEL_FONT has none, and bake_font.py bakes each as a blank
+# cell this share of UNIT wide.
+SPACE_EMS = {"\u2002": 0.5, "\u2003": 1, "\u2004": 0.33, "\u2005": 0.25, "\u2006": 0.17, "\u2007": 0.65,
+             "\u2008": 0.29, "\u2009": 0.18, "\u200a": 0.09}
+
+
 def text_ems(text: str) -> float:
     """Width of `text` in em: 1 for a wide or full-width character (Chinese, Japanese, Korean, the
     full-width comma and colon), a printable ASCII one its width in LATIN_EMS, a space of U+2002 to
     U+200A its own width, 0.6 for any other. In px: text_ems(s) * size * PX_PER_PT."""
-    spaces = {"\u2002": 0.5, "\u2003": 1, "\u2004": 0.33, "\u2005": 0.25, "\u2006": 0.17, "\u2007": 0.65,
-              "\u2008": 0.29, "\u2009": 0.18, "\u200a": 0.09}
     return round(sum(1.0 if unicodedata.east_asian_width(c) in ("W", "F")
-                     else LATIN_EMS.get(c) or spaces.get(c, 0.6) for c in text), 6)
+                     else LATIN_EMS.get(c) or SPACE_EMS.get(c, 0.6) for c in text), 6)
+
+
+_advances: dict[str, int] = {}
+_sprite_fonts: list[str] = []              # the text types text_type() made Sprite Fonts
+
+
+def pixel_font() -> Path | None:
+    """The BDF file of PIXEL_FONT in the user's font cache, when the viewport is pixel art and the
+    cache holds it. Otherwise None, and text draws in Texts."""
+    path = font_cache() / f"{PIXEL_FONT}.bdf"
+    return path if PIXEL_ART and path.is_file() else None
+
+
+def advance(c: str) -> int:
+    """Advance in px of `c` in PIXEL_FONT at scale 1: the font's own, SPACE_EMS * UNIT for a space
+    of U+2002 to U+200A, UNIT for a character the font lacks. The font is read once."""
+    if not _advances:
+        cp = None
+        with pixel_font().open(encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith("ENCODING "):
+                    cp = int(line.split()[1])
+                elif line.startswith("DWIDTH ") and cp is not None and 0 <= cp <= 0x10FFFF:
+                    _advances[chr(cp)] = int(line.split()[1])
+    return _advances.get(c) or (max(1, round(SPACE_EMS[c] * UNIT)) if c in SPACE_EMS else UNIT)
+
+
+def text_px(text: str, size: float) -> float:
+    """Width in px of one line of `text` at `size`: a Sprite Font's advances at its scale in pixel
+    art with PIXEL_FONT, else text_ems() of a Text."""
+    if pixel_font():
+        return sum(map(advance, text)) * size / UNIT
+    return text_ems(text) * size * PX_PER_PT
+
+
+def em_px(size: float) -> float:
+    """Size of one em in px at `size`: a Sprite Font's cell, size px; a Text's size * PX_PER_PT."""
+    return size if pixel_font() else size * PX_PER_PT
+
+
+def line_px(size: float) -> float:
+    """Height in px of one line at `size`: a Sprite Font's cell, size px; a Text's LINE_EMS em."""
+    return size if pixel_font() else size * PX_PER_PT * LINE_EMS
 
 
 def text_size(kind: str) -> float:
@@ -1836,13 +1908,12 @@ def label_box(text: str, size: float | None = None) -> tuple[int, int]:
     """(w, h) in px of a one-line label of `text` at `size` (TEXT_SIZE["body"] by default), each
     rounded up to a whole unit."""
     size = size or TEXT_SIZE["body"]
-    return (math.ceil(text_ems(text) * size * PX_PER_PT / UNIT) * UNIT,
-            math.ceil(size * PX_PER_PT * LINE_EMS / UNIT) * UNIT)
+    return math.ceil(text_px(text, size) / UNIT) * UNIT, math.ceil(line_px(size) / UNIT) * UNIT
 
 
 def line_height(size: float | None = None) -> int:
     """Height in px of one line of text at `size` (TEXT_SIZE["body"] by default), rounded up."""
-    return math.ceil((size or TEXT_SIZE["body"]) * PX_PER_PT * LINE_EMS)
+    return math.ceil(line_px(size or TEXT_SIZE["body"]))
 
 
 def origin_name(ox: float, oy: float) -> str:
@@ -2083,7 +2154,7 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
         size = TEXT_SIZE["body"]
     w, h = label_box(longest or text, size)
     if w > bw:
-        chars = int(bw / (size * PX_PER_PT))
+        chars = int(bw / em_px(size))
         sys.exit(f"band_text({otype!r}): {longest or text!r} is {w} px wide and the {band} band {bw}; it holds about "
                  f"{chars} Chinese characters or {int(chars / 0.6)} letters, so shorten it")
     x = {"left": x0, "center": x0 + (bw - w) // 2, "right": x0 + bw - w}[align]
@@ -2423,8 +2494,8 @@ def tracked_expr(expr: str) -> str:
 
 
 def text_width(text: str, size: float) -> int:
-    """The width in px of a box that holds one line of `text` at `size`, by text_ems(), with 2 px to spare."""
-    return math.ceil(text_ems(text) * size * PX_PER_PT) + 2
+    """The width in px of a box that holds one line of `text` at `size`, by text_px(), with 2 px to spare."""
+    return math.ceil(text_px(text, size)) + 2
 
 
 def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None = None, on: str = "canvas_alt",
@@ -2451,7 +2522,7 @@ def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where:
         hud_header("ResultTitle", "ResultTag", "Round clear", "Round · 03")"""
     big, small = text_size("title"), text_size("tag")
     tw, h = text_width(title, big), line_height(big)
-    gap = round(0.6 * big * PX_PER_PT) if tag else 0
+    gap = round(0.6 * em_px(big)) if tag else 0
     gw = text_width(tracked(longest_tag or tag), small) if tag else 0
     x, y = anchor(where, tw + gap + gw, h, 0, 0, dx, dy)
     title_ = text_inst(title_type, title, x, y, tw, h, big, "left", color="ink", on=on, behaviors=anchored(where),
@@ -2459,7 +2530,7 @@ def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where:
     if not tag:
         return [title_]
     # Bottom-aligned, a line keeps its descent under the baseline, about a quarter em of its size
-    lift = round(0.24 * (big - small) * PX_PER_PT)
+    lift = round(0.24 * (em_px(big) - em_px(small)))
     tag_ = text_inst(tag_type, tracked(tag), x + tw + gap, y - lift, gw, h, small, "left", color="dim", on=on,
                      behaviors=anchored(where), weight=TEXT_WEIGHT.get("tag", "regular"), valign="bottom")
     return [title_, tag_]
@@ -2476,7 +2547,8 @@ def hud_keys(box_type: str, key_type: str, verb_type: str, keys: list, where: st
     of spaced():
         HUD = [..., hud_keys("KeyBox", "KeyText", "KeyVerb", [("Tap", "collect")])]"""
     small, body = text_size("name"), TEXT_SIZE["body"]
-    h = max(round(20 * REF), line_height(small))
+    # Line height plus one px of paper above and below, inside the outline
+    h = max(round(20 * REF), line_height(small) + 2 * (LINE + 1))
     pad, near, far = round(7 * REF), round(8 * REF), round(24 * REF)
     widths = [(text_width(key, small) + 2 * pad, text_width(verb, body)) for key, verb in keys]
     x, y = anchor(where, sum(kw + near + vw for kw, vw in widths) + far * (len(keys) - 1), h, 0, 0, dx, dy)
@@ -2940,6 +3012,10 @@ def build_all() -> None:
     for line in pace(BEATS):
         print(line)
     copy_fonts()
+    if PIXEL_ART and not pixel_font():
+        print(f"warning: PIXEL_FONT names {PIXEL_FONT!r}, and {font_cache()} holds no {PIXEL_FONT}.bdf, so the "
+              f"text draws in Texts, off the pixel grid. To bake Sprite Fonts, put the {PIXEL_FONT}.bdf of Fusion "
+              f"Pixel Font's 8px proportional BDF release there: https://github.com/TakWolf/fusion-pixel-font/releases")
     build_images()
     write_wanted()
     build_files()
@@ -2967,6 +3043,30 @@ def build_all() -> None:
         existing = json.load(f)
     write_json("project.c3proj", build_project(
         existing, types, families, containers, layouts, [sheet["name"]]))
+    if _sprite_fonts:
+        bake_fonts()
+
+
+def bake_fonts() -> None:
+    """Names the Sprite Font types and PIXEL_FONT in tools/pixel-font.json, keeping the characters
+    bake_font.py --add put there, then runs the skill's scripts/bake_font.py, which draws into their
+    images the characters the game uses. Stops the run when the skill is missing or bake_font.py
+    fails."""
+    manifest = ROOT / "tools" / "pixel-font.json"
+    added = json.loads(manifest.read_text(encoding="utf-8")).get("added", "") if manifest.is_file() else ""
+    write_json("tools/pixel-font.json", {"font": PIXEL_FONT, "types": sorted(_sprite_fonts), "added": added})
+    baker = skill_file("scripts/bake_font.py")
+    if baker is None:
+        sys.exit("the Sprite Fonts are not baked: the construct3-agent-plugin skill is not installed in this "
+                 "project; run python <Construct3-Agent-Skills>/plugin/skills/construct3-agent-plugin/scripts/"
+                 "install.py here, then this script again")
+    run = subprocess.run([sys.executable, str(baker), "--project", str(ROOT)], capture_output=True, text=True,
+                         encoding="utf-8")
+    for line in (run.stdout + run.stderr).splitlines():
+        if not line.startswith("ok:"):
+            print(line)
+    if run.returncode:
+        sys.exit(run.returncode)
 
 
 def build_and_check() -> None:
@@ -2985,7 +3085,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-20, stamp eebf831cacc7 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-22, stamp 6db226c04fd4 ================
 
 
 # --- the game ---------------------------------------------------------------------------

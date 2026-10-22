@@ -192,6 +192,9 @@ Text whose font the project lacks draws its Latin text in a serif face. So
 on a machine whose font cache lacks the files, a game takes the look in the
 platform's face until its `fonts/` holds the three files.
 
+Pixel art draws its labels in Sprite Fonts baked from a pixel font
+(`pixel-art-sprite-font.md`).
+
 ### The colours
 
 `PALETTE` holds the roles of the contrast table and `flash`, white, the
