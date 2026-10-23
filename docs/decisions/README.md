@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
 - [What Only Maintainers Use Lives Under `dev/`](dev-folder.md) — 2026-10-23
 - [The Game's Look: What Aesthetics Skills Add to the Template](look-from-aesthetics-skills.md) — 2026-10-23
@@ -29,7 +30,6 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A Game Project's Long Documents Are Read in Parts](long-docs-in-parts.md) — 2026-10-14
 - [A long sheet prints its groups, and --find names the events that use a name](long-sheet-contents.md) — 2026-10-14
 - [Paper and Ink: The Generator Template's Fallback Look](paper-and-ink-look.md) — 2026-10-14
-- [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-14
 - [A picture of an event sheet comes from the editor, fitted and cropped](sheet-screenshot.md) — 2026-10-14
 - [Design Tokens for the Tool Pages](design-tokens.md) — 2026-10-13
 - [Lightweight review and optional complete evidence](design-review-packets.md) — 2026-10-10
