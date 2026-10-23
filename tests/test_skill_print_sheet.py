@@ -235,6 +235,20 @@ def test_print_marks_what_the_editor_has_disabled(project):
     assert "   9   System: Coin.Count = 0 [condition disabled] [event disabled]\n       System: Trigger once\n" in out
 
 
+def test_a_comparison_prints_as_its_sign_with_a_schema_or_without(project):
+    """The index of a comparison is what the project stores; read bare, it was taken for the wrong sign. An ACE
+    without a schema, such as a third-party one, is known by its key: comparison or cmp in C3, Comparison in C2."""
+    ps = script_module("print_sheet")
+    assert [ps.comparison_sign(v) for v in (0, 5, "2", True, 2.0, 6, "")] == ["=", "≥", "<", None, None, None, None]
+    assert ps.shown_param("Comparison", "5") == "≥" and ps.shown_param("cmp", 1) == "≠"
+    assert ps.shown_param("gamepad", 0) == 0
+    edit(project, SHEET, lambda sheet: events(sheet)["restart_block"]["conditions"].append(
+        {"id": "compare-speed", "objectClass": "Ghost", "parameters": {"comparison": 3, "speed": "0"}}))
+    code, out = tool(project, "print_sheet", "Game")
+    assert code == 0 and "Ghost: compare-speed (comparison: ≤, speed: 0)" in out, out
+    assert "System: Coin.Count = 0" in out
+
+
 def test_scripts_write_utf8_and_survive_a_code_page_that_cannot(built):
     """A piped Python on Windows writes the ANSI code page: mojibake under cp936, a crash under cp1252."""
     script = built / INSTALLED / "scripts" / "print_sheet.py"

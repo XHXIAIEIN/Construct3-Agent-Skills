@@ -89,6 +89,9 @@ import c3project as c3
 from c3project import NUMBERED, STRING_LITERAL, describe
 
 COMPARISONS = ("=", "≠", "<", "≤", ">", "≥")
+COMPARISON_INDEXES = frozenset(map(str, range(len(COMPARISONS))))
+# The keys of a comparison parameter, in lower case: C3's comparison and cmp, C2's Comparison.
+COMPARISON_KEYS = frozenset({"comparison", "cmp"})
 VARIABLE_ROW = re.compile(r"\s*(?:global|local)(?: constant)?(?: static)? (?:number|string|boolean) (\S+) = (.*)")
 DISABLED_MARKS = (" [condition disabled]", " [action disabled]", " [event disabled]")
 OUTLINE_COMMENT = 30    # characters of a comment's first line --outline keeps: a CJK character is about a token
@@ -152,6 +155,20 @@ def script_head(script: list | str) -> str:
     return f"script, {n} line{'' if n == 1 else 's'}"
 
 
+def comparison_sign(value) -> str | None:
+    """=, ≠, <, ≤, >, ≥ for a comparison's index 0 to 5, a number or its digits as C2 stores it; None for any
+    other value. A model that read the bare index got two of three comparisons wrong."""
+    text = str(value)
+    return COMPARISONS[int(text)] if text in COMPARISON_INDEXES else None
+
+
+def shown_param(key: str, value):
+    """A parameter as a reader sees it: the value of a comparison, by its key in any case, as its sign; any
+    other value as it is. For an ACE whose schema is not at hand, such as a third-party or a C2 one."""
+    sign = comparison_sign(value) if key.lower() in COMPARISON_KEYS else None
+    return value if sign is None else sign
+
+
 def wording(p: c3.Project, kind: str, ace: dict) -> str:
     """A condition or action as the event sheet words it: the schema's
     display-text with the parameters in place, in the locale of --locale."""
@@ -168,13 +185,13 @@ def wording(p: c3.Project, kind: str, ace: dict) -> str:
     params = args_ if isinstance(args_, dict) else {}
     entry = p.ace_entry(kind, ace) if obj in p.plugin_of else None
     if not entry or not entry.get("display-text"):
-        text = f"{ace.get('id')} ({', '.join(f'{k}: {v}' for k, v in params.items())})"
+        text = f"{ace.get('id')} ({', '.join(f'{k}: {shown_param(k, v)}' for k, v in params.items())})"
     else:
         shown = []
         for key, spec in (entry.get("params") or {}).items():
             value = params.get(key, "…")
-            if spec["type"] == "cmp" and value in range(6):
-                value = COMPARISONS[value]
+            if spec["type"] == "cmp" and comparison_sign(value):
+                value = comparison_sign(value)
             elif spec.get("items") and value in spec["items"]:
                 value = spec["items"][value]
             shown.append(str(value))
