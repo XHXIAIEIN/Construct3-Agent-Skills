@@ -1,6 +1,8 @@
 """review_look.py: the mechanical findings over the instances a layout holds, and
 what the run prints. The browser is not started: the checks are pure functions
-of what LOOK_JS reads from the runtime."""
+of what LOOK_JS reads from the runtime, and a reviewer's reply is checked against the brief."""
+import json
+
 from tests.skill_helpers import SKILL, INSTALLED, png, run, script_module
 
 LAYERS = {"Game": {"parallax": [1, 1], "shown": True, "view": [0, 0, 1280, 720]},
@@ -179,6 +181,50 @@ def test_review_look_writes_a_brief_for_a_reviewer_that_has_not_seen_the_project
     assert ("7. On a screenshot that shows it, does an object sit away from the place given for it: lives "
             "\"top-right\"?\n8. Does the same decoration") in text
     assert "Map 1: no\nMap 2: yes - " in text
+
+
+REVIEWED = {"places": [], "brief": ".tmp/look/brief.md", "preview": {"layouts": [
+    {"layout": "Map", "shot": ".tmp/look/Map.png", "findings": [], "errors": []},
+    {"layout": "Big map", "shot": ".tmp/look/Big map.png", "findings": [], "errors": []},
+    {"layout": "Combat", "left": "End", "errors": []}]}}
+
+
+def test_a_reply_is_checked_against_the_brief_it_answers():
+    asked = len(rl.questions(True, []))
+    reply = "\n".join([f"**Map {q}:** no" for q in range(1, asked + 1) if q not in (2, 3, 4)]
+                      + ["Map 2: yes - top left: the score covers the timer"]
+                      + [f"- Big map Q{q}. no" for q in range(1, asked)]          # Big map 7 left out
+                      + ["Big map 5: yes", "Shop 1: no", "Map 99: no", "I looked at every screenshot."])
+    lines, code = rl.check_reply(REVIEWED, reply, "reply.md")
+    assert code == 1
+    assert lines == [
+        f"reply: reply.md, against the brief of 2 screenshots and {asked} questions: {2 * asked} answers asked",
+        "  missing: Map 3, 4; Big map 7",
+        "  yes without where: Big map 5",
+        "  not in the brief: Shop 1: no",              # Combat drew no screenshot, Shop is no layout
+        "  not in the brief: Map 99: no",
+        "  yes: Map 2 - top left: the score covers the timer",
+        "  yes: Big map 5",
+        f"answers: {2 * asked - 3} of {2 * asked}, 2 yes, 3 missing",
+        "next: give the reviewer the same brief again and have it answer the missing questions and say where each "
+        "yes is; then check its reply again"]
+    every_no = "\n".join(f"{shot} {q}: no" for shot in ("Map", "Big map") for q in range(1, asked + 1))
+    lines, code = rl.check_reply(REVIEWED, every_no, "reply.md")
+    assert code == 0 and lines[-1] == "next: every question is answered no; the look review is done"
+    lines, code = rl.check_reply(REVIEWED, every_no.replace("Map 2: no", "Map 2: yes - the coin: a grey box"), "r")
+    assert code == 1 and "  yes: Map 2 - the coin: a grey box" in lines and lines[-1].startswith("next: fix each yes")
+
+
+def test_review_look_checks_a_saved_reply_without_a_browser(project):
+    code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
+    assert code == 2 and "no reply at reply.md" in out, out
+    (project / "reply.md").write_text("Map 1: no\n", encoding="utf-8")
+    code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
+    assert code == 2 and "run review_look.py first" in out, out
+    (project / ".tmp").mkdir(exist_ok=True)
+    (project / ".tmp" / "review-look.json").write_text(json.dumps(REVIEWED), encoding="utf-8")
+    code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
+    assert code == 1 and "  missing: Map 2-" in out and out.rstrip().splitlines()[-2].startswith("answers: 1 of "), out
 
 
 def test_review_look_prints_its_help_and_needs_a_project(tmp_path, project):
