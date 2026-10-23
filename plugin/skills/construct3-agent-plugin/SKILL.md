@@ -1,7 +1,7 @@
 ---
 name: construct3-agent-plugin
 description: Check, read, look up and generate the JSON of a Construct 3 folder project (project.c3proj, eventSheets, layouts, objectTypes, families) against the Construct3-RAG schemas and the rules the Construct 3 editor applies when it opens a project. Use this skill whenever you write or edit an event sheet or any other project file of a Construct 3 game, need the exact id, parameters and JSON of a condition, action or expression, want to read an event sheet or an official example as events instead of JSON, generate a whole project from a script, or the editor refuses to open or preview a project, even if the user only says "add a mechanic", "fix this event" or pastes an editor error.
-compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. prepare_art.py needs Pillow to cut out the pictures of an image tool; elsewhere Pillow is optional, numbering the frames of a preview recording's contact sheet and joining the recording into a GIF where ffmpeg is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
+compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. prepare_art.py needs Pillow, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
 metadata:
   source: https://github.com/XHXIAIEIN/Construct3-Agent-Skills
 ---
@@ -54,10 +54,6 @@ once before it is handed over.
   the user reviews `agents` and merges it. At the hand-over, give the user
   the events that changed, not the JSON diff:
   `python scripts/print_sheet.py --since <the user's branch>`.
-- The user has the project open in the Construct 3 editor: ask them to save
-  and close it before you change its files, and to open it again after. The
-  editor keeps the files as it loaded them, so a save there writes each file
-  edited in the editor over your change, with no warning.
 
 ## Scripts
 
@@ -69,11 +65,11 @@ once before it is handed over.
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet as the editor words it, under its event numbers; `--map` the layouts that run each sheet, `--find NAME` the events that use a name, `--since COMMIT` what changed |
 | `scripts/print_layout.py [LAYOUT ...]` | Layers and instances in Z order with box, size and text, `on no object` for a label off its button |
 | `scripts/edit_sheet.py SHEET PLAN.json` | Every change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |
-| `scripts/verify_change.py` | Every check of a change in order, each run again only when the files changed; its last line is the one thing to do next. `--status` prints where the checks stand |
-| `scripts/check_project.py` | Every project file against the schemas and the editor's load rules; it passes when the last line starts with `ok:`. `--style` for a project the agent wrote, `--review` for one someone asks about |
-| `scripts/review_design.py` | `--check`: the full checker, then design findings and questions; read [references/design-review.md](references/design-review.md) before `--prepare` |
-| `scripts/open_in_editor.py` | Open the project in the Construct 3 editor: `opened`, or `failed` with the editor's message; `--preview` also runs the game for a few seconds and prints its errors, `--install-addon` installs a custom addon first. The first run takes up to 40 seconds |
-| `scripts/preview_project.py PLAN.json` | Play the preview from a plan: tap, drag, press keys, wait `until` an expression holds, read the state, take screenshots. `--keep NAME` keeps a plan that passes, `--all` replays the kept ones |
+| `scripts/verify_change.py` | The check to run after every change. It runs the four scripts below and the look in order, each again only when the files changed; its last line is the one thing to do next. `--status` prints where the checks stand |
+| `scripts/check_project.py` | Its first step: every project file against the schemas and the editor's load rules; it passes when the last line starts with `ok:`. Alone: `--style` for a project the agent wrote, `--review` for one someone asks about |
+| `scripts/review_design.py` | Its second step, `--check`: the full checker, then design findings and questions; read [references/design-review.md](references/design-review.md) before `--prepare` |
+| `scripts/open_in_editor.py` | Its editor step: `opened`, or `failed` with the editor's message; `--preview` also runs the game for a few seconds and prints its errors, `--install-addon` installs a custom addon first. The first run takes up to 40 seconds |
+| `scripts/preview_project.py PLAN.json` | Play the preview from a plan: tap, drag, press keys, wait `until` an expression holds, read the state, take screenshots. `--keep NAME` keeps a plan that passes; `verify_change.py` replays the kept ones |
 
 The scripts for a new game's design, the look, sounds, a picture of a
 sheet, Advanced Random, export, packing, art, a new project and the
@@ -117,8 +113,13 @@ user the editor screenshot it names; the browser runs headless. A project
 handed over as a file is packed after the last check, because
 `pack_project.py` refuses files that the check has not passed.
 
-Before you design an interaction, read
-`Construct3-Cookbook/guides/design/thinking.md` and run
+Exit code 2 and `stopped at`: the line says the cause and what to do. Read
+[references/checker-rules.md](references/checker-rules.md) when a finding
+needs explaining or the editor reports an error the checker let through.
+
+## Before you design an interaction
+
+Read `Construct3-Cookbook/guides/design/thinking.md` and run
 `scripts/search_guides.py` with the interaction's words. The design guide
 names the built-in to write before a variable or an *Every tick* (its
 Native first table), and what a new project takes instead of a superseded
@@ -126,17 +127,38 @@ feature. Before events go into a sheet, read `design/style.md` beside it,
 the official sheets' shape. Without a Cookbook clone the
 scripts print the `git clone`: run it once the user agrees.
 
-Exit code 2 and `stopped at`: the line says the cause and what to do. Read
-[references/checker-rules.md](references/checker-rules.md) when a finding
-needs explaining or the editor reports an error the checker let through.
+## Gotchas
+
+- If the user has the project open in the Construct 3 editor, ask them to
+  save and close it before you change its files, and to open it again
+  after. The editor keeps the files as it loaded them, so a save there
+  writes each file edited in the editor over your change, with no warning.
+- Change an event sheet only through `edit_sheet.py`. The sheet's JSON is
+  indented seven to seventeen tabs deep, and an exact-match edit of several
+  lines there fails one time in three. Other project files are edited as
+  they are.
+- `plugins/system.json` and `plugins/_common.json` run to thousands of
+  lines, more than most file tools return at once, so an ACE below the cut
+  looks missing. Look an ACE up with `lookup_ace.py` instead.
+- *Pick nearest/furthest*, *Is overlapping* and *Set color* belong to every
+  world object, not to System or the plugin: look them up on an object of
+  the project, `Coin nearest`.
+- A trigger fires only in a sheet that the running layout runs, by its own
+  sheet or an include, so a sheet that no layout runs needs an include
+  before its triggers work.
+- In pixel art the labels are Sprite Fonts, which draw only the characters
+  baked into them. After you change a text by hand, run
+  `python scripts/bake_font.py`.
+- Art drawn in code with Pillow looks worse than the stand-in shapes and
+  mixes styles. When this session has an image generation tool, run
+  `python scripts/prepare_art.py --list` and follow its output; without
+  one, keep the stand-ins.
 
 ## Look an ACE up before writing it
 
 An ACE missing from the schema does not exist, unless the lookup says it is
 deprecated: the editor still opens a project that uses it, and a new event
-should not. `plugins/system.json` and `plugins/_common.json` run to
-thousands of lines, more than most file tools return at once, and an ACE
-below the cut looks missing. Ask for the part:
+should not. Ask for the object and the words of the ACE:
 
 ```bash
 python scripts/lookup_ace.py Coin tween two
@@ -152,17 +174,15 @@ action tween-two-properties - Tween (two properties) [behavior Tween, tween]  <i
     ease                   ease       The easing function to use.  (bare id of a built-in ease: noease, easeinoutsine, easeoutback ...)
 ```
 
-*Pick nearest/furthest*, *Is overlapping* and *Set color* belong to every
-world object, not to System or the plugin: look them up on an object of the
-project, `Coin nearest`. Copy the `write:` line and replace the values.
-Leave `"sid": <new sid>` out of a plan for `edit_sheet.py`, which gives
-every new entry one; in a hand edit it is a 15-digit number the project
-does not use yet. A combo item whose name differs from its id prints both,
-`id: name`: write the id, and give the user the name. An expression prints
-the way it is reached, `Coin.Tween.Progress(tags)`. What the line does not
-show is in `Construct3-Cookbook/guides/project-files/hand-editing.md`:
-read it before writing a function or custom action block or a call of one,
-a `projectfile` parameter, or a family's behavior through a member type.
+Copy the `write:` line and replace the values. Leave `"sid": <new sid>` out
+of a plan for `edit_sheet.py`, which gives every new entry one; in a hand
+edit it is a 15-digit number the project does not use yet. A combo item
+whose name differs from its id prints both, `id: name`: write the id, and
+give the user the name. An expression prints the way it is reached,
+`Coin.Tween.Progress(tags)`. What the line does not show is in
+`Construct3-Cookbook/guides/project-files/hand-editing.md`: read it before
+writing a function or custom action block or a call of one, a
+`projectfile` parameter, or a family's behavior through a member type.
 
 ## Read a sheet as events
 
@@ -191,19 +211,13 @@ in JSON line numbers, and read a screenshot or a pasted Find result back the
 same way.
 
 In a project of several sheets, find where a feature lives first: `--map`
-for the sheets, `--find NAME` for the events that use a name. A trigger
-fires only in a sheet the running layout runs, by its own sheet or an
-include, so a sheet that no layout runs needs an include before its
-triggers work.
+for the sheets, `--find NAME` for the events that use a name.
 
 ## Change a sheet with a plan
 
-Every change to an event sheet goes through a plan: the operations as JSON
-in a file of their own, which `edit_sheet.py` puts into the sheet. The
-sheet's JSON is indented seven to seventeen tabs deep, and an exact-match
-edit of several lines there fails one time in three; other project files
-are edited as they are. `python scripts/edit_sheet.py --help` gives every
-operation with its JSON: read it before the first plan.
+A plan holds the operations as JSON in a file of their own, which
+`edit_sheet.py` puts into the sheet. `python scripts/edit_sheet.py --help`
+gives every operation with its JSON: read it before the first plan.
 
 ```json
 [
@@ -236,22 +250,4 @@ first project file. When the agent owns the project and the user reviews it
 in the editor, write it as one Python generator instead of JSON by hand,
 after reading
 [references/generating-a-project.md](references/generating-a-project.md).
-The generator checks what it wrote with `--style`, so every event is held
-to the style of the official examples. Its helpers lie between two markers,
-and `scripts/install.py` brings them up to date: write the game's settings
-above them and the game below them, and a helper the game changes again
-below the end marker, where it replaces the skill's. Edit
-`tools/build_project.py` in place: git keeps its history, so no scripts
-that patch it.
-
-Every sprite of the game is an `art()` in the generator: it shows a
-stand-in shape until its picture is in `art/`. When this session has an
-image generation tool, the art comes from that tool, not from code: run
-`python scripts/prepare_art.py --list` and follow its output. Without an
-image tool, keep the stand-ins: art drawn in code with Pillow looks worse
-than they do and mixes styles. In pixel art the labels are Sprite Fonts
-that draw only the characters baked into them. After you change a text by
-hand, run `python scripts/bake_font.py`. When another model writes the generator,
-give it the `deliver` steps of `assets/look-manifest.json`, then run its
-`confirm` steps on the result, `scripts/check_look.py` among them. A rule
-whose status is `open` is the user's to decide.
+That file covers the generator's markers, the art and the look checks.

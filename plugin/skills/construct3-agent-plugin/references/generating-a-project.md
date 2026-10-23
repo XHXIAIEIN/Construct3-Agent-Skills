@@ -113,6 +113,9 @@ sprite with what its picture shows and its box in units. Every sprite is an
 session that has an image tool makes the pictures; the plan does not draw
 them in code. Art drawn in code looks worse than the stand-ins and mixes
 drawing styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md`).
+When this session has an image generation tool, run
+`python scripts/prepare_art.py --list` and follow its output; without one,
+keep the stand-ins.
 
 ## Build, check, open
 
@@ -172,12 +175,19 @@ The project's README explains the objects, the groups, the constants and how
 to regenerate. It is the second copy of the design, for the user, and it says
 that running the generator discards edits made in the editor.
 
+When another model writes the generator, give it the `deliver` steps of
+`assets/look-manifest.json`, then run its `confirm` steps on the result,
+`scripts/check_look.py` among them. A rule whose status is `open` is the
+user's to decide.
+
 ## Writing the generator
 
 The stand-in game in `assets/build_project.py` shows the shape. Keep these
 habits, and write each part of the game with the helpers they name, whose
 parameters are in the template.
 
+- Edit `tools/build_project.py` in place, and write no script that patches
+  it, because git keeps its history.
 - Write the game above the begin marker and below the end marker. A helper
   the game changes is defined again below the end marker, where a def or a
   constant replaces the one of the same name between the markers and a
