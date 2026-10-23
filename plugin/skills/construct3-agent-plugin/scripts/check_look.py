@@ -19,6 +19,10 @@ layouts and event sheets the editor would load and checks:
                         whole UNITs, the other side being the shadow's
   grid.runtime-spawn    an object created at runtime is not placed at a raw
                         random(): the template's grid_random() rounds it
+  type.pixel-font       every character that the Sprite Fonts of
+                        tools/pixel-font.json may show is baked into their
+                        images, as scripts/bake_font.py --check reports;
+                        one that is not draws as nothing
   motion.hit            no object type or family has the Flash behavior: a
                         hit shows as a colour, the template's hit_frame() and
                         hit_flash()
@@ -46,6 +50,7 @@ import struct
 import sys
 from pathlib import Path
 
+import bake_font
 import c3project as c3
 
 
@@ -253,6 +258,21 @@ def check_safe_area(root: Path, project: dict, warned: list[str]) -> None:
                   "which are CSS pixels.")
 
 
+def check_pixel_font(root: Path, out: list[str]) -> None:
+    """type.pixel-font: the characters in use that the Sprite Fonts of bake_font.MANIFEST lack."""
+    if not (root / bake_font.MANIFEST).is_file():
+        return
+    manifest = c3.load(root / bake_font.MANIFEST)
+    types = set(manifest.get("types") or [])
+    layouts = bake_font.layouts_of(root)
+    used = bake_font.chars_of(bake_font.in_use(root, layouts, types) + manifest.get("added", ""))
+    have = bake_font.baked(layouts, types)
+    missing = "".join(c for c in used if c not in have)
+    if missing:
+        out.append(f"type.pixel-font: {len(missing)} characters in use are not baked into the Sprite Fonts, and "
+                   f"draw as nothing: {missing}; run {c3.script_command(root, 'bake_font.py')}")
+
+
 def main() -> int:
     c3.utf8_output()
     ap = c3.argument_parser(__doc__.split("\n\n")[0], "examples:\n"
@@ -274,6 +294,7 @@ def main() -> int:
     images = check_alpha(root, args.painted, out, soft=unit != 8)
     instances = check_grid(root, unit, out)
     creates = check_spawn(root, out)
+    check_pixel_font(root, out)
     check_hit(root, out)
     check_squash(root, out)
     warned: list[str] = []

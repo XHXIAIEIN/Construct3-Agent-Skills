@@ -379,6 +379,19 @@ parameters are in the template.
   stops the run on a colour that reads below 4.5:1 on what is behind it,
   3:1 from 18 pt up (`text_contrast()`), and names the roles that would
   read there.
+- In pixel art every text type is a Sprite Font of `PIXEL_FONT`, an 8 px
+  pixel font with Chinese, when the user's font cache holds its BDF file.
+  Without the file the run warns and draws Texts. A text size of 8 draws
+  at scale 1 and 16 at scale 2, and the instance's colour tints the text
+  to its role.
+- A Sprite Font draws only the characters baked into its image. The
+  generator runs `scripts/bake_font.py`, which bakes the texts of the
+  instances, every string in the sheets and in `files/`, and printable
+  ASCII. After an edit by hand, run it again. A word that events build
+  from parts that no string holds goes in with `--add`, which the next
+  runs keep; `--replace` drops what is no longer in use.
+  `check_look.py` names a character in use that is not baked, since it
+  draws as nothing.
 - A game the player points at things in sets `POINTER = True`; the
   template's default is `False`, and the `pointer_*()` helpers then add
   nothing. On, `pointer_frames(file)` in `build_images()`, after

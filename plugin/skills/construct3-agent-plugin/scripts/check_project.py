@@ -657,6 +657,7 @@ class Checker:
         self.signalled: set[str] | None = set()     # literal tags a Signal raises; None once one is not literal
         self.awaited: list[tuple[str, str, str]] = []     # (tag, ACE id, where) of each Wait for signal and On signal
         self.layer_effects: dict[str, set[str]] = {}     # layer name -> its effects' names, in any layout
+        self.glyph_white: dict[str, bool] = {}     # Sprite Font type -> its image draws every glyph white
         self.layout_effects: set[str] = set()             # the effects of every layout
         # Sprite Font type -> the characters its instances draw, whether any has BBCode on
         self.font_sets: dict[str, tuple[set[str], bool]] = {}
@@ -1288,7 +1289,8 @@ class Checker:
                     continue
                 t = self.p.types.get(inst.get("type")) or {}
                 shown = props.get("initially-visible", True) is not False
-                if t.get("plugin-id") != "Text":
+                sprite_font = t.get("plugin-id") == "Spritefont2"
+                if t.get("plugin-id") != "Text" and not sprite_font:
                     if shown:
                         other_shown = True
                         behind.append(c3.box(world))
@@ -1297,28 +1299,44 @@ class Checker:
                     continue
                 text = props.get("text") if isinstance(props.get("text"), str) else ""
                 box = c3.box(world)
-                size = props.get("size", 12)
+                # A Text's size in pt; a Sprite Font's in px, its cell's height times its scale
+                size = (props.get("character-height", 0) * props.get("scale", 1) if sprite_font
+                        else props.get("size", 12))
                 if text.strip() and isinstance(size, (int, float)):
                     # in the middle of the screen, not a HUD line held to an edge
                     middle = (hud or viewport_sized) and vh / 3 <= (box[1] + box[3]) / 2 <= 2 * vh / 3
-                    texts.append((here, inst.get("type"), text, size, middle))
+                    texts.append((here, inst.get("type"), text, size, middle, sprite_font))
                 name = f"{inst.get('type')} {text[:20]!r}" if text.strip() else str(inst.get("type"))
                 if hud or viewport_sized:
                     self.text_at_edge(here, name, world, props, vw, vh, unit)
-                colour = props.get("color")
+                # A Sprite Font's colour is its instance's tint, the text's own only over white glyphs
+                colour = (world.get("color") if self.white_glyphs(inst.get("type")) else None) if sprite_font \
+                    else props.get("color")
                 covered = any(b[0] < box[2] and b[2] > box[0] and b[1] < box[3] and b[3] > box[1] for b in behind)
                 if (text.strip() and not unknown and not covered and not inst.get("effects") and not t.get("effectTypes")
                         and not re.search(r"\[(outline|color)=", text) and isinstance(colour, list) and len(colour) >= 3):
                     self.text_on_backdrop(here, name, colour, backdrop)
-        if other_shown or not 1 <= len(texts) <= 2 or any(len(t) > SHORT_TEXT or "\n" in t for _, _, t, _, _ in texts):
+        if other_shown or not 1 <= len(texts) <= 2 or any(len(t[2]) > SHORT_TEXT or "\n" in t[2] for t in texts):
             return
-        here, otype, text, size, middle = max(texts, key=lambda t: t[3])
+        here, otype, text, size, middle, sprite_font = max(texts, key=lambda t: t[3])
         if middle and size < 2 * unit:
+            drawn = f"at {size:g} px" if sprite_font else f"at {size:g} pt it draws about {round(size * 4 / 3)} px high"
+            fix = (f"Set its \"scale\" so that it draws {2 * unit} px high or more" if sprite_font
+                   else f"Set its \"size\" to {2 * unit} or more")
             self.warn(f"{here}: {otype} {text!r} stands in the middle of a screen that shows nothing but "
                       f"{'two short texts' if len(texts) > 1 else 'this text'}, so it is what the screen is about, "
-                      f"and at {size:g} pt it draws about {round(size * 4 / 3)} px high on a {vh:g} px high "
-                      f"viewport. Set its \"size\" to {2 * unit} or more, the template's banner size "
-                      f"(TEXT_SIZE[\"display\"]), and its box to fit")
+                      f"and {drawn} on a {vh:g} px high viewport. {fix}, the template's banner size "
+                      f"(TEXT_SIZE[\"display\"]), and fit its box to it")
+
+    def white_glyphs(self, otype: str) -> bool:
+        """Whether the image of the Sprite Font type `otype` draws every glyph in white, as
+        bake_font.py does, so that the instance's colour is the colour of its text."""
+        if otype not in self.glyph_white:
+            img = c3.png_rgba(path.read_bytes()) if (path := self.p.root / "images" / f"{otype.lower()}.png").is_file() \
+                else None
+            self.glyph_white[otype] = img is not None and all(px[:3] == (255, 255, 255)
+                                                              for px in img[2] if px[3])
+        return self.glyph_white[otype]
 
     def text_at_edge(self, here: str, name: str, world: dict, props: dict, vw: float, vh: float, unit: int) -> None:
         """A text on the screen whose aligned side lies at or past the screen's edge: its first or last letter

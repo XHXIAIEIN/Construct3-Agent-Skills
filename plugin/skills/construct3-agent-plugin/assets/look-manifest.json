@@ -5,6 +5,7 @@
   "template": "assets/build_project.py",
   "decisions": [
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
+    "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
@@ -57,7 +58,7 @@
       "id": "colour.palette-only",
       "status": "enforced",
       "strict": true,
-      "says": "Every pixel that shows is a colour of PALETTE, named by the role it plays.",
+      "says": "Every pixel of an image the template draws is a colour of PALETTE, named by the role it plays. The runtime's blends are outside it: an instance's opacity, a fade and the shadow's alpha.",
       "template": "PALETTE, rgb(), write_png()"
     },
     {
@@ -70,10 +71,20 @@
     {
       "id": "type.inter",
       "status": "adopted",
-      "says": "Labels are Inter, which the skill ships in three weights as WOFF files: light for the count the player plays for, regular for labels, tags and verbs, medium for titles and keys. The generator copies them into fonts/ and lists them; Chinese falls back to the platform's face. Never bold: a weight is a file.",
+      "says": "Labels are Inter, which the skill ships in three weights as WOFF files: light for the count the player plays for, regular for labels, tags and verbs, medium for titles and keys. The generator copies them into fonts/ and lists them; Chinese falls back to the platform's face. Never bold: a weight is a file. In pixel art the labels are Sprite Fonts of PIXEL_FONT (type.pixel-font).",
       "template": "FONT",
       "value": "{'light': 'InterDisplay-Light', 'regular': 'Inter-Regular', 'medium': 'Inter-Medium'}",
       "helpers": "face(), copy_fonts()"
+    },
+    {
+      "id": "type.pixel-font",
+      "status": "enforced",
+      "strict": true,
+      "says": "In pixel art every text is a Sprite Font of PIXEL_FONT, Fusion Pixel Font 8 px from the user's font cache, with white glyphs in UNIT px cells at scale 1 or 2. The instance's colour tints them to the label's role, so a letter keeps the pixel grid and the palette. Its image holds the characters the game uses, which scripts/bake_font.py bakes; one that is not baked draws as nothing. Without the font file the run warns and draws Texts.",
+      "template": "PIXEL_FONT",
+      "value": "'fusion-pixel-8px-proportional-zh_hans'",
+      "helpers": "text_type(), text_inst(), bake_fonts(), pixel_font(), advance(), text_px(), em_px(), line_px()",
+      "confirm": "check_look.py: type.pixel-font"
     },
     {
       "id": "type.sizes",

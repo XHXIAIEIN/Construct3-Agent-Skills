@@ -249,7 +249,9 @@ stand-in shape until its picture is in `art/`. When this session has an
 image generation tool, the art comes from that tool, not from code: run
 `python scripts/prepare_art.py --list` and follow its output. Without an
 image tool, keep the stand-ins: art drawn in code with Pillow looks worse
-than they do and mixes styles. When another model writes the generator,
+than they do and mixes styles. In pixel art the labels are Sprite Fonts
+that draw only the characters baked into them. After you change a text by
+hand, run `python scripts/bake_font.py`. When another model writes the generator,
 give it the `deliver` steps of `assets/look-manifest.json`, then run its
 `confirm` steps on the result, `scripts/check_look.py` among them. A rule
 whose status is `open` is the user's to decide.
