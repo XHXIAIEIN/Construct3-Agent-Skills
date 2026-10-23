@@ -34,7 +34,7 @@ names a file of that clone.
 | `plugin/data/c3-lang/` | The editor texts that the checker and a preview's inspector read (built) |
 | `plugin/data/c3-new-project/` | The empty project that the editor saves, which `new_project.py` copies (built) |
 | `plugin/data/*.bundle-*.json` | The TypeScript definitions, the example projects and the index of their ACEs, as bundles that the scripts read (built) |
-| `plugin/agents/` | The `project-worker` sub-agent type, which loads with the plugin |
+| `plugin/agents/` | The `project-worker` and `look-judge` sub-agent types, which load with the plugin |
 | `plugin/README.md`, `plugin/icon.png`, `plugin/LICENSE` | The plugin's page in Claude's directory, its listing icon and its licence |
 | `scripts/bootstrap.py` | The script that clones the sibling repositories and installs the skill in a game project (section 4) |
 | `docs/decisions/` | The reasons behind the skill's choices, indexed in `docs/decisions/README.md` |

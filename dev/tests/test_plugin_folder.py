@@ -249,3 +249,16 @@ def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     assert [t.strip() for t in fields["tools"].split(",")] == ["Bash", "PowerShell", "Read", "Edit", "Write", "Grep",
                                                                "Glob", "Skill"]
     assert "construct3:construct3-agent-plugin" in body and "SKILL.md" in body
+
+
+def test_the_look_judge_only_reads_and_runs_the_measured_model():
+    """The look judge answers review_look.py's brief apart from the agent that built the game: it can only read,
+    it starts without the project's instruction files, and it names the model whose answers were measured by its
+    full ID, which a client's alias table cannot move (docs/decisions/look-judge-agent.md)."""
+    text = (PLUGIN / "agents" / "look-judge.md").read_text(encoding="utf-8")
+    head, body = text.split("\n---\n", 1)
+    fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
+    assert fields["name"] == "look-judge" and len(fields["description"]) < 1024
+    assert fields["tools"] == "Read" and fields["omitClaudeMd"] == "true"
+    assert fields["model"].startswith("claude-haiku-"), fields["model"]
+    assert "brief.md" in body

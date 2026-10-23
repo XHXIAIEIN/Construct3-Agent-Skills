@@ -54,7 +54,7 @@ The repository keeps the `construct3-agent-plugin` skill and the data it reads i
 
 ## The Claude Code plugin
 
-`plugin/` is also a Claude Code plugin, `construct3`. It loads the skill on its own when the user asks about a Construct 3 project. It also adds the sub-agent type `construct3:project-worker`, which takes a change or a lookup that the main agent hands over. Install the plugin in one of three ways:
+`plugin/` is also a Claude Code plugin, `construct3`. It loads the skill on its own when the user asks about a Construct 3 project. It also adds two sub-agent types. `construct3:project-worker` takes a change or a lookup that the main agent hands over. `construct3:look-judge` answers the questions that `review_look.py` asks about its screenshots: it has not seen the project, and it can only read. Install the plugin in one of three ways:
 
 - From [Claude's plugin directory](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory), to get the versions that Anthropic has reviewed. Each version waits for a review, so this copy can be some commits behind this repository.
 - From this repository as a marketplace, to follow the released versions. In Claude, open Settings > Customize > Plugins. Select Add in the top right corner > Add marketplace > From a repository, enter `https://github.com/XHXIAIEIN/Construct3-Agent-Skills` and select Sync. To do the same from a terminal, run:

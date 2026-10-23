@@ -16,7 +16,7 @@ The `/` menu lists each script as a row of its own, `/construct3:lookup-ace`, `/
 
 The scripts need Python 3.10 or later. Cutting pictures out of an image tool's output needs Pillow.
 
-The plugin also adds the sub-agent type `construct3:project-worker`, for a change or a lookup that the main agent hands over. It has only the tools the scripts need (shell, file reading and editing, search and the skill), so it starts with a fraction of the context a general-purpose sub-agent starts with.
+The plugin also adds the sub-agent type `construct3:project-worker`, for a change or a lookup that the main agent hands over. It has only the tools the scripts need (shell, file reading and editing, search and the skill), so it starts with a fraction of the context a general-purpose sub-agent starts with. The type `construct3:look-judge` answers the questions that `review_look.py` asks about its screenshots: it has not seen the project, and it can only read. It runs the Haiku model whose answers were measured against labelled screenshots.
 
 ## What runs and what reaches the network
 
