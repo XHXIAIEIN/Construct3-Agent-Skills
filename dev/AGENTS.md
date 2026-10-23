@@ -21,6 +21,71 @@ run time goes here. A game project holds a copy of the skill, which the
 skill's `scripts/install.py` makes and refreshes, and that copy reports when
 it differs from the clone's.
 
+## Change this repository
+
+Before you edit, read the `AGENTS.md` of every directory you touch and run
+`git status`. Keep the changes that you did not make.
+
+`plugin/` is the Claude Code plugin `construct3`, and the folder is the
+source. So edit the skill, the manifest, the README, the icon and the
+sub-agents in place. Only `plugin/data/` is built:
+`dev/scripts/build_plugin.py` writes it from the data of the Construct3-RAG
+clone beside this one. The files that the plugin does not ship are beside
+it: this folder, the docs and the records. The reasons are in
+`docs/decisions/plugin-repository.md`, `docs/decisions/plugin-folder.md` and
+`docs/decisions/dev-folder.md`.
+
+- Edit `plugin/` in place, except `plugin/data/`. Run the build after a data
+  change, because `dev/tests/test_plugin_folder.py` fails while `plugin/data/`
+  differs from a fresh build.
+- The build also sets the plugin's version. While the plugin's files equal
+  the published files, it sets the published version. When they differ, it
+  raises the patch number by one. It never sets a version below the
+  committed one. Raise `version` in `plugin/.claude-plugin/plugin.json` by
+  hand only for a minor or major release (`docs/decisions/plugin-tracks-commits.md`).
+- Do not add a `.gitattributes` file to this repository. Claude's directory
+  refuses to validate a repository whose attributes could rewrite files at
+  checkout, and a test fails on the file. The build writes text files with
+  LF, and the checks read a committed text file with CRLF as LF. So a
+  checkout with `core.autocrlf` passes the checks (`docs/decisions/plugin-folder.md`).
+- Keep `plugin/` inside the limits of Claude's directory: 512 files, 256 KiB
+  for each file other than an image, and 7,000,000 bytes in all
+  (`docs/decisions/plugin-folder.md`). The build fails when the folder goes
+  past them. Put what the plugin does not need at run time in this folder,
+  as the evals are.
+- The data belongs to Construct3-RAG. Make a change to a schema, a language
+  pack, an example index or a guide in that repository. When its `main`
+  changes, pull the clone beside this one and run the build. The workflow
+  `.github/workflows/refresh-plugin.yml` does the same every day, and it
+  pushes the build if the data changed. `docs/dev/data-pipeline.md` in the
+  Construct3-RAG clone describes that pipeline.
+- Do not write the Construct 3 version or the counts into text, because every
+  data refresh changes them. Read them from `plugin/data/c3-schemas/_index.json`.
+- If a merge leaves conflicts in `plugin/data/`, run the build, stage the
+  folder, then commit the merge.
+- The end marker line of
+  `plugin/skills/construct3-agent-plugin/assets/build_project.py` conflicts
+  whenever both sides changed its helpers, because the line carries their
+  stamp. If it conflicts, keep either side, then paste the end line that
+  `dev/tests/test_skill_build_project.py` prints.
+- A change to `SKILL.md`, to a reference or to what a script prints needs an
+  eval iteration of its own ("Evals" below).
+- If a product choice has a visible effect, record its evidence, options and
+  trade-offs in `docs/decisions/`, and add its line to `docs/decisions/README.md`.
+  `docs/AGENTS.md` says how to write one.
+- Change the docs and the tests together with the behavior. The READMEs
+  describe the skill and the plugin for people. They hold the same content
+  in English and Chinese, and `README.md` names no Chinese text besides its
+  link to `README_CN.md`. Write the skill, the `AGENTS.md` files and the
+  agent files in English.
+- In a commit message or PR text, name an issue of another repository in
+  words or as a URL in backticks. Never write `owner/repo#N` or `#N`, because
+  GitHub turns these forms into a public cross-reference on that issue's
+  timeline, and nobody can remove it.
+- `.claude/workflows/polish.js` is a verified run that polishes the skill's
+  sources, docs, records and code. Start it only when no other session
+  edits the repository.
+
 ## Change a project tool
 
 Read the row of the task, then the source and the tests it names. The rows
@@ -196,10 +261,41 @@ repository root.
 
 ## Checks
 
+Before you finish, run the tests that the change reaches and the three
+quick checks:
+
 ```bash
-python -m pytest tests -q -k test_skill_
-python -m compileall -q plugin/skills dev/evals
+python -m pytest -q <test files>
+python -m compileall -q dev scripts plugin/skills
+python dev/scripts/build_plugin.py --check
+git diff --check
 ```
+
+Pick the test files from the paths in the diff:
+
+- A change to a document reaches the tests that read it:
+  `test_doc_links.py`, `test_plugin_folder.py` and `test_cookbook_paths.py`.
+  The last checks that every `Construct3-Cookbook/...` path named in an
+  `AGENTS.md` or a README exists in the Cookbook clone.
+- A change to a script reaches its own tests and the tests of the scripts
+  that import it. To find the importers, run `grep -l <module>` in the
+  scripts' folders. Then find the tests that name any of them. A test that
+  only names a word of the change, such as a constant it never reads, is
+  not reached. The skill's tests alone are
+  `python -m pytest dev/tests -q -k test_skill_`.
+- Run the whole suite with `python -m pytest -q` only when the change
+  reaches most test files: when it changes what
+  `dev/tests/skill_helpers.py` or `dev/tests/conftest.py` does, or when it
+  moves the tests or the scripts, as a merge that moves folders does.
+  Otherwise leave the whole suite to the workflow below.
+
+`.github/workflows/checks.yml` runs the whole suite and the other checks on
+every push to `main` and on every pull request. So a push needs no local
+run of its own. The tests need the Construct3-RAG clone beside this one.
+The tests that read the official examples also need the
+`Construct-Example-Projects` clone, and the tests that read the guides need
+the `Construct3-Cookbook` clone. If a test lacks its clone, it skips and
+names the command.
 
 The tests install the skill in a temporary project and run the copy, and
 they pin the format's constraints offline.

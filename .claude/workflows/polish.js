@@ -596,7 +596,7 @@ const planPrompt = (pre, units) => `You plan the moves between files that would 
 
 Run git as \`git -C "${pre.worktree}" ...\`; read files by absolute path under the worktree.
 
-A move changes where content lives: a section that belongs to another file's job, two files that do one job, one file doing two jobs, a rule repeated in several files that should live in one, a decision record whose decision applies to nothing that exists (docs/AGENTS.md: such a record is deleted). A record that gives the reason for a removal (remove-*.md, or any record whose decision removed a feature) is never deleted, because root AGENTS.md section 5 keeps that reason in docs/decisions/.
+A move changes where content lives: a section that belongs to another file's job, two files that do one job, one file doing two jobs, a rule repeated in several files that should live in one, a decision record whose decision applies to nothing that exists (docs/AGENTS.md: such a record is deleted). A record that gives the reason for a removal (remove-*.md, or any record whose decision removed a feature) is never deleted, because dev/AGENTS.md, "Change this repository", keeps that reason in docs/decisions/.
 
 Read the routing of the repository first: the tables of the root AGENTS.md (sections 2 and 6), docs/AGENTS.md, dev/AGENTS.md, and the passage "How the prompts are kept" in docs/decisions/event-sheet-design-guidance.md. A move agrees with them, or changes them in the same move.
 Growth since the base: \`git -C "${pre.worktree}" log --stat ${pre.base ? pre.base + '..HEAD' : '-n 200'}\`. Growth is where content piles up in the wrong place.
