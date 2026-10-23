@@ -88,14 +88,13 @@ If the skill runs from a Git clone of GitHub, the checker reads the plugin versi
 
 ```
 plugin/                 The plugin: the skill and the / menu rows under skills/, the manifest, README and icon, and the built data/
-dev/             The skill's evals and the guide to changing the skill
-scripts/                build_plugin.py (refreshes plugin/data/), bootstrap.py, output_diff.py, measure_examples.py, measure_timing.py
-dev/tests/                  The pytest suite
+dev/                    What only maintainers use: the evals, tests/, scripts/ (build_plugin.py refreshes plugin/data/) and AGENTS.md, the guide to changing the skill and building plugin/
+scripts/                bootstrap.py, which clones the siblings and installs the skill
 docs/                   The decision records and the audit
 .claude-plugin/         The marketplace manifest for Claude Code, which names plugin/
 .claude/agents/         The ace-lookup sub-agent for sessions in this repository
 CLAUDE.md               Imports AGENTS.md
-AGENTS.md               The guide for AI agents; its section 5 says how to change the skill and build plugin/
+AGENTS.md               The guide for AI agents; maintainers start from dev/AGENTS.md
 ```
 
 ## Repositories this one depends on
