@@ -1836,6 +1836,9 @@ def test_ok_line_names_a_layout_size_written_into_a_script(project):
                 if i.get("world", {}).get("width") not in (None, i["world"].get("height"))),
                key=lambda i: i["world"]["width"] * i["world"]["height"])
     w, h = inst["world"]["width"], inst["world"]["height"]
+    # Every type with an instance of that size is named, a key's text as well as its box
+    sized = list(dict.fromkeys(i["type"] for layer in layout["layers"] for i in layer["instances"]
+                               if (i.get("world", {}).get("width"), i.get("world", {}).get("height")) == (w, h)))
 
     def ok_line(script: str, *args: str) -> str:
         (project / "scripts" / "main.js").write_text(script, encoding="utf-8")
@@ -1851,7 +1854,8 @@ def test_ok_line_names_a_layout_size_written_into_a_script(project):
             "layout is resized; when you write or change a script") in line, line
     # An instance's size is named beside its layout's
     line = ok_line(f"const w = 1280, h = 1024, pw = {w}, ph = {h};")
-    assert (f"layout 'Game' (width 1280, height 1024), {inst['type']} in it (width {w:.10g}, height {h:.10g}). "
+    named = ", ".join(f"{t} in it (width {w:.10g}, height {h:.10g})" for t in sized)
+    assert (f"layout 'Game' (width 1280, height 1024), {named}. "
             f"Replace the layout's numbers with runtime.layout.width and runtime.layout.height, and each object's "
             f"numbers with the width and height of its instance. A number copied from the layout is wrong when the "
             f"layout or an instance is resized;") in line, line

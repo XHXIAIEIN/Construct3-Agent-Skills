@@ -244,15 +244,18 @@ fills it, and a board of slots has no frame.
 
 | Kind | Prototype px at 720 | `TEXT_SIZE` pt at 1080 | Weight |
 |------|--------------------:|-----------------------:|--------|
-| `tag`, tracked | 10 | 11 | regular, `dim` |
-| `name`, of a stat or a key | 11 | 12 | regular; a key medium |
-| `body`, body text and a verb | 12 | 14 | regular |
-| `title`, a screen's title | 20 | 22 | medium |
-| `number`, the count | 40 | 45 | light |
+| `tag`, tracked | 10 | 15 | regular, `dim` |
+| `name`, of a stat or a key | 11 | 16 | regular; a key medium |
+| `body`, body text and a verb | 12 | 18 | regular |
+| `title`, a screen's title | 20 | 30 | medium |
+| `number`, the count | 40 | 60 | light |
 | `display`, a banner | | 64, two units | medium |
 
-Points are the prototype's px scaled to the viewport's shorter side, times
-0.75. In pixel art the small kinds are one unit and the large kinds two. A
+Points are the prototype's px taken as points and scaled to the viewport's
+shorter side, so each kind is 4/3 the prototype's size and the tag reaches
+the floor of `look-from-aesthetics-skills.md`, 1.75% of the shorter side;
+the user chose this on 2026-10-23 over the prototype's own sizes, which
+were set for a desktop window. In pixel art the small kinds are one unit and the large kinds two. A
 label is never bold, because a weight is a file and the browser fakes a
 bold that Inter lacks.
 
@@ -300,12 +303,9 @@ out, as the user decided; the hit keeps the template's flash and squash.
 
 - The Chinese fallback was seen on Windows only; on macOS, iOS and Android
   the platform's per-script default decides the face.
-- The text sizes suit a desktop window, the template's audience
-  (`landscape-viewport.md`); on a phone held sideways a 12 pt name of a
-  1920×1080 viewport is about 5 dp high. The tag, the name and the body
-  are smaller than the smallest text of any official 2D game example; the
-  manifest's `type.min-size` holds the choice
-  (`look-from-aesthetics-skills.md`).
+- On a phone held sideways the 15 pt tag of a 1920×1080 viewport is
+  about 7 dp high, under a phone's own smallest text; the floor is the
+  official examples', not a phone's.
 
 ## Re-evaluate when
 

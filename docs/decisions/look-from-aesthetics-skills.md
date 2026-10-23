@@ -58,11 +58,10 @@ examples tagged as 2D games: 105 projects, 204 layouts.
 | Nothing read under 1/54 of the frame's height, 1.85% | The smallest text of every example is at least 1.78% of the viewport's shorter side; the median example's smallest is 5.9% |
 | A title-safe margin of 5 to 10% | The text nearest the edge sits a median 3% of the shorter side in; 52 of 75 layouts hold one within 5% |
 
-Paper and ink's `TEXT_SIZE` at 1080 sets a tag of 11 pt, 1.4% of the
+Paper and ink's `TEXT_SIZE` at 1080 set a tag of 11 pt, 1.4% of the
 shorter side, a name of 12 pt, 1.5%, and body text of 14 pt, 1.7%: all three
 under the smallest text of any official 2D game example. The fallback's
-record left this open, as sizes set for a desktop window
-(`paper-and-ink-look.md`, "Open").
+record had left them open, as sizes set for a desktop window.
 
 ## Options
 
@@ -72,8 +71,10 @@ record left this open, as sizes set for a desktop window
    finds only a size a model wrote by hand. It is the type's twin of
    `colour.palette-only`.
 2. **A floor for the smallest text, from the examples and the video
-   styles.** The fallback's three small kinds fail it, and the user chose
-   those sizes on screenshots, so the floor is the user's call.
+   styles.** The fallback's three small kinds failed it, and the user had
+   chosen those sizes on screenshots, so the floor was the user's call: to
+   keep them, or to scale paper and ink by 4/3 and hold the floor in every
+   look.
 3. **A modular ratio between sizes, one display text per screen, or a
    title-safe margin.** The examples fail each, as the table shows.
 4. **One accent per screen**, from the brands' one call to action. A game's
@@ -109,10 +110,25 @@ Option 1, as `type.scale`, enforced in every look:
 - It holds in every look, because `TEXT_SIZE` is the look's own scale: a
   look the user gave sets its sizes by kind, as it sets its colours by role.
 
-Option 2 as `type.min-size`, open: the manifest names the measurement and
-two choices, to keep paper and ink's sizes, or to scale its kinds by 4/3 so
-the tag reaches 1.8% of the shorter side and stop a label under 1.75% in
-every look. No check holds a floor until the user chooses.
+Option 2 as `type.min-size`, enforced in every look, which the user chose
+on 2026-10-23:
+
+- `TEXT_SIZE` takes the prototype's px at 720 as points, 4/3 its former
+  size: at 1080 a tag of 15 pt, a name of 16, body text of 18, a title of 30
+  and the count of 60. The tag is 1.85% of the shorter side at every
+  viewport over 360 px high, give or take the rounding to whole points.
+- `on_scale()` stops a label whose em is under `TEXT_MIN`, 1.75% of the
+  viewport's shorter side, naming the kinds of `TEXT_SIZE` under it and the
+  size they need. The floor sits under the examples' 1.78% so the rounding
+  of a whole point passes at every viewport the template draws. A pixel-art
+  letter, one unit, is 2.2% or more of a viewport 360 px high or less.
+- It holds in every look, because it is legibility, not taste: a look the
+  user gave with smaller text stops until its sizes are raised.
+- Body text at 18 pt is large-scale text under WCAG 2.2, so
+  `text_contrast()` asks it 3:1 where it asked 14 pt 4.5:1.
+- The HUD grows with its text: the stand-in's score group ends 30 px lower
+  at 1080, and the stand-in's board no longer fits the play area of an
+  800×450 viewport, as it did not fit 640×400 or 960×540 before.
 
 Options 3 and 4 as rejected rules of the manifest, `type.modular-scale`,
 `type.one-display`, `layout.title-safe` and `colour.one-accent`, each with
@@ -123,10 +139,10 @@ reasons above.
 
 - A game needs a size between two kinds and adds a kind for it more than
   once: the kinds of `TEXT_SIZE` are too few for some kind of screen.
-- The user chooses on `type.min-size`: the floor becomes a check, or the
-  rule closes as adopted.
-- Generated games are played on phones (`paper-and-ink-look.md`): the
-  floor is due whatever the choice.
+- Generated games are played on phones: a phone's smallest text, about
+  11 to 12 dp, is a higher floor than the examples' (`paper-and-ink-look.md`).
+- A look the user gave stops on the floor and its text reads well on the
+  user's screenshots: the floor is too high for that kind of screen.
 - A generated game shows a text for a time and the player cannot read it
   before it leaves: a helper for a timed text, with the reading time as its
   check.

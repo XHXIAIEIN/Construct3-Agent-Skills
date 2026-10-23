@@ -102,9 +102,9 @@
       "id": "type.sizes",
       "status": "adopted",
       "scope": "paper-and-ink",
-      "says": "Sizes by kind of text, the prototype's px at 720 high scaled to the viewport's shorter side: a tracked tag 10, the name of a stat or a key 11, body text 12, a screen's title 20, the count 40; a banner two units.",
+      "says": "Sizes by kind of text, the prototype's px at 720 high as points, scaled to the viewport's shorter side, so its tag reaches TEXT_MIN: a tracked tag 10, the name of a stat or a key 11, body text 12, a screen's title 20, the count 40; a banner two units.",
       "template": "TEXT_SIZE",
-      "value": "{'tag': 11, 'name': 12, 'body': 14, 'title': 22, 'number': 45, 'display': 64}",
+      "value": "{'tag': 15, 'name': 16, 'body': 18, 'title': 30, 'number': 60, 'display': 64}",
       "helpers": "text_size(), tracked()"
     },
     {
@@ -118,13 +118,13 @@
     },
     {
       "id": "type.min-size",
-      "status": "open",
+      "status": "enforced",
       "scope": "every-look",
-      "says": "The smallest text of every official 2D game example is at least 1.78% of the viewport's shorter side, and video styles set nothing meant to be read under 1/54 of the frame's height; paper and ink's tag is 1.4%, its name 1.5% and its body 1.7%, set for a desktop window, about 5 dp high on a phone held sideways. No check holds a floor until the user chooses.",
-      "options": [
-        "Keep paper and ink's sizes, set for a desktop window: a tag of 11 pt at 1080, 15 px",
-        "Scale every kind of paper and ink by 4/3, so its tag reaches 1.8% of the shorter side: tag 15, name 16, body 18, title 30, number 60 pt at 1080; and stop a label under 1.75% of the shorter side in every look"
-      ]
+      "strict": true,
+      "says": "A label's letters are at least 1.75% of the viewport's shorter side high, in every look: the smallest text of every official 2D game example is at least 1.78%, and video styles set nothing meant to be read under 1/54 of the frame's height. A smaller label stops the run with the kinds of TEXT_SIZE to raise and the size they need. Paper and ink's tag is 1.85%, 15 pt at 1080; a pixel-art letter, one unit, is 2.2% or more of a viewport 360 px high or less.",
+      "template": "TEXT_MIN",
+      "value": "0.0175",
+      "helpers": "on_scale(), em_px()"
     },
     {
       "id": "lines.areas",

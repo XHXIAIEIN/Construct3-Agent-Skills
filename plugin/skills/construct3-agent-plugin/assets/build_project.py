@@ -132,13 +132,13 @@ FONT = {"light": "InterDisplay-Light", "regular": "Inter-Regular", "medium": "In
 PIXEL_FONT = "fusion-pixel-8px-proportional-zh_hans"
 # Text size in points by kind, scaled to the viewport's shorter side: a tracked tag, the name of a
 # stat or a key, body text and a key's verb, a screen's title, the count the player plays for, a
-# banner. In pixel art the small kinds are one unit and the large two: a Sprite Font's size is in
-# px, its scale size / UNIT. TEXT_WEIGHT is each kind's
-# weight of FONT.
+# banner. At 720 px the tag is 10 pt, 13 px; a label whose letters are under TEXT_MIN of the shorter
+# side stops the run. In pixel art the small kinds are one unit and the large two: a Sprite Font's
+# size is in px, its scale size / UNIT. TEXT_WEIGHT is each kind's weight of FONT.
 TEXT_SIZE = ({"tag": UNIT, "name": UNIT, "body": UNIT, "title": 2 * UNIT, "number": 2 * UNIT, "display": 2 * UNIT}
              if UNIT == 8 else
-             {kind: round(px * min(VIEW_W, VIEW_H) / 720 * 0.75)
-              for kind, px in (("tag", 10), ("name", 11), ("body", 12), ("title", 20), ("number", 40))}
+             {kind: round(pt * min(VIEW_W, VIEW_H) / 720)
+              for kind, pt in (("tag", 10), ("name", 11), ("body", 12), ("title", 20), ("number", 40))}
              | {"display": 2 * UNIT})
 TEXT_WEIGHT = {"tag": "regular", "name": "regular", "body": "regular", "title": "medium", "number": "light",
                "display": "medium", "key": "medium"}
@@ -1788,14 +1788,25 @@ def readable(otype: str, color: str, on: str, size: float) -> None:
                  f"label on a panel whose role it reads on and pass it as on=")
 
 
+# Least height of a label's em, a share of the viewport's shorter side, in every look
+TEXT_MIN = 0.0175
+
+
 def on_scale(otype: str, size: float) -> None:
     """Stops the run when a label's size is none of TEXT_SIZE's, the look's few sizes, one per kind
-    of text."""
+    of text, or when its letters are under TEXT_MIN of the viewport's shorter side."""
     if size not in TEXT_SIZE.values():
         kinds = ", ".join(f"{kind} {v:g}" for kind, v in TEXT_SIZE.items())
         sys.exit(f"{otype}: size {size:g} is none of TEXT_SIZE's ({kinds}). Give the label the size of its kind, "
                  f"text_size(kind), so the screen keeps the look's few sizes; a kind of text the look lacks is a "
                  f"new key of TEXT_SIZE")
+    least = TEXT_MIN * min(VIEW_W, VIEW_H)
+    if em_px(size) < least:
+        need = math.ceil(least if pixel_font() else least / PX_PER_PT)
+        small = ", ".join(kind for kind, v in TEXT_SIZE.items() if em_px(v) < least)
+        sys.exit(f"{otype}: size {size:g} draws letters {em_px(size):.1f} px high, under {least:.1f} px, "
+                 f"{TEXT_MIN:.2%} of the viewport's shorter side, which a player cannot read on a small screen. "
+                 f"Raise TEXT_SIZE's {small} to at least {need}")
 
 
 def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, size: float | None = None,
@@ -3121,7 +3132,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 72d36f76c880 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 39a477b819e8 ================
 
 
 # --- the game ---------------------------------------------------------------------------
