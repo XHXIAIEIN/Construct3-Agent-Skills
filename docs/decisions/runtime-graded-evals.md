@@ -107,6 +107,22 @@ Option 3, beside the file assertions, which stay.
   its plan, and `coverage_complete` is true only when none does. A decision
   over such a run gives the verdict `incomplete`. The inference evaluation
   that DeepSeek published with DeepInfer holds its Pass@1 to the same rule.
+- Graders against answers. An assertion that held every cited event
+  number to the asked-for range failed all four correct answers of two
+  find cases in the kept iterations, because a correct answer also cites
+  the events around the one asked for, and it failed no wrong one. It is
+  removed. The answers are kept as fixtures, with wrong answers that must
+  still fail, and a grader is changed only so that both hold. The same
+  fixtures hold the reading of an event number that opens a bullet,
+  which three correct drag answers needed.
+- Case flags. A case that every run of both arms passes cannot tell the
+  arms apart, and a case that no run passes may grade correct answers as
+  wrong, so `benchmark.json` lists both under `case_flags`.
+- What a run may read. The pinned worktree leaves out `dev/`, which holds
+  the cases, the plans and the graders, and `grade.py` voids a run that
+  read a `dev/evals` or `dev/tests` folder or another run's folder. None
+  of the kept traces read them. The rule follows DeepSeek's account of
+  agents that took answers from a package mirror during training.
 - Meta. `benchmark.json` records what the grading ran with: the commits of
   this checkout and of the Construct3-RAG data, whether the grader's files
   differ from them, the flags, and the commit the fixtures were laid out

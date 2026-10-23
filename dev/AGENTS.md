@@ -452,6 +452,8 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
 - Commit the change before you run `make_fixtures.py`. It lays out the
   `with_` arms from a detached worktree of the commit at `<runs
   folder>/clone-<sha>`, and their copies name that worktree as their clone.
+  The worktree leaves out `dev/` by a sparse checkout, because `dev/` holds
+  the cases, the plans and the graders.
   The commit is HEAD, unless `--pin REV` names another. So a pull of `main`
   during the iteration changes nothing that the runs read, and no later run
   finds that its copy differs from the clone's. `clone.json` in the runs
@@ -480,7 +482,9 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
 - `trace.py --out <run folder>` lists in `trace.json` the writes outside
   that folder, such as a plan written to the launching session's scratchpad
   or an answer written one folder too high. `grade.py` does not score such a
-  run.
+  run. Nor does it score a run whose `outside_reads` reach how it is graded:
+  a `dev/evals` or `dev/tests` folder of any clone, the `--old-clone`
+  checkout's among them, or another run's folder of the iteration.
 - That list is a floor. It reads absolute paths from file tools and from the
   words of shell commands, so a relative path, a variable or a write made
   inside a script escapes it. The text of a heredoc or a here-string is
@@ -507,6 +511,15 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
   requested behaviour must fail. Then play it on a project that does what
   the case asks, where every check must pass
   (`docs/decisions/runtime-graded-evals.md`).
+- When a run's answer is right and an assertion fails it, the grader is
+  wrong. Keep that answer under `dev/tests/fixtures/`, as
+  `find_answers/` keeps the answers of the find cases, beside a wrong one
+  that must still fail, then change the grader until both hold.
+- `benchmark.json` lists under `case_flags` the saturated cases, which
+  every run of two or more arms passed, and the cases no run passed. A
+  saturated case cannot decide between the arms, so leave it out of the
+  next `decision.json`. Read the runs of a case no run passed before you
+  count it against the skill.
 - Keep a case marked `held_out` out of the loop that shapes a change,
   because a case that shapes the change no longer measures it.
   `make_fixtures.py` lays it out only with `--held-out`. `grade.py` reports

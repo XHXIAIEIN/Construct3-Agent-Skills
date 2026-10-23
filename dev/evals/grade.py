@@ -52,8 +52,15 @@ is not JSON or lacks a key, with the verdict "not read" and the reason.
 A run that did not keep to its arm is not scored: put the reason in
 <case>/<arm>/void.txt, for example a baseline whose answer lists a script of
 this skill among its commands. A run whose trace.json lists a write outside
-its folder is not scored either, with the paths as the reason; the list is a
-floor (evals/trace.py). A run without timing.json has no tokens in the
+its folder is not scored either, with the paths as the reason; nor is one
+that read how it is graded: a dev/evals or dev/tests folder of any clone, or
+another run's folder of this iteration. Both lists are a floor
+(evals/trace.py).
+
+benchmark.json lists under case_flags the cases that tell the arms apart no
+more: saturated, where two or more arms ran and every run passed every
+assertion, and none_passed, where no run did, whose runs are read before the
+case is trusted. A run without timing.json has no tokens in the
 benchmark, and no time unless its trace has one; nothing is estimated.
 
 A scored run that lacks its outputs/answer.md, its trace.json, its
@@ -402,11 +409,16 @@ def answer_of(run: Path) -> str:
 
 def event_numbers(answer: str) -> list[int]:
     """Every number that follows "event" or "events" in the answer: "event 103", "events 104 and 105",
-    "Events 103-105"."""
-    return sorted({int(n) for span in re.findall(r"\bevents?\b[^.\n]{0,40}", answer, re.I)
-                   for n in re.findall(r"(?<![\w.])\d{1,3}(?![\w.]|\s*(?:seconds?|s\b|px|%))", span)})
+    "Events 103-105"; and the number that opens a bullet of a list of events: "- **12** `On drop`", "- 15: ..."."""
+    after_word = {int(n) for span in re.findall(r"\bevents?\b[^.\n]{0,40}", answer, re.I)
+                  for n in re.findall(r"(?<![\w.])\d{1,3}(?![\w.]|\s*(?:seconds?|s\b|px|%))", span)}
+    bullets = {int(n) for n in re.findall(r"^\s*[-*+]\s+\*{0,2}(\d{1,3})\*{0,2}(?=[:\s])", answer, re.M)}
+    return sorted(after_word | bullets)
 
 
+# A correct answer also cites the events around the one asked for: the start-of-layout events a restart runs
+# again, the function a bonus reaches. So no assertion holds every event number to the asked-for range
+# (dev/tests/fixtures/find_answers/).
 def grade_find_in_a_long_sheet(run: Path) -> list[tuple[bool, str]]:
     answer = answer_of(run)
     numbers = event_numbers(answer)
@@ -415,8 +427,6 @@ def grade_find_in_a_long_sheet(run: Path) -> list[tuple[bool, str]]:
             (108 in numbers and "showgameover" in answer.lower() and bool(re.search(r"restart", answer, re.I)), said),
             (all(re.search(word, answer, re.I) for word in ("player", "success", "fail")),
              "stated: " + ", ".join(w for w in ("player", "success", "fail") if re.search(w, answer, re.I))),
-            # 87 to 91 abduct the player's tractor, the other way to game over; naming them is no error.
-            (bool(numbers) and all(102 <= n <= 108 or 87 <= n <= 91 for n in numbers), said),
             unchanged(run)]
 
 
@@ -428,7 +438,6 @@ def grade_find_in_a_big_sheet(run: Path) -> list[tuple[bool, str]]:
     said = f"event numbers the answer gives: {numbers or 'none'}"
     return [(284 in numbers, said),
             (bool(re.search(r"(?<![\d.])454(?![\d.])", answer)), "454 stated" if "454" in answer else "454 not stated"),
-            (bool(numbers) and all(273 <= n <= 289 or n in (409, 410) for n in numbers), said),
             unchanged(run)]
 
 
@@ -1579,6 +1588,14 @@ def aggregate(cells: dict[str, dict[str, list[dict]]]) -> tuple[dict, dict]:
     return by_case, summary
 
 
+def case_flags(cells: dict[str, dict[str, list[dict]]]) -> dict[str, list[str]]:
+    """The cases that tell the arms apart no more: saturated, where two or more arms ran and every run passed
+    every assertion; and the cases where no run of any arm did, which are read before the case is trusted."""
+    full = {name: [r["full"] for runs in arms.values() for r in runs] for name, arms in cells.items()}
+    return {"saturated": sorted(n for n, f in full.items() if len(cells[n]) > 1 and all(f)),
+            "none_passed": sorted(n for n, f in full.items() if len(f) > 1 and not any(f))}
+
+
 def decide(iteration: Path, cells: dict[str, dict[str, list[dict]]]) -> dict | None:
     """The verdict of the iteration's decision.json over the scored runs, printed and returned; None without
     the file. A cell short of n_per_cell makes it underpowered, and a file that is not JSON or lacks a key makes
@@ -1632,6 +1649,26 @@ def decide(iteration: Path, cells: dict[str, dict[str, list[dict]]]) -> dict | N
 def optional_json(path: Path) -> dict:
     """A file a run has only once it has reported (timing.json) or been traced (trace.json); {} without it."""
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def posix(path: str) -> str:
+    """A path as a lowercase POSIX string, with a Git Bash drive (/d/...) as d:/...; for comparing paths that
+    transcripts write in either form."""
+    out = path.replace("\\", "/").lower()
+    return f"{out[1]}:{out[2:]}" if re.match(r"^/[a-z]/", out) else out
+
+
+def leaked_reads(trace: dict, iteration: Path, run: Path) -> list[str]:
+    """The paths a run read that hold how it is graded: the cases, plans and graders under a dev/evals or
+    dev/tests folder, of any clone, and another run's folder of this iteration. A misspelt name of the run's own
+    folder (with_skill-2 for with_skill_2) names no other run."""
+    others = [posix(p.as_posix()) + "/" for p in iteration.glob("*/*") if (p / "project").is_dir() and p != run]
+    out = []
+    for read in trace.get("outside_reads", []):
+        path = posix(read["path"]).rstrip("/") + "/"
+        if re.search(r"/dev/(?:evals|tests)/", path) or any(path.startswith(o) for o in others):
+            out.append(read["path"])
+    return list(dict.fromkeys(out))
 
 
 def missing_of(run: Path, timing: dict, trace: dict, runtime: list[dict]) -> list[str]:
@@ -1720,10 +1757,12 @@ def main() -> int:
             reason = (run / "void.txt").read_text(encoding="utf-8").strip() if (run / "void.txt").exists() else None
             wrote = [w["path"] for w in optional_json(run / "trace.json").get("outside", [])]
             reason = reason or (f"it wrote outside its folder: {', '.join(dict.fromkeys(wrote))}" if wrote else None)
+            leaked = leaked_reads(optional_json(run / "trace.json"), iteration, run)
+            reason = reason or (f"it read how it is graded: {', '.join(leaked)}" if leaked else None)
             if reason:
                 (run / "grading.json").write_text(json.dumps({"void": reason}, indent=2) + "\n", encoding="utf-8")
                 void.append({"run": f"{name}/{run.name}", "reason": reason})
-                print(f"{name}/{run.name}: void, not scored" + (f": {reason}" if wrote else ""))
+                print(f"{name}/{run.name}: void, not scored" + (f": {reason}" if wrote or leaked else ""))
                 continue
             graded = [{"text": text, "passed": ok, "evidence": evidence, "level": level_of(text)}
                       for text, (ok, evidence) in zip(case["assertions"], GRADERS[name](run), strict=True)]
@@ -1765,8 +1804,9 @@ def main() -> int:
         sys.exit(f"{iteration} holds no <case>/<arm>/project of a case in evals.json")
 
     by_case, run_summary = aggregate(cells)
+    flags = case_flags(cells)
     out = {"meta": grading_meta(iteration, args), "coverage_complete": not incomplete, "incomplete_runs": incomplete,
-           "run_summary": run_summary, "by_case": by_case, "void_runs": void}
+           "case_flags": flags, "run_summary": run_summary, "by_case": by_case, "void_runs": void}
     if held:
         held_cases, held_summary = aggregate(held)
         out["held_out"] = {"run_summary": held_summary, "by_case": held_cases}
@@ -1781,6 +1821,11 @@ def main() -> int:
               + "; ".join(f"{r['run']} ({', '.join(r['missing'])})" for r in incomplete))
     else:
         print("coverage complete: every scored run has its answer, trace and timing, and every plan was played")
+    if flags["saturated"]:
+        print(f"saturated, every run of every arm passed, so the case tells the arms apart no more: "
+              f"{', '.join(flags['saturated'])}")
+    if flags["none_passed"]:
+        print(f"no run passed, so read the runs before the case is trusted: {', '.join(flags['none_passed'])}")
     decision = decide(iteration, cells)
     if decision:
         out["decision"] = decision

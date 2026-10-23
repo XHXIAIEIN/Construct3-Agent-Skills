@@ -61,7 +61,6 @@
         "The answer gives 103 as the event where a tractor collides with the finish line",
         "The answer gives 108, the function showGameOver, as the place where the layout restarts",
         "The answer tells the player's tractor, a success, from any other, a fail",
-        "Every event number the answer gives lies between 102 and 108, or between 87 and 91 for the other way to game over, a player's tractor abducted",
         "No project file differs from the fixture"
       ]
     },
@@ -392,7 +391,6 @@
       "assertions": [
         "The answer gives 284 as the event that pays the bonus of wave 17",
         "The answer says the bonus is 454 points",
-        "Every event number the answer gives lies between 273 and 289, the group Wave 17, or is 409 or 410, the functions the waves call",
         "No project file differs from the fixture"
       ]
     },

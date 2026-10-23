@@ -27,7 +27,11 @@ pointed at this one it would report that it differs and be refreshed.
 The with_... arms are pinned to one commit: the fixtures are laid out from
 a detached worktree of --pin (HEAD by default) at RUNS_DIR/clone-<sha>, so
 their copies name that worktree as their clone, and a pull of main during
-the iteration changes nothing the runs read. RUNS_DIR/clone.json records
+the iteration changes nothing the runs read. The worktree leaves out dev/,
+by a sparse checkout, because dev/ holds the cases, the plans and the
+graders: a run that reads them can pass without doing the task. grade.py
+voids a run that read them all the same, from --old-clone too
+(dev/AGENTS.md, Evals). RUNS_DIR/clone.json records
 the commit, the folder and the commit of --old-clone, and each
 fixture.json the commit of the clone
 its arm installed from, as clone.commit. A change that is not committed is
@@ -86,8 +90,8 @@ def commit_of(folder: Path) -> str | None:
 
 
 def pin(out: Path, rev: str) -> tuple[Path, str]:
-    """A detached worktree of rev at out/clone-<sha>, made once, and its commit. A note goes out when plugin/ has
-    changes that the commit does not hold."""
+    """A detached worktree of rev at out/clone-<sha> without dev/, made once, and its commit. A note goes out when
+    plugin/ has changes that the commit does not hold."""
     p = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--verify", f"{rev}^{{commit}}"],
                        capture_output=True, text=True, timeout=60)
     if p.returncode:
@@ -95,10 +99,15 @@ def pin(out: Path, rev: str) -> tuple[Path, str]:
     sha = p.stdout.strip()
     folder = out / f"clone-{sha[:12]}"
     if commit_of(folder) != sha:
-        p = subprocess.run(["git", "-C", str(REPO), "worktree", "add", "--detach", str(folder), sha],
+        p = subprocess.run(["git", "-C", str(REPO), "worktree", "add", "--detach", "--no-checkout", str(folder), sha],
                            capture_output=True, text=True, timeout=300)
         if p.returncode:
             sys.exit(f"git worktree add {folder} {sha} failed: {p.stderr.strip()}")
+    # Applied to a worktree made before dev/ was left out too, which it empties of dev/
+    for cmd in (["sparse-checkout", "set", "--no-cone", "/*", "!/dev/*"], ["checkout", "--detach", sha]):
+        p = subprocess.run(["git", "-C", str(folder), *cmd], capture_output=True, text=True, timeout=300)
+        if p.returncode:
+            sys.exit(f"git {' '.join(cmd)} in {folder} failed: {p.stderr.strip()}")
     if subprocess.run(["git", "-C", str(REPO), "diff", "--quiet", sha, "--", "plugin"], timeout=60).returncode:
         print(f"note: plugin/ has changes that {sha[:12]} does not hold; the with_... arms read {sha[:12]}")
     return folder, sha

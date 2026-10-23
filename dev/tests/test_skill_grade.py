@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, NEEDS_GIT, SKILL, SHEET, run
+from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -193,6 +193,27 @@ def test_a_run_that_wrote_outside_its_folder_is_not_scored(tmp_path: Path) -> No
                                        "reason": f"it wrote outside its folder: {elsewhere}"}]
 
 
+@pytest.mark.parametrize(("read", "void"), [
+    ("{it}/clone-0123456789ab/dev/evals/evals.json", True),
+    ("/x/rag-old/dev/tests/fixtures/find_answers/big_sheet_compares_other_waves.md", True),
+    ("{it}/name-the-restart-event/with_skill_2/outputs/answer.md", True),
+    ("{it}/clone-0123456789ab/plugin/data/c3-schemas/_index.json", False),
+    ("{it}/name-the-restart-event/with_skill/project/eventSheets/Game.json", False),
+    ("{it}/name-the-restart-event/with_skill-1/outputs/answer.md", False),   # its own folder, misspelt
+])
+def test_a_run_that_read_how_it_is_graded_is_not_scored(tmp_path: Path, read: str, void: bool) -> None:
+    """The cases, the plans and the graders, or another run's answer, let a run pass without doing the task."""
+    case = tmp_path / "it" / "name-the-restart-event" / "with_skill"
+    answer_case(case, CHINESE_ALL_THREE)
+    answer_case(case.with_name("with_skill_2"), CHINESE_ALL_THREE)
+    path = read.format(it=(tmp_path / "it").as_posix())
+    (case / "trace.json").write_text(json.dumps({"tool_calls": 3, "lost_calls": 0, "outside": [], "outside_reads": [
+        {"tool": "Read", "path": path}]}), encoding="utf-8")
+    out = grade_iteration(tmp_path)
+    assert (f"void, not scored: it read how it is graded: {path}" in out) is void, out
+    assert ("void" in read_json(case / "grading.json")) is void
+
+
 @pytest.mark.parametrize("name", sorted(play_cases.PLANS))
 def test_every_plan_is_one_preview_project_plays(name: str) -> None:
     """A plan preview_project.py refuses would fail every run of its case; a check's text names its assertion."""
@@ -288,7 +309,8 @@ def test_make_fixtures_finds_the_old_installer_under_plugin(tmp_path: Path) -> N
 @NEEDS_GIT
 def test_make_fixtures_pins_the_with_arm_to_a_worktree_of_the_commit(tmp_path: Path) -> None:
     """The with_skill fixture is installed from a detached worktree of HEAD in the runs folder and names its commit;
-    the without_skill fixture installed nothing and names none."""
+    the without_skill fixture installed nothing and names none. The worktree holds no dev/, where the cases and
+    their graders are, and no file of it reads as changed."""
     repo, runs = EVALS.parents[1], tmp_path / "runs"
     sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True,
                          check=True).stdout.strip()
@@ -303,6 +325,9 @@ def test_make_fixtures_pins_the_with_arm_to_a_worktree_of_the_commit(tmp_path: P
         assert "clone.commit" not in read_json(case / "without_skill" / "fixture.json")
         block = (case / "with_skill" / "project" / "AGENTS.md").read_text(encoding="utf-8")
         assert f"- Construct3-RAG: {(folder / 'plugin').resolve().as_posix()}" in block, block
+        assert not (folder / "dev").exists() and (folder / "plugin" / "skills").is_dir() and (folder / "docs").is_dir()
+        assert not subprocess.run(["git", "-C", str(folder), "status", "--porcelain", "--untracked-files=no"],
+                                  capture_output=True, text=True, check=True).stdout.strip()
     finally:
         subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(folder)], capture_output=True)
 
@@ -679,6 +704,19 @@ def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path) -> N
     assert decision["verdict"] == "incomplete" and decision["incomplete"] == ["name-the-restart-event/old_skill_2: timing"]
 
 
+def test_the_benchmark_flags_a_saturated_case_and_one_no_run_passed(tmp_path: Path) -> None:
+    """A case every run of both arms passes cannot decide between them; one no run passes may grade correct
+    answers as wrong, as the find cases did."""
+    iteration = restart_runs(tmp_path, {"with_skill": [5, 4], "old_skill": [1, 2]})
+    for name in ("with_skill", "with_skill_2"):
+        answer_case(iteration / "find-in-a-big-sheet" / name, "Event 267 pays it: 427 points.")
+    out = grade_iteration(tmp_path)
+    assert "saturated, every run of every arm passed, so the case tells the arms apart no more: name-the-restart-event" in out
+    assert "no run passed, so read the runs before the case is trusted: find-in-a-big-sheet" in out
+    flags = read_json(iteration / "benchmark.json")["case_flags"]
+    assert flags == {"saturated": ["name-the-restart-event"], "none_passed": ["find-in-a-big-sheet"]}
+
+
 def test_the_benchmark_names_what_the_grading_ran_with(tmp_path: Path) -> None:
     """A score read later is traced to the grader, the data, the flags and the commit the fixtures came from."""
     iteration = restart_runs(tmp_path, {"with_skill": [5]})
@@ -733,10 +771,58 @@ def test_find_in_a_big_sheet_grades_the_event_and_the_bonus(tmp_path: Path) -> N
     answer.write_text("Event 284, in the group Wave 17 score (event 280), pays the bonus of wave 17: it calls "
                       "GiveBonus(454), event 410, so the bonus is 454 points.\n\n## Commands run\n"
                       "python scripts/print_sheet.py Waves --events 1-17", encoding="utf-8")
-    assert [ok for ok, _ in grader.grade_find_in_a_big_sheet(run_dir)] == [True, True, True, True]
+    assert [ok for ok, _ in grader.grade_find_in_a_big_sheet(run_dir)] == [True, True, True]
     answer.write_text("Event 300 pays it: 380 points.", encoding="utf-8")
-    assert [ok for ok, _ in grader.grade_find_in_a_big_sheet(run_dir)] == [False, False, False, True]
+    assert [ok for ok, _ in grader.grade_find_in_a_big_sheet(run_dir)] == [False, False, True]
     assert make_fixtures.wave_bonus(make_fixtures.BIG_SHEET_FOCUS) == 454 and "coins-big-sheet" in make_fixtures.SEEDS
+
+
+FIND_ANSWERS = Path(__file__).parent / "fixtures" / "find_answers"
+
+
+def read_only_run(tmp_path: Path, answer: str) -> Path:
+    """A run of a read-only case: answer as its answer.md, and a project that matches its fixture.json."""
+    run_dir = tmp_path / "run"
+    (run_dir / "project").mkdir(parents=True)
+    (run_dir / "outputs").mkdir()
+    (run_dir / "fixture.json").write_text("{}", encoding="utf-8")
+    (run_dir / "outputs" / "answer.md").write_text(answer, encoding="utf-8")
+    return run_dir
+
+
+@pytest.mark.parametrize(("grade_case", "answer", "passed"), [
+    # Correct answers of earlier runs that also cite the events around the one asked for
+    ("grade_find_in_a_long_sheet", "long_sheet_lists_what_the_restart_reruns.md", [True, True, True, True]),
+    ("grade_find_in_a_long_sheet", "long_sheet_names_the_start_events.md", [True, True, True, True]),
+    ("grade_find_in_a_big_sheet", "big_sheet_follows_the_bonus_to_addscore.md", [True, True, True]),
+    ("grade_find_in_a_big_sheet", "big_sheet_compares_other_waves.md", [True, True, True]),
+    # Wrong answers: another event as the finish line and the restart, another wave's bonus
+    ("grade_find_in_a_long_sheet", "Event 102 is the finish line. The layout restarts in event 107, prepareForGameOver, "
+                                   "for the player (success) or any other tractor (fail).", [False, False, True, True]),
+    ("grade_find_in_a_big_sheet", "Event 267 pays the bonus of wave 17: 427 points.", [False, False, True]),
+])
+def test_find_answers_are_graded_by_what_they_give(tmp_path: Path, grade_case: str, answer: str,
+                                                   passed: list[bool]) -> None:
+    """A correct answer passes every assertion however many other events it cites; a wrong one fails."""
+    text = (FIND_ANSWERS / answer).read_text(encoding="utf-8") if answer.endswith(".md") else answer
+    results = getattr(grader, grade_case)(read_only_run(tmp_path, text))
+    assert [ok for ok, _ in results] == passed, [said for _, said in results]
+
+
+@NEEDS_EXAMPLES
+@pytest.mark.parametrize(("answer", "passed"), [
+    ("drag_lists_the_drop_in_bold.md", True),
+    ("drag_lists_the_drop_after_a_colon.md", True),
+    ("drag_lists_place_stickers.md", True),
+    ("The official example **Place stickers** (`place-stickers`) handles the drop:\n\n"
+     "- **16**: `Sticker: On DragDrop drop`.\n", False),
+])
+def test_a_drag_answer_gives_the_drop_event_in_a_list(tmp_path: Path, answer: str, passed: bool) -> None:
+    """An answer that lists the drop event as a bullet, "- **12** `On DragDrop drop`", gives its number; one that
+    lists another event of the example as the drop does not."""
+    text = (FIND_ANSWERS / answer).read_text(encoding="utf-8") if answer.endswith(".md") else answer
+    results = grader.grade_find_a_drag_example(read_only_run(tmp_path, text))
+    assert results[1][0] is passed, results[1][1]
 
 
 @pytest.mark.parametrize("command, whole", [
