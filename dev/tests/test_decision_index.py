@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 DECISIONS = REPO / "docs" / "decisions"
 INDEX = DECISIONS / "README.md"
 

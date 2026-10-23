@@ -43,8 +43,8 @@ jobs:
           set -o pipefail
           {
             python -m pytest -q -rs
-            python -m compileall -q scripts tests skills
-            python scripts/build_plugin.py --check
+            python -m compileall -q dev scripts plugin/skills
+            python dev/scripts/build_plugin.py --check
           } 2>&1 | tee "$RUNNER_TEMP/checks.log"
 
       - name: Report

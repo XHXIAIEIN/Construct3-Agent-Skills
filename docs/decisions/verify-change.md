@@ -68,7 +68,7 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
   at it too.
 
 The section of `SKILL.md` went from six steps to one command and three
-rules. `skills-dev/evals/trace.py` counts a run of the script as a call of
+rules. `dev/evals/trace.py` counts a run of the script as a call of
 each step it printed a line for.
 
 ## Re-evaluate when

@@ -31,7 +31,7 @@ reads cost 1% or more of the whole. That is the share each row of
 `long-sheet-contents.md` cleared before `--find` was built.
 
 Every Claude Code transcript of one production game was costed with
-`skills-dev/evals/token_share.py` and counted with
+`dev/evals/token_share.py` and counted with
 `.local/docs/evidence/sheet-map/measure_nav.py`. The list of transcripts is
 the one of `.local/docs/evidence/token-share/baseline-2026-10-14/`: 425 with
 a model response, 194 sessions and 231 sub-agents, from 2026-09-01 to

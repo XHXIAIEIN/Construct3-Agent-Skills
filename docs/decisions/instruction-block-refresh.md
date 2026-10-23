@@ -48,7 +48,7 @@ Option 3.
   clones, `path-to =`) and reads the folder the skill was installed in as
   the template writes it. Filling in the path, a line that names a clone's
   folder that `bootstrap.py` or the user adds, and `--into .claude/skills`
-  are not edits. `tests/test_skill_install.py` fails until the template's end
+  are not edits. `dev/tests/test_skill_install.py` fails until the template's end
   marker carries the stamp of its text.
 - `install.py` replaces an older block whose text matches its stamp, and
   keeps its lines that name a clone's folder and every line outside it. A

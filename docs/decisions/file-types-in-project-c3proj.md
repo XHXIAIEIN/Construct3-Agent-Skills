@@ -55,7 +55,7 @@ type for one extension in every folder kind, except for `.js`:
   contradict them.
 - The values come from editor saves, not from a specification. They are as
   old as the oldest example; the examples were saved before the editor wrote
-  `llm-context.md` (`skills-dev/AGENTS.md`).
+  `llm-context.md` (`dev/AGENTS.md`).
 
 ## Options
 
@@ -80,7 +80,7 @@ type for one extension in every folder kind, except for `.js`:
   editor opens a project with another type, so the finding is a warning
   (`plugin/skills/construct3-agent-plugin/references/checker-rules.md`).
 - The checker's table and the template's are kept equal by
-  `tests/test_skill_build_project.py`.
+  `dev/tests/test_skill_build_project.py`.
 
 ## Re-evaluate when
 

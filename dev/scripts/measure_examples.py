@@ -2,10 +2,10 @@
 the player's height on the screen by genre, the share of the screen the HUD covers, how popups
 open and close, and the Sine behavior's idle motion.
 
-    python scripts/measure_examples.py actors --examples <Construct-Example-Projects>/example-projects
-    python scripts/measure_examples.py hud --examples ... [--out ROWS.json]
-    python scripts/measure_examples.py popups --examples ...
-    python scripts/measure_examples.py sine --examples ...
+    python dev/scripts/measure_examples.py actors --examples <Construct-Example-Projects>/example-projects
+    python dev/scripts/measure_examples.py hud --examples ... [--out ROWS.json]
+    python dev/scripts/measure_examples.py popups --examples ...
+    python dev/scripts/measure_examples.py sine --examples ...
 
 Each subcommand prints a summary and, with --out, writes every measured row as JSON. actors and
 hud leave out the examples tagged "3D"; popups and sine read every example, since a popup or an idle
@@ -24,7 +24,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "plugin" / "skills" / "construct3-agent-plugin" / "scripts"))
 from c3project import siblings_folder  # noqa: E402
 
@@ -396,7 +396,7 @@ MEASURES = {"actors": (measure_actors, report_actors), "hud": (measure_hud, repo
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 epilog="example: python scripts/measure_examples.py actors --examples "
+                                 epilog="example: python dev/scripts/measure_examples.py actors --examples "
                                         "../Construct-Example-Projects/example-projects "
                                         "--out .local/docs/evidence/borrowed-numbers/actors.json")
     ap.add_argument("measure", choices=sorted(MEASURES))

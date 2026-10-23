@@ -180,8 +180,8 @@ Option 2 as the default, and option 3 as the step after it.
   `isLooping`, `isInvertible: false` and `isCompatibleWithTriggers: false`.
   *On collision*, *On timer* and the Gamepad button conditions, which the
   CDN marks `isFakeTrigger` alone, get `isTrigger` this way.
-- `tests/test_skill_check_project.py` breaks the stand-in project one rule at
-  a time and reads the finding; `tests/test_skill_build_project.py` compares
+- `dev/tests/test_skill_check_project.py` breaks the stand-in project one rule at
+  a time and reads the finding; `dev/tests/test_skill_build_project.py` compares
   the generated project with the keys every official example carries at each
   level.
 - A missing key stops the run with one sentence, never a traceback.

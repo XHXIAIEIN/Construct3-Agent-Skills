@@ -16,7 +16,7 @@ changing a generated game as they are with the template.
 
 ## Evidence
 
-Three eval iterations on the five generator cases of `skills-dev/evals/evals.json`
+Three eval iterations on the five generator cases of `dev/evals/evals.json`
 (Haiku 4.5, two runs per case and arm, the template of the day before as the
 baseline in the same batch; `.local/docs/evidence/skill-evals/`
 `construct3-agent-plugin/iteration-40/` to `iteration-42/`):
@@ -94,7 +94,7 @@ Option 4.
   markers but the settings and the game's functions that every generator
   has, because a refreshed game keeps its own settings: a setting that a
   new helper needs gets its default between the markers.
-  `tests/test_skill_build_project.py` pins this and the stamp.
+  `dev/tests/test_skill_build_project.py` pins this and the stamp.
 
 ## Trade-offs
 

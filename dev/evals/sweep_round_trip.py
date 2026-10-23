@@ -17,7 +17,7 @@ writing add to the round trip. A sheet the clone checked out with CRLF line
 ends is compared after its line ends are turned into LF, as the repository
 of the examples stores it.
 
-tests/test_skill_edit_sheet.py runs the same invariant through the scripts on
+dev/tests/test_skill_edit_sheet.py runs the same invariant through the scripts on
 every event of the stand-in game and on one event of the examples for each
 kind of change this sweep has found.
 

@@ -1,6 +1,6 @@
 """Compare what the skill's tools print, and what its generators write, between a git ref and the working tree.
 
-    python scripts/output_diff.py [REF] [--only KIND ...] [--limit N] [--examples FOLDER] [--show N] [--verbose]
+    python dev/scripts/output_diff.py [REF] [--only KIND ...] [--limit N] [--examples FOLDER] [--show N] [--verbose]
 
 REF (default origin/main) is checked out with `git worktree add --detach` into
 a folder of the system temp folder, which is removed afterwards. A worktree,
@@ -61,7 +61,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 SKILL = Path("plugin/skills/construct3-agent-plugin")
 REPORT = Path(tempfile.gettempdir()) / "construct3-output-diff.txt"
 EXAMPLE_KINDS = ("print_sheet", "print_sheet_limit", "print_layout", "check_project", "check_style", "review_design",
@@ -198,7 +198,7 @@ def new_project(side: Side) -> dict[str, str]:
 
 
 def build_project(side: Side) -> dict[str, str]:
-    """The stand-in game of tests/conftest.py: a project the editor never saved, the skill installed, the
+    """The stand-in game of dev/tests/conftest.py: a project the editor never saved, the skill installed, the
     template copied to tools/build_project.py and run."""
     game = side.tmp / "game"
     shutil.rmtree(game, ignore_errors=True)

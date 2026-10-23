@@ -40,7 +40,7 @@ plugin holds no copy (`plugin-tracks-commits.md`).
   `game_model.py`, and `review_design.py` over `design_review.py`;
   `references/`; `assets/`, among them `build_project.py`, the generator
   template, and `game-project-block.md`, the Construct 3 block of the
-  project's instruction file; `skills-dev/evals/`, which stays in this repository.
+  project's instruction file; `dev/evals/`, which stays in this repository.
 - `install.py` copies the folder into `.agents/skills/`, or the folder
   `--into` names, refreshes every copy the project holds when run again, and
   appends the block to `AGENTS.md` with the clone's path filled in when no
@@ -190,7 +190,7 @@ Each of these was a failure seen in an eval run or a game project.
 
 - The trigger evaluation of `description` has not run: it needs a
   signed-in `claude` CLI, and a subagent of this repository inherits its
-  `AGENTS.md`, which names the skill. `skills-dev/evals/run_trigger_eval.py` and the
+  `AGENTS.md`, which names the skill. `dev/evals/run_trigger_eval.py` and the
   query files are ready. Change `description` only from its train failures.
 - No one has reviewed the eval answers by hand; the assertions are at
   ceiling, so that review is the next signal.

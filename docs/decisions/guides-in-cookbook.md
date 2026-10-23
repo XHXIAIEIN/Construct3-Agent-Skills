@@ -64,7 +64,7 @@ Option 3.
 - `plugin/prompts/` is gone, and the build copies nothing in its place.
   The note on placing the game project's block, which is about this
   repository and not about events, moved to
-  `skills-dev/game-project-AGENTS.md`.
+  `dev/game-project-AGENTS.md`.
 - `c3project.locate_cookbook()` finds the clone in this order:
   `--cookbook` (on `search_guides.py`), `CONSTRUCT3_COOKBOOK`, the
   `Construct3-Cookbook:` line of the project's `AGENTS.md` or `CLAUDE.md`,
@@ -95,7 +95,7 @@ What it costs:
   pitfalls until they clone it. The scripts say so on each run that would
   read them; nothing else stops the work.
 - The plugin and the guides can now disagree: a script that cites a guide
-  by path breaks when the guide is renamed there. `tests/test_cookbook_paths.py`
+  by path breaks when the guide is renamed there. `dev/tests/test_cookbook_paths.py`
   checks every `Construct3-Cookbook/...` path named here against the clone,
   and the Cookbook's `AGENTS.md` says that a rename is a change here too.
 - Construct3-Cookbook must be on GitHub before a branch with this change

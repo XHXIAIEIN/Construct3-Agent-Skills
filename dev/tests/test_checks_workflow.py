@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "checks.yml"
+WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "checks.yml"
 STEP = "      - "          # a step's first line, under "    steps:" of the one job
 
 

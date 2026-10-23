@@ -1,6 +1,6 @@
 """Run a test case of several turns as one Claude Code session, compacted between the turns in a compact arm.
 
-    python skills-dev/evals/run_session.py RUN_DIR [--client claude] [--model MODEL] [--timeout 1800]
+    python dev/evals/run_session.py RUN_DIR [--client claude] [--model MODEL] [--timeout 1800]
                                   [--allowed-tools "Bash,PowerShell,Read,Edit,Write,Glob,Grep,Skill"]
 
 RUN_DIR is <iteration>/<case>/<arm> as make_fixtures.py laid it out, and the

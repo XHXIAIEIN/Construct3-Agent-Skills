@@ -14,7 +14,7 @@ alone.
 ## Evidence
 
 First context of the sub-agent transcripts stored on one machine, by type,
-measured with `skills-dev/evals/token_share.py --files`:
+measured with `dev/evals/token_share.py --files`:
 
 | Type | Transcripts | Median first context, tokens |
 |------|-------------|------------------------------|
@@ -68,7 +68,7 @@ general-purpose, so a switch changes what new runs are compared against.
 
 `SKILL.md`'s plugin bullet names the type for a sheet change or a lookup
 handed to a sub-agent. That sentence is an eval iteration
-(`skills-dev/AGENTS.md`, "Evals") that sub-agent runs cannot measure, because
+(`dev/AGENTS.md`, "Evals") that sub-agent runs cannot measure, because
 a sub-agent cannot start one of its own: it needs runs started as main
 sessions, `claude -p` per run.
 

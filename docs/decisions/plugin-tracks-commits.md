@@ -40,7 +40,7 @@ reviewer can publish for the directory.
 
 ## Decision
 
-The build sets the version. `scripts/build_plugin.py` writes it into
+The build sets the version. `dev/scripts/build_plugin.py` writes it into
 `plugin/.claude-plugin/plugin.json` (`plugin-folder.md`):
 
 - The published plugin is the one at the commit that HEAD shares with

@@ -21,12 +21,12 @@ from pathlib import Path
 import pytest
 
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 # The folder the scripts get as the clone: plugin/, which holds the skill and the built data, and
 # is where every install and link runs them from (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
-EVALS = REPO / "skills-dev" / "evals"        # the skill's evals, kept out of the plugin folder
+EVALS = REPO / "dev" / "evals"        # the skill's evals, kept out of the plugin folder
 INSTALLED = ".agents/skills/construct3-agent-plugin"
 SHEET = "eventSheets/Game.json"
 

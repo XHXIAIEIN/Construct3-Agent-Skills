@@ -1,4 +1,4 @@
-"""scripts/output_diff.py: the comparison and the masks, without the example clone."""
+"""dev/scripts/output_diff.py: the comparison and the masks, without the example clone."""
 import json
 import subprocess
 import sys
@@ -6,7 +6,7 @@ from pathlib import Path
 
 from scripts import output_diff as od
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 
 
 def test_mask_replaces_every_spelling_of_a_path(tmp_path):
@@ -57,7 +57,7 @@ def test_cases_cover_every_listed_sheet_and_layout(tmp_path):
 
 
 def run(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(REPO / "scripts" / "output_diff.py"), *args], capture_output=True,
+    return subprocess.run([sys.executable, str(REPO / "dev" / "scripts" / "output_diff.py"), *args], capture_output=True,
                           text=True, encoding="utf-8", timeout=60)
 
 

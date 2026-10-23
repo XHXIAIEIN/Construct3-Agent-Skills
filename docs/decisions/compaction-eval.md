@@ -22,7 +22,7 @@ Construct 3 block that `install.py` writes has the agent read
 
 The compactions in the Claude Code transcripts stored on one machine, after
 this skill's SKILL.md had reached the model, read with
-`skills-dev/evals/trace.py`:
+`dev/evals/trace.py`:
 
 | How SKILL.md was loaded | Compactions | What the attachments after it carried | SKILL.md read again after it |
 |-------------------------|-------------|---------------------------------------|------------------------------|

@@ -189,7 +189,7 @@ Option 3.
   real pictures behind the thresholds were not made in a session of this
   skill: the full-body ones are reduced to about half their size and to a
   palette, the stills to an eighth. They stay out of
-  the repository: `tests/test_skill_prepare_art.py` runs on such a folder
+  the repository: `dev/tests/test_skill_prepare_art.py` runs on such a folder
   when `CONSTRUCT3_RAG_ART_PICTURES` names it, and on a known-truth figure
   always.
 - A pixel that blends three colours, a strand over a shirt on the key, is

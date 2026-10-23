@@ -17,7 +17,7 @@ A number or rule that enters the generator template, a check or a tool's
 output becomes what every generated game does. So each one is measured
 here first, on the official examples or in the editor.
 
-`python scripts/measure_examples.py <measure> --examples <example-projects>`
+`python dev/scripts/measure_examples.py <measure> --examples <example-projects>`
 prints the current numbers for the examples. Its rows, with the example
 names, are in `.local/docs/evidence/borrowed-numbers/`, beside the probes
 of the editor's experiments.

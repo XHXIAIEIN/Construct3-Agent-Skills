@@ -585,7 +585,7 @@ ABOVE = ["# Gems", "", "The project's own notes.", ""]
 BELOW = ["", "## Ours", "", "A line the project keeps below the block.", ""]
 # The block as the skill held it on 2026-10-02, before the block had markers. Its text dates from
 # 2026-09-22, the version PAST_BLOCKS gives it, and a later version added a row.
-PAST_BLOCK = (REPO / "tests" / "fixtures" / "game-project-block-2026-10-02.md").read_text(encoding="utf-8")
+PAST_BLOCK = (REPO / "dev" / "tests" / "fixtures" / "game-project-block-2026-10-02.md").read_text(encoding="utf-8")
 
 
 def rendered(places: list[str] = PLACES, skill: str = INSTALLED) -> list[str]:
