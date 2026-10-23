@@ -9,7 +9,10 @@ construct3-agent-plugin skill. Before the first project file, read the
 skill's SKILL.md and follow it: the copy the task names, else the project's
 `.agents/skills/construct3-agent-plugin/SKILL.md` or `.claude/skills/...`,
 else the plugin's through the Skill tool (`construct3:construct3-agent-plugin`).
-SKILL.md and the last lines the scripts print say what to run next.
+SKILL.md and the last lines the scripts print say what to run next. When a
+script prints a `brief:` line, give that brief to `construct3:look-judge`
+as its whole task, and pass no model. Do not answer its questions yourself,
+because the judge has not seen the project and you have.
 
 Keep every file you write inside the project folder or the folder the task
 names. End with what you changed or found and the commands you ran.

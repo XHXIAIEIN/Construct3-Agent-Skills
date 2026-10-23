@@ -250,6 +250,7 @@ def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     assert [t.strip() for t in fields["tools"].split(",")] == ["Bash", "PowerShell", "Read", "Edit", "Write", "Grep",
                                                                "Glob", "Skill", "Agent"]
     assert "construct3:construct3-agent-plugin" in body and "SKILL.md" in body
+    assert "`brief:`" in body and "construct3:look-judge" in body
 
 
 def test_the_look_judge_only_reads_and_runs_the_measured_model():
