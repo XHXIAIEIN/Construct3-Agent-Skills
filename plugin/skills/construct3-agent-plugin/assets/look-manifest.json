@@ -228,6 +228,15 @@
       "helpers": "filled()"
     },
     {
+      "id": "layout.spread",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty prints a warning naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Round · 03\" is one item. Of the official 2D game examples' layouts, 4 in 132 gather 3 items in a ninth, a stats panel or a combat menu, and all four leave two corners empty.",
+      "template": "HUD_CROWD",
+      "value": "3",
+      "helpers": "spaced(), spread(), items()"
+    },
+    {
       "id": "layout.focal",
       "status": "rejected",
       "scope": "every-look",

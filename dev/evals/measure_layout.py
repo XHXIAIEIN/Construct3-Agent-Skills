@@ -2,7 +2,8 @@
 screen the box around their content covers, and how much larger their largest object is than
 the next. The generator template's playfield checks take their thresholds from this. With
 --text, measure their texts instead: each size as a share of the viewport's shorter side, the
-sizes of a layout and how far apart they step, and how near the edge the nearest text sits.
+sizes of a layout and how far apart they step, how near the edge the nearest text sits, and how
+many items the screen's texts gather in one ninth of it while its corners stand empty.
 
     python evals/measure_layout.py --examples <Construct-Example-Projects>/example-projects
                                    [--text] [--out ROWS.json] [--rag FOLDER]
@@ -31,6 +32,7 @@ sys.path.insert(0, str(ROOT / "dev"))
 from scripts.measure_examples import RAG, box_on_screen, examples_meta, layers_in, load  # noqa: E402
 
 STORES = re.compile(r"repositor|bank|objects|template", re.I)
+JOINED = re.compile(r"\s[·•|]\s")
 
 
 def games(rag: Path) -> list[str]:
@@ -104,9 +106,46 @@ def edge_gap(props: dict, w: dict, vw: float, vh: float) -> float | None:
     return min(gaps) if gaps else None
 
 
+def items(text: str) -> int:
+    """The things a text tells beyond its first, as the generator template's items() counts them:
+    each part joined by " · ", " • " or " | " that holds a word, BBCode tags left out."""
+    plain = re.sub(r"\[[^\]]*\]", "", text)
+    return max(0, sum(1 for part in JOINED.split(plain) if re.search(r"[^\W\d_]", part)) - 1)
+
+
+def crowding(texts: list, vw: float, vh: float) -> tuple[int, int]:
+    """(most items in a ninth of the screen off its middle, corners holding none) of the texts on
+    the screen, (box, items beyond the first) each. Texts nearer than 1.5 times the template's
+    GAP_IN at this viewport are one group, as hud_stat() places a value under its name."""
+    near = 1.5 * max(1, (8 if vh <= 360 else 32) // 4)
+    group = list(range(len(texts)))
+
+    def root(i: int) -> int:
+        while group[i] != i:
+            i = group[i]
+        return i
+    for i, (a, _) in enumerate(texts):
+        for j in range(i + 1, len(texts)):
+            b = texts[j][0]
+            if max(a[0], b[0]) - min(a[2], b[2]) < near and max(a[1], b[1]) - min(a[3], b[3]) < near:
+                group[root(i)] = root(j)
+    hulls: dict[int, list] = {}
+    for i, (box, more) in enumerate(texts):
+        h = hulls.setdefault(root(i), [*box, 1])
+        h[:4] = min(h[0], box[0]), min(h[1], box[1]), max(h[2], box[2]), max(h[3], box[3])
+        h[4] += more
+    cells: dict[tuple, int] = {}
+    for x0, y0, x1, y1, n in hulls.values():
+        cell = (min(2, max(0, int(1.5 * (y0 + y1) / vh))), min(2, max(0, int(1.5 * (x0 + x1) / vw))))
+        cells[cell] = cells.get(cell, 0) + n
+    return (max((n for c, n in cells.items() if c != (1, 1)), default=0),
+            sum(c not in cells for c in ((0, 0), (0, 2), (2, 0), (2, 2))))
+
+
 def measure_text(examples: Path, rag: Path) -> list[dict]:
-    """One row per layout that holds text: its text sizes as shares of the shorter side, and the
-    distance of the text nearest the edge as one, or None."""
+    """One row per layout that holds text: its text sizes as shares of the shorter side, the
+    distance of the text nearest the edge as one, or None, and, on a layout that is no store of
+    templates, how crowded the screen's texts are."""
     rows = []
     for gid in games(rag):
         proj = examples / gid / "project.c3proj"
@@ -118,7 +157,7 @@ def measure_text(examples: Path, rag: Path) -> list[dict]:
         for f in sorted((examples / gid / "layouts").glob("*.json")):
             lay = json.loads(f.read_text(encoding="utf-8"))
             one_screen = lay["width"] <= 1.05 * vw and lay["height"] <= 1.05 * vh
-            sizes, gaps = [], []
+            sizes, gaps, screen = [], [], []
             for layer in layers_in(lay["layers"]):
                 fixed = layer.get("parallaxX", 1) == 0 and layer.get("parallaxY", 1) == 0
                 for inst in layer["instances"]:
@@ -128,12 +167,18 @@ def measure_text(examples: Path, rag: Path) -> list[dict]:
                         continue
                     sizes.append(round(px / short, 4))
                     shown = layer.get("isInitiallyVisible", True) and props.get("initially-visible") is not False
-                    gap = edge_gap(props, w, vw, vh) if w and shown and (one_screen or fixed) else None
+                    if not (w and shown and (one_screen or fixed)):
+                        continue
+                    gap = edge_gap(props, w, vw, vh)
                     if gap is not None:
                         gaps.append(gap / short)
+                    left, top = w["x"] - w.get("originX", 0) * w["width"], w["y"] - w.get("originY", 0) * w["height"]
+                    if 0 <= left + w["width"] / 2 <= vw and 0 <= top + w["height"] / 2 <= vh:
+                        screen.append(((left, top, left + w["width"], top + w["height"]), items(str(props["text"]))))
             if sizes:
+                crowd = None if STORES.search(lay["name"]) or not screen else crowding(screen, vw, vh)
                 rows.append({"example": gid, "layout": lay["name"], "viewport": [vw, vh], "sizes": sizes,
-                             "edge": round(min(gaps), 4) if gaps else None})
+                             "edge": round(min(gaps), 4) if gaps else None, "crowd": crowd})
     return rows
 
 
@@ -156,6 +201,13 @@ def report_text(rows: list[dict]) -> None:
     edges = [r["edge"] for r in rows if r["edge"] is not None]
     print(f"nearest text to the edge, share of the shorter side: {cuts(edges)}; within 5%: "
           f"{sum(e < 0.05 for e in edges)} of {len(edges)}")
+    crowds = [(r["example"], r["layout"], *r["crowd"]) for r in rows if r["crowd"]]
+    most = [c[2] for c in crowds]
+    print("most items of the screen's texts in a ninth off its middle: "
+          + ", ".join(f"{k}: {most.count(k)}" for k in sorted(set(most))))
+    crowded = [f"{e} {lay}" for e, lay, n, empty in crowds if n >= 3 and empty >= 2]
+    print(f"3 items or more in a ninth while 2 corners or more stand empty: {len(crowded)} of {len(crowds)}"
+          + (f" ({'; '.join(crowded)})" if crowded else ""))
 
 
 def share(rows: list[dict], key: str, test) -> str:

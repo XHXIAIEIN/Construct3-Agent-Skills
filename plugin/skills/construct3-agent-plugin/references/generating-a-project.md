@@ -277,7 +277,10 @@ parameters are in the template.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,
   play_area(hud))`, at least `GAP_OUT` from it. `spaced(groups)` stops the
   run when two groups sit closer than `GROUP_RATIO` times the gap inside
-  either. `balanced(content, area)` warns when the playfield is off that
+  either, and warns when one ninth of the screen holds `HUD_CROWD` items of
+  the HUD while two corners stand empty: give each item a corner or an edge
+  of its own, and each label one thing, not several joined by `·` or `|`.
+  `balanced(content, area)` warns when the playfield is off that
   middle, and `filled(content)` when it covers less than `PLAYFIELD_MIN` of
   the screen. The UI layer's instances go through `no_overlap()`, which
   stops the run naming every pair of boxes that meet, with the `dy` that

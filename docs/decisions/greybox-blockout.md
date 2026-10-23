@@ -209,6 +209,30 @@ stand-in's board covers 24%.
 The 5% lift is a rule of thumb from design guides; no source found measures
 it. On the stand-in it raises the board one unit.
 
+The user found generated screens that gather their information in one
+place, such as a title and a subtitle, each joining two facts with a middle
+dot, stacked in one corner while the other three stood empty.
+`spread(groups)`, which `spaced()` ends with, counts the items of the HUD
+in each ninth of the screen: a group is one, and each part a label joins to
+another with " · " or " | " that holds a word is one more, so a round's tag
+with its number, "Round · 03", is one. `measure_layout.py --text` counts the
+same over the screen's texts in the official layouts, the texts nearer than
+1.5 times `GAP_IN` taken as one group:
+
+| Most items in a ninth off the middle | Layouts |
+|--------------------------------------|--------:|
+| 0 | 39 |
+| 1 | 71 |
+| 2 | 18 |
+| 3 or more | 4 |
+
+All four of 3 or more also leave two corners or more empty: a panel of a
+creature's stats, a combat menu and two dense score lines. So `spread()`
+warns when a ninth off the middle holds `HUD_CROWD`, 3 items, while two
+corners hold nothing, naming those corners; it warns and does not stop,
+because such a panel or menu is a choice, which 3% of the official layouts
+make. The stand-in's tag, score and keys hold one corner each.
+
 ### Colour
 
 `PALETTE` holds the roles of `paper-and-ink-look.md` plus `flash`, the

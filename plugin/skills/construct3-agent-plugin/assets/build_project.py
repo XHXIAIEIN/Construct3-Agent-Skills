@@ -165,6 +165,7 @@ import json
 import math
 import os
 import random
+import re
 import struct
 import subprocess
 import sys
@@ -2639,6 +2640,9 @@ GAP_OUT = UNIT                             # px at least between the HUD and the
 GROUP_RATIO = 1.5                          # least ratio of the gap between groups to the gap inside one
 OPTICAL_LIFT = 0.05                        # share of the area's height the playfield sits above centre
 PLAYFIELD_MIN = 0.15                       # least share of the screen the playfield covers
+# Most items of the HUD one ninth of the screen holds, off its middle, while two corners stand empty.
+# An item is a group, or a part a label joins to another with " · " or " | ".
+HUD_CROWD = 3
 
 
 def hud_stat(name_type: str, value_type: str, name: str, where: str, value: str = "0", longest: str | None = None,
@@ -2711,6 +2715,48 @@ def spaced(groups: list, where: str = "layout Game") -> None:
                             f"and the playfield at centred(w, h, play_area(hud)), GAP_OUT from the HUD.")
     if said:
         sys.exit("\n".join(said))
+    spread([[i for i in g if box_of(i)] for g in groups], where)
+
+
+# A label's parts joined by a middle dot, a bullet or a bar, each a word or a value
+JOINED = re.compile(r"\s[·•|]\s")
+# The ninths of the screen by row and column, named as anchor() names them
+NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left", (1, 2): "right",
+          (2, 0): "bottom-left", (2, 1): "bottom", (2, 2): "bottom-right"}
+
+
+def items(group: list) -> int:
+    """How many things a group of the HUD tells: one, and one more for each part a label joins to
+    another with " · " or " | " that holds a word, so "Round · 03" is one and "Wave 3 · 12 left" two.
+    A group without text tells nothing."""
+    texts = [str(i["properties"]["text"]) for i in group if "text" in i.get("properties", {})]
+    if not texts:
+        return 0
+    return 1 + sum(max(0, sum(1 for part in JOINED.split(t) if re.search(r"[^\W\d_]", part)) - 1) for t in texts)
+
+
+def spread(groups: list, where: str = "layout Game") -> None:
+    """Warns when one ninth of the screen off its middle holds HUD_CROWD items of the HUD or more
+    while two of its corners hold nothing: the HUD crowds one place and leaves the screen's frame
+    empty. A warning, not a stop: a panel of stats or a menu may gather on purpose."""
+    held: dict = {}
+    for g in groups:
+        boxes = [box_of(i) for i in g]
+        if not boxes:
+            continue
+        cx = (min(b[0] for b in boxes) + max(b[2] for b in boxes)) / 2
+        cy = (min(b[1] for b in boxes) + max(b[3] for b in boxes)) / 2
+        cell = (min(2, max(0, int(3 * cy / VIEW_H))), min(2, max(0, int(3 * cx / VIEW_W))))
+        held.setdefault(cell, []).append(g)
+    empty = [NINTHS[c] for c in ((0, 0), (0, 2), (2, 0), (2, 2)) if c not in held]
+    for cell, gs in held.items():
+        n = sum(map(items, gs))
+        if cell in NINTHS and n >= HUD_CROWD and len(empty) >= 2:
+            names = ", ".join(dict.fromkeys(i["type"] for g in gs for i in g))
+            print(f"warning: {where}: the {NINTHS[cell]} of the screen holds {n} items of the HUD ({names}) while "
+                  f"the {', '.join(empty)} corners stand empty. Give each item its own corner or edge, the where of "
+                  f"hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several "
+                  f"joined by · or |")
 
 
 def play_area(hud: list) -> tuple[int, int, int, int]:
@@ -3132,7 +3178,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 39a477b819e8 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp d3a4fc87fe20 ================
 
 
 # --- the game ---------------------------------------------------------------------------

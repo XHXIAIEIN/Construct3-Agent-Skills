@@ -688,6 +688,33 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 288, 928, 544)
 
 
+def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_empty(capsys):
+    """spaced() ends with spread(): a ninth of the screen off its middle that holds HUD_CROWD items of
+    the HUD while two corners hold nothing warns, naming the empty corners. An item is a group, and
+    one more for each word a label joins to it with a middle dot or a bar, so a round's tag with its
+    number is one item and a header of two facts a line is three."""
+    t = template_module()
+    assert t.HUD_CROWD == 3
+    tag = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
+    assert t.items([tag]) == 1 and t.items([t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)]) == 0
+    header = t.hud_header("TitleText", "SubTag", "二十拍 · 十二种动法", "八个空拍 · 同一套 7 / 2 / 5 / 4")
+    assert t.items(header) == 3
+    t.spaced([header])
+    assert capsys.readouterr().out == (
+        "warning: layout Game: the top-left of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
+        "top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
+        "of hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several joined by "
+        "· or |\n")
+    # Three labels stacked in one corner warn; the same three in three corners do not.
+    stacked = [[t.hud_text(name, text, "top-left", dy=3 * n)]
+               for n, (name, text) in enumerate((("WaveText", "Wave 3"), ("LeftText", "12 left"), ("BestText", "Best 40")))]
+    t.spread(stacked)
+    assert "the top-left of the screen holds 3 items" in capsys.readouterr().out
+    t.spread([[t.hud_text("WaveText", "Wave 3", "top-left")], [t.hud_text("LeftText", "12 left", "top-right")],
+              [t.hud_text("BestText", "Best 40", "bottom-left")]])
+    assert capsys.readouterr().out == ""
+
+
 def test_template_screen_is_named_bands_and_the_stage_sizes_its_main_object():
     """bands() names the parts of a screen, so a label goes into a band by name and the builder
     computes every position; fit() sizes the stage's main object to a share of the stage, and
