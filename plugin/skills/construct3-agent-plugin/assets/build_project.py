@@ -1788,6 +1788,16 @@ def readable(otype: str, color: str, on: str, size: float) -> None:
                  f"label on a panel whose role it reads on and pass it as on=")
 
 
+def on_scale(otype: str, size: float) -> None:
+    """Stops the run when a label's size is none of TEXT_SIZE's, the look's few sizes, one per kind
+    of text."""
+    if size not in TEXT_SIZE.values():
+        kinds = ", ".join(f"{kind} {v:g}" for kind, v in TEXT_SIZE.items())
+        sys.exit(f"{otype}: size {size:g} is none of TEXT_SIZE's ({kinds}). Give the label the size of its kind, "
+                 f"text_size(kind), so the screen keeps the look's few sizes; a kind of text the look lacks is a "
+                 f"new key of TEXT_SIZE")
+
+
 def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, size: float | None = None,
               halign: str = "left", bold: bool = False, color: str = "ink", on: str = "canvas_alt",
               ivars=None, behaviors=None, weight: str = "regular", valign: str = "center") -> dict:
@@ -1795,8 +1805,10 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
     the role behind it, which it must read on: canvas_alt, the darker backdrop cell, unless a panel
     is behind it. Keep `bold` off: a weight is a font file, and the browser fakes a bold. In pixel
     art with PIXEL_FONT it is a Sprite Font at scale size / UNIT, its white glyphs tinted to `color`
-    by the instance's colour; bake_fonts() fills its character set."""
+    by the instance's colour; bake_fonts() fills its character set. A size outside TEXT_SIZE stops
+    the run."""
     size = size or TEXT_SIZE["body"]
+    on_scale(otype, size)
     readable(otype, color, on, size)
     if pixel_font():
         return instance(otype, {"text": text, "enable-bbcode": False, "character-width": UNIT,
@@ -3109,7 +3121,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 2e46c759dcfe ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 72d36f76c880 ================
 
 
 # --- the game ---------------------------------------------------------------------------

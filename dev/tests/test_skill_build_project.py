@@ -487,8 +487,8 @@ def test_template_places_the_hud_on_the_grid(built):
     assert timer["properties"]["horizontal-alignment"] == "right"
     # A Latin letter is its measured width in Inter, a wide character 1 em, so a label's box holds its text.
     assert t.text_ems("Time: 30") == 4.23 and t.text_ems("结束回合，") == 5 and t.text_ems("A\u2005B") == 1.62
-    banner = t.hud_text("MapTitle", "地图", "top", size=48, longest="选择前进之路")
-    assert banner["world"]["width"] >= len("选择前进之路") * 48 * 4 / 3
+    banner = t.hud_text("MapTitle", "地图", "top", size=t.text_size("number"), longest="选择前进之路")
+    assert banner["world"]["width"] >= len("选择前进之路") * 45 * 4 / 3
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     score = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "ScoreText")["world"]
     # The number at the number size, GAP_IN under its label, each box one line high, held to the top
@@ -989,13 +989,13 @@ def test_template_labels_read_on_what_is_behind_them():
     assert score["properties"]["bold"] is False
     assert (t.text_contrast(8), t.text_contrast(17), t.text_contrast(18), t.text_contrast(32)) == (4.5, 4.5, 3, 3)
     t.PALETTE["dim"] = (120, 120, 120)                                   # 4.0:1 on the checker's darker cell
-    t.hud_text("TimerText", "Time: 30", "top-right", size=32, color="dim")  # 32 pt is large-scale: 3:1 is enough
+    t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("number"), color="dim")  # large-scale: 3:1 is enough
     with pytest.raises(SystemExit, match=r"TimerText: dim \(120, 120, 120\) on canvas_alt \(239, 239, 239\) reads 3\.8:1; "
                                          r"text of size 12 needs 4\.5:1\. Roles that read on canvas_alt: ink; or put the label on a panel whose role it reads on and pass it as on="):
         t.hud_text("TimerText", "Time: 30", "top-right", size=12, color="dim")
     t.PALETTE["dim"] = (150, 150, 150)                                   # 2.7:1
-    with pytest.raises(SystemExit, match=r"text of size 32 needs 3:1"):
-        t.hud_text("TimerText", "Time: 30", "top-right", size=32, color="dim")
+    with pytest.raises(SystemExit, match=r"text of size 45 needs 3:1"):
+        t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("number"), color="dim")
     t.PALETTE["dim"] = (120, 120, 120)
     banner = t.hud_text("WinText", "YOU WIN", "center", size=t.text_size("display"), color="dim")
     assert banner["properties"]["size"] == 64 and banner["properties"]["color"][:3] == [120 / 255] * 3
@@ -1004,6 +1004,22 @@ def test_template_labels_read_on_what_is_behind_them():
         t.hud_text("LivesText", "Lives", "top", color="flash", on="canvas")
     game = t.layout("Game", [t.layer("Background", transparent=False), t.layer("UI", parallax=0)], sheet="Game")
     assert [layer["backgroundColor"] for layer in game["layers"]] == [t.rgba(t.PALETTE["canvas"]), [1, 1, 1, 1]]
+
+
+def test_template_sizes_every_label_by_its_kind():
+    """A label takes one of TEXT_SIZE's sizes, the look's few sizes, one per kind of text, as a colour
+    takes a role of PALETTE: a size set by hand stops the run with the kinds, and a kind the look adds
+    is a size it may use."""
+    t = template_module()
+    with pytest.raises(SystemExit, match=r"ScoreText: size 24 is none of TEXT_SIZE's \(tag 11, name 12, body 14, "
+                                         r"title 22, number 45, display 64\)\. Give the label the size of its kind, "
+                                         r"text_size\(kind\)"):
+        t.hud_text("ScoreText", "Score: 0", "top-left", size=24)
+    t.TEXT_SIZE["caption"] = 24
+    assert t.hud_text("ScoreText", "Score: 0", "top-left", size=t.text_size("caption"))["properties"]["size"] == 24
+    small = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
+    with pytest.raises(SystemExit, match=r"Score: size 12 is none of TEXT_SIZE's \(tag 8, name 8, body 8, title 16"):
+        small.text_inst("Score", "AB", 0, 0, 16, 16, size=12)
 
 
 def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
@@ -1050,7 +1066,7 @@ def test_look_manifest_matches_the_template():
     assert enforced["paper-and-ink"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
     assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
                                       "colour.palette-only", "colour.structure", "colour.accent-contrast",
-                                      "text.contrast", "control.parts", "pixel-art.sampling"}
+                                      "text.contrast", "type.scale", "control.parts", "pixel-art.sampling"}
 
 
 def test_template_keeps_alpha_pure_and_shapes_on_the_grid(tmp_path):

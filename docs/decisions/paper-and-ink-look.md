@@ -302,7 +302,10 @@ out, as the user decided; the hit keeps the template's flash and squash.
   the platform's per-script default decides the face.
 - The text sizes suit a desktop window, the template's audience
   (`landscape-viewport.md`); on a phone held sideways a 12 pt name of a
-  1920×1080 viewport is about 5 dp high.
+  1920×1080 viewport is about 5 dp high. The tag, the name and the body
+  are smaller than the smallest text of any official 2D game example; the
+  manifest's `type.min-size` holds the choice
+  (`look-from-aesthetics-skills.md`).
 
 ## Re-evaluate when
 

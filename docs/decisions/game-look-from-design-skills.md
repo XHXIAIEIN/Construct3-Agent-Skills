@@ -120,7 +120,8 @@ Option 3, with one bullet of option 2 in
 - `FONT` and `TEXT_SIZE`: the font files and the sizes by kind of text of
   `paper-and-ink-look.md`. `text_inst()` and `hud_text()` take their size
   from it and stop below 4.5:1, or 3:1 from 18 pt up (`text_contrast()`;
-  WCAG 2.2, 1.4.3), naming the roles that would read.
+  WCAG 2.2, 1.4.3), naming the roles that would read, and on a size that
+  is none of its kinds (`look-from-aesthetics-skills.md`).
 - `PIXEL_ART` (a viewport 360 px high or less): *Nearest* sampling at
   *Integer scale outer*, which fills the screen (`fill-the-screen.md`).
 - `layer()` fills an opaque layer from a role, `canvas` unless named.

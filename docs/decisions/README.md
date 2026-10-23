@@ -5,6 +5,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
 - [What Only Maintainers Use Lives Under `dev/`](dev-folder.md) — 2026-10-23
+- [The Game's Look: What Aesthetics Skills Add to the Template](look-from-aesthetics-skills.md) — 2026-10-23
 - [The Look Judge Is a Read-Only Sub-Agent Type on the Measured Model](look-judge-agent.md) — 2026-10-23
 - [Paper and Ink Is the Fallback Look](paper-and-ink-is-the-fallback.md) — 2026-10-23
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-23

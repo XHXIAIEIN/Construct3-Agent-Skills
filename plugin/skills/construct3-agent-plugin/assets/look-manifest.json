@@ -108,6 +108,25 @@
       "helpers": "text_size(), tracked()"
     },
     {
+      "id": "type.scale",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "Every label takes one of TEXT_SIZE's sizes, one per kind of text, as every colour takes a role of PALETTE; a size set by hand stops the run with the kinds, and a kind of text the look lacks is a new key of TEXT_SIZE. The official 2D game examples use one text size in two of three layouts and two in a quarter, and each of 71 brands' design systems read as tokens names its sizes as a type scale.",
+      "template": "TEXT_SIZE",
+      "helpers": "on_scale(), text_inst(), text_size()"
+    },
+    {
+      "id": "type.min-size",
+      "status": "open",
+      "scope": "every-look",
+      "says": "The smallest text of every official 2D game example is at least 1.78% of the viewport's shorter side, and video styles set nothing meant to be read under 1/54 of the frame's height; paper and ink's tag is 1.4%, its name 1.5% and its body 1.7%, set for a desktop window, about 5 dp high on a phone held sideways. No check holds a floor until the user chooses.",
+      "options": [
+        "Keep paper and ink's sizes, set for a desktop window: a tag of 11 pt at 1080, 15 px",
+        "Scale every kind of paper and ink by 4/3, so its tag reaches 1.8% of the shorter side: tag 15, name 16, body 18, title 30, number 60 pt at 1080; and stop a label under 1.75% of the shorter side in every look"
+      ]
+    },
+    {
       "id": "lines.areas",
       "status": "adopted",
       "scope": "paper-and-ink",
@@ -215,6 +234,24 @@
       "says": "A check that the largest object is at least 1.5 times the area of the next: only 31% of the official 2D game examples' one-screen layouts pass it, since a grid of equal tiles, a deck of cards or two paddles is a sound game screen with no single largest object."
     },
     {
+      "id": "layout.title-safe",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A title-safe margin of video, 5 to 10% of the frame: the text nearest the edge in the official 2D game examples' layouts sits a median 3% of the shorter side in, and 52 of 75 within 5%. MARGIN, a fifteenth of the shorter side, already holds the HUD further in than most of them."
+    },
+    {
+      "id": "type.one-display",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "At most one text at a layout's largest size, from web design systems: of the official 2D game examples' layouts with two sizes or more, 41 of 69 pass; a menu of equal options or two players' scores share the largest size."
+    },
+    {
+      "id": "type.modular-scale",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Each size of TEXT_SIZE at least 1.2 times the next smaller, a modular scale: the step between the sizes of an official 2D game example's layout runs from 1.03 to 3, a quarter of the steps under 1.25, and 71 brands' design systems step a median 1.17; no ratio holds."
+    },
+    {
       "id": "outline.width",
       "status": "adopted",
       "scope": "paper-and-ink",
@@ -281,6 +318,12 @@
       "template": "[role for role in PALETTE if accent(role)]",
       "value": "['reward', 'danger', 'hover', 'pressed']",
       "helpers": "accent(), shape()"
+    },
+    {
+      "id": "colour.one-accent",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "At most one thing in an accent colour per screen, from web design systems, where the accent marks the one call to action: a game's accents mark kinds of content, every coin in reward and every hazard in danger, so a screen shows many."
     },
     {
       "id": "control.parts",
