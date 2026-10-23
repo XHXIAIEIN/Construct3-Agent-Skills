@@ -277,7 +277,10 @@ parameters are in the template.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,
   play_area(hud))`, at least `GAP_OUT` from it. `spaced(groups)` stops the
   run when two groups sit closer than `GROUP_RATIO` times the gap inside
-  either. `balanced(content, area)` warns when the playfield is off that
+  either, and warns when one ninth of the screen holds `HUD_CROWD` items of
+  the HUD while two corners stand empty: give each item a corner or an edge
+  of its own, and each label one thing, not several joined by `·` or `|`.
+  `balanced(content, area)` warns when the playfield is off that
   middle, and `filled(content)` when it covers less than `PLAYFIELD_MIN` of
   the screen. The UI layer's instances go through `no_overlap()`, which
   stops the run naming every pair of boxes that meet, with the `dy` that
@@ -389,7 +392,10 @@ parameters are in the template.
   `system-ui` with a warning; `FONT = "system-ui"` ships none. `hud_text()`
   stops the run on a colour that reads below 4.5:1 on what is behind it,
   3:1 from 18 pt up (`text_contrast()`), and names the roles that would
-  read there.
+  read there. A size outside `TEXT_SIZE` stops the run too, as does one
+  whose letters are under `TEXT_MIN` of the viewport's shorter side, in any
+  look; a kind of text the look lacks is a new key of `TEXT_SIZE`, as a
+  colour is a new role.
 - In pixel art every text type is a Sprite Font of `PIXEL_FONT`, an 8 px
   pixel font with Chinese, when the user's font cache holds its BDF file.
   Without the file the run warns and draws Texts. A text size of 8 draws

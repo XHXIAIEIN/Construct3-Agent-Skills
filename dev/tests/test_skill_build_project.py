@@ -266,8 +266,8 @@ def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_re
     with pytest.raises(SystemExit, match=r"box.png: 40x32 is not whole units of 32 px"):
         t.shape("box.png", "rect", 40, 32, "reward")
     t.PALETTE.update(dim=(40, 50, 100))
-    with pytest.raises(SystemExit, match=r"Score: dim .* on canvas_alt .* reads 1\.\d:1; text of size 12 needs 4\.5:1"):
-        t.hud_text("Score", "Score: 0", "top-right", size=12, color="dim")
+    with pytest.raises(SystemExit, match=r"Score: dim .* on canvas_alt .* reads 1\.\d:1; text of size 16 needs 4\.5:1"):
+        t.hud_text("Score", "Score: 0", "top-right", size=t.text_size("name"), color="dim")
     t.PALETTE.update(NIGHT, danger=(60, 40, 110))
     with pytest.raises(SystemExit, match=r"spike.png: danger .* reads 1\.\d\d:1 on canvas_alt, and an accent without "
                                          r"an outline needs 3:1"):
@@ -481,19 +481,19 @@ def test_template_places_the_hud_on_the_grid(built):
     # A row of three 96 px boxes, one unit apart, centred on the top edge: 352 px wide from x 784.
     assert t.row("top", 3, 96, 96) == [(832, 112), (960, 112), (1088, 112)]
     # A Text's size is in points, 4/3 px each, so a label's box fits its longest text
-    # (4.23 em x 14 x 4/3 = 79 -> 96) and reads towards the side it hangs on.
+    # (4.23 em x 18 x 4/3 = 102 -> 128) and reads towards the side it hangs on.
     timer = t.hud_text("TimerText", "Time: 30", "top-right")
-    assert (timer["world"]["x"], timer["world"]["y"], timer["world"]["width"], timer["world"]["height"]) == (1760, 64, 96, 32)
+    assert (timer["world"]["x"], timer["world"]["y"], timer["world"]["width"], timer["world"]["height"]) == (1728, 64, 128, 32)
     assert timer["properties"]["horizontal-alignment"] == "right"
     # A Latin letter is its measured width in Inter, a wide character 1 em, so a label's box holds its text.
     assert t.text_ems("Time: 30") == 4.23 and t.text_ems("结束回合，") == 5 and t.text_ems("A\u2005B") == 1.62
-    banner = t.hud_text("MapTitle", "地图", "top", size=48, longest="选择前进之路")
-    assert banner["world"]["width"] >= len("选择前进之路") * 48 * 4 / 3
+    banner = t.hud_text("MapTitle", "地图", "top", size=t.text_size("number"), longest="选择前进之路")
+    assert banner["world"]["width"] >= len("选择前进之路") * 60 * 4 / 3
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     score = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "ScoreText")["world"]
     # The number at the number size, GAP_IN under its label, each box one line high, held to the top
     # right: the HUD is off the grid.
-    assert (score["x"], score["y"], score["width"], score["height"]) == (1728, 92, 128, 72)
+    assert (score["x"], score["y"], score["width"], score["height"]) == (1696, 98, 160, 96)
     # Two HUD boxes that meet, or one past the viewport, stop the generator and name them.
     with pytest.raises(SystemExit, match=r"ScoreText \(64,64\)-\(192,96\) overlaps TimerText .* Move TimerText down 2 units: dy=2"):
         t.no_overlap([t.hud_text("ScoreText", "Score: 0", "top-left", longest="Score: 999"),
@@ -645,19 +645,19 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0.05)
     assert t.GAP_OUT >= t.GROUP_RATIO * t.GAP_IN
     name, value = t.hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-left", longest="999")
-    assert t.box_of(name) == (64, 64, 128, 84) and t.box_of(value) == (64, 92, 192, 164)
+    assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 194)
     assert (name["properties"]["size"], value["properties"]["size"]) == (t.TEXT_SIZE["name"], t.TEXT_SIZE["number"])
     assert (name["properties"]["font"], value["properties"]["font"]) == ("Inter-Regular", "InterDisplay-Light")
     best = t.hud_stat("BestLabel", "BestText", "BEST", "top-right", longest="999")
     assert t.box_of(best[0])[2] == t.box_of(best[1])[2] == 1856
     assert best[1]["properties"]["horizontal-alignment"] == "right" and "Anchor" in best[1]["behaviors"]
     area = t.play_area([name, value, t.hud_text("RoundText", "ROUND 1 / 6", "top-right")])
-    assert area == (64, 164 + 32, 1920 - 128, 1016 - 196)
+    assert area == (64, 194 + 32, 1920 - 128, 1016 - 226)
     assert t.play_area([t.hud_text("Hint", "Tap", "bottom")])[1::2] == (64, 1080 - 64 - 32 - 32 - 64)
-    assert t.centred(928, 544, area) == (512, 288) and t.centred(928, 544, area, lift=0) == (512, 320)
-    with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x820 px play area"):
+    assert t.centred(928, 544, area) == (512, 320) and t.centred(928, 544, area, lift=0) == (512, 352)
+    with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x790 px play area"):
         t.centred(2000, 100, area)
-    board = t.tiledbg_inst("Board", 512, 288, 928, 544, 0, 0)
+    board = t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)
     t.spaced([[name, value], [best[0], best[1]], [board]])
     t.balanced([board], area)
     assert capsys.readouterr().out == ""
@@ -666,7 +666,7 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert t.gap((0, 0, 10, 10), (100, 15, 200, 20)) == 5 and t.gap((0, 0, 10, 10), (40, 0, 50, 10)) == 30
     with pytest.raises(SystemExit, match=r"ScoreLabel \+ ScoreText and Board are 4 px apart, and ScoreLabel \+ "
                                          r"ScoreText holds its parts 8 px apart: groups need 1.5 times that"):
-        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 168, 928, 544, 0, 0)]])
+        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 198, 928, 544, 0, 0)]])
     # A name a unit above its number, and the board a unit under the number.
     label = t.hud_text("ScoreLabel", "SCORE", "top-left")
     number = t.hud_text("ScoreText", "0", "top-left", size=t.TEXT_SIZE["number"], dy=3)
@@ -685,7 +685,34 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     # The stand-in's board is where centred() puts it, under the tag and over the keys.
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     placed = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "Board")["world"]
-    assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 256, 928, 544)
+    assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 288, 928, 544)
+
+
+def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_empty(capsys):
+    """spaced() ends with spread(): a ninth of the screen off its middle that holds HUD_CROWD items of
+    the HUD while two corners hold nothing warns, naming the empty corners. An item is a group, and
+    one more for each word a label joins to it with a middle dot or a bar, so a round's tag with its
+    number is one item and a header of two facts a line is three."""
+    t = template_module()
+    assert t.HUD_CROWD == 3
+    tag = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
+    assert t.items([tag]) == 1 and t.items([t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)]) == 0
+    header = t.hud_header("TitleText", "SubTag", "二十拍 · 十二种动法", "八个空拍 · 同一套 7 / 2 / 5 / 4")
+    assert t.items(header) == 3
+    t.spaced([header])
+    assert capsys.readouterr().out == (
+        "warning: layout Game: the top-left of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
+        "top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
+        "of hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several joined by "
+        "· or |\n")
+    # Three labels stacked in one corner warn; the same three in three corners do not.
+    stacked = [[t.hud_text(name, text, "top-left", dy=3 * n)]
+               for n, (name, text) in enumerate((("WaveText", "Wave 3"), ("LeftText", "12 left"), ("BestText", "Best 40")))]
+    t.spread(stacked)
+    assert "the top-left of the screen holds 3 items" in capsys.readouterr().out
+    t.spread([[t.hud_text("WaveText", "Wave 3", "top-left")], [t.hud_text("LeftText", "12 left", "top-right")],
+              [t.hud_text("BestText", "Best 40", "bottom-left")]])
+    assert capsys.readouterr().out == ""
 
 
 def test_template_screen_is_named_bands_and_the_stage_sizes_its_main_object():
@@ -705,8 +732,8 @@ def test_template_screen_is_named_bands_and_the_stage_sizes_its_main_object():
     title = t.band_text("Title", "开关按钮", "title")
     assert title["properties"]["size"] == t.TEXT_SIZE["title"] and title["world"]["y"] == 64
     assert title["properties"]["font"] == "Inter-Medium" and t.band_text("Big", "GO", "stage")["properties"]["size"] == 64
-    assert t.band_text("Title", "标题" * 40, "title")["properties"]["size"] == t.TEXT_SIZE["body"]
-    with pytest.raises(SystemExit, match=r"the hint band 1792; it holds about 96 Chinese characters"):
+    assert t.band_text("Title", "标题" * 35, "title")["properties"]["size"] == t.TEXT_SIZE["body"]
+    with pytest.raises(SystemExit, match=r"the hint band 1792; it holds about 74 Chinese characters"):
         t.band_text("Hint", "点" * 100, "hint")
     with pytest.raises(SystemExit, match=r"'side' is no band; the bands are title, status, stage, hint"):
         t.band_text("Hint", "x", "side")
@@ -873,10 +900,10 @@ def test_template_text_input_is_the_form_control_in_the_look():
     assert label["sceneGraphData"]["parent-uid"] == field["uid"]
     with pytest.raises(SystemExit, match=r"kind 'textarea'; one of text, password"):
         t.text_input("note", 0, 0, 8, kind="textarea")
-    assert t.css_px(t.TEXT_SIZE["body"] * t.PX_PER_PT) == "min(0.9722vw, 1.728vh)"   # 18.7 px at 1920x1080
+    assert t.css_px(t.TEXT_SIZE["body"] * t.PX_PER_PT) == "min(1.25vw, 2.222vh)"   # 24 px at 1920x1080
     look, start, changed = (b for b in t.text_input_events({"player": "player"}) if b.get("eventType") == "block")
     css = {a["parameters"]["property-name"]: a["parameters"]["value"] for a in look["actions"]}
-    assert css['"font-size"'] == '"min(0.9722vw, 1.728vh)"' and css['"color"'] == '"rgb(33, 33, 33)"'
+    assert css['"font-size"'] == '"min(1.25vw, 2.222vh)"' and css['"color"'] == '"rgb(33, 33, 33)"'
     assert css['"font-family"'] == '"Inter-Regular, system-ui, sans-serif"'
     assert changed["conditions"][0]["id"] == "on-text-changed"
     assert changed["children"][1]["actions"][0]["parameters"] == {"variable": "player", "value": "TextInput.Text"}
@@ -985,25 +1012,57 @@ def test_template_labels_read_on_what_is_behind_them():
     assert round(t.contrast((255, 255, 255), (0, 0, 0)), 2) == 21 and t.contrast((30, 34, 48), (30, 34, 48)) == 1
     score = t.hud_text("ScoreText", "Score: 0", "top-left", longest="Score: 999")
     assert (score["properties"]["font"], score["properties"]["size"], score["properties"]["color"]) == \
-        ("Inter-Regular", 14, t.rgba(t.PALETTE["ink"]))
+        ("Inter-Regular", 18, t.rgba(t.PALETTE["ink"]))
     assert score["properties"]["bold"] is False
     assert (t.text_contrast(8), t.text_contrast(17), t.text_contrast(18), t.text_contrast(32)) == (4.5, 4.5, 3, 3)
     t.PALETTE["dim"] = (120, 120, 120)                                   # 4.0:1 on the checker's darker cell
-    t.hud_text("TimerText", "Time: 30", "top-right", size=32, color="dim")  # 32 pt is large-scale: 3:1 is enough
+    t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("number"), color="dim")  # large-scale: 3:1 is enough
     with pytest.raises(SystemExit, match=r"TimerText: dim \(120, 120, 120\) on canvas_alt \(239, 239, 239\) reads 3\.8:1; "
-                                         r"text of size 12 needs 4\.5:1\. Roles that read on canvas_alt: ink; or put the label on a panel whose role it reads on and pass it as on="):
-        t.hud_text("TimerText", "Time: 30", "top-right", size=12, color="dim")
+                                         r"text of size 16 needs 4\.5:1\. Roles that read on canvas_alt: ink; or put the label on a panel whose role it reads on and pass it as on="):
+        t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("name"), color="dim")
     t.PALETTE["dim"] = (150, 150, 150)                                   # 2.7:1
-    with pytest.raises(SystemExit, match=r"text of size 32 needs 3:1"):
-        t.hud_text("TimerText", "Time: 30", "top-right", size=32, color="dim")
+    with pytest.raises(SystemExit, match=r"text of size 60 needs 3:1"):
+        t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("number"), color="dim")
     t.PALETTE["dim"] = (120, 120, 120)
     banner = t.hud_text("WinText", "YOU WIN", "center", size=t.text_size("display"), color="dim")
     assert banner["properties"]["size"] == 64 and banner["properties"]["color"][:3] == [120 / 255] * 3
     with pytest.raises(SystemExit, match=r"LivesText: flash \(255, 255, 255\) on canvas \(255, 255, 255\) reads 1\.0:1; "
-                                         r".* Roles that read on canvas: solid, ink, reward;"):
+                                         r"text of size 18 needs 3:1\. Roles that read on canvas: solid, dim, ink, reward, danger;"):
         t.hud_text("LivesText", "Lives", "top", color="flash", on="canvas")
     game = t.layout("Game", [t.layer("Background", transparent=False), t.layer("UI", parallax=0)], sheet="Game")
     assert [layer["backgroundColor"] for layer in game["layers"]] == [t.rgba(t.PALETTE["canvas"]), [1, 1, 1, 1]]
+
+
+def test_template_sizes_every_label_by_its_kind():
+    """A label takes one of TEXT_SIZE's sizes, the look's few sizes, one per kind of text, as a colour
+    takes a role of PALETTE: a size set by hand stops the run with the kinds, and a kind the look adds
+    is a size it may use."""
+    t = template_module()
+    with pytest.raises(SystemExit, match=r"ScoreText: size 24 is none of TEXT_SIZE's \(tag 15, name 16, body 18, "
+                                         r"title 30, number 60, display 64\)\. Give the label the size of its kind, "
+                                         r"text_size\(kind\)"):
+        t.hud_text("ScoreText", "Score: 0", "top-left", size=24)
+    t.TEXT_SIZE["caption"] = 24
+    assert t.hud_text("ScoreText", "Score: 0", "top-left", size=t.text_size("caption"))["properties"]["size"] == 24
+    small = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
+    with pytest.raises(SystemExit, match=r"Score: size 12 is none of TEXT_SIZE's \(tag 8, name 8, body 8, title 16"):
+        small.text_inst("Score", "AB", 0, 0, 16, 16, size=12)
+
+
+def test_template_stops_a_label_too_small_to_read_in_every_look():
+    """A label's em is at least TEXT_MIN of the viewport's shorter side, whatever look the game has,
+    and every kind of TEXT_SIZE clears it at any viewport, pixel art included."""
+    t = template_module()
+    assert t.TEXT_MIN == 0.0175
+    t.USER_LOOK = "the user's: a dense terminal look"
+    t.TEXT_SIZE["tag"] = 11
+    with pytest.raises(SystemExit, match=r"RoundTag: size 11 draws letters 14\.7 px high, under 18\.9 px, 1\.75% of "
+                                         r"the viewport's shorter side, .* Raise TEXT_SIZE's tag to at least 15$"):
+        t.hud_tag("RoundTag", "Round 1")
+    for view in ("320, 180", "640, 360", "1024, 576", "1280, 720", "720, 1280", "1920, 1080", "2560, 1440"):
+        v = template_module(VIEW=f"VIEW_W, VIEW_H = {view}")
+        least = v.TEXT_MIN * min(v.VIEW_W, v.VIEW_H)
+        assert all((size if v.UNIT == 8 else size * v.PX_PER_PT) >= least for size in v.TEXT_SIZE.values()), view
 
 
 def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
@@ -1050,7 +1109,7 @@ def test_look_manifest_matches_the_template():
     assert enforced["paper-and-ink"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
     assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
                                       "colour.palette-only", "colour.structure", "colour.accent-contrast",
-                                      "text.contrast", "control.parts", "pixel-art.sampling"}
+                                      "text.contrast", "type.scale", "type.min-size", "control.parts", "pixel-art.sampling"}
 
 
 def test_template_keeps_alpha_pure_and_shapes_on_the_grid(tmp_path):
@@ -1391,7 +1450,9 @@ def test_template_header_keys_and_hints(tmp_path):
     assert (title["properties"]["font"], tag["properties"]["font"]) == ("Inter-Medium", "Inter-Regular")
     assert tag["properties"]["color"] == t.rgba(t.PALETTE["dim"]) and title["properties"]["bold"] is False
     tb, gb = t.box_of(title), t.box_of(tag)
-    assert gb[0] - tb[2] == round(0.6 * t.TEXT_SIZE["title"] * t.PX_PER_PT) and 0 < tb[3] - gb[3] <= 4
+    # The tag's box lifted by the difference of the two lines' descents, so the baselines meet
+    assert gb[0] - tb[2] == round(0.6 * t.TEXT_SIZE["title"] * t.PX_PER_PT)
+    assert tb[3] - gb[3] == round(0.24 * (t.TEXT_SIZE["title"] - t.TEXT_SIZE["tag"]) * t.PX_PER_PT) == 5
     assert len(t.hud_header("TitleText", "RoundTag", "Coins")) == 1          # no tag, no second Text
     assert t.tracked_expr('"Round " & beat') == 'RegexReplace(uppercase("Round " & beat), "(.)(?=.)", "g", "$1 ")'
     round_ = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")

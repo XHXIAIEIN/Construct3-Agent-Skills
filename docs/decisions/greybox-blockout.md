@@ -209,6 +209,42 @@ stand-in's board covers 24%.
 The 5% lift is a rule of thumb from design guides; no source found measures
 it. On the stand-in it raises the board one unit.
 
+The user found generated screens that gather their information in one
+place, such as a title and a subtitle, each joining two facts with a middle
+dot, stacked in one corner while the other three stood empty.
+Two checks count the items of the HUD in each ninth of the screen: a
+group is one, and each part a label joins to another with " · " or " | "
+that holds a word is one more, so a round's tag with its number,
+"Round · 03", is one. A group whose labels hold no word, a count beside its
+icon, tells nothing, and a text across two thirds of the screen is a bar
+along an edge, in no one place.
+
+- `spread(groups)`, which `spaced()` ends with, counts the generator's HUD
+  groups and warns when a ninth off the middle holds `HUD_CROWD`, 3 items,
+  while two corners hold nothing, naming those corners. It warns and does
+  not stop, as `balanced()` does: the groups do not say whether a panel is
+  meant.
+- `review_look.py`'s `crowd` finding counts the texts the runtime shows,
+  those a group's gap apart taken as one, by the same threshold, so a game
+  that never calls `spaced()` is checked too. It also leaves out the one
+  text inside an object, a button's word or a map node's letter, which
+  labels it.
+
+`measure_layout.py --text` counts the same over the official layouts:
+
+| Most items in a ninth off the middle | Layouts |
+|--------------------------------------|--------:|
+| 0 | 86 |
+| 1 | 42 |
+| 2 | 4 |
+| 3 or more | 0 |
+
+Before the exceptions, 4 layouts held 3 items or more in a ninth with two
+corners empty: three counts on an info board, a creature's stats, two
+dense score lines and a combat bar across the bottom joining stats with
+" | ". Bare counts, labels and bars covered them, so the finding fires on no
+official example. The stand-in's tag, score and keys hold one corner each.
+
 ### Colour
 
 `PALETTE` holds the roles of `paper-and-ink-look.md` plus `flash`, the

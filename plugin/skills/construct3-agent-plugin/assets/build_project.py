@@ -132,13 +132,13 @@ FONT = {"light": "InterDisplay-Light", "regular": "Inter-Regular", "medium": "In
 PIXEL_FONT = "fusion-pixel-8px-proportional-zh_hans"
 # Text size in points by kind, scaled to the viewport's shorter side: a tracked tag, the name of a
 # stat or a key, body text and a key's verb, a screen's title, the count the player plays for, a
-# banner. In pixel art the small kinds are one unit and the large two: a Sprite Font's size is in
-# px, its scale size / UNIT. TEXT_WEIGHT is each kind's
-# weight of FONT.
+# banner. At 720 px the tag is 10 pt, 13 px; a label whose letters are under TEXT_MIN of the shorter
+# side stops the run. In pixel art the small kinds are one unit and the large two: a Sprite Font's
+# size is in px, its scale size / UNIT. TEXT_WEIGHT is each kind's weight of FONT.
 TEXT_SIZE = ({"tag": UNIT, "name": UNIT, "body": UNIT, "title": 2 * UNIT, "number": 2 * UNIT, "display": 2 * UNIT}
              if UNIT == 8 else
-             {kind: round(px * min(VIEW_W, VIEW_H) / 720 * 0.75)
-              for kind, px in (("tag", 10), ("name", 11), ("body", 12), ("title", 20), ("number", 40))}
+             {kind: round(pt * min(VIEW_W, VIEW_H) / 720)
+              for kind, pt in (("tag", 10), ("name", 11), ("body", 12), ("title", 20), ("number", 40))}
              | {"display": 2 * UNIT})
 TEXT_WEIGHT = {"tag": "regular", "name": "regular", "body": "regular", "title": "medium", "number": "light",
                "display": "medium", "key": "medium"}
@@ -165,6 +165,7 @@ import json
 import math
 import os
 import random
+import re
 import struct
 import subprocess
 import sys
@@ -1788,6 +1789,27 @@ def readable(otype: str, color: str, on: str, size: float) -> None:
                  f"label on a panel whose role it reads on and pass it as on=")
 
 
+# Least height of a label's em, a share of the viewport's shorter side, in every look
+TEXT_MIN = 0.0175
+
+
+def on_scale(otype: str, size: float) -> None:
+    """Stops the run when a label's size is none of TEXT_SIZE's, the look's few sizes, one per kind
+    of text, or when its letters are under TEXT_MIN of the viewport's shorter side."""
+    if size not in TEXT_SIZE.values():
+        kinds = ", ".join(f"{kind} {v:g}" for kind, v in TEXT_SIZE.items())
+        sys.exit(f"{otype}: size {size:g} is none of TEXT_SIZE's ({kinds}). Give the label the size of its kind, "
+                 f"text_size(kind), so the screen keeps the look's few sizes; a kind of text the look lacks is a "
+                 f"new key of TEXT_SIZE")
+    least = TEXT_MIN * min(VIEW_W, VIEW_H)
+    if em_px(size) < least:
+        need = math.ceil(least if pixel_font() else least / PX_PER_PT)
+        small = ", ".join(kind for kind, v in TEXT_SIZE.items() if em_px(v) < least)
+        sys.exit(f"{otype}: size {size:g} draws letters {em_px(size):.1f} px high, under {least:.1f} px, "
+                 f"{TEXT_MIN:.2%} of the viewport's shorter side, which a player cannot read on a small screen. "
+                 f"Raise TEXT_SIZE's {small} to at least {need}")
+
+
 def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, size: float | None = None,
               halign: str = "left", bold: bool = False, color: str = "ink", on: str = "canvas_alt",
               ivars=None, behaviors=None, weight: str = "regular", valign: str = "center") -> dict:
@@ -1795,8 +1817,10 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
     the role behind it, which it must read on: canvas_alt, the darker backdrop cell, unless a panel
     is behind it. Keep `bold` off: a weight is a font file, and the browser fakes a bold. In pixel
     art with PIXEL_FONT it is a Sprite Font at scale size / UNIT, its white glyphs tinted to `color`
-    by the instance's colour; bake_fonts() fills its character set."""
+    by the instance's colour; bake_fonts() fills its character set. A size outside TEXT_SIZE stops
+    the run."""
     size = size or TEXT_SIZE["body"]
+    on_scale(otype, size)
     readable(otype, color, on, size)
     if pixel_font():
         return instance(otype, {"text": text, "enable-bbcode": False, "character-width": UNIT,
@@ -2616,6 +2640,9 @@ GAP_OUT = UNIT                             # px at least between the HUD and the
 GROUP_RATIO = 1.5                          # least ratio of the gap between groups to the gap inside one
 OPTICAL_LIFT = 0.05                        # share of the area's height the playfield sits above centre
 PLAYFIELD_MIN = 0.15                       # least share of the screen the playfield covers
+# Most items of the HUD one ninth of the screen holds, off its middle, while two corners stand empty.
+# An item is a group, or a part a label joins to another with " · " or " | ".
+HUD_CROWD = 3
 
 
 def hud_stat(name_type: str, value_type: str, name: str, where: str, value: str = "0", longest: str | None = None,
@@ -2688,6 +2715,49 @@ def spaced(groups: list, where: str = "layout Game") -> None:
                             f"and the playfield at centred(w, h, play_area(hud)), GAP_OUT from the HUD.")
     if said:
         sys.exit("\n".join(said))
+    spread([[i for i in g if box_of(i)] for g in groups], where)
+
+
+# A label's parts joined by a middle dot, a bullet or a bar, each a word or a value
+JOINED = re.compile(r"\s[·•|]\s")
+# The ninths of the screen by row and column, named as anchor() names them
+NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left", (1, 2): "right",
+          (2, 0): "bottom-left", (2, 1): "bottom", (2, 2): "bottom-right"}
+
+
+def items(group: list) -> int:
+    """How many things a group of the HUD tells: one, and one more for each part a label joins to
+    another with " · " or " | " that holds a word, so "Round · 03" is one and "Wave 3 · 12 left" two.
+    A group whose labels hold no word, a count beside its icon, tells nothing, and neither does a bar
+    across two thirds of the screen."""
+    parts = [sum(1 for part in JOINED.split(str(i["properties"]["text"])) if re.search(r"[^\W\d_]", part))
+             for i in group if "text" in i.get("properties", {})
+             and (b := box_of(i)) and b[2] - b[0] <= 2 / 3 * VIEW_W and b[3] - b[1] <= 2 / 3 * VIEW_H]
+    return 1 + sum(max(0, p - 1) for p in parts) if any(parts) else 0
+
+
+def spread(groups: list, where: str = "layout Game") -> None:
+    """Warns when one ninth of the screen off its middle holds HUD_CROWD items of the HUD or more
+    while two of its corners hold nothing: the HUD crowds one place and leaves the screen's frame
+    empty. A warning, not a stop: a panel of stats or a menu may gather on purpose."""
+    held: dict = {}
+    for g in groups:
+        boxes = [box_of(i) for i in g]
+        if not boxes:
+            continue
+        cx = (min(b[0] for b in boxes) + max(b[2] for b in boxes)) / 2
+        cy = (min(b[1] for b in boxes) + max(b[3] for b in boxes)) / 2
+        cell = (min(2, max(0, int(3 * cy / VIEW_H))), min(2, max(0, int(3 * cx / VIEW_W))))
+        held.setdefault(cell, []).append(g)
+    empty = [NINTHS[c] for c in ((0, 0), (0, 2), (2, 0), (2, 2)) if c not in held]
+    for cell, gs in held.items():
+        n = sum(map(items, gs))
+        if cell in NINTHS and n >= HUD_CROWD and len(empty) >= 2:
+            names = ", ".join(dict.fromkeys(i["type"] for g in gs for i in g))
+            print(f"warning: {where}: the {NINTHS[cell]} of the screen holds {n} items of the HUD ({names}) while "
+                  f"the {', '.join(empty)} corners stand empty. Give each item its own corner or edge, the where of "
+                  f"hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several "
+                  f"joined by · or |")
 
 
 def play_area(hud: list) -> tuple[int, int, int, int]:
@@ -3109,7 +3179,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 2e46c759dcfe ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp cefdb2addb06 ================
 
 
 # --- the game ---------------------------------------------------------------------------

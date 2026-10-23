@@ -28,6 +28,13 @@ the object type, the instance's UID and what to change:
   frame     every visible instance of a Sprite type shows the same frame of an
             animation that has more, though a text instance variable differs
             between them and no text on each tells them apart
+  crowd     a ninth of the screen off its middle whose texts tell 3 items or more
+            while two corners hold no text: texts a group's gap apart are one
+            item, and each further part a text joins with " · " or " | " that
+            holds a word is one more. Left out: a count with no word, the one
+            text on an object (its label), a bar across two thirds of the
+            screen, a message over half of it, and the texts of a scrolling
+            layer of a layout larger than the screen
 
 A screenshot is not drawn yet when 99.9% or more of it is one colour, black
 or clear. It is taken again 1 s later, twice at most. A layout still of one
@@ -107,6 +114,14 @@ WRAPPED = 1.5
 OVERLAP_SHARE = 0.5
 # Share of the screen past which an instance is an overlay drawn over the HUD on purpose.
 OVERLAY = 0.5
+# Most items the texts on the screen gather in a ninth of it off its middle while two corners stand
+# empty, the generator template's HUD_CROWD; an item is a group of texts, and one more for each part
+# a text joins to another with " · ", " • " or " | " that holds a word.
+CROWD = 3
+JOINED = re.compile(r"\s[·•|]\s")
+NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left", (1, 2): "right",
+          (2, 0): "bottom-left", (2, 1): "bottom", (2, 2): "bottom-right"}
+CORNERS = ((0, 0), (0, 2), (2, 0), (2, 2))
 # Shots of one layout in all while it is one colour (c3project.BLANK), and the seconds between them.
 BLANK_TRIES = 3
 BLANK_WAIT = 1.0
@@ -349,11 +364,118 @@ def frame_findings(instances: list[dict]) -> list[dict]:
     return found
 
 
+def worded(text: str) -> int:
+    """The parts of a text that hold a word, split where it joins them with " · ", " • " or " | ",
+    BBCode tags left out: "Round · 03" one, "Wave 3 · 12 left" two, a bare count "00" none."""
+    plain = re.sub(r"\[[^\]]*\]", "", text)
+    return sum(1 for part in JOINED.split(plain) if re.search(r"[^\W\d_]", part))
+
+
+def told(parts: list[int]) -> int:
+    """The items a group of texts tells, their worded() each: one, and one more for each further part
+    a text joins; none when no text holds a word, as a count beside its icon."""
+    return 1 + sum(max(0, p - 1) for p in parts) if any(parts) else 0
+
+
+def crowding(texts: list, width: float, height: float) -> dict:
+    """{ninth: [indexes]} of texts on a screen of width x height px, each (box on the screen, its
+    worded()), and the items each ninth holds, told(), under the key "items". Texts nearer than 1.5
+    times the generator template's GAP_IN at this screen are one group, as a value under its name."""
+    near = 1.5 * max(1, (8 if height <= 360 else 32) // 4)
+    group = list(range(len(texts)))
+
+    def root(n: int) -> int:
+        while group[n] != n:
+            n = group[n]
+        return n
+    for n, (a, _) in enumerate(texts):
+        for m in range(n + 1, len(texts)):
+            b = texts[m][0]
+            if max(a[0], b[0]) - min(a[2], b[2]) < near and max(a[1], b[1]) - min(a[3], b[3]) < near:
+                group[root(n)] = root(m)
+    hulls: dict[int, list] = {}
+    for n, (box, parts) in enumerate(texts):
+        hull = hulls.setdefault(root(n), [*box, [], []])
+        hull[:4] = min(hull[0], box[0]), min(hull[1], box[1]), max(hull[2], box[2]), max(hull[3], box[3])
+        hull[4].append(parts)
+        hull[5].append(n)
+    cells: dict = {"items": {}}
+    for x0, y0, x1, y1, parts, members in hulls.values():
+        cell = (min(2, max(0, int(1.5 * (y0 + y1) / height))), min(2, max(0, int(1.5 * (x0 + x1) / width))))
+        cells.setdefault(cell, []).extend(members)
+        cells["items"][cell] = cells["items"].get(cell, 0) + told(parts)
+    return cells
+
+
+def bar(box, width: float, height: float) -> bool:
+    """Whether a text's box spans two thirds of a width x height px screen either way: a bar along an
+    edge, such as a status line across the bottom, which is in no one place."""
+    return box[2] - box[0] > 2 / 3 * width or box[3] - box[1] > 2 / 3 * height
+
+
+def labels(instances: list[dict], view: list[float]) -> set[int]:
+    """The uids of texts that label an object: the one text drawn inside a shown instance that is
+    no text and no larger than half the screen, on any layer, such as a button's word, a card's name
+    or a map node's letter. A panel that holds two texts or more holds information, not a label."""
+    texts = [i for i in instances if sized(i) and (i.get("text") or "").strip()]
+    found = set()
+    for o in instances:
+        if "textSize" in o or not sized(o) or area(o["box"]) > OVERLAY * area(view):
+            continue
+        inner = [t["uid"] for t in texts if inside(drawn(t), o["box"])]
+        if len(inner) == 1:
+            found.add(inner[0])
+    return found
+
+
+def crowd_findings(instances: list[dict], layers: dict, one_screen: bool) -> list[dict]:
+    """A ninth of the screen off its middle whose texts tell CROWD items or more while two corners
+    hold no text: the HUD gathered in one place and left the screen's frame empty. The texts counted
+    are on a HUD layer, or on any layer of a layout one screen large. Left out: a message over half
+    the screen, a bar along an edge, whose box spans two thirds of the screen's width or height, and
+    the label of an object, labels()."""
+    texts, seen = [], []
+    for i in instances:
+        layer = layers.get(i["layer"])
+        if not (layer and sized(i) and (i.get("text") or "").strip() and not i.get("angle")):
+            continue
+        if not (one_screen or tuple(layer["parallax"]) == (0, 0)):
+            continue
+        view, b = layer["view"], drawn(i)
+        if area(b) > OVERLAY * area(view) or bar(i["box"], view[2] - view[0], view[3] - view[1]):
+            continue
+        box = [b[0] - view[0], b[1] - view[1], b[2] - view[0], b[3] - view[1]]
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        if 0 <= cx <= view[2] - view[0] and 0 <= cy <= view[3] - view[1]:
+            texts.append((box, worded(i["text"])))
+            seen.append((i, view))
+    tagged = labels(instances, seen[0][1]) if seen else set()
+    keep = [n for n, (i, _) in enumerate(seen) if i["uid"] not in tagged]
+    texts, seen = [texts[n] for n in keep], [seen[n] for n in keep]
+    if not texts:
+        return []
+    view = seen[0][1]
+    cells = crowding(texts, view[2] - view[0], view[3] - view[1])
+    empty = [NINTHS[c] for c in CORNERS if c not in cells]
+    found = []
+    for cell, count in cells["items"].items():
+        if cell in NINTHS and count >= CROWD and len(empty) >= 2:
+            held = [seen[n][0] for n in cells[cell]]
+            found.append({"rule": "crowd", "uids": [i["uid"] for i in held], "line":
+                          f"the {NINTHS[cell]} of the screen holds {count} items of text "
+                          f"({', '.join(name(i) for i in held[:4])}{' ...' if len(held) > 4 else ''}) while the "
+                          f"{', '.join(empty)} corners stand empty: give each item its own corner or edge, and each "
+                          f"text one thing rather than several joined by · or |"})
+    return found
+
+
 def findings(snap: dict) -> list[dict]:
     """Every mechanical finding on a layout read by LOOK_JS, each {rule, uids, line}."""
     instances, layers = snap["instances"], snap["layers"]
+    one_screen = all(s <= 1.05 * v for s, v in zip(snap["size"], snap["viewport"]))
     return (text_findings(instances) + stacked_findings(instances) + overlap_findings(instances, layers)
-            + edge_findings(instances, layers) + frame_findings(instances))
+            + edge_findings(instances, layers) + frame_findings(instances)
+            + crowd_findings(instances, layers, one_screen))
 
 
 def file_name(layout: str) -> str:
