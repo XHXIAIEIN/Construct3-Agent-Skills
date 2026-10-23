@@ -1,6 +1,6 @@
 name: Checks
 
-# The checks of AGENTS.md, section 5, on every push to main and every pull
+# The checks of dev/AGENTS.md, "Checks", on every push to main and every pull
 # request.
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
       - name: Install the requirements of the tests
         run: pip install pytest pillow
 
-      # git diff --check of AGENTS.md checks uncommitted changes, which a
+      # git diff --check of dev/AGENTS.md checks uncommitted changes, which a
       # fresh checkout has none of.
       - name: Run the checks
         id: run
