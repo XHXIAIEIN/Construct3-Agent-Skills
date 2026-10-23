@@ -139,7 +139,7 @@ repository, read `dev/AGENTS.md`.
 | Install and use the skill or the plugin | `README.md` |
 | The project tools that the skill carries into a game project | `plugin/skills/construct3-agent-plugin/SKILL.md` |
 | Event sheet design, the sourced pitfalls and the examples' authoring style | `design/thinking.md`, `pitfalls.md` with its pages and `design/style.md` under `Construct3-Cookbook/guides/`; `docs/decisions/event-sheet-design-guidance.md` |
-| The sheets, layers, objects and look of a new project | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
+| The sheets, layers, objects and look of a new project | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/paper-and-ink-is-the-fallback.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
 | The slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, and flat layers in depth under a 3D camera | `Construct3-Cookbook/guides/recipes/` and `Construct3-Cookbook/guides/project-files/` |
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/`, all in the Construct3-RAG clone |
 | Why features were kept or removed | `docs/decisions/README.md`, the index of the records |

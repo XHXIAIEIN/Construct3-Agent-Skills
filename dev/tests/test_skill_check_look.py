@@ -40,6 +40,26 @@ def test_check_look_passes_the_stand_in_and_names_each_fault(project):
             "floor; squash its art") in out
 
 
+def test_check_look_leaves_paper_and_inks_rules_to_its_fallback(project):
+    """A game whose generator names the user's look in USER_LOOK may show a hit with the Flash
+    behavior, a rule of paper and ink's taste; the grid holds in every look."""
+    edit(project, "objectTypes/Coin.json", lambda d: d["behaviorTypes"].append(
+        {"behaviorId": "Flash", "name": "Flash", "sid": 633333333333333}))
+    edit(project, "layouts/Objects.json", lambda d: d["layers"][0]["instances"][0]["world"].update(x=150))
+    generator = project / "tools" / "build_project.py"
+    source = generator.read_text(encoding="utf-8")
+    assert source.count('\nUSER_LOOK = ""') == 1
+    generator.write_text(source.replace('\nUSER_LOOK = ""', '\nUSER_LOOK = "the user\'s: a blinking arcade look"'),
+                         encoding="utf-8")
+    code, out = tool(project, "check_look")
+    assert code == 1 and "motion.hit" not in out.replace("motion.hit, a rule of paper and ink, is not checked", ""), out
+    assert ("look: the user's, from USER_LOOK (the user's: a blinking arcade look); motion.hit, a rule of paper and "
+            "ink, is not checked") in out
+    assert "grid.world-placement: layout Objects layer Objects: Coin" in out and out.splitlines()[-1].startswith("1 findings")
+    generator.write_text(source, encoding="utf-8")
+    assert "motion.hit: Coin has the Flash behavior" in tool(project, "check_look")[1]
+
+
 def test_check_look_warns_of_a_letterbox_mode(project):
     """The template fills the screen; a project in a Letterbox mode passes with a warning that
     names the mode to write, since the editor accepts it and the bars are the user's call."""

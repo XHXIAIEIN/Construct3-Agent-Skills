@@ -1,4 +1,4 @@
-# Paper and Ink: The Generator Template's Default Look
+# Paper and Ink: The Generator Template's Fallback Look
 
 Date: 2026-10-14
 Schema: Construct 3 r495.2
@@ -11,8 +11,10 @@ platform's `system-ui` face at two sizes, a cobalt and a red accent. The
 user judged its layout and its type as lacking taste, and named the
 references that show the taste meant.
 
-Task: a game the template generates looks designed before its art arrives.
-The look is the one the user picked on screenshots. Values of the template
+Task: a game the template generates looks designed before its art arrives,
+when the user gave it no look of its own. The look is the one the user
+picked on screenshots, and it is the fallback: a style, an art direction or
+references the user gives replace it (`paper-and-ink-is-the-fallback.md`). Values of the template
 and checks where the generator writes hold it, so that a small model gets
 it by default.
 
@@ -157,7 +159,8 @@ a phone's size in the preview.
 
 ## Decision
 
-Option 3, as the default of `plugin/skills/construct3-agent-plugin/assets/build_project.py`.
+Option 3, as the fallback of `plugin/skills/construct3-agent-plugin/assets/build_project.py`:
+the look of a game whose `USER_LOOK` is empty.
 
 ### The font
 

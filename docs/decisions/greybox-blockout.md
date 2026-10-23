@@ -34,7 +34,8 @@ Over reference blockouts and mock-ups of the stand-in:
 - Placeholders are three shapes: rectangle, triangle, circle.
 - Pattern marks areas and edges, not objects, as Tiled Backgrounds.
 - The look is neutral and costs a model no decisions: a template default it
-  keeps, not a style it chooses per game.
+  keeps, not a style it chooses per game. It is the fallback for a game the
+  user gave no look (`paper-and-ink-is-the-fallback.md`).
 - A game's screen is the scene, not a dashboard. Of six mock-ups of one
   coin screen, three drew an app interface, with rounded cards, a score
   pill and a shadow on everything; the user read them as a template and as
@@ -304,9 +305,10 @@ average than the first. It prints the curve, one line a beat, above
 ### The manifest
 
 `plugin/skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
-this record and of `paper-and-ink-look.md` with a status: `enforced` when a check stops the generator,
+this record and of `paper-and-ink-look.md` with a status and a scope: `enforced` when a check stops the generator,
 `adopted` when the user decided it and the template holds it, `proposed`,
-`rejected`. Its `deliver` steps are what a model writing the generator is
+`rejected`; `every-look`, or `paper-and-ink` for the fallback's taste,
+which stops nothing once `USER_LOOK` names a look the user gave. Its `deliver` steps are what a model writing the generator is
 given, its `confirm` steps what the agent runs on the result, among them
 `scripts/check_look.py`, which confirms the strict rules on the project's
 files. `dev/tests/test_skill_build_project.py` fails when a rule and the

@@ -25,7 +25,9 @@ layouts and event sheets the editor would load and checks:
                         one that is not draws as nothing
   motion.hit            no object type or family has the Flash behavior: a
                         hit shows as a colour, the template's hit_frame() and
-                        hit_flash()
+                        hit_flash(). A rule of paper and ink, the fallback
+                        look, so not checked when USER_LOOK in
+                        tools/build_project.py names a look the user gave
   motion.squash-art     a squash, a size set to a share of the image's size,
                         acts on the drawn art, not on an object whose
                         behavior collides
@@ -43,6 +45,7 @@ call on a screenshot.
 
 Exit 0: the last line starts with ok:. Exit 1: findings, or no project.
 """
+import ast
 import fnmatch
 import json
 import re
@@ -214,6 +217,21 @@ def check_hit(root: Path, out: list[str]) -> None:
                            f"hit_frame() and show it with hit_flash(), then remove the behavior")
 
 
+def user_look(root: Path) -> str:
+    """USER_LOOK of the project's generator: where the look the user gave comes from, or "" for
+    paper and ink. A value that is not a plain string counts as a look the user gave."""
+    generator = root / c3.GENERATOR
+    if not generator.is_file():
+        return ""
+    for node in ast.parse(generator.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "USER_LOOK" for t in node.targets):
+            try:
+                return str(ast.literal_eval(node.value)).strip()
+            except ValueError:
+                return ast.unparse(node.value)
+    return ""
+
+
 def check_screen(project: dict, warned: list[str]) -> None:
     """screen.fill over project.c3proj, a warning: a Letterbox mode shows bars around the game on a
     screen whose shape differs from the viewport's, where the template fills the screen."""
@@ -295,9 +313,13 @@ def main() -> int:
     instances = check_grid(root, unit, out)
     creates = check_spawn(root, out)
     check_pixel_font(root, out)
-    check_hit(root, out)
+    look = user_look(root)
+    if not look:
+        check_hit(root, out)
     check_squash(root, out)
     warned: list[str] = []
+    if look:
+        print(f"look: the user's, from USER_LOOK ({look}); motion.hit, a rule of paper and ink, is not checked")
     check_screen(project, warned)
     check_safe_area(root, project, warned)
     for line in warned:
