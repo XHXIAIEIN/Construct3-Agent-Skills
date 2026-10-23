@@ -66,8 +66,8 @@ COIN_SIZE = TOUCH                          # a coin is tapped, so it fills the b
 # they do not cover, such as a goal.
 PALETTE = {
     "canvas": (255, 255, 255),         # the paper: opaque layer fill; light checker cells
-    "canvas_alt": (245, 245, 245),     # faint fill of an area or a slot; dark checker cells, at most 1.2:1 from canvas
-    "line": (222, 222, 222),           # a ring drawn as a line; under 3:1, so never the only sign of a thing
+    "canvas_alt": (239, 239, 239),     # faint fill of an area or a slot; dark checker cells, at most 1.2:1 from canvas
+    "line": (215, 215, 215),           # a ring drawn as a line; under 3:1, so never the only sign of a thing
     "solid": (117, 117, 117),          # edge of an area or a range, structure, a bar's frame; 3:1 on canvas_alt
     "dim": (84, 110, 122),             # secondary label, a blue grey
     "ink": (33, 33, 33),               # player, labels, a key's box, a bar's fill

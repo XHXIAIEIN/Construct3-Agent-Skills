@@ -80,9 +80,9 @@ by the formula of `contrast()` in the template:
 
 | Role | Colour | On `canvas` | On `canvas_alt` |
 |------|--------|------------:|----------------:|
-| `canvas`, the paper | #FFFFFF | | 1.09 |
-| `canvas_alt`, the system's lightest grey | #F5F5F5 | 1.09 | |
-| `line`, 15% ink | #DEDEDE | 1.35 | 1.23 |
+| `canvas`, the paper | #FFFFFF | | 1.15 |
+| `canvas_alt`, the system's lightest grey | #EFEFEF | 1.15 | |
+| `line`, 15% ink | #D7D7D7 | 1.44 | 1.25 |
 | `solid`, 62% ink | #757575 | 4.61 | 4.23 |
 | `dim`, a blue grey | #546E7A | 5.40 | 4.95 |
 | `ink`, the system's darkest grey | #212121 | 16.10 | 14.77 |
