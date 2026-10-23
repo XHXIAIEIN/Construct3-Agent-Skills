@@ -100,6 +100,18 @@ Option 3, beside the file assertions, which stay.
   every assertion, k of n, with a Wilson 95% interval. With two to four runs
   per cell the interval spans most of 0 to 1, so the output gives n with
   it.
+- Coverage. A run graded before its plan was played is scored on its file
+  assertions alone and can count as fully passed, and a run graded before
+  it reported is scored on its fixture. So `benchmark.json` lists every
+  scored run that lacks its answer, its trace, its timing or the play of
+  its plan, and `coverage_complete` is true only when none does. A decision
+  over such a run gives the verdict `incomplete`. The inference evaluation
+  that DeepSeek published with DeepInfer holds its Pass@1 to the same rule.
+- Meta. `benchmark.json` records what the grading ran with: the commits of
+  this checkout and of the Construct3-RAG data, whether the grader's files
+  differ from them, the flags, and the commit the fixtures were laid out
+  from. A grading reads only what the runs left, so a run is graded again
+  under another grader without being run again.
 
 ## Re-evaluate when
 

@@ -406,7 +406,7 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | `trace.py` | What a run did, from its transcript, written to `trace.json` with the transcript kept beside it: every tool call, the calls that it lost, its turns, tokens and seconds, and its route. The route covers the first script, how far the check chain got, help reads, refused plans, hand edits, the calls before the first edit, reads of the clone, the Cookbook pages read, the `lookup_ace.py` and `search_guides.py` pointers followed, whether a passing check followed the last edit, and, for each compaction, what it kept of `SKILL.md` and what the run did after it |
 | `run_session.py` | A case with `turns` run as one `claude -p` session, with `/compact` between the turns in an arm whose name contains the word compact, and the case's `between` change written into the project before the second turn |
 | `token_share.py` | Where the tokens of one or more transcripts went: the cost, at the price ratios of each response's model, shared among the baseline, each script's output, the reads by file kind, the model's tool inputs and its output, with the sum checked against the cost from usage. `--files` gives each transcript's first context |
-| `grade.py` | `grading.json` per run, with the evidence and the level of each assertion, and `benchmark.json` per iteration: the mean and deviation per case and arm of every cost and route column, the Cookbook columns among them, the runs that passed everything with a 95% interval, the difference between arms, and the verdict of the iteration's `decision.json`. `<arm>_2` is a second run of `<arm>` |
+| `grade.py` | `grading.json` per run, with the evidence and the level of each assertion, and `benchmark.json` per iteration: the mean and deviation per case and arm of every cost and route column, the Cookbook columns among them, the runs that passed everything with a 95% interval, the difference between arms, the verdict of the iteration's `decision.json`, the runs that lack a part under `incomplete_runs`, and under `meta` the commits and flags the grading ran with. `<arm>_2` is a second run of `<arm>` |
 | `compare.py` | The within-task permutation test of one column between two arms over a `benchmark.json`, which is the test that `grade.py` runs for the verdict |
 | `measure_design.py` | What each rule of `scripts/review_design.py` finds over the official examples and game projects, with looser variants, and every hit as JSON to read before a rule becomes a finding |
 | `measure_layout.py` | How much of the screen the one-screen layouts of the official 2D game examples cover, and how much larger their largest object is than the next: the thresholds of the generator template's playfield checks. `--text` measures their texts: each size against the viewport, the sizes of a layout, how near the edge the nearest text sits and how many items gather in one ninth of the screen |
@@ -549,6 +549,12 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
   the within-task permutation test of `compare.py`, and prints the verdict.
   A cell short of its runs gives `underpowered: k of n`, and the benchmark
   all the same.
+- Quote a score only when `coverage_complete` in `benchmark.json` is true.
+  A scored run that lacks its `answer.md`, its `trace.json`, its
+  `timing.json` or the play of its plan is listed under `incomplete_runs`
+  with what it lacks. A decision over such a run gives the verdict
+  `incomplete`. Supply the missing part and grade again: grading reads only
+  the files the runs left, so a run is never run again to be regraded.
 - `trace.py --out` keeps the transcript as `transcript.jsonl` in the run
   folder, so a column can be counted again after the session's files are
   gone.

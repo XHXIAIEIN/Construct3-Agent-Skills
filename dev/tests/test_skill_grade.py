@@ -575,7 +575,8 @@ def test_trace_reads_relative_to_the_cd_of_a_command(tmp_path: Path, command: st
 
 
 def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
-    """An iteration of name-the-restart-event runs that all pass, each traced with the chain depth given."""
+    """An iteration of name-the-restart-event runs that all pass and have reported, each traced with the chain
+    depth given."""
     iteration = tmp_path / "it"
     answer = (ANSWERS / "english_all_three.md").read_text(encoding="utf-8")
     ends = {1: "check_project", 2: "review_design", 4: "preview_project", 5: "review_look"}
@@ -583,6 +584,7 @@ def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
         for n, depth in enumerate(cell):
             case = iteration / "name-the-restart-event" / (arm if n == 0 else f"{arm}_{n + 1}")
             answer_case(case, answer)
+            (case / "timing.json").write_text(json.dumps({"total_tokens": 40000, "duration_ms": 90000}), encoding="utf-8")
             (case / "trace.json").write_text(json.dumps({
                 "tool_calls": 20 + depth, "lost_calls": 1, "turns": 15, "output_tokens": 3000, "read_skill_md": True,
                 "first_script": "check_project", "chain_depth": depth, "chain_end": ends[depth],
@@ -594,7 +596,7 @@ def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
                 "read_design_guide": depth > 4, "cookbook_misses": 0, "checked_after_last_edit": depth > 1,
                 "compactions": 1, "compaction_skill": "reference" if arm == "old_skill" else "re-attached",
                 "reread_skill_md_after_compaction": False, "chain_depth_after_compaction": depth - 1,
-                "lookups_after_compaction": 2, "outside": [], "outside_reads": []}),
+                "lookups_after_compaction": 2, "model": "claude-opus-5-5", "outside": [], "outside_reads": []}),
                 encoding="utf-8")
     return iteration
 
@@ -641,6 +643,54 @@ def test_grade_says_underpowered_and_aggregates_all_the_same(tmp_path: Path) -> 
     benchmark = read_json(iteration / "benchmark.json")
     assert benchmark["decision"]["verdict"] == "underpowered"
     assert benchmark["by_case"]["name-the-restart-event"]["old_skill"]["chain_depth"]["mean"] == 1.5
+
+
+def test_a_run_that_lacks_a_part_makes_the_coverage_incomplete(tmp_path: Path, project: Path) -> None:
+    """A run graded before it reported, or before its plan was played, is scored on the fixture or on part of its
+    assertions; the benchmark says so instead of counting it as a full run."""
+    case = project_case(tmp_path, project, "fix-next-round")
+    out = grade_iteration(tmp_path)
+    assert "fix-next-round/with_skill: " in out and "(missing: answer, trace, timing, play)" in out
+    assert ("coverage incomplete, so the scores of these runs do not stand: "
+            "fix-next-round/with_skill (answer, trace, timing, play)") in out
+    benchmark = read_json(tmp_path / "it" / "benchmark.json")
+    assert benchmark["coverage_complete"] is False
+    assert benchmark["incomplete_runs"] == [{"run": "fix-next-round/with_skill",
+                                             "missing": ["answer", "trace", "timing", "play"]}]
+    assert benchmark["by_case"]["fix-next-round"]["with_skill"]["runs"][0]["missing"] == benchmark["incomplete_runs"][0]["missing"]
+    played(case, [True, True])
+    (case / "outputs").mkdir()
+    (case / "outputs" / "answer.md").write_text("Fixed.\n", encoding="utf-8")
+    (case / "timing.json").write_text(json.dumps({"total_tokens": 1, "duration_ms": 1000}), encoding="utf-8")
+    (case / "trace.json").write_text(json.dumps({"tool_calls": 1, "outside": [], "outside_reads": []}), encoding="utf-8")
+    out = grade_iteration(tmp_path)
+    assert "coverage complete: every scored run" in out
+    assert read_json(tmp_path / "it" / "benchmark.json")["coverage_complete"] is True
+
+
+def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path) -> None:
+    iteration = restart_runs(tmp_path, {"with_skill": [5, 5, 4], "old_skill": [1, 2, 1]})
+    (iteration / "name-the-restart-event" / "old_skill_2" / "timing.json").unlink()
+    (iteration / "decision.json").write_text(json.dumps({
+        "cases": ["name-the-restart-event"], "metric": "chain_depth", "direction": "up", "n_per_cell": 3}), encoding="utf-8")
+    out = grade_iteration(tmp_path)
+    assert "incomplete: name-the-restart-event/old_skill_2: timing; no verdict on chain_depth" in out
+    decision = read_json(iteration / "benchmark.json")["decision"]
+    assert decision["verdict"] == "incomplete" and decision["incomplete"] == ["name-the-restart-event/old_skill_2: timing"]
+
+
+def test_the_benchmark_names_what_the_grading_ran_with(tmp_path: Path) -> None:
+    """A score read later is traced to the grader, the data, the flags and the commit the fixtures came from."""
+    iteration = restart_runs(tmp_path, {"with_skill": [5]})
+    laid_out = {"commit": "abc123", "folder": "runs/clone-abc123", "old_commit": None}
+    (iteration / "clone.json").write_text(json.dumps(laid_out), encoding="utf-8")
+    grade_iteration(tmp_path)
+    benchmark = read_json(iteration / "benchmark.json")
+    meta = benchmark["meta"]
+    assert meta["laid_out"] == laid_out and meta["play"] is False and meta["release"] is None
+    assert meta["graded_at"].endswith("+00:00")
+    assert meta["grader"] is None or set(meta["grader"]) == {"commit", "dirty"}
+    assert benchmark["by_case"]["name-the-restart-event"]["with_skill"]["model"] == {"claude-opus-5-5": 1}
 
 
 @pytest.mark.parametrize(("text", "error"), [

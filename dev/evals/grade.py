@@ -56,6 +56,16 @@ its folder is not scored either, with the paths as the reason; the list is a
 floor (evals/trace.py). A run without timing.json has no tokens in the
 benchmark, and no time unless its trace has one; nothing is estimated.
 
+A scored run that lacks its outputs/answer.md, its trace.json, its
+timing.json or the play of its plan is listed under incomplete_runs with
+what it lacks, and coverage_complete is then false: its scores are counted
+but do not stand. A decision over such a run gives the verdict
+"incomplete". benchmark.json also holds meta, what the grading ran with:
+the commits of this checkout and of the Construct3-RAG data, with whether
+the files the grader reads differ from them, the flags, and the iteration's
+clone.json. Grading reads only the files the runs left, so a run is graded
+again, with another grader or --play, without running it again.
+
 exit codes: 0 graded, 1 ITERATION_DIR holds no run of a known case
 """
 import argparse
@@ -70,6 +80,7 @@ import sys
 import tempfile
 import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 import compare
@@ -1497,7 +1508,7 @@ METRICS = ("pass_rate", "runtime_rate", "seconds", "tokens", "turns", "output_to
            "cookbook_reads", "pointers_printed", "pointer_follows", "read_design_guide", "cookbook_misses",
            "checked_after_last_edit", "compactions", "reread_skill_md_after_compaction",
            "chain_depth_after_compaction", "lookups_after_compaction")
-COUNTED = ("first_script", "chain_end", "chain_reached", "compaction_skill")    # per cell: how many runs had each
+COUNTED = ("first_script", "chain_end", "chain_reached", "compaction_skill", "model")    # per cell: how many runs had each
 LEVELS = ("checker", "files", "runtime")      # in the order a run reaches them
 
 
@@ -1587,7 +1598,13 @@ def decide(iteration: Path, cells: dict[str, dict[str, list[dict]]]) -> dict | N
             for case in cases}
     record = {"cases": cases, "metric": metric, "direction": direction, "arms": arms, "n_per_cell": n,
               "concurrency": given.get("concurrency")}
-    short = [f"{case}/{arm}: {len(cell)} of {n}" for case, by_arm in runs.items() for arm, cell in by_arm.items()
+    gaps = [f"{case}/{r['run']}: {', '.join(r['missing'])}" for case in cases for arm in arms
+            for r in cells.get(case, {}).get(arm, []) if r["missing"]]
+    if gaps:
+        record |= {"verdict": "incomplete", "incomplete": gaps}
+        print(f"incomplete: {'; '.join(gaps)}; no verdict on {metric} until these runs are complete")
+        return record
+    short =[f"{case}/{arm}: {len(cell)} of {n}" for case, by_arm in runs.items() for arm, cell in by_arm.items()
              if len(cell) < n]
     if short:
         record |= {"verdict": "underpowered", "short": short}
@@ -1615,6 +1632,34 @@ def decide(iteration: Path, cells: dict[str, dict[str, list[dict]]]) -> dict | N
 def optional_json(path: Path) -> dict:
     """A file a run has only once it has reported (timing.json) or been traced (trace.json); {} without it."""
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def missing_of(run: Path, timing: dict, trace: dict, runtime: list[dict]) -> list[str]:
+    """What a scored run lacks for its scores to stand: its answer, its trace (without which a write outside its
+    folder goes unseen), its timing, and the play of its plan."""
+    lacks = {"answer": not (run / "outputs" / "answer.md").exists(), "trace": not trace, "timing": not timing,
+             "play": any(g["passed"] is None for g in runtime)}
+    return [k for k, lacking in lacks.items() if lacking]
+
+
+def git_state(folder: Path, *paths: str) -> dict | None:
+    """The commit of the checkout at folder and whether paths in it differ from that commit; None without git."""
+    try:
+        head = subprocess.run(["git", "-C", str(folder), "rev-parse", "HEAD"], capture_output=True, text=True)
+        status = subprocess.run(["git", "-C", str(folder), "status", "--porcelain", "--", *paths],
+                                capture_output=True, text=True)
+    except FileNotFoundError:   # no git on PATH: the meta names no commit rather than stopping the grading
+        return None
+    return {"commit": head.stdout.strip(), "dirty": bool(status.stdout.strip())} if head.returncode == 0 else None
+
+
+def grading_meta(iteration: Path, args: argparse.Namespace) -> dict:
+    """What this grading ran with: the grader's and the data's commits, the flags, and the commits the fixtures
+    were laid out from (clone.json of make_fixtures.py)."""
+    return {"graded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "grader": git_state(REPO, "dev/evals", "plugin"), "data": git_state(DATA.parent, "data"),
+            "play": args.play, "release": args.release, "browser": args.browser,
+            "laid_out": optional_json(iteration / "clone.json") or None}
 
 
 def runtime_of(name: str, run: Path, args: argparse.Namespace) -> tuple[list[dict], float | None]:
@@ -1669,7 +1714,7 @@ def main() -> int:
     iteration = Path(args.iteration).resolve()
     cells: dict[str, dict[str, list[dict]]] = {}      # case -> arm -> its runs
     held: dict[str, dict[str, list[dict]]] = {}
-    void = []
+    void, incomplete = [], []
     for name, case in CASES.items():
         for run in sorted(p for p in (iteration / name).glob("*") if (p / "project").is_dir()):
             reason = (run / "void.txt").read_text(encoding="utf-8").strip() if (run / "void.txt").exists() else None
@@ -1697,13 +1742,16 @@ def main() -> int:
             trace = optional_json(run / "trace.json")
             arm = re.sub(r"_\d+$", "", run.name)           # with_skill_2 is a second run of with_skill
             seconds = round(timing["duration_ms"] / 1000, 1) if timing else trace.get("seconds")
+            missing = missing_of(run, timing, trace, runtime)
+            if missing:
+                incomplete.append({"run": f"{name}/{run.name}", "missing": missing})
             (held if case.get("held_out") else cells).setdefault(name, {}).setdefault(arm, []).append({
                 "run": run.name, "passed": f"{passed}/{len(scored)}", "pass_rate": summary["pass_rate"],
                 "full": passed == len(scored), "level_reached": summary["level_reached"],
                 "runtime_rate": round(summary["runtime"]["passed"] / summary["runtime"]["total"], 3) if played else None,
                 "tokens": timing.get("total_tokens"), "seconds": seconds, "play_seconds": play_seconds,
-                **{k: trace[k] for k in TRACE_COLUMNS if k in trace}})
-            note = "" if timing or trace.get("seconds") else "  (no timing.json or traced time)"
+                "model": trace.get("model"), "missing": missing, **{k: trace[k] for k in TRACE_COLUMNS if k in trace}})
+            note = f"  (missing: {', '.join(missing)})" if missing else ""
             runtime_said = (f", runtime {summary['runtime']['passed']}/{summary['runtime']['total']}" if played
                             else ", runtime not played" if runtime else "")
             if case.get("held_out") and not args.show_held_out:
@@ -1717,7 +1765,8 @@ def main() -> int:
         sys.exit(f"{iteration} holds no <case>/<arm>/project of a case in evals.json")
 
     by_case, run_summary = aggregate(cells)
-    out = {"run_summary": run_summary, "by_case": by_case, "void_runs": void}
+    out = {"meta": grading_meta(iteration, args), "coverage_complete": not incomplete, "incomplete_runs": incomplete,
+           "run_summary": run_summary, "by_case": by_case, "void_runs": void}
     if held:
         held_cases, held_summary = aggregate(held)
         out["held_out"] = {"run_summary": held_summary, "by_case": held_cases}
@@ -1727,6 +1776,11 @@ def main() -> int:
                 f = s["full_runs"]
                 print(f"{label}{arm}: {f['k']} of {f['n']} runs passed every assertion they were scored on, "
                       f"95% interval {f['interval_95'][0]:.2f}-{f['interval_95'][1]:.2f}")
+    if incomplete:
+        print("coverage incomplete, so the scores of these runs do not stand: "
+              + "; ".join(f"{r['run']} ({', '.join(r['missing'])})" for r in incomplete))
+    else:
+        print("coverage complete: every scored run has its answer, trace and timing, and every plan was played")
     decision = decide(iteration, cells)
     if decision:
         out["decision"] = decision
