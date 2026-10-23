@@ -86,7 +86,7 @@ by the formula of `contrast()` in the template:
 | `canvas_alt`, the system's lightest grey | #EFEFEF | 1.15 | |
 | `line`, 15% ink | #D7D7D7 | 1.44 | 1.25 |
 | `solid`, 62% ink | #757575 | 4.61 | 4.23 |
-| `dim`, a blue grey | #546E7A | 5.40 | 4.95 |
+| `dim`, a neutral grey | #616161 | 6.20 | 5.39 |
 | `ink`, the system's darkest grey | #212121 | 16.10 | 14.77 |
 | `reward`, electric blue | #3D5AFE | 5.13 | 4.71 |
 | `danger`, deep orange | #FF3D00 | 3.55 | 3.25 |
@@ -94,8 +94,10 @@ by the formula of `contrast()` in the template:
 | `pressed`, amber | #FFC400 | 1.60 | 1.47 |
 
 The prototype's dim, `#8A867D`, reads 3.0:1 on its paper and fails the
-4.5:1 of small text; the blue grey passes on `canvas_alt`, the surface a
-label is checked against. Sky blue and amber stay under 3:1 on the paper,
+4.5:1 of small text; the grey passes on `canvas_alt`, the surface a
+label is checked against. Until 2026-10-24 dim was a blue grey, `#546E7A`;
+beside the neutral greys and the ink, the level tag and the score's name
+read as tinted, so it is a neutral grey now, between `solid` and `ink`. Sky blue and amber stay under 3:1 on the paper,
 which a state shown only while pointed at or for an instant may.
 
 ### The pointer as colours
@@ -206,7 +208,7 @@ and the shape tells them apart as well: a circle is collected, a triangle
 hurts. The caution stripes, what moves or triggers, are ink on the paper,
 and the hazard stripes are deep orange. `check_palette()`, `shape()` and
 `readable()` keep the checks of `greybox-blockout.md`; `accent()` counts a
-role whose channels differ by more than 48 as a hue, so the blue grey
+role whose channels differ by more than 48 as a hue, so a grey with a tint
 stays a grey.
 
 ### The subjects

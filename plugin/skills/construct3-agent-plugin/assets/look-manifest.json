@@ -306,9 +306,9 @@
       "status": "enforced",
       "scope": "paper-and-ink",
       "strict": true,
-      "says": "Paper and ink: a white paper and a faint grey fill, a 15% ink line grey for structure the eye reads past, a 62% ink grey for edges and structure, a blue grey dim, ink, an electric blue for what is collected, a deep orange for what hurts, a sky blue for what the pointer is over and an amber for a press, plus the hit's flash; the hues a design system's A400 accents. The player in ink. The paper and its fill at most 1.2:1, so the checker reads as texture.",
+      "says": "Paper and ink: a white paper and a faint grey fill, a 15% ink line grey for structure the eye reads past, a 62% ink grey for edges and structure, a neutral grey dim, ink, an electric blue for what is collected, a deep orange for what hurts, a sky blue for what the pointer is over and an amber for a press, plus the hit's flash; the hues a design system's A400 accents. The player in ink. The paper and its fill at most 1.2:1, so the checker reads as texture.",
       "template": "{role: '#%02X%02X%02X' % colour for role, colour in PALETTE.items()}",
-      "value": "{'canvas': '#FFFFFF', 'canvas_alt': '#EFEFEF', 'line': '#D7D7D7', 'solid': '#757575', 'dim': '#546E7A', 'ink': '#212121', 'reward': '#3D5AFE', 'danger': '#FF3D00', 'hover': '#00B0FF', 'pressed': '#FFC400', 'flash': '#FFFFFF'}",
+      "value": "{'canvas': '#FFFFFF', 'canvas_alt': '#EFEFEF', 'line': '#D7D7D7', 'solid': '#757575', 'dim': '#616161', 'ink': '#212121', 'reward': '#3D5AFE', 'danger': '#FF3D00', 'hover': '#00B0FF', 'pressed': '#FFC400', 'flash': '#FFFFFF'}",
       "helpers": "check_palette()"
     },
     {
