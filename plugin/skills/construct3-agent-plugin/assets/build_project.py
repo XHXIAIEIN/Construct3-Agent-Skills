@@ -76,7 +76,7 @@ PALETTE = {
     "canvas_alt": (239, 239, 239),     # faint fill of an area or a slot; dark checker cells, at most 1.2:1 from canvas
     "line": (215, 215, 215),           # a ring drawn as a line; under 3:1, so never the only sign of a thing
     "solid": (117, 117, 117),          # edge of an area or a range, structure, a bar's frame; 3:1 on canvas_alt
-    "dim": (84, 110, 122),             # secondary label, a blue grey
+    "dim": (97, 97, 97),               # secondary label, a neutral grey: 6.2:1 on canvas, 5.4:1 on canvas_alt
     "ink": (33, 33, 33),               # player, labels, a key's box, a bar's fill
     "reward": (61, 90, 254),           # what the player collects: electric blue
     "danger": (255, 61, 0),            # what hurts or is lost: deep orange

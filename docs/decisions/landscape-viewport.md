@@ -33,6 +33,12 @@ The tests pin the derived numbers at 1920×1080, and the HUD eval case and
 `dev/evals/grade.py` grade at that viewport. A fixture from an older skill,
 an `old_` arm, still has 720×1280 and is graded against the new numbers.
 
+Since 2026-10-23, `grade.py` reads the viewport, `UNIT`, `MARGIN` and `TOUCH`
+from each run's own generator, so every run is graded by its own screen. The
+visual cases also run on the stand-in at 720×1280 portrait and at 320×180
+(`lay-out-the-hud-portrait`, `lives-as-hearts-pixel`), and on a level that
+scrolls (`hud-over-a-scrolling-level`).
+
 ## Re-evaluate when
 
 - Most of the games the user builds with the skill are for phones.

@@ -5,14 +5,19 @@
 
 RUNS_DIR must lie outside the Construct3-Agent-Skills clone: an agent started below
 the clone reads its AGENTS.md, which routes to this skill, and a baseline
-that has the skill is not a baseline. A project is one of three kinds. The
+that has the skill is not a baseline. A project is one of four kinds. The
 default is the stand-in game of assets/build_project.py, without tools/, so
 that the task is a hand edit of a project made in the editor. A fixture
 `example:<id>` is a copy of that official example from --examples. A fixture
 `empty` is the project that new_project.py creates, for a case that designs a
 game before any file exists. A fixture of SEEDS is a stand-in game or an
 example with a fault written into it, most of them a mistake small models
-make, for a case that asks to fix it. A case marked held_out in evals.json is
+make, for a case that asks to fix it. A fixture of GENERATED keeps its
+generator, for a case that asks for a change to tools/build_project.py: the
+arm's own template, as it is (coins-generator), on another screen
+(coins-portrait at 720x1280, coins-pixel at 320x180), or with the level of
+platformer_game.py, which scrolls, in place of its game
+(platformer-generator), run once. A case marked held_out in evals.json is
 left out unless --held-out is given (dev/AGENTS.md, Evals).
 
 An arm named with_... holds the skill and the block as install.py leaves
@@ -449,6 +454,44 @@ def seed_inverted_start(root: Path) -> None:
 BETWEEN = {"inverted-start": seed_inverted_start}
 
 
+END_MARKER = "# ==== construct3-agent-plugin helpers: end"
+PLATFORMER_GAME = Path(__file__).parent / "platformer_game.py"
+
+
+def with_settings(template: str, **values: str) -> str:
+    """The template with each setting line `NAME = ...` given a new value, its comment kept. VIEW is the line
+    `VIEW_W, VIEW_H = ...`."""
+    for name, value in values.items():
+        key = "VIEW_W, VIEW_H" if name == "VIEW" else name
+        lines = template.split("\n")
+        at = next(n for n, line in enumerate(lines) if line.startswith(f"{key} = "))
+        line = lines[at].rstrip("\r")
+        old, hash_, comment = line[len(key) + 3:].partition("#")
+        lines[at] = (f"{key} = " + (f"{value.ljust(len(old) - 1)} {hash_}{comment}" if hash_ else value)
+                     + lines[at][len(line):])
+        template = "\n".join(lines)
+    return template
+
+
+def platformer(template: str) -> str:
+    """The template's settings and helpers with the game part of platformer_game.py below its end marker."""
+    at = template.index(END_MARKER)
+    end = template.index("\n", at) + 1
+    newline = "\r\n" if template[at:end].endswith("\r\n") else "\n"
+    game = PLATFORMER_GAME.read_text(encoding="utf-8").replace("\n", newline)
+    return with_settings(template[:at], PROJECT_NAME='"Hills"') + template[at:end] + newline * 2 + game
+
+
+# fixture -> what it changes in the arm's own template before the first run: the viewport for a stand-in on
+# another screen, or the game. Each keeps its generator, the task being a change to tools/build_project.py.
+GENERATED: dict[str, Callable[[str], str]] = {
+    "coins-generator": lambda template: template,
+    "coins-portrait": lambda template: with_settings(template, VIEW="720, 1280", ORIENTATION='"portrait"'),
+    "coins-pixel": lambda template: with_settings(template, VIEW="320, 180"),
+    "platformer-generator": platformer,
+}
+
+
 def digest(project: Path) -> dict:
     """The game's own files by hash, line endings aside, and the sids of the
     sheet's events; grade.py reads it to see what a run changed or lost."""
@@ -553,9 +596,10 @@ def main() -> int:
                 if installer:
                     into = ["--into", ".claude/skills"] if arm.startswith("with_claude") else []
                     run(str(installer), "--project", str(target), *into, cwd=target)
-                if case["fixture"] == "coins-generator":
-                    # The game keeps its generator, the template of the arm's own skill, run once so the
-                    # files are that template's: the task is a change to tools/build_project.py and a rerun.
+                if case["fixture"] in GENERATED:
+                    # The game keeps its generator, the template of the arm's own skill as GENERATED changes
+                    # it, run once so the files are that generator's: the task is a change to
+                    # tools/build_project.py and a rerun.
                     if not installer:
                         sys.exit(f"{case['name']} needs a skill: its generator checks with the skill's checker; "
                                  f"lay it out with with_... and old_... arms only")
@@ -567,7 +611,10 @@ def main() -> int:
                     (target / "project.c3proj").write_text(json.dumps({"uniqueId": "eval", "properties": {}}),
                                                            encoding="utf-8")
                     (target / "tools").mkdir()
-                    shutil.copy(installer.parent.parent / "assets" / "build_project.py", target / "tools" / "build_project.py")
+                    # Bytes, so the template keeps its line endings and its helpers their stamp
+                    template = (installer.parent.parent / "assets" / "build_project.py").read_bytes().decode("utf-8")
+                    (target / "tools" / "build_project.py").write_bytes(
+                        GENERATED[case["fixture"]](template).encode("utf-8"))
                     run("tools/build_project.py", cwd=target)
                 commit = {"clone.commit": commits[prefix]} if commits.get(prefix) else {}
                 (target.parent / "fixture.json").write_text(json.dumps(digest(target) | commit | {
