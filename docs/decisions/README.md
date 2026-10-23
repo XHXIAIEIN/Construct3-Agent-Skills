@@ -5,6 +5,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
 - [What Only Maintainers Use Lives Under `dev/`](dev-folder.md) — 2026-10-23
+- [The Look Judge Is a Read-Only Sub-Agent Type on the Measured Model](look-judge-agent.md) — 2026-10-23
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-23
 - [A Bundled Addon Is Installed Only on the User's Word](bundled-addon-consent.md) — 2026-10-22
 - [An Export Replaces Only the Folders It Recorded](export-folder-record.md) — 2026-10-22
