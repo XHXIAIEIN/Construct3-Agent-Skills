@@ -239,15 +239,16 @@ def test_the_menu_runner_passes_the_output_through_and_exits_zero(tmp_path):
 
 def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     """A general-purpose sub-agent starts with every tool and server of the session; the plugin's agent
-    type names only the tools the skill's scripts are run and read with (docs/decisions/project-worker-agent.md,
-    which measures the cost). A plain frontmatter parser reads it, so no value holds ': '."""
+    type names only the tools the skill's scripts are run and read with, and Agent, which starts the look
+    judge on the brief of review_look.py (docs/decisions/project-worker-agent.md, which measures the cost).
+    A plain frontmatter parser reads it, so no value holds ': '."""
     agent = PLUGIN / "agents" / "project-worker.md"
     text = agent.read_text(encoding="utf-8")
     head, body = text.split("\n---\n", 1)
     fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
     assert fields["name"] == "project-worker" and len(fields["description"]) < 1024
     assert [t.strip() for t in fields["tools"].split(",")] == ["Bash", "PowerShell", "Read", "Edit", "Write", "Grep",
-                                                               "Glob", "Skill"]
+                                                               "Glob", "Skill", "Agent"]
     assert "construct3:construct3-agent-plugin" in body and "SKILL.md" in body
 
 
