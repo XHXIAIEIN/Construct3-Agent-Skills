@@ -15,7 +15,7 @@ The repository keeps the `construct3-agent-plugin` skill and the data it reads i
 
 > [!IMPORTANT]
 > **AI agents: answer this question before you write a project file.** Is this repository cloned on the user's machine?
-> Can you run `python <clone>/plugin/skills/construct3-agent-plugin/scripts/check_project.py --project <game folder>` there and read its output?
+> Can you run `python <clone>/plugin/skills/construct3-agent-plugin/scripts/lookup_ace.py System wait` there and read the line `action wait - Wait [system]` in its output?
 >
 > - If yes, install the skill as [Agent guide](#agent-guide) says, then follow its process. Before you hand a project over, make sure that `check_project.py` reports no problems.
 > - If no, stop. Tell the user that you cannot build a Construct 3 project from this page, and give them the commands below to run.
@@ -49,12 +49,14 @@ The repository keeps the `construct3-agent-plugin` skill and the data it reads i
    python $HOME/Construct3/Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/install.py --project MyGame
    ```
 
-   `install.py` copies the skill into the project's `.agents/skills/`. It also adds a block to the project's `AGENTS.md`, and this block tells the agent where the data is. To put the copy where Claude Code reads it, add `--into .claude/skills`. To put it where TRAE reads it, add `--into .trae/skills`.
+   `install.py` copies the skill into the project's `.agents/skills/`. It also adds a block to the project's `AGENTS.md`, and this block tells the agent where the data is. To put the copy where Claude Code reads it, add `--into .claude/skills`.
+
+   Other agents read their own folders: for TRAE, add `--into .trae/skills`; for WorkBuddy, `--into .workbuddy/skills`; for Cursor, `--into .cursor/skills`. Cursor also reads `.agents/skills/`, so the default copy already reaches it, and TRAE reads that folder once it is turned on in TRAE's settings.
 5. Read `MyGame/AGENTS.md`, then the installed `SKILL.md`. Deliver the project by the instructions and the process of `SKILL.md`. The last line that `install.py` prints gives the path of `SKILL.md`.
 
 ## The Claude Code plugin
 
-`plugin/` is also a Claude Code plugin, `construct3`. It loads the skill on its own when the user asks about a Construct 3 project. It also adds the sub-agent type `construct3:project-worker`, which takes a change or a lookup that the main agent hands over. Install the plugin in one of three ways:
+`plugin/` is also a Claude Code plugin, `construct3`. It loads the skill on its own when the user asks about a Construct 3 project. It also adds two sub-agent types. `construct3:project-worker` takes a change or a lookup that the main agent hands over. `construct3:look-judge` answers the questions that `review_look.py` asks about its screenshots: it has not seen the project, and it can only read. Install the plugin in one of three ways:
 
 - From [Claude's plugin directory](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory), to get the versions that Anthropic has reviewed. Each version waits for a review, so this copy can be some commits behind this repository.
 - From this repository as a marketplace, to follow the released versions. In Claude, open Settings > Customize > Plugins. Select Add in the top right corner > Add marketplace > From a repository, enter `https://github.com/XHXIAIEIN/Construct3-Agent-Skills` and select Sync. To do the same from a terminal, run:
@@ -75,10 +77,8 @@ The plugin holds no event sheet guides. Clone [Construct3-Cookbook](https://gith
 ## Privacy and safety
 
 - Local runs: the scripts run on the machine with Python, on the files of the project and of this repository. To cut pictures out of an image tool's output, the scripts need Pillow.
-- Browser automation: the scripts drive the machine's Edge, Chrome or Chromium, or the agent's own browser tool, over the Chrome DevTools Protocol. They use the browser to open, preview and export the project, and to take pictures of it. They do these things:
-  1. Open the Construct 3 editor at `editor.construct.net` with the project loaded from the machine.
-  2. Run a preview at `preview.construct.net`.
-  3. For an export, wait in the scripts' own browser profile for the user to log in to their Construct account, or attach to the user's logged-in browser with `--attach`. Then save the export into a local folder. The scripts store no password, and they upload only the project.
+- Browser automation: the scripts drive the machine's Edge, Chrome or Chromium, or the agent's own browser tool, over the Chrome DevTools Protocol. They use the browser to open, preview and export the project, and to take pictures of it. They open the Construct 3 editor at `editor.construct.net` with the project loaded from the machine, and run a preview at `preview.construct.net`.
+- Export: the scripts wait in their own browser profile for the user to log in to their Construct account, or attach to the user's logged-in browser with `--attach`. Then they save the export into a local folder. The user types the password into Construct's own login page, and the scripts never read or keep it. The scripts hand the editor only the project files that it reads, and a string in the project that looks like a secret key stops the export before the browser starts.
 
 ## Update checks
 

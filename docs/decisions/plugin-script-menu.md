@@ -138,11 +138,17 @@ Each row:
   tool and one for the PowerShell tool, each the row's own command,
   `python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" <script> *`, so that the
   row runs under the default permission mode whichever tool Claude Code
-  runs it through and pre-approves nothing else. `argument-hint` and
-  `disable-model-invocation` are Claude Code's fields, not the open
-  format's, so the reference validator of `dev/AGENTS.md` fails on a
-  row by design; `dev/tests/test_plugin_folder.py` pins the frontmatter
-  instead.
+  runs it through and pre-approves nothing else. The list is Claude
+  Code's form of the field, not the open format's space-separated string:
+  each rule holds spaces, after `python`, after the quoted path and before
+  `*`, so a string split at spaces cuts it into pieces. The skills page
+  says the field "Accepts a space- or comma-separated string, or a YAML
+  list"; the comma form is no closer to the open format. The reference
+  validator does not check the field's type, so the list passes it.
+  `argument-hint` and `disable-model-invocation` are Claude Code's
+  fields, not the open format's, so the reference validator of
+  `dev/AGENTS.md` fails on a row by design;
+  `dev/tests/test_plugin_folder.py` pins the frontmatter instead.
 - A body of one line before the command, the command
   `` !`python "${CLAUDE_PLUGIN_ROOT}/skills/run.py" <script> $ARGUMENTS` ``,
   and one sentence: if `construct3:construct3-agent-plugin` is not loaded

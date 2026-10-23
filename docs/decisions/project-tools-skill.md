@@ -185,13 +185,20 @@ Each of these was a failure seen in an eval run or a game project.
   passed every assertion (7 of 9 each). How far the check chain got swung
   between batches on the same text: `review_look` in 6 of 9 runs in
   iteration 64, 3 of 9 in iteration 65.
+- `description` says what the skill checks a project against, not where
+  that data comes from. While it named the Construct3-RAG schemas, a
+  question on running that repository's lookup server loaded the skill in 3
+  of 3 runs; with the schemas named by what they hold, in 1 of 3, under the
+  threshold. The trigger eval of 2026-10-23 (the client's default model,
+  three runs a query) passed 11 of 12 train queries before and 12 of 12
+  after, and 8 of 8 validation queries both times.
 
 ## Open
 
-- The trigger evaluation of `description` has not run: it needs a
-  signed-in `claude` CLI, and a subagent of this repository inherits its
-  `AGENTS.md`, which names the skill. `dev/evals/run_trigger_eval.py` and the
-  query files are ready. Change `description` only from its train failures.
+- A trigger run that ends on the tool budget counts as not triggered, so a
+  query that should not trigger and ends there in every run has not shown
+  that the skill stays unloaded. The translation query of the train set did,
+  3 of 3, on 2026-10-23. Raise `--max-tools` when a query passes that way.
 - No one has reviewed the eval answers by hand; the assertions are at
   ceiling, so that review is the next signal.
 - A script can hold the viewport's size from `project.c3proj` in place of

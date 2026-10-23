@@ -163,6 +163,10 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 - Make `argument-hint` from groups of the script's usage line, in double
   quotes, because a YAML parser reads a hint that starts with `[` as a
   sequence.
+- Write `allowed-tools` as a YAML list of the row's own command, one rule
+  for the Bash tool and one for the PowerShell tool. Do not use the open
+  format's space-separated string, because each rule holds spaces that the
+  string form splits.
 - Keep the body free of teaching, because the main skill teaches.
 - A script without a row fails the build, unless `NOT_IN_MENU` in
   `build_plugin.py` names it.
@@ -405,7 +409,7 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | `grade.py` | `grading.json` per run, with the evidence and the level of each assertion, and `benchmark.json` per iteration: the mean and deviation per case and arm of every cost and route column, the Cookbook columns among them, the runs that passed everything with a 95% interval, the difference between arms, and the verdict of the iteration's `decision.json`. `<arm>_2` is a second run of `<arm>` |
 | `compare.py` | The within-task permutation test of one column between two arms over a `benchmark.json`, which is the test that `grade.py` runs for the verdict |
 | `measure_design.py` | What each rule of `scripts/review_design.py` finds over the official examples and game projects, with looser variants, and every hit as JSON to read before a rule becomes a finding |
-| `measure_layout.py` | How much of the screen the one-screen layouts of the official 2D game examples cover, and how much larger their largest object is than the next: the thresholds of the generator template's playfield checks |
+| `measure_layout.py` | How much of the screen the one-screen layouts of the official 2D game examples cover, and how much larger their largest object is than the next: the thresholds of the generator template's playfield checks. `--text` measures their texts: each size against the viewport, the sizes of a layout, how near the edge the nearest text sits and how many items gather in one ninth of the screen |
 | `label_look.py` | Briefs that have labeller agents answer the questions of `scripts/review_look.py` about a set of screenshots, and their replies merged into labels, with an adjudicator agent settling where they differ |
 | `judge_look.py` | Those questions put to a judge that has not seen the games, through the brief that `review_look.py` writes, and the judge's agreement with the labels per question (`docs/decisions/look-judge-calibration.md`) |
 | `sweep_outputs.py` | What the scripts print over every example and game project, including a dry run of a small plan, recorded and compared |

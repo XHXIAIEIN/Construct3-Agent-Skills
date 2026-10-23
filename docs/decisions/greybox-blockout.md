@@ -34,7 +34,8 @@ Over reference blockouts and mock-ups of the stand-in:
 - Placeholders are three shapes: rectangle, triangle, circle.
 - Pattern marks areas and edges, not objects, as Tiled Backgrounds.
 - The look is neutral and costs a model no decisions: a template default it
-  keeps, not a style it chooses per game.
+  keeps, not a style it chooses per game. It is the fallback for a game the
+  user gave no look (`paper-and-ink-is-the-fallback.md`).
 - A game's screen is the scene, not a dashboard. Of six mock-ups of one
   coin screen, three drew an app interface, with rounded cards, a score
   pill and a shadow on everything; the user read them as a template and as
@@ -208,6 +209,42 @@ stand-in's board covers 24%.
 The 5% lift is a rule of thumb from design guides; no source found measures
 it. On the stand-in it raises the board one unit.
 
+The user found generated screens that gather their information in one
+place, such as a title and a subtitle, each joining two facts with a middle
+dot, stacked in one corner while the other three stood empty.
+Two checks count the items of the HUD in each ninth of the screen: a
+group is one, and each part a label joins to another with " · " or " | "
+that holds a word is one more, so a round's tag with its number,
+"Round · 03", is one. A group whose labels hold no word, a count beside its
+icon, tells nothing, and a text across two thirds of the screen is a bar
+along an edge, in no one place.
+
+- `spread(groups)`, which `spaced()` ends with, counts the generator's HUD
+  groups and warns when a ninth off the middle holds `HUD_CROWD`, 3 items,
+  while two corners hold nothing, naming those corners. It warns and does
+  not stop, as `balanced()` does: the groups do not say whether a panel is
+  meant.
+- `review_look.py`'s `crowd` finding counts the texts the runtime shows,
+  those a group's gap apart taken as one, by the same threshold, so a game
+  that never calls `spaced()` is checked too. It also leaves out the one
+  text inside an object, a button's word or a map node's letter, which
+  labels it.
+
+`measure_layout.py --text` counts the same over the official layouts:
+
+| Most items in a ninth off the middle | Layouts |
+|--------------------------------------|--------:|
+| 0 | 86 |
+| 1 | 42 |
+| 2 | 4 |
+| 3 or more | 0 |
+
+Before the exceptions, 4 layouts held 3 items or more in a ninth with two
+corners empty: three counts on an info board, a creature's stats, two
+dense score lines and a combat bar across the bottom joining stats with
+" | ". Bare counts, labels and bars covered them, so the finding fires on no
+official example. The stand-in's tag, score and keys hold one corner each.
+
 ### Colour
 
 `PALETTE` holds the roles of `paper-and-ink-look.md` plus `flash`, the
@@ -304,9 +341,10 @@ average than the first. It prints the curve, one line a beat, above
 ### The manifest
 
 `plugin/skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
-this record and of `paper-and-ink-look.md` with a status: `enforced` when a check stops the generator,
+this record and of `paper-and-ink-look.md` with a status and a scope: `enforced` when a check stops the generator,
 `adopted` when the user decided it and the template holds it, `proposed`,
-`rejected`. Its `deliver` steps are what a model writing the generator is
+`rejected`; `every-look`, or `paper-and-ink` for the fallback's taste,
+which stops nothing once `USER_LOOK` names a look the user gave. Its `deliver` steps are what a model writing the generator is
 given, its `confirm` steps what the agent runs on the result, among them
 `scripts/check_look.py`, which confirms the strict rules on the project's
 files. `dev/tests/test_skill_build_project.py` fails when a rule and the

@@ -274,7 +274,7 @@ def test_play_design_finds_a_play_area_off_the_middle():
     pd = script_module("play_design")
     layers = {"Game": {"parallax": [1, 1], "shown": True, "view": [0, 0, 720, 1280]}}
     board = {"type": "Board", "uid": 3, "layer": "Game", "box": [0, 300, 480, 780], "shown": True, "angle": 0, "root": 3}
-    snap = {"viewport": [720, 1280], "layers": layers, "instances": [board]}
+    snap = {"size": [720, 1280], "viewport": [720, 1280], "layers": layers, "instances": [board]}
     found = pd.centre_findings(snap)
     assert [f["rule"] for f in found] == ["centre"]
     assert "has its middle at x 240 and the screen's is at 360" in found[0]["line"]
@@ -316,7 +316,7 @@ def test_play_design_finds_an_object_outside_the_place_the_design_names():
     score = inst(1, "ScoreText", [20, 20, 400, 80], "HUD", text="Score: 0", textSize=[150, 40], align=["left", "top"])
     message = inst(2, "Message", [60, 300, 660, 360], "HUD", text="Tap", textSize=[60, 40], align=["center", "center"])
     types = ["ScoreText", "Hole", "Mole", "Message"]
-    snap = {"viewport": [720, 1280], "layers": layers, "instances": [score, message, *holes]}
+    snap = {"size": [720, 1280], "viewport": [720, 1280], "layers": layers, "instances": [score, message, *holes]}
     found, notes = pd.screen_findings(design, types, snap)
     assert [f["uids"] for f in found] == [[2]]
     assert found[0]["line"] == ('screen.message "below the holes": Message uid 2 "Tap" has its middle at (360, 330) '
@@ -341,7 +341,7 @@ def test_play_design_prints_the_screen_places_under_the_first_screen():
     design = gm.Design({**example(), "screen": {"score": "top-right", "holes": "a 3 x 3 grid"}})
     layers = {"HUD": {"parallax": [0, 0], "shown": True, "view": [0, 0, 720, 1280]}}
     score = {"type": "ScoreText", "uid": 1, "layer": "HUD", "box": [20, 20, 200, 80], "shown": True, "angle": 0, "root": 1}
-    snap = {"viewport": [720, 1280], "layers": layers, "instances": [score]}
+    snap = {"size": [720, 1280], "viewport": [720, 1280], "layers": layers, "instances": [score]}
     result = {**OPENED, "preview": {"plans": [
         {"started": True, "errors": [], "steps": [{"ok": True}, {"ok": True, "value": snap}, {"ok": True}]}]}}
     lines, code = pd.report(design, [], result, ["ScoreText", "Hole"])

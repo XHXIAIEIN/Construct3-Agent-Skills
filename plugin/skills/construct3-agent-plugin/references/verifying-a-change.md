@@ -151,8 +151,10 @@ screenshot into `.tmp/look/`, and reads the layout's instances from the
 runtime. Its finding lines are measured, each naming the layout, the object
 type and the UID: a text its box cuts (`text`), instances of one type on one
 box (`stacked`), overlaps on the HUD and texts over texts (`overlap`), a HUD
-instance the screen's edge cuts (`edge`), and a type whose kinds show one
-frame (`frame`). None of them fires on the official examples. Fix every one.
+instance the screen's edge cuts (`edge`), a type whose kinds show one
+frame (`frame`), and texts gathered in one ninth of the screen while two
+corners stand empty (`crowd`). None of them fires on the official examples.
+Fix every one.
 
 The script asks what a measurement cannot judge, in one list of yes/no
 questions about what a player sees as a mistake: text cut, too small, too

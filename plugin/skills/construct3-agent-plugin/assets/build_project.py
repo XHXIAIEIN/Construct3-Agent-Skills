@@ -55,9 +55,16 @@ SUBJECT = max(UNIT, round(0.06 * min(VIEW_W, VIEW_H) / UNIT) * UNIT)
 COIN_SIZE = TOUCH                          # a coin is tapped, so it fills the box a finger hits
 
 # --- look -----------------------------------------------------------------------------
+# Where the game's look comes from when the user gave one: a style or an art direction the user
+# named, or references or an existing project to take it from. For example "the user's: neon
+# synthwave, from their three reference images". Empty when the user gave none: the game then
+# takes paper and ink, the fallback below. With it set, PALETTE takes the user's colours by role,
+# canvas and canvas_alt those of the backdrop, and the checks of paper and ink's taste stop
+# nothing; contrast, the grid and a clean alpha channel still do.
+USER_LOOK = ""
 # Colours by role. Every image, label and layer takes its colour from here, and write_png()
 # stops the run on any other colour, so a new object reuses a role or adds one.
-# The stand-in is paper and ink: flat shapes on white paper, the player and labels in ink, areas
+# Paper and ink, the fallback: flat shapes on white paper, the player and labels in ink, areas
 # and ranges drawn as lines over a faint fill, slots as discs of that fill.
 # solid and the accents read at least 3:1 on canvas_alt, so a shape shows without an outline;
 # check_palette() stops solid below that, and shape() an accent drawn without its outline,
@@ -125,13 +132,13 @@ FONT = {"light": "InterDisplay-Light", "regular": "Inter-Regular", "medium": "In
 PIXEL_FONT = "fusion-pixel-8px-proportional-zh_hans"
 # Text size in points by kind, scaled to the viewport's shorter side: a tracked tag, the name of a
 # stat or a key, body text and a key's verb, a screen's title, the count the player plays for, a
-# banner. In pixel art the small kinds are one unit and the large two: a Sprite Font's size is in
-# px, its scale size / UNIT. TEXT_WEIGHT is each kind's
-# weight of FONT.
+# banner. At 720 px the tag is 10 pt, 13 px; a label whose letters are under TEXT_MIN of the shorter
+# side stops the run. In pixel art the small kinds are one unit and the large two: a Sprite Font's
+# size is in px, its scale size / UNIT. TEXT_WEIGHT is each kind's weight of FONT.
 TEXT_SIZE = ({"tag": UNIT, "name": UNIT, "body": UNIT, "title": 2 * UNIT, "number": 2 * UNIT, "display": 2 * UNIT}
              if UNIT == 8 else
-             {kind: round(px * min(VIEW_W, VIEW_H) / 720 * 0.75)
-              for kind, px in (("tag", 10), ("name", 11), ("body", 12), ("title", 20), ("number", 40))}
+             {kind: round(pt * min(VIEW_W, VIEW_H) / 720)
+              for kind, pt in (("tag", 10), ("name", 11), ("body", 12), ("title", 20), ("number", 40))}
              | {"display": 2 * UNIT})
 TEXT_WEIGHT = {"tag": "regular", "name": "regular", "body": "regular", "title": "medium", "number": "light",
                "display": "medium", "key": "medium"}
@@ -158,6 +165,7 @@ import json
 import math
 import os
 import random
+import re
 import struct
 import subprocess
 import sys
@@ -170,6 +178,7 @@ from pathlib import Path
 TEXT_WEIGHT = globals().get("TEXT_WEIGHT", {})
 LINE = globals().get("LINE", max(1, round(min(VIEW_W, VIEW_H) / 720)))
 PIXEL_FONT = globals().get("PIXEL_FONT", "fusion-pixel-8px-proportional-zh_hans")
+USER_LOOK = globals().get("USER_LOOK", "")
 # Px of this viewport per px of the paper-and-ink prototype, which was drawn at 720 px high: the
 # gaps of the keys and the header scale by it.
 REF = min(VIEW_W, VIEW_H) / 720
@@ -573,15 +582,25 @@ def accent(role: str) -> bool:
     return max(c) - min(c) > 48
 
 
+def paper_and_ink() -> bool:
+    """Whether the game takes paper and ink, the fallback look: USER_LOOK is empty. Only then do
+    the checks of its taste stop the run."""
+    return not USER_LOOK.strip()
+
+
+# Said by a stop of paper and ink's taste, which a look the user gave lifts
+NOT_THE_USERS = "If the user gave the game a look of its own, name where it comes from in USER_LOOK"
+
+
 def check_palette() -> None:
-    """Stops the run when PALETTE's greys lose their contrast: canvas and canvas_alt at most 1.2:1,
-    so the checker reads as texture; solid at least 3:1 on canvas_alt, so structure shows without
-    an outline."""
+    """Stops the run when PALETTE's greys lose their contrast: solid at least 3:1 on canvas_alt, so
+    structure shows without an outline; in paper and ink, canvas and canvas_alt at most 1.2:1, so
+    the checker reads as texture."""
     ratio = contrast(rgb("canvas"), rgb("canvas_alt"))
-    if ratio > 1.2:
+    if ratio > 1.2 and paper_and_ink():
         sys.exit(f"PALETTE: canvas {PALETTE['canvas']} and canvas_alt {PALETTE['canvas_alt']} are {ratio:.2f}:1; the "
                  f"backdrop's two greys stay at most 1.2:1, so the checker reads as texture, not as things. Bring "
-                 f"canvas_alt nearer canvas")
+                 f"canvas_alt nearer canvas. {NOT_THE_USERS}")
     ratio = contrast(rgb("solid"), rgb("canvas_alt"))
     if ratio < 3:
         sys.exit(f"PALETTE: solid {PALETTE['solid']} on canvas_alt {PALETTE['canvas_alt']} reads {ratio:.2f}:1; "
@@ -1031,6 +1050,7 @@ PATTERNS = {
 }
 BACKDROPS = ("plain", "checker")           # patterns of backdrop() only
 PATTERN_OF: dict[str, str] = {}            # pattern of each type pattern() drew, by type name
+LAID_AS: dict[str, str] = {}               # "backdrop" or "area": a type of the user's look laid by either
 TILES: dict[str, int] = {}                 # tile size in px, which tiledbg_inst() aligns to the layout
 
 
@@ -1569,9 +1589,9 @@ def ivar_def(name: str, vtype: str, desc: str = "") -> dict:
 
 def beh_def(behavior_id: str, name: str | None = None) -> dict:
     """name is what events refer to; two Sine behaviors on one object need two names."""
-    if behavior_id == "Flash":
+    if behavior_id == "Flash" and paper_and_ink():
         sys.exit(f"{name or behavior_id}: a hit shows as a colour, not the Flash behavior's blinking; draw the "
-                 f"object's hit frame with hit_frame() and show it with hit_flash(obj) in the sheet")
+                 f"object's hit frame with hit_frame() and show it with hit_flash(obj) in the sheet. {NOT_THE_USERS}")
     return {"behaviorId": behavior_id, "name": name or behavior_id, "sid": sid()}
 
 
@@ -1769,6 +1789,27 @@ def readable(otype: str, color: str, on: str, size: float) -> None:
                  f"label on a panel whose role it reads on and pass it as on=")
 
 
+# Least height of a label's em, a share of the viewport's shorter side, in every look
+TEXT_MIN = 0.0175
+
+
+def on_scale(otype: str, size: float) -> None:
+    """Stops the run when a label's size is none of TEXT_SIZE's, the look's few sizes, one per kind
+    of text, or when its letters are under TEXT_MIN of the viewport's shorter side."""
+    if size not in TEXT_SIZE.values():
+        kinds = ", ".join(f"{kind} {v:g}" for kind, v in TEXT_SIZE.items())
+        sys.exit(f"{otype}: size {size:g} is none of TEXT_SIZE's ({kinds}). Give the label the size of its kind, "
+                 f"text_size(kind), so the screen keeps the look's few sizes; a kind of text the look lacks is a "
+                 f"new key of TEXT_SIZE")
+    least = TEXT_MIN * min(VIEW_W, VIEW_H)
+    if em_px(size) < least:
+        need = math.ceil(least if pixel_font() else least / PX_PER_PT)
+        small = ", ".join(kind for kind, v in TEXT_SIZE.items() if em_px(v) < least)
+        sys.exit(f"{otype}: size {size:g} draws letters {em_px(size):.1f} px high, under {least:.1f} px, "
+                 f"{TEXT_MIN:.2%} of the viewport's shorter side, which a player cannot read on a small screen. "
+                 f"Raise TEXT_SIZE's {small} to at least {need}")
+
+
 def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, size: float | None = None,
               halign: str = "left", bold: bool = False, color: str = "ink", on: str = "canvas_alt",
               ivars=None, behaviors=None, weight: str = "regular", valign: str = "center") -> dict:
@@ -1776,8 +1817,10 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
     the role behind it, which it must read on: canvas_alt, the darker backdrop cell, unless a panel
     is behind it. Keep `bold` off: a weight is a font file, and the browser fakes a bold. In pixel
     art with PIXEL_FONT it is a Sprite Font at scale size / UNIT, its white glyphs tinted to `color`
-    by the instance's colour; bake_fonts() fills its character set."""
+    by the instance's colour; bake_fonts() fills its character set. A size outside TEXT_SIZE stops
+    the run."""
     size = size or TEXT_SIZE["body"]
+    on_scale(otype, size)
     readable(otype, color, on, size)
     if pixel_font():
         return instance(otype, {"text": text, "enable-bbcode": False, "character-width": UNIT,
@@ -1940,18 +1983,20 @@ def area(otype: str, col: int, row: int, cols: int, rows: int, ivars=None, behav
     """An area or an edge of the pattern type `otype`, cols x rows cells from cell (col, row): a
     one-way platform in low stripes, a door in caution, lava in hazard. Caution and hazard cover
     strips and small zones, their shorter side a quarter of the viewport's at most. The plain paper
-    and the checker are for backdrop() only."""
+    and the checker are for backdrop() only. With USER_LOOK set, `otype` is any Tiled Background
+    type, such as an image_type(name, "TiledBg", w, h, 0, 0) of a tile in the user's look."""
     kind = PATTERN_OF.get(otype)
-    if not kind:
+    if not paper_and_ink():
+        LAID_AS.setdefault(otype, "area")
+    elif not kind:
         sys.exit(f"area({otype!r}): not a pattern; draw it with pattern({otype!r}, kind) in build_images() and give "
-                 f"it pattern_type({otype!r}) in build_object_types()")
-    if kind in BACKDROPS:
+                 f"it pattern_type({otype!r}) in build_object_types(). {NOT_THE_USERS}")
+    elif kind in BACKDROPS:
         sys.exit(f"area({otype!r}): the {kind} pattern is empty space, the backdrop alone; place it with "
                  f"backdrop({otype!r})")
-    most = min(VIEW_W, VIEW_H) // 4 // UNIT
-    if kind in ("caution", "hazard") and min(cols, rows) > most:
+    elif kind in ("caution", "hazard") and min(cols, rows) > (most := min(VIEW_W, VIEW_H) // 4 // UNIT):
         sys.exit(f"area({otype!r}): {cols}x{rows} cells of {kind} stripes; these cover strips and small zones, never "
-                 f"a backdrop, so keep the shorter side to {most} cells, a quarter of the viewport's")
+                 f"a backdrop, so keep the shorter side to {most} cells, a quarter of the viewport's. {NOT_THE_USERS}")
     return tiledbg_inst(otype, units(col), units(row), units(cols), units(rows), 0, 0, ivars, behaviors)
 
 
@@ -1959,10 +2004,13 @@ def backdrop(otype: str, width: int | None = None, height: int | None = None) ->
     """The backdrop in the pattern `otype` behind everything: one Tiled Background over the layout
     (`width` x `height`, the viewport's by default) reaching SCREEN_PAD past it, so no screen shows
     its edge. The plain paper, or the checker when the game has something transparent, a mask or a
-    background to come."""
-    if PATTERN_OF.get(otype) not in BACKDROPS:
+    background to come. With USER_LOOK set, `otype` is any Tiled Background type of the user's look."""
+    if not paper_and_ink():
+        if PATTERN_OF.get(otype) not in BACKDROPS:
+            LAID_AS[otype] = "backdrop"
+    elif PATTERN_OF.get(otype) not in BACKDROPS:
         sys.exit(f"backdrop({otype!r}): the backdrop is the plain paper or the checker; draw it with "
-                 f"pattern({otype!r}, \"plain\") or pattern({otype!r}, \"checker\")")
+                 f"pattern({otype!r}, \"plain\") or pattern({otype!r}, \"checker\"). {NOT_THE_USERS}")
     return tiledbg_inst(otype, *screen_box(width, height), 0, 0)
 
 
@@ -2592,6 +2640,9 @@ GAP_OUT = UNIT                             # px at least between the HUD and the
 GROUP_RATIO = 1.5                          # least ratio of the gap between groups to the gap inside one
 OPTICAL_LIFT = 0.05                        # share of the area's height the playfield sits above centre
 PLAYFIELD_MIN = 0.15                       # least share of the screen the playfield covers
+# Most items of the HUD one ninth of the screen holds, off its middle, while two corners stand empty.
+# An item is a group, or a part a label joins to another with " · " or " | ".
+HUD_CROWD = 3
 
 
 def hud_stat(name_type: str, value_type: str, name: str, where: str, value: str = "0", longest: str | None = None,
@@ -2664,6 +2715,49 @@ def spaced(groups: list, where: str = "layout Game") -> None:
                             f"and the playfield at centred(w, h, play_area(hud)), GAP_OUT from the HUD.")
     if said:
         sys.exit("\n".join(said))
+    spread([[i for i in g if box_of(i)] for g in groups], where)
+
+
+# A label's parts joined by a middle dot, a bullet or a bar, each a word or a value
+JOINED = re.compile(r"\s[·•|]\s")
+# The ninths of the screen by row and column, named as anchor() names them
+NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left", (1, 2): "right",
+          (2, 0): "bottom-left", (2, 1): "bottom", (2, 2): "bottom-right"}
+
+
+def items(group: list) -> int:
+    """How many things a group of the HUD tells: one, and one more for each part a label joins to
+    another with " · " or " | " that holds a word, so "Round · 03" is one and "Wave 3 · 12 left" two.
+    A group whose labels hold no word, a count beside its icon, tells nothing, and neither does a bar
+    across two thirds of the screen."""
+    parts = [sum(1 for part in JOINED.split(str(i["properties"]["text"])) if re.search(r"[^\W\d_]", part))
+             for i in group if "text" in i.get("properties", {})
+             and (b := box_of(i)) and b[2] - b[0] <= 2 / 3 * VIEW_W and b[3] - b[1] <= 2 / 3 * VIEW_H]
+    return 1 + sum(max(0, p - 1) for p in parts) if any(parts) else 0
+
+
+def spread(groups: list, where: str = "layout Game") -> None:
+    """Warns when one ninth of the screen off its middle holds HUD_CROWD items of the HUD or more
+    while two of its corners hold nothing: the HUD crowds one place and leaves the screen's frame
+    empty. A warning, not a stop: a panel of stats or a menu may gather on purpose."""
+    held: dict = {}
+    for g in groups:
+        boxes = [box_of(i) for i in g]
+        if not boxes:
+            continue
+        cx = (min(b[0] for b in boxes) + max(b[2] for b in boxes)) / 2
+        cy = (min(b[1] for b in boxes) + max(b[3] for b in boxes)) / 2
+        cell = (min(2, max(0, int(3 * cy / VIEW_H))), min(2, max(0, int(3 * cx / VIEW_W))))
+        held.setdefault(cell, []).append(g)
+    empty = [NINTHS[c] for c in ((0, 0), (0, 2), (2, 0), (2, 2)) if c not in held]
+    for cell, gs in held.items():
+        n = sum(map(items, gs))
+        if cell in NINTHS and n >= HUD_CROWD and len(empty) >= 2:
+            names = ", ".join(dict.fromkeys(i["type"] for g in gs for i in g))
+            print(f"warning: {where}: the {NINTHS[cell]} of the screen holds {n} items of the HUD ({names}) while "
+                  f"the {', '.join(empty)} corners stand empty. Give each item its own corner or edge, the where of "
+                  f"hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several "
+                  f"joined by · or |")
 
 
 def play_area(hud: list) -> tuple[int, int, int, int]:
@@ -2751,15 +2845,15 @@ def layers_in(layers: list):
 
 
 def z_order(instances: list) -> list:
-    """A layer's instances back to front: the backdrop, then pattern() areas, then the rest by the
+    """A layer's instances back to front: the backdrop, then the areas of area(), then the rest by the
     bottom of their box, so a nearer object covers a farther one. Ties keep their order. A link()
     child follows its parent, and a box wholly inside another follows it unless the outer box is a
     label. For another order, such as a 3D layer by depth, define z_order() below the end marker."""
     boxes = [box_of(inst) for inst in instances]
     keys = []
     for n, inst in enumerate(instances):
-        kind = PATTERN_OF.get(inst["type"])
-        rank = 0 if kind in BACKDROPS else 1 if kind else 2
+        kind = PATTERN_OF.get(inst["type"]) or LAID_AS.get(inst["type"])
+        rank = 0 if kind in (*BACKDROPS, "backdrop") else 1 if kind else 2
         keys.append((rank, boxes[n][3] if rank == 2 and boxes[n] else 0, n))
     # What each instance follows: its parent, else the smallest box that holds it, not a label
     holders = sorted((m for m, inst in enumerate(instances) if keys[m][0] == 2 and boxes[m]
@@ -3085,7 +3179,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-22, stamp 6db226c04fd4 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp cefdb2addb06 ================
 
 
 # --- the game ---------------------------------------------------------------------------

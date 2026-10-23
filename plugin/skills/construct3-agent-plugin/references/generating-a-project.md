@@ -107,6 +107,17 @@ avoid").
 
 ## Plan the art
 
+The look is the user's when the user gives one: a style, an art
+direction, or references or an existing project to take it from. The plan
+then names where it comes from in `USER_LOOK` and takes `PALETTE` from it,
+`canvas` and `canvas_alt` from the backdrop. When the user gives none,
+`USER_LOOK` stays empty and the game takes paper and ink, the template's
+fallback. Only paper and ink is held to its taste: with `USER_LOOK` set, the
+white paper's ratio, the plain or checker backdrop, the stripes' sizes and
+the ban on the Flash behavior stop nothing, and contrast, the grid and a
+clean alpha channel still stop the run. The `scope` of each rule of
+`assets/look-manifest.json` says which it is.
+
 The plan names the art direction in one sentence, `ART_STYLE`, and each
 sprite with what its picture shows and its box in units. Every sprite is an
 `art()`, which shows its stand-in until its picture is in `art/`. The
@@ -243,8 +254,8 @@ parameters are in the template.
   runs (`Objects` in the stand-in).
 - Before placing, sizing or colouring anything on the screen, read
   `Construct3-Cookbook/guides/project-files/new-project.md`, "Viewport, look and
-  HUD": the layout and the paper-and-ink look that the helpers below draw
-  until the art arrives, with the numbers behind them.
+  HUD": the layout, and the paper-and-ink look that the helpers below draw
+  when the user gave no look, with the numbers behind them.
 - Positions and sizes are whole units of the placement grid, never numbers
   picked one by one. `UNIT` follows the viewport (8 px for pixel art, 32 px
   otherwise), and `TOUCH` is the smallest object a finger taps at that
@@ -276,7 +287,10 @@ parameters are in the template.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,
   play_area(hud))`, at least `GAP_OUT` from it. `spaced(groups)` stops the
   run when two groups sit closer than `GROUP_RATIO` times the gap inside
-  either. `balanced(content, area)` warns when the playfield is off that
+  either, and warns when one ninth of the screen holds `HUD_CROWD` items of
+  the HUD while two corners stand empty: give each item a corner or an edge
+  of its own, and each label one thing, not several joined by `·` or `|`.
+  `balanced(content, area)` warns when the playfield is off that
   middle, and `filled(content)` when it covers less than `PLAYFIELD_MIN` of
   the screen. The UI layer's instances go through `no_overlap()`, which
   stops the run naming every pair of boxes that meet, with the `dy` that
@@ -339,8 +353,8 @@ parameters are in the template.
   colour stops the run with the nearest role: a new object reuses the
   game's colours or adds one under the role it plays. A painting, a
   gradient or a photograph passes `painted=True`. `check_palette()` stops
-  the run when the paper and its fill pass 1.2:1 or `solid` falls under 3:1
-  on the fill.
+  the run when `solid` falls under 3:1 on the fill, and in paper and ink
+  when the paper and its fill pass 1.2:1.
 - A sprite is `art(file, kind, w, h, role, subject)` in `build_images()`. It
   takes the picture `art/<file>` when it is there, which
   `scripts/prepare_art.py` fits to the box; until then it draws the
@@ -375,8 +389,8 @@ parameters are in the template.
   gives for `"hit"`, `"land"` or `"jump"`, and `SQUASH_PRESS` for `"press"`
   unless `SQUASH` has one, holds it and tweens back, and `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
-  `Collect` does; the object needs the Tween behavior. The Flash behavior
-  stops the run. A squash acts on the art, never on an object that
+  `Collect` does; the object needs the Tween behavior. In paper and ink the
+  Flash behavior stops the run. A squash acts on the art, never on an object that
   collides: a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of
   the mask.
@@ -388,7 +402,10 @@ parameters are in the template.
   `system-ui` with a warning; `FONT = "system-ui"` ships none. `hud_text()`
   stops the run on a colour that reads below 4.5:1 on what is behind it,
   3:1 from 18 pt up (`text_contrast()`), and names the roles that would
-  read there.
+  read there. A size outside `TEXT_SIZE` stops the run too, as does one
+  whose letters are under `TEXT_MIN` of the viewport's shorter side, in any
+  look; a kind of text the look lacks is a new key of `TEXT_SIZE`, as a
+  colour is a new role.
 - In pixel art every text type is a Sprite Font of `PIXEL_FONT`, an 8 px
   pixel font with Chinese, when the user's font cache holds its BDF file.
   Without the file the run warns and draws Texts. A text size of 8 draws
@@ -424,7 +441,9 @@ parameters are in the template.
   stripes for a harmless special surface, `caution`, ink stripes, for what
   moves or triggers, `hazard`, accent stripes, for what hurts, the last two
   on strips and small zones only. `tiledbg_inst()` offsets a pattern so
-  neighbouring pieces meet without a seam.
+  neighbouring pieces meet without a seam. With `USER_LOOK` set,
+  `backdrop()` and `area()` take any Tiled Background of the user's look,
+  such as `image_type(name, "TiledBg", w, h, 0, 0)` of its tile.
 - `BEATS` paces the game: one beat per camera zone of a level, or per
   round, wave or window of time in a one-screen game, as the stand-in's
   rounds are. A beat is `beat(type, intensity, mechanics, holds=...)` plus

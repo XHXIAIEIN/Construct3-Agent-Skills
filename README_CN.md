@@ -15,7 +15,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 > [!IMPORTANT]
 > **AI agent：写任何项目文件之前，先回答这个问题。** 本仓库是否已 clone 到用户的机器上？
-> 你能否在那里运行 `python <clone>/plugin/skills/construct3-agent-plugin/scripts/check_project.py --project <游戏文件夹>` 并读到它的输出？
+> 你能否在那里运行 `python <clone>/plugin/skills/construct3-agent-plugin/scripts/lookup_ace.py System wait`，并在输出里读到 `action wait - Wait [system]` 这一行？
 >
 > - 能：按 [Agent 使用指南](#agent-使用指南) 的步骤安装 skill，再按它的流程做。交付项目之前，确认 `check_project.py` 没有报告问题。
 > - 不能：停下。告诉用户，凭这个页面你做不出 Construct 3 项目，再把下面的命令给用户去运行。
@@ -49,12 +49,14 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
    python $HOME/Construct3/Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/install.py --project MyGame
    ```
 
-   `install.py` 把 skill 复制到项目的 `.agents/skills/`。它还在项目的 `AGENTS.md` 里加一段，这一段告诉 agent 数据在哪里。要把副本放到 Claude Code 读取的位置，加 `--into .claude/skills`。要放到 TRAE 读取的位置，加 `--into .trae/skills`。
+   `install.py` 把 skill 复制到项目的 `.agents/skills/`。它还在项目的 `AGENTS.md` 里加一段，这一段告诉 agent 数据在哪里。要把副本放到 Claude Code 读取的位置，加 `--into .claude/skills`。
+
+   其他 agent 读各自的文件夹：TRAE 加 `--into .trae/skills`，WorkBuddy 加 `--into .workbuddy/skills`，Cursor 加 `--into .cursor/skills`。Cursor 也读 `.agents/skills/`，所以默认位置的副本它已经能读到；TRAE 在设置里打开这一项后，也会读这个文件夹。
 5. 读 `MyGame/AGENTS.md`，再读安装好的 `SKILL.md`。按 `SKILL.md` 的指令和流程向用户交付项目。`install.py` 打印的最后一行就是 `SKILL.md` 的路径。
 
 ## Claude Code plugin
 
-`plugin/` 同时是一个 Claude Code plugin，名为 `construct3`。用户问到 Construct 3 项目时，它自动加载 skill。它还添加子 agent 类型 `construct3:project-worker`，接手主 agent 交出去的改动或查询。这个 plugin 有三种安装方式：
+`plugin/` 同时是一个 Claude Code plugin，名为 `construct3`。用户问到 Construct 3 项目时，它自动加载 skill。它还添加两个子 agent 类型。`construct3:project-worker` 接手主 agent 交出去的改动或查询。`construct3:look-judge` 回答 `review_look.py` 对截图提出的问题：它没看过项目，只能读文件。这个 plugin 有三种安装方式：
 
 - 从 [Claude 插件目录](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory)安装，得到 Anthropic 审核过的版本。每个版本都要等审核，所以这份副本可能比本仓库落后几个提交。
 - 把本仓库作为插件市场安装，跟上发布的版本。在 Claude 里打开 设置 > 自定义 > 插件。点右上角的 添加 > 添加市场 > 从仓库添加，填入 `https://github.com/XHXIAIEIN/Construct3-Agent-Skills`，再点同步。在终端里做同样的事，运行：
@@ -75,10 +77,8 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 ## 隐私和安全性
 
 - 本机运行：脚本用 Python 在本机运行，处理项目和本仓库的文件。要从图像工具的输出里裁图，脚本需要 Pillow。
-- 浏览器自动化：脚本通过 Chrome DevTools Protocol 驱动本机的 Edge、Chrome 或 Chromium，或 agent 自带的浏览器工具。它们用浏览器打开、预览和导出项目，并给项目截图。它们做这些事：
-  1. 打开 `editor.construct.net` 上的 Construct 3 编辑器，从本机载入项目。
-  2. 在 `preview.construct.net` 运行预览。
-  3. 导出项目时，在脚本自己的浏览器配置里等用户登录 Construct 账号，或者用 `--attach` 接入用户已登录的浏览器。然后把导出结果保存到本地文件夹。脚本不保存密码，只上传项目。
+- 浏览器自动化：脚本通过 Chrome DevTools Protocol 驱动本机的 Edge、Chrome 或 Chromium，或 agent 自带的浏览器工具。它们用浏览器打开、预览和导出项目，并给项目截图。它们打开 `editor.construct.net` 上的 Construct 3 编辑器，从本机载入项目，并在 `preview.construct.net` 运行预览。
+- 导出：脚本在自己的浏览器配置里等用户登录 Construct 账号，或者用 `--attach` 接入用户已登录的浏览器。然后把导出结果保存到本地文件夹。密码由用户在 Construct 自己的登录页里输入，脚本不读取也不保存。脚本只把编辑器要读的项目文件交给编辑器；项目里有形似密钥的字符串时，导出在浏览器启动前就会停下。
 
 ## 自动检查更新
 

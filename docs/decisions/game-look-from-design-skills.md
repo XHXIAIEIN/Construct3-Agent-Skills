@@ -107,7 +107,9 @@ Option 3, with one bullet of option 2 in
 
 - `PALETTE`, the game's colours by role; `rgb(role)` stops the run on a role
   that is not there and lists those that are; `rgba()` writes a colour as a
-  layout does. The roles and values are those of `paper-and-ink-look.md`.
+  layout does. The roles and values are those of `paper-and-ink-look.md`,
+  the fallback; a look the user gave sets its own values by role, named in
+  `USER_LOOK` (`paper-and-ink-is-the-fallback.md`).
 - `write_png()` stops on a shown pixel whose colour is not in `PALETTE`,
   naming the nearest role and the two ways out: that role, or the colour
   added under the role it plays. `painted=True` lets a painting, a gradient
@@ -118,7 +120,9 @@ Option 3, with one bullet of option 2 in
 - `FONT` and `TEXT_SIZE`: the font files and the sizes by kind of text of
   `paper-and-ink-look.md`. `text_inst()` and `hud_text()` take their size
   from it and stop below 4.5:1, or 3:1 from 18 pt up (`text_contrast()`;
-  WCAG 2.2, 1.4.3), naming the roles that would read.
+  WCAG 2.2, 1.4.3), naming the roles that would read, and on a size that
+  is none of its kinds or under 1.75% of the viewport's shorter side
+  (`look-from-aesthetics-skills.md`).
 - `PIXEL_ART` (a viewport 360 px high or less): *Nearest* sampling at
   *Integer scale outer*, which fills the screen (`fill-the-screen.md`).
 - `layer()` fills an opaque layer from a role, `canvas` unless named.
@@ -130,11 +134,14 @@ layout through the runtime, takes a screenshot of each and prints
 - one line per measured fault, naming the layout, the object type, the UID
   and what to change: a text its box cuts, instances of one type on one box,
   overlaps on the HUD and texts over texts, a HUD instance the screen's edge
-  cuts, kinds of a Sprite type shown with one frame. Each rule fired on an
-  official example until an exception covered it, and the exception is in
-  the rule: a text and its shadow, an overlay over half the screen, an
-  instance waiting wholly off screen, art running off the edge of a world
-  layer, hidden state such as a mine's, a kind told apart by its label.
+  cuts, kinds of a Sprite type shown with one frame, texts gathered in one
+  ninth of the screen while two corners stand empty
+  (`greybox-blockout.md`). Each rule fired on an official example until an
+  exception covered it, and the exception is in the rule: a text and its
+  shadow, an overlay over half the screen, an instance waiting wholly off
+  screen, art running off the edge of a world layer, hidden state such as a
+  mine's, a kind told apart by its label, a count beside its icon, a bar
+  across the screen, the one label of an object.
 - a fixed list of yes/no questions about what a player sees as a mistake,
   each yes naming the object to change: text cut, too small, too faint or
   hidden, an object over a text, a button or a card's face, the HUD cut by

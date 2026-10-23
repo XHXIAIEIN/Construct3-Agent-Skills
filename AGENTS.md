@@ -34,7 +34,7 @@ names a file of that clone.
 | `plugin/data/c3-lang/` | The editor texts that the checker and a preview's inspector read (built) |
 | `plugin/data/c3-new-project/` | The empty project that the editor saves, which `new_project.py` copies (built) |
 | `plugin/data/*.bundle-*.json` | The TypeScript definitions, the example projects and the index of their ACEs, as bundles that the scripts read (built) |
-| `plugin/agents/` | The `project-worker` sub-agent type, which loads with the plugin |
+| `plugin/agents/` | The `project-worker` and `look-judge` sub-agent types, which load with the plugin |
 | `plugin/README.md`, `plugin/icon.png`, `plugin/LICENSE` | The plugin's page in Claude's directory, its listing icon and its licence |
 | `scripts/bootstrap.py` | The script that clones the sibling repositories and installs the skill in a game project (section 4) |
 | `docs/decisions/` | The reasons behind the skill's choices, indexed in `docs/decisions/README.md` |
@@ -139,7 +139,7 @@ repository, read `dev/AGENTS.md`.
 | Install and use the skill or the plugin | `README.md` |
 | The project tools that the skill carries into a game project | `plugin/skills/construct3-agent-plugin/SKILL.md` |
 | Event sheet design, the sourced pitfalls and the examples' authoring style | `design/thinking.md`, `pitfalls.md` with its pages and `design/style.md` under `Construct3-Cookbook/guides/`; `docs/decisions/event-sheet-design-guidance.md` |
-| The sheets, layers, objects and look of a new project | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
+| The sheets, layers, objects and look of a new project | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/paper-and-ink-look.md`, `docs/decisions/paper-and-ink-is-the-fallback.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
 | The slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, and flat layers in depth under a 3D camera | `Construct3-Cookbook/guides/recipes/` and `Construct3-Cookbook/guides/project-files/` |
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/`, all in the Construct3-RAG clone |
 | Why features were kept or removed | `docs/decisions/README.md`, the index of the records |

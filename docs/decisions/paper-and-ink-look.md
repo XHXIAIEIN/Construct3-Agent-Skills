@@ -1,4 +1,4 @@
-# Paper and Ink: The Generator Template's Default Look
+# Paper and Ink: The Generator Template's Fallback Look
 
 Date: 2026-10-14
 Schema: Construct 3 r495.2
@@ -11,8 +11,10 @@ platform's `system-ui` face at two sizes, a cobalt and a red accent. The
 user judged its layout and its type as lacking taste, and named the
 references that show the taste meant.
 
-Task: a game the template generates looks designed before its art arrives.
-The look is the one the user picked on screenshots. Values of the template
+Task: a game the template generates looks designed before its art arrives,
+when the user gave it no look of its own. The look is the one the user
+picked on screenshots, and it is the fallback: a style, an art direction or
+references the user gives replace it (`paper-and-ink-is-the-fallback.md`). Values of the template
 and checks where the generator writes hold it, so that a small model gets
 it by default.
 
@@ -157,7 +159,8 @@ a phone's size in the preview.
 
 ## Decision
 
-Option 3, as the default of `plugin/skills/construct3-agent-plugin/assets/build_project.py`.
+Option 3, as the fallback of `plugin/skills/construct3-agent-plugin/assets/build_project.py`:
+the look of a game whose `USER_LOOK` is empty.
 
 ### The font
 
@@ -241,15 +244,18 @@ fills it, and a board of slots has no frame.
 
 | Kind | Prototype px at 720 | `TEXT_SIZE` pt at 1080 | Weight |
 |------|--------------------:|-----------------------:|--------|
-| `tag`, tracked | 10 | 11 | regular, `dim` |
-| `name`, of a stat or a key | 11 | 12 | regular; a key medium |
-| `body`, body text and a verb | 12 | 14 | regular |
-| `title`, a screen's title | 20 | 22 | medium |
-| `number`, the count | 40 | 45 | light |
+| `tag`, tracked | 10 | 15 | regular, `dim` |
+| `name`, of a stat or a key | 11 | 16 | regular; a key medium |
+| `body`, body text and a verb | 12 | 18 | regular |
+| `title`, a screen's title | 20 | 30 | medium |
+| `number`, the count | 40 | 60 | light |
 | `display`, a banner | | 64, two units | medium |
 
-Points are the prototype's px scaled to the viewport's shorter side, times
-0.75. In pixel art the small kinds are one unit and the large kinds two. A
+Points are the prototype's px taken as points and scaled to the viewport's
+shorter side, so each kind is 4/3 the prototype's size and the tag reaches
+the floor of `look-from-aesthetics-skills.md`, 1.75% of the shorter side;
+the user chose this on 2026-10-23 over the prototype's own sizes, which
+were set for a desktop window. In pixel art the small kinds are one unit and the large kinds two. A
 label is never bold, because a weight is a file and the browser fakes a
 bold that Inter lacks.
 
@@ -297,9 +303,9 @@ out, as the user decided; the hit keeps the template's flash and squash.
 
 - The Chinese fallback was seen on Windows only; on macOS, iOS and Android
   the platform's per-script default decides the face.
-- The text sizes suit a desktop window, the template's audience
-  (`landscape-viewport.md`); on a phone held sideways a 12 pt name of a
-  1920×1080 viewport is about 5 dp high.
+- On a phone held sideways the 15 pt tag of a 1920×1080 viewport is
+  about 7 dp high, under a phone's own smallest text; the floor is the
+  official examples', not a phone's.
 
 ## Re-evaluate when
 
