@@ -229,3 +229,31 @@ def test_review_look_retakes_a_blank_screenshot_and_asks_nothing_about_one_that_
     assert lines[1] == ("layout 'Map' (1 of 1): screenshot .tmp/look/Map.png, taken when the layout was drawn; the "
                         "shot before showed one colour, not drawn yet")
     assert lines[2].startswith("questions:")
+
+
+def test_review_look_finds_text_gathered_in_one_ninth_while_two_corners_stand_empty():
+    """A title and a subtitle a line apart, each joining two facts with a middle dot, in the top-left
+    with the other corners empty tell four items there: one finding naming the corners. Counts beside their
+    icons, a status line across the bottom, the label of an object, texts in three corners and
+    texts on a scrolling layer of a layout larger than the screen are no crowd."""
+    title = text(1, "TitleText", [40, 40, 300, 80], "二十拍 · 十二种动法", [250, 36], align=("left", "top"))
+    sub = text(2, "SubText", [40, 88, 360, 112], "八个空拍 · 同一套 7 / 2 / 5 / 4", [300, 22], align=("left", "top"))
+    found = rl.findings(snap(title, sub))
+    assert pairs(found) == [("crowd", [1, 2])], found
+    assert found[0]["line"].startswith('the top-left of the screen holds 4 items of text (TitleText uid 1 "二十拍 · 十二种动法"')
+    assert found[0]["line"].endswith("while the top-right, bottom-left, bottom-right corners stand empty: give each "
+                                     "item its own corner or edge, and each text one thing rather than several "
+                                     "joined by · or |")
+    assert rl.worded("Round · 03") == 1 and rl.worded("[b]HP:[/b] 150 | ATK: 10") == 2 and rl.worded("00") == 0
+    counts = [text(10 + n, "Counter", [40, 40 + 60 * n, 130, 90 + 60 * n], "00", [60, 40]) for n in range(3)]
+    assert rules(rl, *counts) == []
+    stats = text(20, "Stats", [2, 640, 1278, 680], "HP: 150 | ATK: 10 | DEF: 5", [400, 30], align=("left", "top"))
+    keys = text(21, "Keys", [2, 680, 1278, 718], "Z Attack · X Run", [300, 30], align=("left", "top"))
+    assert rules(rl, stats, keys) == []
+    on_card = [inst(30, "Card", [20, 20, 400, 200]), dict(title, uid=31)]
+    assert rules(rl, *on_card) == []
+    corners = [text(40, "Wave", [40, 40, 200, 70], "Wave 3", [100, 30]),
+               text(41, "Left", [1080, 40, 1240, 70], "12 left", [100, 30]),
+               text(42, "Best", [40, 650, 200, 680], "Best 40 · Gold 7", [160, 30])]
+    assert rules(rl, *corners) == []
+    assert rules(rl, dict(title, layer="Game"), dict(sub, layer="Game"), size=(4000, 720)) == []

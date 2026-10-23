@@ -30,9 +30,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "dev"))
 
 from scripts.measure_examples import RAG, box_on_screen, examples_meta, layers_in, load  # noqa: E402
+import review_look as rl  # noqa: E402  (on the path measure_examples sets)
 
 STORES = re.compile(r"repositor|bank|objects|template", re.I)
-JOINED = re.compile(r"\s[·•|]\s")
 
 
 def games(rag: Path) -> list[str]:
@@ -106,40 +106,22 @@ def edge_gap(props: dict, w: dict, vw: float, vh: float) -> float | None:
     return min(gaps) if gaps else None
 
 
-def items(text: str) -> int:
-    """The things a text tells beyond its first, as the generator template's items() counts them:
-    each part joined by " · ", " • " or " | " that holds a word, BBCode tags left out."""
-    plain = re.sub(r"\[[^\]]*\]", "", text)
-    return max(0, sum(1 for part in JOINED.split(plain) if re.search(r"[^\W\d_]", part)) - 1)
-
-
-def crowding(texts: list, vw: float, vh: float) -> tuple[int, int]:
+def crowd(screen: list, holders: list, vw: float, vh: float) -> tuple[int, int]:
     """(most items in a ninth of the screen off its middle, corners holding none) of the texts on
-    the screen, (box, items beyond the first) each. Texts nearer than 1.5 times the template's
-    GAP_IN at this viewport are one group, as hud_stat() places a value under its name."""
-    near = 1.5 * max(1, (8 if vh <= 360 else 32) // 4)
-    group = list(range(len(texts)))
-
-    def root(i: int) -> int:
-        while group[i] != i:
-            i = group[i]
-        return i
-    for i, (a, _) in enumerate(texts):
-        for j in range(i + 1, len(texts)):
-            b = texts[j][0]
-            if max(a[0], b[0]) - min(a[2], b[2]) < near and max(a[1], b[1]) - min(a[3], b[3]) < near:
-                group[root(i)] = root(j)
-    hulls: dict[int, list] = {}
-    for i, (box, more) in enumerate(texts):
-        h = hulls.setdefault(root(i), [*box, 1])
-        h[:4] = min(h[0], box[0]), min(h[1], box[1]), max(h[2], box[2]), max(h[3], box[3])
-        h[4] += more
-    cells: dict[tuple, int] = {}
-    for x0, y0, x1, y1, n in hulls.values():
-        cell = (min(2, max(0, int(1.5 * (y0 + y1) / vh))), min(2, max(0, int(1.5 * (x0 + x1) / vw))))
-        cells[cell] = cells.get(cell, 0) + n
-    return (max((n for c, n in cells.items() if c != (1, 1)), default=0),
-            sum(c not in cells for c in ((0, 0), (0, 2), (2, 0), (2, 2))))
+    the screen, (box, layer, text) each, counted as review_look.py's crowd finding counts them: the
+    one text inside a box of `holders`, the other instances on any layer, no larger than half the
+    screen, is that object's label and is left out."""
+    tagged = set()
+    for hb, _ in holders:
+        inner = [n for n, (box, _, _) in enumerate(screen) if rl.inside(box, hb)]
+        if len(inner) == 1 and rl.area(hb) <= rl.OVERLAY * vw * vh:
+            tagged.add(inner[0])
+    texts = [(box, rl.worded(text)) for n, (box, _, text) in enumerate(screen)
+             if n not in tagged and not rl.bar(box, vw, vh)]
+    if not texts:
+        return 0, 4
+    held = rl.crowding(texts, vw, vh)["items"]
+    return max((n for c, n in held.items() if c in rl.NINTHS), default=0), sum(c not in held for c in rl.CORNERS)
 
 
 def measure_text(examples: Path, rag: Path) -> list[dict]:
@@ -157,12 +139,15 @@ def measure_text(examples: Path, rag: Path) -> list[dict]:
         for f in sorted((examples / gid / "layouts").glob("*.json")):
             lay = json.loads(f.read_text(encoding="utf-8"))
             one_screen = lay["width"] <= 1.05 * vw and lay["height"] <= 1.05 * vh
-            sizes, gaps, screen = [], [], []
-            for layer in layers_in(lay["layers"]):
+            sizes, gaps, screen, holders = [], [], [], []
+            for n, layer in enumerate(layers_in(lay["layers"])):
                 fixed = layer.get("parallaxX", 1) == 0 and layer.get("parallaxY", 1) == 0
                 for inst in layer["instances"]:
                     props, w = inst.get("properties", {}), inst.get("world")
                     px = text_px(props)
+                    if px is None and w and props.get("initially-visible") is not False and not w.get("angle"):
+                        left, top = w["x"] - w.get("originX", 0) * w["width"], w["y"] - w.get("originY", 0) * w["height"]
+                        holders.append(([left, top, left + w["width"], top + w["height"]], n))
                     if px is None or not str(props.get("text", "")).strip():
                         continue
                     sizes.append(round(px / short, 4))
@@ -174,11 +159,11 @@ def measure_text(examples: Path, rag: Path) -> list[dict]:
                         gaps.append(gap / short)
                     left, top = w["x"] - w.get("originX", 0) * w["width"], w["y"] - w.get("originY", 0) * w["height"]
                     if 0 <= left + w["width"] / 2 <= vw and 0 <= top + w["height"] / 2 <= vh:
-                        screen.append(((left, top, left + w["width"], top + w["height"]), items(str(props["text"]))))
+                        screen.append(([left, top, left + w["width"], top + w["height"]], n, str(props["text"])))
             if sizes:
-                crowd = None if STORES.search(lay["name"]) or not screen else crowding(screen, vw, vh)
+                crowded = None if STORES.search(lay["name"]) or not screen else crowd(screen, holders, vw, vh)
                 rows.append({"example": gid, "layout": lay["name"], "viewport": [vw, vh], "sizes": sizes,
-                             "edge": round(min(gaps), 4) if gaps else None, "crowd": crowd})
+                             "edge": round(min(gaps), 4) if gaps else None, "crowd": crowded})
     return rows
 
 

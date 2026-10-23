@@ -231,10 +231,11 @@
       "id": "layout.spread",
       "status": "adopted",
       "scope": "every-look",
-      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty prints a warning naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Round · 03\" is one item. Of the official 2D game examples' layouts, 4 in 132 gather 3 items in a ninth, a stats panel or a combat menu, and all four leave two corners empty.",
+      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty is a warning of the generator and a finding of the look review, naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Round · 03\" is one item; a count with no word, a bar across two thirds of the screen and, in the review, the one label of an object tell none. It fires on no official 2D game example's layout.",
       "template": "HUD_CROWD",
       "value": "3",
-      "helpers": "spaced(), spread(), items()"
+      "helpers": "spaced(), spread(), items()",
+      "confirm": "review_look.py: crowd"
     },
     {
       "id": "layout.focal",

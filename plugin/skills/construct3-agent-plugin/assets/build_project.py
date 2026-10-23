@@ -2728,11 +2728,12 @@ NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left"
 def items(group: list) -> int:
     """How many things a group of the HUD tells: one, and one more for each part a label joins to
     another with " · " or " | " that holds a word, so "Round · 03" is one and "Wave 3 · 12 left" two.
-    A group without text tells nothing."""
-    texts = [str(i["properties"]["text"]) for i in group if "text" in i.get("properties", {})]
-    if not texts:
-        return 0
-    return 1 + sum(max(0, sum(1 for part in JOINED.split(t) if re.search(r"[^\W\d_]", part)) - 1) for t in texts)
+    A group whose labels hold no word, a count beside its icon, tells nothing, and neither does a bar
+    across two thirds of the screen."""
+    parts = [sum(1 for part in JOINED.split(str(i["properties"]["text"])) if re.search(r"[^\W\d_]", part))
+             for i in group if "text" in i.get("properties", {})
+             and (b := box_of(i)) and b[2] - b[0] <= 2 / 3 * VIEW_W and b[3] - b[1] <= 2 / 3 * VIEW_H]
+    return 1 + sum(max(0, p - 1) for p in parts) if any(parts) else 0
 
 
 def spread(groups: list, where: str = "layout Game") -> None:
@@ -3178,7 +3179,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp d3a4fc87fe20 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp cefdb2addb06 ================
 
 
 # --- the game ---------------------------------------------------------------------------
