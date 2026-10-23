@@ -296,16 +296,20 @@ def readable_on_a_dark_background() -> dict:
     ]}
 
 
-HUD_VIEW = (2340, 1080)     # wider than the project's 16:9, so a corner of the screen is not a corner of the layout
+# Wider than the project's 16:9, or taller than the portrait one's 9:16, so a corner of the screen is not a corner
+# of the layout
+HUD_VIEW = (2340, 1080)
+PORTRAIT_VIEW = (720, 1560)
 
 
-# The HUD types of this skill's stand-in and of the previous one: a run finds them in the project, and the checks
-# of what the run added, here and in grade.py, leave them out.
-STAND_IN_HUD = ["ScoreText", "ScoreLabel", "RoundText", "TitleText", "RoundTag", "KeyBox", "KeyText", "KeyVerb"]
+# The HUD types of this skill's stand-in, of the previous one and of the platformer fixture: a run finds them in the
+# project, and the checks of what the run added, here and in grade.py, leave them out.
+STAND_IN_HUD = ["ScoreText", "ScoreLabel", "RoundText", "TitleText", "RoundTag", "LevelTag", "KeyBox", "KeyText",
+                "KeyVerb"]
 
 
-def lay_out_the_hud() -> dict:
-    w, h = HUD_VIEW
+def lay_out_the_hud(view: tuple[int, int] = HUD_VIEW) -> dict:
+    w, h = view
     return {"viewport": [w, h], "touch": True, "steps": [
         *ready("runtime.objects.ScoreText && runtime.objects.ScoreText.getFirstInstance()"), {"wait": 0.5},
         js("vars.hud = vars.h.ui().map(i => ({type: i.objectType.name, text: vars.h.isText(i) ? i.text : null, box: vars.h.css(i)}));",
@@ -459,6 +463,39 @@ def lives_as_hearts() -> dict:
               "return {ok: !!vars.lives && vars.between === 3, "
               "said: vars.lives ? `${vars.lives.slice(2)} drops twice over round 3, ${vars.between} coin(s) apart` "
               ": `no number drops by one twice over round 3: ${vars.livesSeen.join('; ')}`};"),
+    ]}
+
+
+# --- the platformer fixture ------------------------------------------------------------------------------
+
+# What the run added to the UI layer, by uid, with its text and its box on the screen; the Game layer's view.
+ADDED_HUD = (f"vars.h.ui().filter(i => !{json.dumps(STAND_IN_HUD)}.includes(i.objectType.name)).map(i => "
+             "({uid: i.uid, type: i.objectType.name, text: vars.h.isText(i) ? i.text : null, box: vars.h.css(i)}))")
+VIEW_LEFT = "vars.h.first('Player').layer.getViewport().left"
+GOAL = "(list => { const g = list.find(i => i.text !== null && /goal/i.test(i.text)); return g ? vars.h.lastNumber(g.text) : null; })"
+
+
+def hud_over_a_scrolling_level() -> dict:
+    """The view holds at the level's left edge until the player passes half a screen, about 2.5 s of running from
+    the start; 4 s scroll it some 450 px, still short of the first gap."""
+    return {"viewport": [1920, 1080], "steps": [
+        *ready(PLAYER), {"wait": 0.5}, {"shot": "start"},
+        js(f"vars.hud0 = {ADDED_HUD}; vars.left0 = {VIEW_LEFT}; return {{hud: vars.hud0, left: vars.left0}}"),
+        {"key": "ArrowRight", "seconds": 4.0}, {"wait": 0.3}, {"shot": "scrolled"},
+        js(f"vars.hud1 = {ADDED_HUD}; vars.left1 = {VIEW_LEFT}; return {{hud: vars.hud1, left: vars.left1}}"),
+        check("Holding the right arrow for 4 s scrolls the view at least 300 px",
+              "const d = vars.left1 - vars.left0;",
+              "return {ok: d >= 300, said: `the Game layer's view moved ${d.toFixed(0)} px to the right`};"),
+        check("What the run added to the HUD stays where it was on the screen while the view scrolls",
+              "const after = Object.fromEntries(vars.hud1.map(i => [i.uid, i.box]));",
+              "const moved = vars.hud0.filter(i => { const b = after[i.uid];",
+              "  return !b || ['l', 't', 'r', 'b'].some(k => Math.abs(b[k] - i.box[k]) > 1); }).map(i => i.type);",
+              "return {ok: vars.hud0.length > 0 && !moved.length, said: vars.hud0.length ? (moved.length ? "
+              "`moved or gone: ${[...new Set(moved)].join(', ')}` : `${vars.hud0.length} added instance(s) kept their "
+              "boxes`) : 'nothing added to the UI layer'};"),
+        check("The goal label shows a smaller number after the run to the right",
+              f"const a = {GOAL}(vars.hud0), b = {GOAL}(vars.hud1);",
+              "return {ok: a !== null && b !== null && b < a, said: `the goal label's number went from ${a} to ${b}`};"),
     ]}
 
 
@@ -681,6 +718,8 @@ PLANS: dict[str, Callable[[], dict]] = {
     "script-shift-and-edges": script_shift_and_edges, "double-jump": double_jump, "stay-on-screen": stay_on_screen,
     "walls-stop-the-player": walls_stop_the_player, "coins-in-a-ring": coins_in_a_ring,
     "key-opens-door": key_opens_door,
+    "lay-out-the-hud-portrait": lambda: lay_out_the_hud(PORTRAIT_VIEW), "lives-as-hearts-pixel": lives_as_hearts,
+    "hud-over-a-scrolling-level": hud_over_a_scrolling_level,
 }
 
 
@@ -818,6 +857,7 @@ POST: dict[str, tuple[list[str], Callable[[dict], list[tuple[bool, str]]]]] = {
     "lives-as-hearts": (["Only the heart of the life lost changes",
                          "The emptied heart stays drawn"], hearts_checks),
 }
+POST["lives-as-hearts-pixel"] = POST["lives-as-hearts"]
 
 
 # --- playing and judging ---------------------------------------------------------------------------------

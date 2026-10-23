@@ -432,22 +432,36 @@ def grade_find_in_a_big_sheet(run: Path) -> list[tuple[bool, str]]:
             unchanged(run)]
 
 
-# The stand-in's viewport and grid; MARGIN is the plain sheet's, what margin_of() falls back on
+# The stand-in's viewport, grid and finger, what settings_of() falls back on; MARGIN is the plain sheet's
 VIEW_W, VIEW_H, UNIT, MARGIN, TOUCH = 1920, 1080, 32, 32, 160
 HUD_LAYERS = {"ui", "hud"}
 
 
-def margin_of(project: Path) -> int:
-    """The MARGIN the run's generator holds its HUD by, from the settings above its helpers; MARGIN when they
-    cannot be run. Each arm's generator sets its own MARGIN, so each run is graded by its own."""
+def settings_of(project: Path) -> dict:
+    """VIEW_W, VIEW_H, UNIT, MARGIN, TOUCH and PALETTE of the run's generator, from the settings above its
+    helpers; the stand-in's, and no PALETTE, when they cannot be run. Each arm's generator sets its own MARGIN
+    and each fixture its viewport, so each run is graded by its own."""
+    fallback = {"VIEW_W": VIEW_W, "VIEW_H": VIEW_H, "UNIT": UNIT, "MARGIN": MARGIN, "TOUCH": TOUCH, "PALETTE": {}}
     try:
         path = project / "tools" / "build_project.py"
         text = path.read_text(encoding="utf-8")
         settings: dict = {"__file__": str(path)}
         exec(text.split("# ==== construct3-agent-plugin helpers: begin")[0], settings)
-        return int(settings["MARGIN"])
+        return {k: int(settings[k]) for k in ("VIEW_W", "VIEW_H", "UNIT", "MARGIN", "TOUCH")} | {
+            "PALETTE": dict(settings.get("PALETTE") or {})}
     except (OSError, SyntaxError, NameError, KeyError, TypeError, ValueError, ArithmeticError):
-        return MARGIN
+        return fallback
+
+
+def margin_of(project: Path) -> int:
+    """The MARGIN the run's generator holds its HUD by (settings_of())."""
+    return settings_of(project)["MARGIN"]
+
+
+def view_of(project: Path) -> tuple[int, int]:
+    """The viewport of the run's generator (settings_of())."""
+    settings = settings_of(project)
+    return settings["VIEW_W"], settings["VIEW_H"]
 
 
 def drawn_box(project: Path, inst: dict) -> tuple[float, float, float, float]:
@@ -478,8 +492,11 @@ def grade_lay_out_the_hud(run: Path) -> list[tuple[bool, str]]:
     """The HUD the run added through the generator: on the UI layer, whole numbers, the sprites it
     added sized in units and their drawings held against an edge or centred, the tapped button a
     finger wide, and tools/build_project.py the source of layouts/Game.json. A text's box is measured
-    to its text by the template, so the size and edge rules leave texts and the stand-in's HUD out."""
+    to its text by the template, so the size and edge rules leave texts and the stand-in's HUD out. The
+    viewport, the unit, MARGIN and TOUCH are those of the run's generator."""
     project = run / "project"
+    settings = settings_of(project)
+    view_w, view_h, unit, margin, touch = (settings[k] for k in ("VIEW_W", "VIEW_H", "UNIT", "MARGIN", "TOUCH"))
     code, out = checker(project)
     results = [(code == 0, f"exit {code}: {out.splitlines()[0] if code else (out.splitlines() or [''])[-1]}")]
     try:
@@ -501,11 +518,9 @@ def grade_lay_out_the_hud(run: Path) -> list[tuple[bool, str]]:
     results.append((bool(hud) and not fractions, f"fractional coordinates or sizes on: {fractions or 'none'}"))
     shapes = [i for i in added if plugin_id(project, i["type"]) != "Text"]
     off = [f"{i['type']} {i['world']['width']}x{i['world']['height']}" for i in shapes
-           if not all(whole(i["world"][k]) and int(i["world"][k]) % UNIT == 0 for k in ("width", "height"))]
-    results.append((bool(shapes) and not off, f"{len(shapes)} added non-text instance(s); sizes not in {UNIT} px "
+           if not all(whole(i["world"][k]) and int(i["world"][k]) % unit == 0 for k in ("width", "height"))]
+    results.append((bool(shapes) and not off, f"{len(shapes)} added non-text instance(s); sizes not in {unit} px "
                                                f"units: {off or 'none'}"))
-
-    margin = margin_of(project)
 
     def held(lo: float, hi: float, size: float, slack: float = 0.5) -> bool:
         return abs(lo - margin) <= slack or abs(hi - (size - margin)) <= slack or abs((lo + hi) / 2 - size / 2) <= slack
@@ -520,9 +535,9 @@ def grade_lay_out_the_hud(run: Path) -> list[tuple[bool, str]]:
     def lined_up(kind: str, edges: tuple, slack: float) -> bool:
         l, t, r, b = edges
         # A second row: its top one unit under a box of another type that is itself held to the top or bottom.
-        stacked = any(abs(t - (ob + UNIT)) <= slack and held(ot, ob, VIEW_H)
+        stacked = any(abs(t - (ob + unit)) <= slack and held(ot, ob, view_h)
                       for other, (ol, ot, orr, ob) in type_boxes.items() if other != kind)
-        return held(l, r, VIEW_W, slack) and (held(t, b, VIEW_H, slack) or stacked)
+        return held(l, r, view_w, slack) and (held(t, b, view_h, slack) or stacked)
 
     # A type lines up by its box, or by its drawing when that is smaller than a box a finger hits. A drawing's
     # edge is its outermost pixel that is not clear, which an antialiased curve leaves a pixel or two inside the
@@ -535,26 +550,16 @@ def grade_lay_out_the_hud(run: Path) -> list[tuple[bool, str]]:
     results.append((bool(drawn) and not loose, f"added non-text types neither {margin} px inside an edge, nor centred, "
                                                f"nor one unit under a held box, by box or drawing: {loose or 'none'}"))
 
-    boxes = [(i["type"], *box_of(i)) for i in hud]
-    outside = [f"{k} ({l:g},{t:g})-({r:g},{b:g})" for k, l, t, r, b in boxes if l < 0 or t < 0 or r > VIEW_W or b > VIEW_H]
+    outside = outside_of(hud, view_w, view_h)
     results.append((bool(hud) and not outside, f"boxes reaching past the viewport: {outside or 'none'}"))
-    is_text = {i["type"]: plugin_id(project, i["type"]) == "Text" for i in hud}
-
-    def layered(inner: tuple, outer: tuple) -> bool:
-        """A box inside one that is not a label, a label on its button or key: the template lays these on purpose."""
-        return not is_text[outer[0]] and contains(outer[1:], inner[1:], 0.5)
-
-    overlaps = [f"{a[0]} ({a[1]:g},{a[2]:g})-({a[3]:g},{a[4]:g}) and {b[0]} ({b[1]:g},{b[2]:g})-({b[3]:g},{b[4]:g})"
-                for n, a in enumerate(boxes) for b in boxes[n + 1:]
-                if min(a[3], b[3]) - max(a[1], b[1]) > 0.5 and min(a[4], b[4]) - max(a[2], b[2]) > 0.5
-                and not layered(a, b) and not layered(b, a)]
+    overlaps = overlaps_of(project, hud)
     results.append((bool(hud) and not overlaps, f"overlapping boxes: {overlaps or 'none'}"))
 
     button = [i for i in added if re.search(r"pause|button|btn", i["type"], re.I)]
     small = [f"{i['type']} {i['world']['width']}x{i['world']['height']}" for i in button
-             if min(i["world"]["width"], i["world"]["height"]) < TOUCH]
+             if min(i["world"]["width"], i["world"]["height"]) < touch]
     results.append((bool(button) and not small,
-                    f"button(s) {[i['type'] for i in button] or 'none found by name'}; under {TOUCH} px: {small or 'none'}"))
+                    f"button(s) {[i['type'] for i in button] or 'none found by name'}; under {touch} px: {small or 'none'}"))
 
     lives = [i for i in added if plugin_id(project, i["type"]) == "Sprite" and i not in button]
     per_type: dict[str, int] = {}
@@ -615,6 +620,27 @@ def box_around(insts: list) -> tuple[float, float, float, float]:
 def contains(outer: tuple, inner: tuple, slack: float = 1) -> bool:
     return (outer[0] - slack <= inner[0] and outer[1] - slack <= inner[1]
             and outer[2] + slack >= inner[2] and outer[3] + slack >= inner[3])
+
+
+def outside_of(hud: list, view_w: float, view_h: float) -> list[str]:
+    """The boxes on the UI layer that reach past the viewport."""
+    return [f"{i['type']} ({l:g},{t:g})-({r:g},{b:g})" for i in hud for l, t, r, b in [box_of(i)]
+            if l < 0 or t < 0 or r > view_w or b > view_h]
+
+
+def overlaps_of(project: Path, hud: list) -> list[str]:
+    """The pairs of boxes on the UI layer that meet. A box inside one that is not a label, a label on its button
+    or key or a bar's fill in its frame, is laid there on purpose."""
+    boxes = [(i["type"], *box_of(i)) for i in hud]
+    is_text = {i["type"]: plugin_id(project, i["type"]) == "Text" for i in hud}
+
+    def layered(inner: tuple, outer: tuple) -> bool:
+        return not is_text[outer[0]] and contains(outer[1:], inner[1:], 0.5)
+
+    return [f"{a[0]} ({a[1]:g},{a[2]:g})-({a[3]:g},{a[4]:g}) and {b[0]} ({b[1]:g},{b[2]:g})-({b[3]:g},{b[4]:g})"
+            for n, a in enumerate(boxes) for b in boxes[n + 1:]
+            if min(a[3], b[3]) - max(a[1], b[1]) > 0.5 and min(a[4], b[4]) - max(a[2], b[2]) > 0.5
+            and not layered(a, b) and not layered(b, a)]
 
 
 def plugin_id(project: Path, kind: str) -> str | None:
@@ -784,7 +810,7 @@ def grade_show_hp_as_a_bar(run: Path) -> list[tuple[bool, str]]:
     results.append((bool(slides), f"sliding actions on the fill: {[a.get('id') for a in slides] or 'none'}"))
     score = next((i for i in hud if i["type"] == "ScoreText"), None)
     under = frame is not None and score is not None and box_of(frame)[1] >= box_of(score)[3] - 0.5
-    inside = frame is not None and box_of(frame)[0] >= 0 and box_of(frame)[1] >= 0 and box_of(frame)[2] <= VIEW_W and box_of(frame)[3] <= VIEW_H
+    inside = frame is not None and box_of(frame)[0] >= 0 and box_of(frame)[1] >= 0 and box_of(frame)[2] <= view_of(project)[0] and box_of(frame)[3] <= view_of(project)[1]
     results.append((under and inside, f"frame box {box_of(frame) if frame else None}, score bottom {box_of(score)[3] if score else None}"))
     results.append(generator_is_source(run))
     return results
@@ -955,14 +981,64 @@ def grade_lives_as_hearts(run: Path) -> list[tuple[bool, str]]:
     texts = [i for i in hud if i["type"] in ("ScoreText", "TimerText") or plugin_id(project, i["type"]) == "Text"]
     if hearts:
         l, t, r, b = box_around(hearts)
-        centred = abs((l + r) / 2 - VIEW_W / 2) <= 0.5
-        inside = l >= 0 and t >= 0 and r <= VIEW_W and b <= VIEW_H
+        view_w, view_h = view_of(project)
+        centred = abs((l + r) / 2 - view_w / 2) <= 0.5
+        inside = l >= 0 and t >= 0 and r <= view_w and b <= view_h
         clear = not any(min(r, box_of(x)[2]) - max(l, box_of(x)[0]) > 0.5 and min(b, box_of(x)[3]) - max(t, box_of(x)[1]) > 0.5 for x in texts)
         results.append((centred and inside and clear, f"hearts box ({l:g},{t:g})-({r:g},{b:g}) centred {centred}, inside {inside}, clear of text {clear}"))
     else:
         results.append((False, "no heart instance on the UI layer"))
     results.append(generator_is_source(run))
     return results
+
+
+def grade_lives_as_hearts_pixel(run: Path) -> list[tuple[bool, str]]:
+    """The hearts case on the stand-in at 320x180, then what pixel art asks of them, before the generator's
+    rerun: whole pixels in 8 px units, images with the alpha values and the colours write_png() allows a
+    pixel-art image, and the project still scaled by whole numbers and sampled Nearest."""
+    results = grade_lives_as_hearts(run)
+    project = run / "project"
+    settings = settings_of(project)
+    unit, palette = settings["UNIT"], {tuple(c) for c in settings["PALETTE"].values()}
+    hearts = [i for i in hud_instances(project) if re.search(r"heart|life|lives", i["type"], re.I)]
+    off = [f"{i['type']}@({i['world']['x']:g},{i['world']['y']:g} {i['world']['width']:g}x{i['world']['height']:g})"
+           for i in hearts if not all(float(i["world"][k]).is_integer() for k in ("x", "y"))
+           or any(float(i["world"][k]) % unit for k in ("width", "height"))]
+    grid = (bool(hearts) and not off, f"{len(hearts)} heart instance(s); off whole pixels or {unit} px units: "
+                                      f"{off or 'none'}")
+    drawn = pixel_art_images(project, sorted({i["type"] for i in hearts}), palette)
+    try:
+        props = json.loads((project / "project.c3proj").read_text(encoding="utf-8-sig"))["properties"]
+    except (OSError, ValueError, KeyError):
+        props = {}
+    scaled = (props.get("fullscreenMode") == "integer-scale-outer" and props.get("sampling") == "nearest",
+              f"fullscreenMode {props.get('fullscreenMode')}, sampling {props.get('sampling')}")
+    return results[:-1] + [grid, drawn, scaled] + results[-1:]
+
+
+def pixel_art_images(project: Path, kinds: list[str], palette: set[tuple]) -> tuple[bool, str]:
+    """Whether every image of the types is drawn as pixel art: at most one alpha value besides clear and opaque,
+    the shadow's, and every opaque colour a colour of the generator's PALETTE when it is known."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return False, "Pillow is not installed: pip install pillow"
+    found, bad = 0, []
+    for kind in kinds:
+        for png in sorted((project / "images").glob(f"{kind.lower()}*.png")):
+            try:
+                with Image.open(png) as im:
+                    counts = im.convert("RGBA").getcolors(1 << 20) or []
+            except OSError:
+                continue
+            found += 1
+            alphas = {c[3] for _, c in counts} - {0, 255}
+            stray = sorted({c[:3] for _, c in counts if c[3] == 255} - palette) if palette else []
+            if len(alphas) > 1 or stray:
+                bad.append(f"{png.name}: alpha {sorted(alphas) or 'clear and opaque'}"
+                           + (f", colours off PALETTE {stray[:3]}" if stray else ""))
+    return (found > 0 and not bad, f"{found} image(s) of {kinds or 'no heart type'}; "
+                                   f"not pixel art: {bad or 'none'}")
 
 
 NAVY = (0x02, 0x30, 0x47)
@@ -1022,7 +1098,7 @@ def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str]:
     if back is None:
         return set(), "no Background layer"
     cover = next((i for i in reversed(back.get("instances", []))
-                  if contains(box_of(i), (0, 0, VIEW_W, VIEW_H)) and colours_of(project, i["type"])), None)
+                  if contains(box_of(i), (0, 0, *view_of(project))) and colours_of(project, i["type"])), None)
     if cover:
         return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport"
     if back.get("isTransparent", True):
@@ -1060,7 +1136,8 @@ def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
         l, t, r, b = box_of(left[0])
         off = score is None or not (min(r, box_of(score)[2]) - max(l, box_of(score)[0]) > 0.5
                                     and min(b, box_of(score)[3]) - max(t, box_of(score)[1]) > 0.5)
-        placed = l >= 0 and t >= 0 and r <= VIEW_W and b <= VIEW_H and r >= VIEW_W * 3 / 4 and t <= VIEW_H / 4 and off
+        view_w, view_h = view_of(project)
+        placed = l >= 0 and t >= 0 and r <= view_w and b <= view_h and r >= view_w * 3 / 4 and t <= view_h / 4 and off
         results.append((placed, f"{left[0]['type']} box ({l:g},{t:g})-({r:g},{b:g}), clear of ScoreText {off}"))
     else:
         results.append((False, "no Left label on the UI layer"))
@@ -1074,6 +1151,86 @@ def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
         ok = ok and ratio >= 4.5
         verdicts.append(f"{i['type']} {fg} on {'panel ' if panel else ''}{sorted(behind)}: {ratio:.1f}:1")
     results.append((ok, "; ".join(verdicts) or "no Text on the UI layer"))
+    results.append(generator_is_source(run))
+    return results
+
+
+def fixture_types(run: Path) -> set[str]:
+    """The object types the case's fixture had, from fixture.json; empty when it lists none."""
+    try:
+        listed = json.loads((run / "fixture.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return {Path(k).stem for k in listed if k.startswith("objectTypes/") and k.endswith(".json")}
+
+
+def grade_hud_over_a_scrolling_level(run: Path) -> list[tuple[bool, str]]:
+    """A health bar and a goal label the run added to the scrolling level's HUD through the generator: the
+    level still scrolls, what it added is on the UI layer at parallax 0, the bar MARGIN inside the left edge
+    under the level tag, the label top centre and set from Player.X, the HUD inside the viewport and apart."""
+    project = run / "project"
+    results = [checker_line(project)]
+    try:
+        layout = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return results + [(False, "layouts/Game.json is not readable JSON")] * (
+            len(CASES["hud-over-a-scrolling-level"]["assertions"]) - 2) + [generator_is_source(run)]
+    settings = settings_of(project)
+    view_w, view_h, margin = settings["VIEW_W"], settings["VIEW_H"], settings["MARGIN"]
+    layers = layout.get("layers", [])
+    player = next((i for layer in layers for i in layer.get("instances", []) if i.get("type") == "Player"), None)
+    behaviors = sorted((player or {}).get("behaviors", {}))
+    results.append((layout.get("width", 0) > view_w and {"Platform", "ScrollTo"} <= set(behaviors),
+                    f"layout {layout.get('width')}x{layout.get('height')} on a {view_w}x{view_h} viewport; Player's "
+                    f"behaviors: {behaviors if player else 'no Player'}"))
+
+    had = fixture_types(run) or set(play_cases.STAND_IN_HUD)
+    ui = next((layer for layer in layers if layer.get("name", "").lower() in HUD_LAYERS), None)
+    hud = hud_of(layout)
+    added = [i for i in hud if i["type"] not in had]
+    shown = {i["type"] for i in added}
+    elsewhere = sorted({i["type"] for layer in layers if layer is not ui for i in layer.get("instances", [])
+                        if i["type"] in shown or (i["type"] not in had and plugin_id(project, i["type"]) == "Text")})
+    still = ui is not None and ui.get("parallaxX") == 0 and ui.get("parallaxY") == 0
+    results.append((still and bool(added) and not elsewhere,
+                    f"UI layer parallax {(ui or {}).get('parallaxX')}, {(ui or {}).get('parallaxY')}; added there: "
+                    f"{sorted(shown) or 'nothing'}; added on a world layer: {elsewhere or 'none'}"))
+
+    tag = next((i for i in hud if i["type"] == "LevelTag"), None)
+    bar = [i for i in added if plugin_id(project, i["type"]) != "Text"]
+    if bar and tag:
+        l, t, r, b = box_around(bar)
+        under = t >= box_of(tag)[3] - 0.5 and t <= view_h / 4
+        results.append((abs(l - margin) <= 0.5 and under, f"bar {sorted({i['type'] for i in bar})} box ({l:g},{t:g})-"
+                                                           f"({r:g},{b:g}); LevelTag's bottom {box_of(tag)[3]:g}, "
+                                                           f"MARGIN {margin}"))
+    else:
+        results.append((False, "no LevelTag on the UI layer" if not tag else "no non-text instance added to the UI layer"))
+
+    goal = [i for i in added if plugin_id(project, i["type"]) == "Text"
+            and re.search(r"goal", str(i["properties"].get("text", "")), re.I)]
+    if goal:
+        l, t, r, b = box_of(goal[0])
+        results.append((abs((l + r) / 2 - view_w / 2) <= 0.5 and t <= view_h / 4,
+                        f"{goal[0]['type']} box ({l:g},{t:g})-({r:g},{b:g}) in a {view_w}x{view_h} viewport"))
+    else:
+        results.append((False, "no added Text on the UI layer says Goal"))
+    # The text reads Player.X, or a variable an action sets from it, or a function whose events read it
+    rows = sheet_rows(project)
+    reads_x = re.compile(r"\bPlayer\.X\b")
+    derived = {params(a).get("variable") for ev, _ in rows for a in ev.get("actions", [])
+               if a.get("id") in SET_VALUE and reads_x.search(values([a]))}
+    derived |= {ev.get("functionName") for ev, _ in rows if ev.get("eventType") == "function-block"
+                and any(reads_x.search(values(e.get("conditions", []) + e.get("actions", []))) for e, _ in walk([ev]))}
+    words = re.compile("|".join([r"\bPlayer\.X\b", *(rf"\b{re.escape(n)}\b" for n in sorted(derived - {None, ""}))]))
+    setters = [a for ev, _ in rows for a in ev.get("actions", []) if a.get("id") == "set-text"
+               and a.get("objectClass") in {i["type"] for i in goal}]
+    from_x = [a for a in setters if words.search(values([a]))]
+    results.append((bool(from_x), f"set-text on the goal label: {len(setters)}, from Player.X: {len(from_x)}; "
+                                  f"names set from Player.X: {sorted(derived - {None, ''}) or 'none'}"))
+
+    apart = outside_of(hud, view_w, view_h) + overlaps_of(project, hud)
+    results.append((bool(hud) and not apart, f"past the viewport or overlapping: {apart or 'none'}"))
     results.append(generator_is_source(run))
     return results
 
@@ -1482,6 +1639,8 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "lay-out-the-hud": grade_lay_out_the_hud, "show-hp-as-a-bar": grade_show_hp_as_a_bar,
            "reveal-the-gradient": grade_reveal_the_gradient, "lives-as-hearts": grade_lives_as_hearts,
            "readable-on-a-dark-background": grade_readable_on_a_dark_background,
+           "lay-out-the-hud-portrait": grade_lay_out_the_hud, "lives-as-hearts-pixel": grade_lives_as_hearts_pixel,
+           "hud-over-a-scrolling-level": grade_hud_over_a_scrolling_level,
            "walk-with-wasd": grade_walk_with_wasd, "countdown-between-rounds": grade_countdown_between_rounds,
            "fix-wasd-twitch": grade_fix_wasd_twitch, "fix-next-round": grade_fix_next_round,
            "fix-turn-flip": grade_fix_turn_flip, "two-player-turns": grade_two_player_turns,

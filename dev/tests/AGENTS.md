@@ -34,7 +34,8 @@ The evals of the skill run agents, not pytest, and live with the skill:
 the trigger runner `run_trigger_eval.py` against a stand-in client, and
 `trace.py` on a written transcript. `test_skill_grade.py` grades recorded
 answers from `fixtures/restart_event_answers/` and runs built from the
-stand-in game with `grade.py`, pins what `grading.json` says, and tests
+stand-in game and from the generator fixtures of `make_fixtures.py` with
+`grade.py`, pins what `grading.json` says, and tests
 `trace.py`, `make_fixtures.py`, `play_cases.py` and `sweep_outputs.py`
 beside it. The skill's
 tests share `skill_helpers.py` and, in `conftest.py`, the stand-in game,

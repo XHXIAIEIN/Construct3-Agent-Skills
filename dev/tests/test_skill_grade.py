@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, NEEDS_GIT, SKILL, SHEET, run
+from tests.skill_helpers import EVALS, NEEDS_GIT, SKILL, SHEET, install, new_project, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -985,3 +985,191 @@ def test_a_project_that_fails_the_checker_is_not_handed_over_as_checked(tmp_path
     graded = read_json(case / "grading.json")["assertion_results"]
     handed = graded[len(CASES["keep-checking-after-compaction"]["assertions"]) - 1]
     assert graded[0]["passed"] is False and handed["passed"] is passed, handed
+
+
+# --- the generator fixtures of the visual cases: the stand-in on other screens, and a level that scrolls ---------
+
+@pytest.fixture(scope="session")
+def generated(tmp_path_factory) -> Callable[[str], Path]:
+    """The project a run on a fixture of make_fixtures.GENERATED starts from, built once per fixture: the
+    template as the fixture changes it, run once with the skill installed."""
+    built: dict[str, Path] = {}
+
+    def build(name: str) -> Path:
+        if name not in built:
+            root = new_project(tmp_path_factory.mktemp(name))
+            code, out = install(root)
+            assert code == 0, out
+            (root / "tools").mkdir()
+            template = (SKILL / "assets" / "build_project.py").read_bytes().decode("utf-8")
+            (root / "tools" / "build_project.py").write_bytes(make_fixtures.GENERATED[name](template).encode("utf-8"))
+            code, out = run(root, "tools/build_project.py")
+            assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
+            built[name] = root
+        return built[name]
+    return build
+
+
+def generated_case(tmp_path: Path, generated: Callable[[str], Path], case: str) -> Path:
+    """The with_skill run of case in the iteration tmp_path/it, its project a copy of the case's fixture as
+    make_fixtures lays it out, with the fixture.json it writes."""
+    run_dir = tmp_path / "it" / case / "with_skill"
+    shutil.copytree(generated(CASES[case]["fixture"]), run_dir / "project")
+    (run_dir / "fixture.json").write_text(json.dumps(make_fixtures.digest(run_dir / "project")), encoding="utf-8")
+    return run_dir
+
+
+def ui_instance(project: Path, kind: str, plugin: str, box: tuple, layer: str = "UI", **properties) -> None:
+    """An instance of a new type kind, of plugin, with its top-left box (x, y, w, h), added to a layer of the
+    Game layout."""
+    (project / "objectTypes" / f"{kind}.json").write_text(json.dumps({"name": kind, "plugin-id": plugin}),
+                                                          encoding="utf-8")
+    path = project / "layouts" / "Game.json"
+    layout = read_json(path)
+    x, y, w, h = box
+    next(lay for lay in layout["layers"] if lay["name"] == layer)["instances"].append(
+        {"type": kind, "properties": properties, "world": {"x": x, "y": y, "width": w, "height": h,
+                                                           "originX": 0, "originY": 0}})
+    path.write_text(json.dumps(layout), encoding="utf-8")
+
+
+def graded_by(run_dir: Path) -> dict:
+    """The case's grader on the run: (passed, evidence) by assertion."""
+    case = run_dir.parent.name
+    results = grader.GRADERS[case](run_dir)
+    assert len(results) == len(CASES[case]["assertions"])
+    return dict(zip(CASES[case]["assertions"], results))
+
+
+def by_words(results: dict, *words: str) -> tuple:
+    return tuple(next(v for k, v in results.items() if word in k) for word in words)
+
+
+def test_a_fixture_sets_a_setting_and_keeps_its_comment_and_line_ending() -> None:
+    template = ('VIEW_W, VIEW_H = 1920, 1080\r\n'
+                'ORIENTATION = "landscape"                  # "portrait", "landscape" or "any"\r\n')
+    changed = make_fixtures.with_settings(template, VIEW="720, 1280", ORIENTATION='"portrait"').split("\r\n")
+    assert changed[0] == "VIEW_W, VIEW_H = 720, 1280" and changed[-1] == ""
+    assert changed[1].startswith('ORIENTATION = "portrait" ') and changed[1].index("#") == template.index("#") - 29
+
+
+@pytest.mark.parametrize(("case", "settings", "screen"), [
+    ("lay-out-the-hud-portrait", (720, 1280, 32, 32, 96), ("scale-outer", "trilinear")),
+    ("lives-as-hearts-pixel", (320, 180, 8, 8, 24), ("integer-scale-outer", "nearest")),
+    ("hud-over-a-scrolling-level", (1920, 1080, 32, 64, 160), ("scale-outer", "trilinear"))])
+def test_a_generator_fixture_is_graded_by_its_own_screen(tmp_path: Path, generated: Callable, case: str,
+                                                          settings: tuple, screen: tuple) -> None:
+    """Each fixture's generator passes the checker, and the grader reads its viewport, unit, MARGIN and TOUCH from
+    it. On the fixture as laid out the checker and the rerun pass, and what the run is asked to add is missing."""
+    run_dir = generated_case(tmp_path, generated, case)
+    got = grader.settings_of(run_dir / "project")
+    assert tuple(got[k] for k in ("VIEW_W", "VIEW_H", "UNIT", "MARGIN", "TOUCH")) == settings and got["PALETTE"]
+    props = read_json(run_dir / "project" / "project.c3proj")["properties"]
+    assert (props["fullscreenMode"], props["sampling"]) == screen
+    results = list(graded_by(run_dir).values())
+    assert results[0][0] is True and results[-1][0] is True, results
+    assert not all(ok for ok, _ in results)
+
+
+def test_the_portrait_hud_takes_the_finger_of_its_own_screen(tmp_path: Path, generated: Callable) -> None:
+    """At 720x1280 a finger is 96 px, a unit 32 and MARGIN 32: a 96 px pause button MARGIN inside the bottom-right
+    corner passes, which the 160 px finger of 1920x1080 would refuse; 8 px further in, it is not held."""
+    pytest.importorskip("PIL")
+    from PIL import Image
+    run_dir = generated_case(tmp_path, generated, "lay-out-the-hud-portrait")
+    project = run_dir / "project"
+    Image.new("RGBA", (96, 96), (33, 33, 33, 255)).save(project / "images" / "pausebutton-default-000.png")
+    ui_instance(project, "PauseButton", "Sprite", (720 - 32 - 96, 1280 - 32 - 96, 96, 96))
+    button, edges = by_words(graded_by(run_dir), "at least 96 px", "held against")
+    assert button == (True, "button(s) ['PauseButton']; under 96 px: none") and edges[0] is True, edges
+    layout = read_json(project / "layouts" / "Game.json")
+    next(i for lay in layout["layers"] for i in lay["instances"] if i["type"] == "PauseButton")["world"]["x"] -= 8
+    (project / "layouts" / "Game.json").write_text(json.dumps(layout), encoding="utf-8")
+    assert by_words(graded_by(run_dir), "held against")[0][0] is False
+
+
+def test_pixel_hearts_are_hard_edged_on_whole_pixels_in_a_nearest_project(tmp_path: Path, generated: Callable) -> None:
+    """A heart of 8 x 8 px in the ink of PALETTE with clear corners passes; one with soft edges, or off whole
+    pixels, does not; nor does the project once it samples other than Nearest."""
+    pytest.importorskip("PIL")
+    from PIL import Image
+    run_dir = generated_case(tmp_path, generated, "lives-as-hearts-pixel")
+    project = run_dir / "project"
+    heart = Image.new("RGBA", (8, 8), (33, 33, 33, 255))
+    heart.putpixel((0, 0), (0, 0, 0, 0))
+    heart.save(project / "images" / "heart-default-000.png")
+    ui_instance(project, "Heart", "Sprite", (136, 8, 8, 8))
+    grid, drawn, scaled = by_words(graded_by(run_dir), "whole pixels", "is pixel art", "integer-scale-outer")
+    assert grid[0] is True and drawn == (True, "1 image(s) of ['Heart']; not pixel art: none") and scaled[0] is True
+    for x, alpha in ((1, 64), (2, 128), (3, 200)):
+        heart.putpixel((x, 0), (33, 33, 33, alpha))
+    heart.save(project / "images" / "heart-default-000.png")
+    path = project / "project.c3proj"
+    path.write_text(json.dumps(read_json(path) | {"properties": read_json(path)["properties"] | {"sampling": "trilinear"}}),
+                    encoding="utf-8")
+    drawn, scaled = by_words(graded_by(run_dir), "is pixel art", "integer-scale-outer")
+    assert drawn[0] is False and "heart-default-000.png: alpha [64, 128, 200]" in drawn[1]
+    assert scaled == (False, "fullscreenMode integer-scale-outer, sampling trilinear")
+
+
+def scrolling_hud(project: Path, goal_layer: str = "UI", text: str = '"Goal " & round((Goal.X - Player.X) / 32)') -> None:
+    """A health bar under the level tag and a goal label top centre, the label set every tick from text."""
+    layout = read_json(project / "layouts" / "Game.json")
+    tag = next(i for lay in layout["layers"] for i in lay["instances"] if i["type"] == "LevelTag")
+    bottom = grader.box_of(tag)[3]
+    ui_instance(project, "HpFrame", "NinePatch", (64, bottom + 32, 384, 32))
+    ui_instance(project, "GoalText", "Text", (860, 64, 200, 48), goal_layer, text="Goal 170")
+    path = project / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+    sheet["events"].append({"eventType": "block", "conditions": [{"id": "every-tick", "objectClass": "System"}],
+                            "actions": [{"id": "set-text", "objectClass": "GoalText", "parameters": {"text": text}}]})
+    path.write_text(json.dumps(sheet), encoding="utf-8")
+
+
+SCROLL_WORDS = ("parallax 0", "health bar", "says Goal", "Player.X", "no two overlap")
+
+
+def test_a_hud_over_a_scrolling_level_stays_on_the_ui_layer(tmp_path: Path, generated: Callable) -> None:
+    """A bar under the level tag MARGIN inside the left edge and a goal label top centre set from Player.X, both
+    on the UI layer, pass; the label on the Game layer, which scrolls, fails."""
+    run_dir = generated_case(tmp_path, generated, "hud-over-a-scrolling-level")
+    scrolling_hud(run_dir / "project")
+    results = graded_by(run_dir)
+    assert by_words(results, "still scrolls")[0][0] is True
+    assert all(ok for ok, _ in by_words(results, *SCROLL_WORDS)), by_words(results, *SCROLL_WORDS)
+    other = generated_case(tmp_path / "other", generated, "hud-over-a-scrolling-level")
+    scrolling_hud(other / "project", goal_layer="Game")
+    layer, label = by_words(graded_by(other), "parallax 0", "says Goal")
+    assert layer[0] is False and "added on a world layer: ['GoalText']" in layer[1] and label[0] is False
+
+
+@pytest.mark.parametrize(("value", "passed"), [("left", True), ("score", False)])
+def test_the_goal_label_may_read_player_x_through_a_variable(tmp_path: Path, generated: Callable, value: str,
+                                                              passed: bool) -> None:
+    """`left` set from Goal.X - Player.X and shown in the label counts as the player's position; the score does not."""
+    run_dir = generated_case(tmp_path, generated, "hud-over-a-scrolling-level")
+    project = run_dir / "project"
+    scrolling_hud(project, text=f'"Goal " & {value}')
+    path = project / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+    sheet["events"].append({"eventType": "block", "conditions": [], "actions": [
+        {"id": "set-eventvar-value", "objectClass": "System",
+         "parameters": {"variable": "left", "value": "round((Goal.X - Player.X) / 32)"}}]})
+    path.write_text(json.dumps(sheet), encoding="utf-8")
+    assert by_words(graded_by(run_dir), "Player.X")[0][0] is passed
+
+
+def test_make_fixtures_lays_out_the_generator_fixtures(tmp_path: Path) -> None:
+    """Each visual case on another screen gets its fixture's generator, run once: the portrait viewport, the pixel
+    one, the platformer's game below the helpers."""
+    runs = tmp_path / "runs"
+    cases = ("lay-out-the-hud-portrait", "lives-as-hearts-pixel", "hud-over-a-scrolling-level")
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(runs), "--cases", *cases, "--arms", "with_skill",
+                    "--no-pin")
+    assert code == 0, out
+    tools = {case: (runs / case / "with_skill" / "project" / "tools" / "build_project.py").read_text(encoding="utf-8")
+             for case in cases}
+    assert "\nVIEW_W, VIEW_H = 720, 1280\n" in tools[cases[0]].replace("\r\n", "\n")
+    assert "\nVIEW_W, VIEW_H = 320, 180\n" in tools[cases[1]].replace("\r\n", "\n")
+    assert "def module_pickups()" in tools[cases[2]] and "def module_restart()" not in tools[cases[2]]
+    assert read_json(runs / cases[2] / "with_skill" / "fixture.json")["objectTypes/LevelTag.json"]
