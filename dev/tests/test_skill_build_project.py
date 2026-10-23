@@ -224,6 +224,64 @@ def test_template_patterns_tile_by_the_unit_and_meet_without_a_seam(tmp_path):
         t.area("Wall", 0, 0, 1, 1)
 
 
+# A palette of the user's: a night sky, its backdrop's two blues 1.32:1 apart
+NIGHT = {"canvas": (14, 18, 48), "canvas_alt": (30, 40, 92), "line": (52, 64, 128), "solid": (124, 138, 204),
+         "dim": (176, 186, 228), "ink": (246, 244, 236), "reward": (255, 214, 10), "danger": (255, 82, 120),
+         "hover": (0, 229, 255), "pressed": (255, 145, 0), "flash": (255, 255, 255)}
+
+
+def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_rest(tmp_path):
+    """Paper and ink is the fallback look. With USER_LOOK naming the look the user gave, the
+    checks of its taste stop nothing: a palette of the user's colours, a backdrop and an area of
+    the user's tiles, stripes over a large area and the Flash behavior pass. The checks every look
+    keeps still stop the run: structure and text contrast, an accent's contrast, the grid and a
+    clean alpha channel in pixel art."""
+    t = template_module()
+    t.ROOT = tmp_path
+    t.PALETTE.update(NIGHT)
+    with pytest.raises(SystemExit, match=r"the backdrop's two greys stay at most 1\.2:1, .* If the user gave the "
+                                         r"game a look of its own, name where it comes from in USER_LOOK"):
+        t.check_palette()
+    t.write_png("sky.png", 32, 32, lambda x, y: (*t.rgb("canvas" if (x * 7 + y * 3) % 11 else "line"), 255))
+    t.pattern("Lava", "hazard")
+    with pytest.raises(SystemExit, match=r"backdrop\('Sky'\): the backdrop is the plain paper or the checker"):
+        t.backdrop("Sky")
+    with pytest.raises(SystemExit, match=r"area\('Sky'\): not a pattern"):
+        t.area("Sky", 0, 0, 4, 4)
+    with pytest.raises(SystemExit, match=r"area\('Lava'\): 12x10 cells of hazard stripes"):
+        t.area("Lava", 0, 0, 12, 10)
+    with pytest.raises(SystemExit, match=r"Blink: a hit shows as a colour"):
+        t.beh_def("Flash", "Blink")
+
+    t.USER_LOOK = "the user's: a night sky over a neon city, from their two reference images"
+    t.check_palette()
+    t.image_type("Sky", "TiledBg", 32, 32, 0, 0)
+    sky, lava, cloud = t.backdrop("Sky"), t.area("Lava", 0, 0, 12, 10), t.area("Sky", 2, 2, 20, 12)
+    assert sky["world"]["width"] == 1920 + 2 * t.SCREEN_PAD
+    assert t.beh_def("Flash", "Blink")["behaviorId"] == "Flash"
+    t.shape("coin.png", "circle", 64, 64, "reward")
+    coin = t.shape_inst("Coin", "coin.png", 4, 4)
+    assert [i["type"] for i in t.z_order([coin, cloud, lava, sky])] == ["Sky", "Sky", "Lava", "Coin"]
+    # What every look keeps
+    with pytest.raises(SystemExit, match=r"box.png: 40x32 is not whole units of 32 px"):
+        t.shape("box.png", "rect", 40, 32, "reward")
+    t.PALETTE.update(dim=(40, 50, 100))
+    with pytest.raises(SystemExit, match=r"Score: dim .* on canvas_alt .* reads 1\.\d:1; text of size 12 needs 4\.5:1"):
+        t.hud_text("Score", "Score: 0", "top-right", size=12, color="dim")
+    t.PALETTE.update(NIGHT, danger=(60, 40, 110))
+    with pytest.raises(SystemExit, match=r"spike.png: danger .* reads 1\.\d\d:1 on canvas_alt, and an accent without "
+                                         r"an outline needs 3:1"):
+        t.shape("spike.png", "triangle", 64, 64, "danger")
+    t.PALETTE.update(NIGHT, solid=(50, 60, 110))
+    with pytest.raises(SystemExit, match=r"PALETTE: solid .* reads 1\.\d\d:1; structure needs 3:1"):
+        t.check_palette()
+    small = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
+    small.ROOT, small.USER_LOOK = tmp_path, t.USER_LOOK
+    small.PALETTE.update(NIGHT)
+    with pytest.raises(SystemExit, match=r"images/soft.png: alpha 37 at \(0,0\)"):
+        small.write_png("soft.png", 1, 1, lambda x, y: (*small.PALETTE["danger"], 37))
+
+
 @pytest.mark.parametrize("change, said", [
     (lambda b: b[0].update(intensity=1), "beat 1 intro is at 1; the first beat is at 0"),
     (lambda b: b[3].update(type="practice"), "beat 3 practice at 2 is followed by practice; a beat of 2 or more is "
@@ -966,13 +1024,16 @@ def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
 
 def test_look_manifest_matches_the_template():
     """assets/look-manifest.json is what an agent hands a model and confirms against: every value
-    it names in the template is the template's, and every status is one it defines."""
+    it names in the template is the template's, and every status and scope is one it defines. The
+    rules that stop the run in paper and ink alone are its taste; legibility and the grid hold in
+    every look."""
     manifest = json.loads((SKILL / "assets" / "look-manifest.json").read_text(encoding="utf-8"))
     t = template_module()
     ids = [r["id"] for r in manifest["rules"]]
     assert len(ids) == len(set(ids))
     for rule in manifest["rules"]:
         assert rule["status"] in manifest["status"], rule["id"]
+        assert rule["scope"] in manifest["scope"], rule["id"]
         if rule["status"] in ("enforced", "adopted", "open") and "value" in rule:
             assert eval(rule["template"], vars(t)) == eval(rule["value"], vars(t)), rule["id"]
         if rule["status"] == "open":
@@ -982,6 +1043,14 @@ def test_look_manifest_matches_the_template():
             assert callable(getattr(t, name, None)), (rule["id"], name)
     assert {r["id"] for r in manifest["rules"] if r.get("strict")} >= {
         "alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn"}
+    enforced = {r["scope"]: set() for r in manifest["rules"]}
+    for r in manifest["rules"]:
+        if r["status"] == "enforced":
+            enforced[r["scope"]].add(r["id"])
+    assert enforced["paper-and-ink"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
+    assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
+                                      "colour.palette-only", "colour.structure", "colour.accent-contrast",
+                                      "text.contrast", "control.parts", "pixel-art.sampling"}
 
 
 def test_template_keeps_alpha_pure_and_shapes_on_the_grid(tmp_path):

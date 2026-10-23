@@ -244,6 +244,13 @@ below the end marker, where it replaces the skill's. Edit
 `tools/build_project.py` in place: git keeps its history, so no scripts
 that patch it.
 
+The game's look is the user's when the user gives one: a style, an art
+direction, or references or an existing project to take it from. Write
+where it comes from in `USER_LOOK`, and set `PALETTE` and `ART_STYLE` from
+it. The template's paper and ink is the fallback for a game the user gave
+no look. Once `USER_LOOK` is set, its taste checks stop nothing, and
+contrast, the grid and a clean alpha channel still hold.
+
 Every sprite of the game is an `art()` in the generator: it shows a
 stand-in shape until its picture is in `art/`. When this session has an
 image generation tool, the art comes from that tool, not from code: run

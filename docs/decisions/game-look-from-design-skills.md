@@ -107,7 +107,9 @@ Option 3, with one bullet of option 2 in
 
 - `PALETTE`, the game's colours by role; `rgb(role)` stops the run on a role
   that is not there and lists those that are; `rgba()` writes a colour as a
-  layout does. The roles and values are those of `paper-and-ink-look.md`.
+  layout does. The roles and values are those of `paper-and-ink-look.md`,
+  the fallback; a look the user gave sets its own values by role, named in
+  `USER_LOOK` (`paper-and-ink-is-the-fallback.md`).
 - `write_png()` stops on a shown pixel whose colour is not in `PALETTE`,
   naming the nearest role and the two ways out: that role, or the colour
   added under the role it plays. `painted=True` lets a painting, a gradient

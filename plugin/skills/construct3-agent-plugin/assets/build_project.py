@@ -55,9 +55,16 @@ SUBJECT = max(UNIT, round(0.06 * min(VIEW_W, VIEW_H) / UNIT) * UNIT)
 COIN_SIZE = TOUCH                          # a coin is tapped, so it fills the box a finger hits
 
 # --- look -----------------------------------------------------------------------------
+# Where the game's look comes from when the user gave one: a style or an art direction the user
+# named, or references or an existing project to take it from. For example "the user's: neon
+# synthwave, from their three reference images". Empty when the user gave none: the game then
+# takes paper and ink, the fallback below. With it set, PALETTE takes the user's colours by role,
+# canvas and canvas_alt those of the backdrop, and the checks of paper and ink's taste stop
+# nothing; contrast, the grid and a clean alpha channel still do.
+USER_LOOK = ""
 # Colours by role. Every image, label and layer takes its colour from here, and write_png()
 # stops the run on any other colour, so a new object reuses a role or adds one.
-# The stand-in is paper and ink: flat shapes on white paper, the player and labels in ink, areas
+# Paper and ink, the fallback: flat shapes on white paper, the player and labels in ink, areas
 # and ranges drawn as lines over a faint fill, slots as discs of that fill.
 # solid and the accents read at least 3:1 on canvas_alt, so a shape shows without an outline;
 # check_palette() stops solid below that, and shape() an accent drawn without its outline,
@@ -170,6 +177,7 @@ from pathlib import Path
 TEXT_WEIGHT = globals().get("TEXT_WEIGHT", {})
 LINE = globals().get("LINE", max(1, round(min(VIEW_W, VIEW_H) / 720)))
 PIXEL_FONT = globals().get("PIXEL_FONT", "fusion-pixel-8px-proportional-zh_hans")
+USER_LOOK = globals().get("USER_LOOK", "")
 # Px of this viewport per px of the paper-and-ink prototype, which was drawn at 720 px high: the
 # gaps of the keys and the header scale by it.
 REF = min(VIEW_W, VIEW_H) / 720
@@ -573,15 +581,25 @@ def accent(role: str) -> bool:
     return max(c) - min(c) > 48
 
 
+def paper_and_ink() -> bool:
+    """Whether the game takes paper and ink, the fallback look: USER_LOOK is empty. Only then do
+    the checks of its taste stop the run."""
+    return not USER_LOOK.strip()
+
+
+# Said by a stop of paper and ink's taste, which a look the user gave lifts
+NOT_THE_USERS = "If the user gave the game a look of its own, name where it comes from in USER_LOOK"
+
+
 def check_palette() -> None:
-    """Stops the run when PALETTE's greys lose their contrast: canvas and canvas_alt at most 1.2:1,
-    so the checker reads as texture; solid at least 3:1 on canvas_alt, so structure shows without
-    an outline."""
+    """Stops the run when PALETTE's greys lose their contrast: solid at least 3:1 on canvas_alt, so
+    structure shows without an outline; in paper and ink, canvas and canvas_alt at most 1.2:1, so
+    the checker reads as texture."""
     ratio = contrast(rgb("canvas"), rgb("canvas_alt"))
-    if ratio > 1.2:
+    if ratio > 1.2 and paper_and_ink():
         sys.exit(f"PALETTE: canvas {PALETTE['canvas']} and canvas_alt {PALETTE['canvas_alt']} are {ratio:.2f}:1; the "
                  f"backdrop's two greys stay at most 1.2:1, so the checker reads as texture, not as things. Bring "
-                 f"canvas_alt nearer canvas")
+                 f"canvas_alt nearer canvas. {NOT_THE_USERS}")
     ratio = contrast(rgb("solid"), rgb("canvas_alt"))
     if ratio < 3:
         sys.exit(f"PALETTE: solid {PALETTE['solid']} on canvas_alt {PALETTE['canvas_alt']} reads {ratio:.2f}:1; "
@@ -1031,6 +1049,7 @@ PATTERNS = {
 }
 BACKDROPS = ("plain", "checker")           # patterns of backdrop() only
 PATTERN_OF: dict[str, str] = {}            # pattern of each type pattern() drew, by type name
+LAID_AS: dict[str, str] = {}               # "backdrop" or "area": a type of the user's look laid by either
 TILES: dict[str, int] = {}                 # tile size in px, which tiledbg_inst() aligns to the layout
 
 
@@ -1569,9 +1588,9 @@ def ivar_def(name: str, vtype: str, desc: str = "") -> dict:
 
 def beh_def(behavior_id: str, name: str | None = None) -> dict:
     """name is what events refer to; two Sine behaviors on one object need two names."""
-    if behavior_id == "Flash":
+    if behavior_id == "Flash" and paper_and_ink():
         sys.exit(f"{name or behavior_id}: a hit shows as a colour, not the Flash behavior's blinking; draw the "
-                 f"object's hit frame with hit_frame() and show it with hit_flash(obj) in the sheet")
+                 f"object's hit frame with hit_frame() and show it with hit_flash(obj) in the sheet. {NOT_THE_USERS}")
     return {"behaviorId": behavior_id, "name": name or behavior_id, "sid": sid()}
 
 
@@ -1940,18 +1959,20 @@ def area(otype: str, col: int, row: int, cols: int, rows: int, ivars=None, behav
     """An area or an edge of the pattern type `otype`, cols x rows cells from cell (col, row): a
     one-way platform in low stripes, a door in caution, lava in hazard. Caution and hazard cover
     strips and small zones, their shorter side a quarter of the viewport's at most. The plain paper
-    and the checker are for backdrop() only."""
+    and the checker are for backdrop() only. With USER_LOOK set, `otype` is any Tiled Background
+    type, such as an image_type(name, "TiledBg", w, h, 0, 0) of a tile in the user's look."""
     kind = PATTERN_OF.get(otype)
-    if not kind:
+    if not paper_and_ink():
+        LAID_AS.setdefault(otype, "area")
+    elif not kind:
         sys.exit(f"area({otype!r}): not a pattern; draw it with pattern({otype!r}, kind) in build_images() and give "
-                 f"it pattern_type({otype!r}) in build_object_types()")
-    if kind in BACKDROPS:
+                 f"it pattern_type({otype!r}) in build_object_types(). {NOT_THE_USERS}")
+    elif kind in BACKDROPS:
         sys.exit(f"area({otype!r}): the {kind} pattern is empty space, the backdrop alone; place it with "
                  f"backdrop({otype!r})")
-    most = min(VIEW_W, VIEW_H) // 4 // UNIT
-    if kind in ("caution", "hazard") and min(cols, rows) > most:
+    elif kind in ("caution", "hazard") and min(cols, rows) > (most := min(VIEW_W, VIEW_H) // 4 // UNIT):
         sys.exit(f"area({otype!r}): {cols}x{rows} cells of {kind} stripes; these cover strips and small zones, never "
-                 f"a backdrop, so keep the shorter side to {most} cells, a quarter of the viewport's")
+                 f"a backdrop, so keep the shorter side to {most} cells, a quarter of the viewport's. {NOT_THE_USERS}")
     return tiledbg_inst(otype, units(col), units(row), units(cols), units(rows), 0, 0, ivars, behaviors)
 
 
@@ -1959,10 +1980,13 @@ def backdrop(otype: str, width: int | None = None, height: int | None = None) ->
     """The backdrop in the pattern `otype` behind everything: one Tiled Background over the layout
     (`width` x `height`, the viewport's by default) reaching SCREEN_PAD past it, so no screen shows
     its edge. The plain paper, or the checker when the game has something transparent, a mask or a
-    background to come."""
-    if PATTERN_OF.get(otype) not in BACKDROPS:
+    background to come. With USER_LOOK set, `otype` is any Tiled Background type of the user's look."""
+    if not paper_and_ink():
+        if PATTERN_OF.get(otype) not in BACKDROPS:
+            LAID_AS[otype] = "backdrop"
+    elif PATTERN_OF.get(otype) not in BACKDROPS:
         sys.exit(f"backdrop({otype!r}): the backdrop is the plain paper or the checker; draw it with "
-                 f"pattern({otype!r}, \"plain\") or pattern({otype!r}, \"checker\")")
+                 f"pattern({otype!r}, \"plain\") or pattern({otype!r}, \"checker\"). {NOT_THE_USERS}")
     return tiledbg_inst(otype, *screen_box(width, height), 0, 0)
 
 
@@ -2751,15 +2775,15 @@ def layers_in(layers: list):
 
 
 def z_order(instances: list) -> list:
-    """A layer's instances back to front: the backdrop, then pattern() areas, then the rest by the
+    """A layer's instances back to front: the backdrop, then the areas of area(), then the rest by the
     bottom of their box, so a nearer object covers a farther one. Ties keep their order. A link()
     child follows its parent, and a box wholly inside another follows it unless the outer box is a
     label. For another order, such as a 3D layer by depth, define z_order() below the end marker."""
     boxes = [box_of(inst) for inst in instances]
     keys = []
     for n, inst in enumerate(instances):
-        kind = PATTERN_OF.get(inst["type"])
-        rank = 0 if kind in BACKDROPS else 1 if kind else 2
+        kind = PATTERN_OF.get(inst["type"]) or LAID_AS.get(inst["type"])
+        rank = 0 if kind in (*BACKDROPS, "backdrop") else 1 if kind else 2
         keys.append((rank, boxes[n][3] if rank == 2 and boxes[n] else 0, n))
     # What each instance follows: its parent, else the smallest box that holds it, not a label
     holders = sorted((m for m, inst in enumerate(instances) if keys[m][0] == 2 and boxes[m]
@@ -3085,7 +3109,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-22, stamp 6db226c04fd4 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp 2e46c759dcfe ================
 
 
 # --- the game ---------------------------------------------------------------------------
