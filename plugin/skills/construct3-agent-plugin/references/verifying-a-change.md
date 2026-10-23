@@ -168,8 +168,12 @@ no mistake. The agent that wrote the events reads its own screenshots by
 what it meant them to show, so the script also writes the screenshots and
 the questions into `brief.md` beside them, for a reviewer that has not seen
 the project. Where you can start a sub-agent, give it the brief as its
-whole task, and for each yes in its reply name the layout and the object
-type at the place it describes. Otherwise open each screenshot with the
+whole task, save its reply to `.tmp/look/reply.md`, and run
+`scripts/review_look.py --reply .tmp/look/reply.md`. It names each answer
+the reply lacks and each yes that does not say where, so a reply that
+skipped a question is not taken for a pass, and it prints every yes. For
+each yes, name the layout and the object type at the place it describes.
+Otherwise open each screenshot with the
 image tool, answer each question from the picture, and name the same for
 each yes. A question answered from memory of the events, not from the
 picture, is not answered.

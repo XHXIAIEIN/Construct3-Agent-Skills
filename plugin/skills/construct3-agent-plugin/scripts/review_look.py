@@ -4,6 +4,7 @@ what the runtime shows wrong on it, and the questions to answer about the pictur
     python scripts/review_look.py [PATH ...] [--project FOLDER] [--layouts NAME ...] [--settle SECONDS]
                                   [--viewport W H] [--release rNNN] [--browser EXE] [--shots DIR]
                                   [--out RESULT.json] [--headed] [--profile FOLDER]
+    python scripts/review_look.py --reply REPLY [--project FOLDER] [--out RESULT.json]
 
 Run it after open_in_editor.py --preview passes. It previews the project as F5
 does, then goes to each layout in turn with the runtime's goToLayout, lets it run
@@ -62,6 +63,11 @@ So an agent that can start a sub-agent gives it the brief and takes the
 answers from its reply, and one that cannot answers from the screenshots
 itself. The last three lines are look:, with the result and the screenshots,
 next:, and brief:, which says who answers the questions.
+
+--reply checks a reviewer's reply, saved to a file, against the brief of the
+last run, read from --out: it opens no browser. It names every answer the
+reply lacks, each yes that does not say where it is, and each answer line
+that names no screenshot of the brief, then prints every yes to fix.
 """
 from __future__ import annotations
 
@@ -82,6 +88,7 @@ EPILOG = """examples:
   python scripts/review_look.py
   python scripts/review_look.py --layouts Menu Map --settle 2
   python scripts/review_look.py --viewport 430 932
+  python scripts/review_look.py --reply .tmp/look/reply.md
 
 output:
   opened   <project>  (<window title>, <the editor it opened in>)
@@ -98,10 +105,20 @@ output:
   next: <what to do>
   brief: if you can start a sub-agent, give it .tmp/look/brief.md as its whole task ...
 
-exit codes: 0 every layout was visited with no finding and no runtime error; 1 a finding, a runtime error,
-or the project did not open; 2 the project or the editor could not be used; 3 no browser here; 5 another run
-holds the browser profile, named in the line with its pid: wait for it to end, or pass --profile for a profile
-of this run's own
+output of --reply:
+  reply: .tmp/look/reply.md, against the brief of 2 screenshots and 8 questions: 16 answers asked
+    missing: Map 3, 4; Combat 1-8
+    yes without where: Map 5
+    not in the brief: Shop 1: no
+    yes: Map 2 - top left: the score covers the timer
+  answers: 7 of 16, 2 yes, 9 missing
+  next: <what to do>
+
+exit codes: 0 every layout was visited with no finding and no runtime error, or with --reply every answer is
+there and no; 1 a finding, a runtime error, or the project did not open, or with --reply an answer missing or
+a yes; 2 the project or the editor could not be used, or with --reply the reply or the result of a run with a
+brief was not found; 3 no browser here; 5 another run holds the browser profile, named in the line with its
+pid: wait for it to end, or pass --profile for a profile of this run's own
 """
 
 # Pixels of slack before a text, an overlap or a box on screen counts.
@@ -118,6 +135,10 @@ OVERLAY = 0.5
 # empty, the generator template's HUD_CROWD; an item is a group of texts, and one more for each part
 # a text joins to another with " · ", " • " or " | " that holds a word.
 CROWD = 3
+# A line of a reviewer's reply: the screenshot's name, the question's number and yes or no, as the brief asks,
+# through the bullets, bold, "Q" and dashes a model adds; what follows a yes says where it is.
+ANSWER = re.compile(r"^\W*(?P<shot>.+?)\W+(?:q(?:uestion)?\s*)?(?P<q>\d+)\s*[:.)\-][\s*]*(?P<a>yes|no)\b(?P<rest>.*)$",
+                    re.I)
 JOINED = re.compile(r"\s[·•|]\s")
 NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left", (1, 2): "right",
           (2, 0): "bottom-left", (2, 1): "bottom", (2, 2): "bottom-right"}
@@ -628,6 +649,69 @@ def brief(result: dict) -> str:
     return "\n".join(lines)
 
 
+def read_reply(reply: str, names: list[str], asked: int) -> tuple[dict[tuple[str, int], tuple[bool, str]], list[str]]:
+    """The answers of a reply by screenshot and question, each yes with what it says, and the answer lines that
+    name no screenshot or no question of the brief."""
+    exact = {n.lower(): n for n in names}
+    # Longest first, so that a line about "Big map" is not taken for "Map"
+    longest = sorted(names, key=len, reverse=True)
+    answers, stray = {}, []
+    for line in reply.splitlines():
+        m = ANSWER.match(line.strip())
+        if not m:
+            continue
+        shot = m["shot"].strip(" *`#").lower()
+        name = exact.get(shot) or next((n for n in longest if shot.endswith(n.lower())), None)
+        if name is None or not 1 <= int(m["q"]) <= asked:
+            stray.append(line.strip())
+            continue
+        answers[(name, int(m["q"]))] = (m["a"].lower() == "yes", m["rest"].strip(" -:*`"))
+    return answers, stray
+
+
+def spans(numbers: list[int]) -> str:
+    """Question numbers as runs: 1-3, 5."""
+    runs: list[list[int]] = []
+    for n in numbers:
+        if runs and n == runs[-1][-1] + 1:
+            runs[-1].append(n)
+        else:
+            runs.append([n])
+    return ", ".join(f"{r[0]}-{r[-1]}" if len(r) > 2 else ", ".join(map(str, r)) for r in runs)
+
+
+def check_reply(result: dict, reply: str, where: str) -> tuple[list[str], int]:
+    """A reviewer's reply against the brief of the result: what it lacks, then every yes to fix."""
+    layouts = (result.get("preview") or {}).get("layouts", [])
+    names = [d["layout"] for d in layouts if shows_something(d)]
+    asked = len(questions(len(layouts) > 1, result.get("places", [])))
+    answers, stray = read_reply(reply, names, asked)
+    missing = [(n, [q for q in range(1, asked + 1) if (n, q) not in answers]) for n in names]
+    missing = [(n, qs) for n, qs in missing if qs]
+    yeses = [(n, q, said) for n in names for q in range(1, asked + 1)
+             for yes, said in [answers.get((n, q), (False, ""))] if yes]
+    lines = [f"reply: {where}, against the brief of {len(names)} screenshot{'' if len(names) == 1 else 's'} and "
+             f"{asked} questions: {len(names) * asked} answers asked"]
+    if missing:
+        lines.append("  missing: " + "; ".join(f"{n} {spans(qs)}" for n, qs in missing))
+    unsaid = [f"{n} {q}" for n, q, said in yeses if not said]
+    if unsaid:
+        lines.append("  yes without where: " + ", ".join(unsaid))
+    lines += [f"  not in the brief: {line}" for line in stray]
+    lines += [f"  yes: {n} {q} - {said}" if said else f"  yes: {n} {q}" for n, q, said in yeses]
+    lost = sum(len(qs) for _, qs in missing)
+    lines.append(f"answers: {len(answers)} of {len(names) * asked}, {len(yeses)} yes, {lost} missing")
+    if lost or unsaid:
+        lines.append("next: give the reviewer the same brief again and have it answer the missing questions and say "
+                     "where each yes is; then check its reply again")
+    elif yeses:
+        lines.append("next: fix each yes: name the layout and the object type at the place it describes, change it, "
+                     "then run review_look.py again and have its new brief answered")
+    else:
+        lines.append("next: every question is answered no; the look review is done")
+    return lines, 1 if lost or yeses else 0
+
+
 def report(result: dict) -> list[str]:
     if result["status"] != "opened":
         return oe.report(result)
@@ -677,6 +761,27 @@ def look_line(results: list[dict], settle: float, out: Path, base: Path) -> str:
             f"{errors} runtime error{'' if errors == 1 else 's'}{unseen}; full result in {out}, screenshots in {base}")
 
 
+def reply_main(reply: Path, out: Path, limit: int) -> int:
+    """--reply: check a saved reply against the brief of the result at out."""
+    if not reply.is_file():
+        print(f"no reply at {reply}: save the reviewer's reply to that file, then run this again", file=sys.stderr)
+        return 2
+    result = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else None
+    if isinstance(result, list):
+        print(f"{out} holds the runs of {len(result)} projects; run review_look.py on the one project the brief "
+              f"belongs to, then check the reply again", file=sys.stderr)
+        return 2
+    if not result or not result.get("brief"):
+        print(f"no run with a brief in {out}: run review_look.py first, have its brief.md answered, then check the "
+              f"reply", file=sys.stderr)
+        return 2
+    lines, code = check_reply(result, reply.read_text(encoding="utf-8"), str(reply))
+    shown, _ = oe.print_part(lines, limit, 0)
+    if shown < len(lines):
+        print(f"{len(lines) - shown} lines not printed: --limit 0 prints them")
+    return code
+
+
 def main() -> int:
     c3.utf8_output()
     ap = argparse.ArgumentParser(description=__doc__, epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -704,6 +809,9 @@ def main() -> int:
     ap.add_argument("--headed", action="store_true", help="show the browser window")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
                     help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/")
+    ap.add_argument("--reply", type=Path, metavar="REPLY",
+                    help="a reviewer's reply to brief.md, saved to a file: check it against the last run's brief "
+                         "instead of previewing, and print every yes to fix")
     ap.add_argument("--limit", type=int, default=c3.LIMIT, metavar="CHARS",
                     help=f"stop printing after about this many characters; --out keeps everything, 0 prints "
                          f"everything (default: {c3.LIMIT})")
@@ -718,6 +826,9 @@ def main() -> int:
         print(f"no project.c3proj found under {', '.join(map(str, args.paths)) or args.project or Path.cwd()}; run "
               f"this in the project folder or pass --project <folder>", file=sys.stderr)
         return 2
+    if args.reply:
+        return reply_main(args.reply, oe.kept(args.out, args.shots, projects[0], "review-look.json", "look")[0],
+                          args.limit)
     exe = args.browser or oe.browser_path()
     if not exe:
         print("no Edge, Chrome or Chromium found here, and this script needs one it can drive: install one, or open "
@@ -769,9 +880,12 @@ def main() -> int:
           "leads there, so play to it with preview_project.py before blaming the events. Then have the questions "
           "answered and fix each yes. Run this again until it prints no finding and every answer is no.")
     if briefs:
-        print(f"brief: if you can start a sub-agent, give it {' and '.join(briefs)} as its whole task and take each "
-              f"yes from its reply. Tell it nothing more about the game: it has not seen the project, so it judges the "
-              f"pictures as a player does. Otherwise open each screenshot and answer the questions yourself.")
+        reply = Path(briefs[0]).with_name("reply.md")
+        print(f"brief: if you can start a sub-agent, give it {' and '.join(briefs)} as its whole task, save its reply "
+              f"to {'reply.md beside the brief' if len(briefs) > 1 else reply} and run review_look.py --reply "
+              f"{reply}, which prints each yes to fix and any answer it left out. Tell it nothing more about the "
+              f"game: it has not seen the project, so it judges the pictures as a player does. Otherwise open each "
+              f"screenshot and answer the questions yourself.")
     return 1 if found or errors else 0
 
 

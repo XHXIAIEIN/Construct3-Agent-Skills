@@ -154,14 +154,20 @@ layout through the runtime, takes a screenshot of each and prints
 The script also writes `brief.md` beside the screenshots: the screenshots,
 the questions and the form of the answer, for a reviewer that has not seen
 the project. Its last line tells an agent that can start a sub-agent to give
-it the brief and take each yes from its reply; another agent answers the
-questions itself. The model that built the card game above judged its own
-screenshots by what it meant to build. On another generated card game, where
-the measured checks found nothing, a sub-agent given only the brief answered
-yes for text drawn over the map's nodes and a panel over the shop's cards,
-both visible on the screenshots. Its reply of a few hundred tokens takes the
-place of the screenshots, about 1 200 image tokens each, in the main agent's
-context, at the cost of the sub-agent's own run.
+it the brief as its whole task, save its reply and check it with
+`review_look.py --reply`; another agent answers the questions itself. The
+check names each answer the reply lacks and each yes that does not say
+where, then lists the yeses, because a reply read by eye passes the
+questions it skipped: in the comparison of `look-judge-agent.md`, a judge
+whose prompt did not repeat the form answered two of six questions in one
+reply.
+The model that built the card game above judged its own screenshots by what
+it meant to build. On another generated card game, where the measured checks
+found nothing, a sub-agent given only the brief answered yes for text drawn
+over the map's nodes and a panel over the shop's cards, both visible on the
+screenshots. Its reply of a few hundred tokens takes the place of the
+screenshots, about 1 200 image tokens each, in the main agent's context, at
+the cost of the sub-agent's own run.
 
 The script judges no taste and calls no model; the default path stays
 offline apart from the editor, as the opener is. A sub-agent given the brief
