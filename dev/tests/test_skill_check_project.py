@@ -1143,6 +1143,18 @@ def test_instances_sharing_a_uid_are_named_with_what_the_editor_does(project):
     assert "duplicate uids" in out and "gives all but one of them another uid" in out, out
 
 
+def test_a_second_object_type_of_a_single_global_plugin_is_an_error(project):
+    """The editor adds Advanced Random, Touch or Audio to a project once; a second copy is not a second table."""
+    add_global_object(project, "AdvancedRandom")
+    (project / "objectTypes" / "RewardRandom.json").write_text(json.dumps({
+        "name": "RewardRandom", "plugin-id": "AdvancedRandom", "sid": 5,
+        "singleglobal-inst": {"type": "RewardRandom", "properties": {}, "uid": 901, "sid": 6, "tags": ""}}),
+        encoding="utf-8")
+    edit(project, "project.c3proj", lambda p: p["objectTypes"]["items"].append("RewardRandom"))
+    code, out = check(project)
+    assert code != 0 and "AdvancedRandom, RewardRandom are all AdvancedRandom" in out, out
+
+
 @pytest.mark.parametrize("text, warned", [
     ('find("^", str(Coin.X))', True),
     ('findCase("""", str(Coin.X)) + 1', True),

@@ -1212,8 +1212,10 @@ class Checker:
             if lay.get("eventSheet") and lay["eventSheet"] not in self.sheets:
                 self.err(f"layout {lname}: event sheet {lay['eventSheet']} does not exist")
 
+        single_globals: dict[str, list[str]] = {}       # plugin id -> its single-global object types
         for name, t in p.types.items():
             if "singleglobal-inst" in t:
+                single_globals.setdefault(t.get("plugin-id"), []).append(name)
                 self.uids.append(t["singleglobal-inst"]["uid"])
                 plugin = p.schema("plugins", t["plugin-id"])
                 self.check_properties(f"{name}", t["singleglobal-inst"].get("properties", {}),
@@ -1221,6 +1223,14 @@ class Checker:
             self.check_effects(t.get("effectTypes", []))
             self.collect_sids(t)
             self.class_sids.setdefault(t.get("sid"), []).append(name)
+        # The editor's dialog refuses a second one: "can only be added to a project once"
+        for plugin_id, names in single_globals.items():
+            if len(names) > 1:
+                tables = (". One Advanced Random holds every probability table by the name *Create probability "
+                          "table* gives it, and *Set probability table* picks the one to draw from"
+                          if plugin_id == "AdvancedRandom" else "")
+                self.err(f"object types {', '.join(names)} are all {plugin_id}, and the editor lets a project add "
+                         f"{plugin_id} once: keep one of them and point the events of the others at it{tables}")
         for fname, f in p.families.items():
             self.collect_sids(f)
             self.class_sids.setdefault(f.get("sid"), []).append(f"family {fname}")
