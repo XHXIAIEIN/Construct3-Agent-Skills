@@ -1259,3 +1259,115 @@ def test_make_fixtures_lays_out_the_generator_fixtures(tmp_path: Path) -> None:
     assert "\nVIEW_W, VIEW_H = 320, 180\n" in tools[cases[1]].replace("\r\n", "\n")
     assert "def module_pickups()" in tools[cases[2]] and "def module_restart()" not in tools[cases[2]]
     assert read_json(runs / cases[2] / "with_skill" / "fixture.json")["objectTypes/LevelTag.json"]
+
+
+# --- the cases of the checker's fixes: a sid and a name the editor refuses, a text at a boolean, two press() buttons
+
+def seeded_case(tmp_path: Path, project: Path, case: str, seed: Callable[[Path], None]) -> Path:
+    """The with_skill run of case on the stand-in with seed written into it, and the fixture.json of that seed."""
+    seed(project)
+    run_dir = tmp_path / "it" / case / "with_skill"
+    shutil.copytree(project, run_dir / "project")
+    (run_dir / "fixture.json").write_text(json.dumps(make_fixtures.digest(run_dir / "project")), encoding="utf-8")
+    return run_dir
+
+
+def actions_of(rows: list):
+    for ev in rows:
+        yield from ev.get("actions", [])
+        yield from actions_of(ev.get("children", []))
+
+
+def give_spark_a_sid(project: Path) -> None:
+    edit_file(project / "objectTypes" / "Spark.json", lambda t: t.update(sid=677777777777701))
+
+
+def rename_z(project: Path) -> None:
+    """Spark's z renamed rise, in its type and in every action that sets or reads it."""
+    edit_file(project / "objectTypes" / "Spark.json", lambda t: t["instanceVariables"][0].update(name="rise"))
+
+    def change(sheet: dict) -> None:
+        for a in actions_of(sheet["events"]):
+            given = a.get("parameters")
+            if isinstance(given, dict):
+                if a.get("objectClass") == "Spark" and given.get("instance-variable") == "z":
+                    given["instance-variable"] = "rise"
+                given.update({k: v.replace("Spark.z", "Spark.rise") for k, v in given.items() if isinstance(v, str)})
+    edit_file(project / SHEET, change)
+
+
+def edit_file(path: Path, change: Callable[[dict], object]) -> None:
+    data = read_json(path)
+    change(data)
+    path.write_text(json.dumps(data, indent="\t"), encoding="utf-8")
+
+
+@pytest.mark.parametrize(("fixes", "passed"), [
+    ((), [False, False, False, True, True]),
+    # The fix the editor's message asks for: its next open stops on z
+    ((give_spark_a_sid,), [False, True, False, True, True]),
+    ((give_spark_a_sid, rename_z), [True, True, True, True, True]),
+])
+def test_the_spark_case_needs_both_its_mistakes_fixed(tmp_path: Path, project: Path, fixes: tuple, passed: list) -> None:
+    """The spark copied from Coin's JSON shares Coin's sid, which the editor names, and has an instance variable z,
+    which every Sprite has as an expression whether a layout holds one or not."""
+    run_dir = seeded_case(tmp_path, project, "fix-open-errors-past-the-message", make_fixtures.seed_name_collision)
+    for fix in fixes:
+        fix(run_dir / "project")
+    assert [ok for ok, _ in graded_by(run_dir).values()] == passed, graded_by(run_dir)
+
+
+@pytest.mark.parametrize(("value", "passed"), [("0", [False, False, False, True]), ("false", [False, False, False, True]),
+                                               (False, [True, True, True, True])])
+def test_the_pulse_case_wants_the_json_false_on_a_collect(tmp_path: Path, project: Path, value, passed: list) -> None:
+    """AddScore passes the text "0" to Pulse's boolean looping, which reads as true; "false" reads as true too, and the
+    JSON false is the fix. The round's end keeps its JSON true."""
+    run_dir = seeded_case(tmp_path, project, "fix-endless-pulse", make_fixtures.seed_loop_flag)
+
+    def change(sheet: dict) -> None:
+        for a in actions_of(sheet["events"]):
+            if a.get("callFunction") == "Pulse" and a["parameters"] == ["0"]:
+                a["parameters"] = [value]
+    edit_file(run_dir / "project" / SHEET, change)
+    assert [ok for ok, _ in graded_by(run_dir).values()] == passed, graded_by(run_dir)
+
+
+BUTTON_ANSWERS = Path(__file__).parent / "fixtures" / "button_answers"
+
+
+@pytest.mark.parametrize(("answer", "passed"), [
+    (None, [True, True, False, True]),
+    ("press_each_button.py", [True, True, True, True]),
+    # The same buttons with one On any touch end and a sub-event per button, as the earlier checker's warning advised
+    ("merge_the_touch_ends.py", [True, True, False, True]),
+])
+def test_two_buttons_are_each_pressed_by_press(tmp_path: Path, generated: Callable, answer: str | None,
+                                               passed: list) -> None:
+    """Two buttons that press() writes each have their own On any touch end testing their own pressed: the checker
+    passes them without a warning, and the generator rerun gives the same layout."""
+    run_dir = generated_case(tmp_path, generated, "two-buttons-in-the-generator")
+    if answer:
+        source = run_dir / "project" / "tools" / "build_project.py"
+        text = source.read_text(encoding="utf-8")
+        end = text.index("\n", text.index(make_fixtures.END_MARKER)) + 1
+        source.write_text(text[:end] + "\n\n" + (BUTTON_ANSWERS / answer).read_text(encoding="utf-8"), encoding="utf-8")
+        code, out = run(run_dir / "project", "tools/build_project.py")
+        assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
+    assert [ok for ok, _ in graded_by(run_dir).values()] == passed, graded_by(run_dir)
+
+
+def test_make_fixtures_lays_out_the_checker_fix_seeds(tmp_path: Path) -> None:
+    """The spark and the pulse are seeded into the stand-in; the fixture records the checker's warning on the
+    spark that no layout holds, which a run is not charged for."""
+    runs = tmp_path / "runs"
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(runs), "--cases", "fix-open-errors-past-the-message",
+                    "fix-endless-pulse", "--arms", "with_skill", "--no-pin")
+    assert code == 0, out
+    spark = read_json(runs / "fix-open-errors-past-the-message" / "with_skill" / "project" / "objectTypes" / "Spark.json")
+    coin = read_json(runs / "fix-open-errors-past-the-message" / "with_skill" / "project" / "objectTypes" / "Coin.json")
+    assert spark["sid"] == coin["sid"] and [v["name"] for v in spark["instanceVariables"]] == ["z"]
+    warned = read_json(runs / "fix-open-errors-past-the-message" / "with_skill" / "fixture.json")["check_project.warnings"]
+    assert [w for w in warned if w.startswith("warning: Spark is created at runtime")], warned
+    sheet = read_json(runs / "fix-endless-pulse" / "with_skill" / "project" / SHEET)
+    assert sorted(json.dumps(a["parameters"]) for a in actions_of(sheet["events"])
+                  if a.get("callFunction") == "Pulse") == ['["0"]', "[true]"]
