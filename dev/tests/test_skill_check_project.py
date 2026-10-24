@@ -225,9 +225,9 @@ def test_a_boolean_argument_is_a_json_boolean(project, role, value, said):
         label = "Coin.Spin"
     out = findings(project, lambda s: s["events"].extend([defined, block([cond("on-start-of-layout")], [use])]))
     if said:
-        assert (f"parameter 2 of {label}, looping, is a boolean, and the call passes {json.dumps(value)}; the editor "
-                f"writes a boolean argument as a JSON boolean") in out, out
-        assert "Write the JSON true or false, without quotes" in out and out.splitlines()[-1] == "1 problem(s)", out
+        assert (f"action 1: parameter 2 of {label} is a boolean and gets {json.dumps(value)}, which reads as true, "
+                f'"0" and "false" too; write the JSON true or false') in out, out
+        assert out.splitlines()[-1] == "1 problem(s)", out
     else:
         assert warnings(out) == [] and out.splitlines()[-1].startswith("ok:"), out
 
