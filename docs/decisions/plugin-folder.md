@@ -73,8 +73,8 @@ they stay as files.
 ## Decision
 
 `plugin/` is the plugin, and the plugin folder holds its sources. The
-skill, the rows of the `/` menu, the manifest, the README, the
-icon, the licence and the sub-agents are edited in place under `plugin/`.
+skill, the manifest, the README, the icon, the licence and the sub-agents
+are edited in place under `plugin/`.
 Only `plugin/data/` is built: `dev/scripts/build_plugin.py` writes it from the
 `data/` of the Construct3-RAG clone beside this repository, and the result
 is committed. What the plugin does not need at run time lies beside the
@@ -118,8 +118,7 @@ The build of `plugin/data/`:
   editor's Project > New writes, so a new project looks as one made in the
   editor.
 - Sets the version in `.claude-plugin/plugin.json` as
-  `plugin-tracks-commits.md` describes, and fails when a script and the
-  rows of the `/` menu disagree (`plugin-script-menu.md`).
+  `plugin-tracks-commits.md` describes.
 
 The folder's own files:
 

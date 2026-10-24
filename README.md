@@ -87,7 +87,7 @@ If the skill runs from a Git clone of GitHub, the checker reads the plugin versi
 ## Repository
 
 ```
-plugin/                 The plugin: the skill and the / menu rows under skills/, the manifest, README and icon, and the built data/
+plugin/                 The plugin: the skill under skills/, the manifest, README and icon, and the built data/
 dev/                    What only maintainers use: the evals, tests/, scripts/ (build_plugin.py refreshes plugin/data/) and AGENTS.md, the guide to changing the skill and building plugin/
 scripts/                bootstrap.py, which clones the siblings and installs the skill
 docs/                   The decision records and the audit

@@ -115,9 +115,10 @@ an answer), one by a mistyped run folder, so a cell kept one run.
    are for. The loop ends at about 3640. An agent reads one more file
    before it uses one of those scripts, and the body names them by task,
    not by file. Guidance split over files reached fewer runs than one text
-   in earlier iterations (`plugin-script-menu.md`, "Evidence"), so no
-   step of the check loop depends on a moved row: the one moved script the
-   loop runs, `review_look.py`, is named with its command in step 6.
+   in earlier iterations, where a route table and a per-task dispatcher
+   were tried and taken back, so no step of the check loop depends on a
+   moved row: the one moved script the loop runs, `review_look.py`, is
+   named with its command in step 6.
 5. Measure Claude's count first and decide after. The measurement needs a
    login this machine lacks.
 

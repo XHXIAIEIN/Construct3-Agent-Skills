@@ -5,8 +5,7 @@
 This repository holds what an AI agent needs to make Construct 3 games, and
 all of it is in one folder, `plugin/`:
 
-- `plugin/skills/` holds the `construct3-agent-plugin` skill and, beside it,
-  the rows of the Claude Code plugin's `/` menu.
+- `plugin/skills/` holds the `construct3-agent-plugin` skill.
 - `plugin/data/` holds the schemas of every Construct 3 condition, action,
   expression and effect in English and Chinese, the editor texts, the
   example index, the TypeScript definitions and an empty project to start
@@ -29,7 +28,6 @@ names a file of that clone.
 |------|---------------|
 | `plugin/.claude-plugin/plugin.json` | The plugin's manifest: name, version, description and keywords |
 | `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets |
-| `plugin/skills/<name>/SKILL.md`, `plugin/skills/run.py` | One row of the `/` menu for each user-facing script, and the runner that the rows share |
 | `plugin/data/c3-schemas/` | The ACEs of every plugin, behavior and effect, one JSON file each, for each locale (built) |
 | `plugin/data/c3-lang/` | The editor texts that the checker and a preview's inspector read (built) |
 | `plugin/data/c3-new-project/` | The empty project that the editor saves, which `new_project.py` copies (built) |

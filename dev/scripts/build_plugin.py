@@ -6,11 +6,10 @@
     python dev/scripts/build_plugin.py --rag F    read data/ from the Construct3-RAG clone F
 
 plugin/ is the Claude Code plugin and holds its sources: the skill under
-skills/construct3-agent-plugin/, the rows of the / menu under skills/<name>/,
-the manifest, the README, the icon and the agents. Only its
-data/ is built, from the Construct3-RAG clone beside this repository, or from
---rag or CONSTRUCT3_RAG_DATA, which must be a Git clone, because the build
-takes the tracked files. Why: docs/decisions/plugin-repository.md.
+skills/construct3-agent-plugin/, the manifest, the README, the icon and the
+agents. Only its data/ is built, from the Construct3-RAG clone beside this
+repository, or from --rag or CONSTRUCT3_RAG_DATA, which must be a Git clone,
+because the build takes the tracked files. Why: docs/decisions/plugin-repository.md.
 
 The folder stays under the limits of Claude's plugin directory: 512 files or
 fewer, every file other than an image or a font under 256 KiB, and the folder
@@ -24,11 +23,6 @@ also keep the name, properties and debugger texts of every plugin and
 behavior, because the keys of a preview's inspector values point into them.
 Why: docs/decisions/plugin-folder.md.
 
-skills/<name>/SKILL.md is one thin skill per user-facing script, so that the
-plugin's / menu lists the scripts; each runs its script and is never loaded
-into the model's context on its own. The build fails when a script and the
-menu disagree. Why: docs/decisions/plugin-script-menu.md.
-
 The build also sets the version in .claude-plugin/plugin.json. The published
 plugin is the one at the commit that HEAD shares with origin/main, or at HEAD
 without that ref. During a merge, it is the one at the commit that the merge
@@ -39,7 +33,7 @@ version committed in plugin.json is the floor, raised by hand for a minor or
 major release. The build reads Git locally and never fetches. Why:
 docs/decisions/plugin-tracks-commits.md.
 
-exit codes: 0 built or equal, 1 plugin/ differs, breaks a limit or disagrees with the menu, 2 no Construct3-RAG clone
+exit codes: 0 built or equal, 1 plugin/ differs or breaks a limit, 2 no Construct3-RAG clone
 """
 import argparse
 import contextlib
@@ -66,9 +60,6 @@ RAG = Path(os.environ.get("CONSTRUCT3_RAG_DATA") or siblings_folder(ROOT) / "Con
 RAG_URL = "https://github.com/XHXIAIEIN/Construct3-RAG"
 DATA = "data"
 MANIFEST = ".claude-plugin/plugin.json"
-# The scripts with no menu skill: modules the scripts import, and install.py, which copies the skill into a
-# game project, a copy a plugin user does not need (docs/decisions/plugin-tracks-commits.md)
-NOT_IN_MENU = frozenset({"c3project", "design_review", "game_model", "install"})
 
 # Copied to the same path under plugin/
 COPIED = ("data/c3-schemas", "data/c3-guides", "data/c3-new-project", "data/c3-ts-defs/autocomplete-data.json")
@@ -170,27 +161,6 @@ def lang_subset(locale: str) -> str:
             if kept:
                 out["text"].setdefault(kind, {})[addon] = kept
     return json.dumps(out, ensure_ascii=False, indent="\t", sort_keys=True) + "\n"
-
-
-def menu_skills() -> dict[str, str]:
-    """The thin skills of the / menu: the script's stem for each skill name, from the folders beside the skill."""
-    folders = sorted({PurePosixPath(rel).parts[2] for rel in tracked("plugin/skills")
-                      if rel.endswith("/SKILL.md") and PurePosixPath(rel).parts[2] != "construct3-agent-plugin"})
-    return {name: name.replace("-", "_") for name in folders}
-
-
-def menu_problems() -> list[str]:
-    """Where the scripts and the / menu disagree: a user-facing script without a menu skill, a menu skill whose
-    script does not exist, or a menu skill for a script NOT_IN_MENU leaves out."""
-    scripts = {PurePosixPath(rel).stem for rel in tracked(f"{SKILL}/scripts") if rel.endswith(".py")}
-    menu = menu_skills()
-    out = [f"{SKILL}/scripts/{stem}.py has no plugin/skills/{stem.replace('_', '-')}/SKILL.md"
-           for stem in sorted(scripts - NOT_IN_MENU - set(menu.values()))]
-    out += [f"plugin/skills/{name}/SKILL.md names no script: {SKILL}/scripts/{stem}.py" for name, stem in menu.items()
-            if stem not in scripts]
-    out += [f"plugin/skills/{name}/SKILL.md: {stem}.py is NOT_IN_MENU" for name, stem in menu.items()
-            if stem in NOT_IN_MENU]
-    return out
 
 
 def build(out: Path) -> None:
@@ -340,19 +310,19 @@ def fresh_build() -> Iterator[tuple[Path, str]]:
 
 
 def rebuild() -> list[str]:
-    """plugin/data/ replaced by a fresh build and the version written, and what breaks the limits or the menu."""
+    """plugin/data/ replaced by a fresh build and the version written, and what breaks the limits."""
     with fresh_build() as (fresh, version):
         if (PLUGIN / DATA).exists():
             shutil.rmtree(PLUGIN / DATA)
         shutil.copytree(fresh, PLUGIN / DATA)
         set_version(version)
-    return limits(files(PLUGIN)) + menu_problems()
+    return limits(files(PLUGIN))
 
 
 def check() -> list[str]:
-    """How plugin/data/ and the version differ from a fresh build, and what breaks the limits or the menu."""
+    """How plugin/data/ and the version differ from a fresh build, and what breaks the limits."""
     with fresh_build() as (fresh, version):
-        problems = limits(plugin_files(fresh)) + menu_problems() + differences(fresh, PLUGIN / DATA)
+        problems = limits(plugin_files(fresh)) + differences(fresh, PLUGIN / DATA)
     committed = manifest()["version"]
     if committed != version:
         problems.append(f"version: {committed} in plugin.json, {version} for the plugin's files")
@@ -362,7 +332,7 @@ def check() -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                  description="Refresh plugin/data/ from the data of Construct3-RAG and set the plugin's version.",
-                                 epilog="exit codes: 0 built or equal, 1 plugin/ differs, breaks a limit or disagrees with the menu, 2 no Construct3-RAG clone")
+                                 epilog="exit codes: 0 built or equal, 1 plugin/ differs or breaks a limit, 2 no Construct3-RAG clone")
     ap.add_argument("--check", action="store_true", help="compare plugin/data/ and the version with a fresh build, write nothing")
     ap.add_argument("--rag", metavar="FOLDER", help=f"the Construct3-RAG clone whose data/ is built in (default: {RAG})")
     args = ap.parse_args()

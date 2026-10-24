@@ -50,8 +50,8 @@ export const meta = {
 //   what a script prints a new eval iteration, and the evals showed small-model behavior moving with wording
 //   a polish would call cosmetic. Those files get proposals in the report, not edits. The guarded files are
 //   listed in WHOLE_GUARDS below, so that no agent can drop one.
-// - plugin/ is the shipped folder, and it holds the sources: the skill, the rows of the / menu and the plugin's
-//   manifest, README, icon and agents. The event sheet guides live in Construct3-Cookbook, outside this run.
+// - plugin/ is the shipped folder, and it holds the sources: the skill and the plugin's manifest, README, icon
+//   and agents. The event sheet guides live in Construct3-Cookbook, outside this run.
 //   Only plugin/data/ is built. dev/scripts/build_plugin.py refreshes
 //   it from the Construct3-RAG clone beside this repository and sets the plugin's version; the commit step
 //   rebuilds it after the polished sources are committed.
@@ -85,7 +85,6 @@ const NEVER = [
   [/^plugin\/data\//, 'dev/scripts/build_plugin.py refreshes it from the data of the Construct3-RAG clone; the commit step rebuilds it'],
   [/^maintainers\/tests\/fixtures\//, 'fixtures'],
   [/^maintainers\/evals\/[^/]+\.json$/, 'eval cases and trigger queries'],
-  [/^plugin\/skills\/(?!construct3-agent-plugin\/)[^/]+\/SKILL\.md$/, 'docs/decisions/plugin-script-menu.md: a row of the plugin\'s / menu, whose frontmatter dev/tests/test_plugin_folder.py pins and whose body teaches nothing'],
   [/^\.claude\/workflows\//, 'the workflow itself: no check runs it, so a person changes it from the report'],
   [/^\.github\//, 'the checks and the daily plugin refresh'],
   [/^(LICENSE|\.gitignore|\.gitattributes)$/, 'licence and git configuration'],
@@ -120,8 +119,8 @@ const UNIT_RULES = `A unit is a set of files that must stay consistent with each
 - records (text): docs/decisions/, in batches of up to six records, taken in the order of their index, docs/decisions/README.md.
 - skill (text): plugin/skills/construct3-agent-plugin/SKILL.md; its references/ in batches; its assets/*.md.
 - agents (text): .claude/agents/; plugin/agents/.
-- code: scripts/*.py in batches by topic; plugin/skills/construct3-agent-plugin/scripts/, one large script per unit and small ones in batches; dev/evals/*.py; plugin/skills/construct3-agent-plugin/assets/*.py; plugin/skills/run.py; dev/tests/ in batches by the module they test, test_skill_<script>.py with nothing else.
-Leave out plugin/data/ (built), dev/tests/fixtures/, the SKILL.md rows of the / menu (plugin/skills/<name>/SKILL.md outside construct3-agent-plugin/), .github/, .claude/workflows/, generated files, and files that are not Markdown or Python, with the reason for each group under excluded.`
+- code: scripts/*.py in batches by topic; plugin/skills/construct3-agent-plugin/scripts/, one large script per unit and small ones in batches; dev/evals/*.py; plugin/skills/construct3-agent-plugin/assets/*.py; dev/tests/ in batches by the module they test, test_skill_<script>.py with nothing else.
+Leave out plugin/data/ (built), dev/tests/fixtures/, .github/, .claude/workflows/, generated files, and files that are not Markdown or Python, with the reason for each group under excluded.`
 
 const GUARD_RULES = `Guarded text needs more than a polish to change: an eval iteration, a measurement or a decision. A run proposes edits to it and changes nothing. Kinds of guarded passage:
 - Whatever a decision record, an AGENTS.md or an eval says must not change without an eval, a measurement or a decision.

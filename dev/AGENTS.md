@@ -8,11 +8,6 @@ holds the project tools for a Construct 3 folder project, listed under
 "Scripts" in its `SKILL.md` and in `references/scripts.md`, and the
 Construct 3 block for the project's instruction file.
 
-Beside the skill, `plugin/skills/<name>/SKILL.md` is one thin skill for each
-user-facing script, and `plugin/skills/run.py` is the runner that they
-share. These rows give the Claude Code plugin's `/` menu one row per script,
-and they never load by themselves (`docs/decisions/plugin-script-menu.md`).
-
 This folder holds what the skill's maintainers need and the plugin does not
 ship:
 
@@ -109,8 +104,7 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 | Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `dev/tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem, but it can leave the problems that are already there. So keep the final full `check_project.py` run and its fix-loop record |
 | Open or play a game | `scripts/open_in_editor.py --preview`. `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `dev/evals/play_cases.py`, `dev/tests/test_skill_preview_project.py` | Opening without input tests the startup only. Reaching a scene directly does not test the path to it |
 | Ship the skill to a game | `scripts/install.py --project FOLDER` mirrors the skill's folder into the game | `assets/game-project-block.md`, `c3project.py`, `dev/tests/test_skill_install.py` | An edited Construct 3 block and edited generator helpers keep their edits until `--replace-edited-block` or `--replace-edited-helpers` replaces them |
-| Ship the plugin | `dev/scripts/build_plugin.py` builds `plugin/` from the skill, the menu and the data of the Construct3-RAG clone beside this repository | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit that HEAD shares with `origin/main` |
-| Give a script a row in the plugin's `/` menu | `plugin/skills/<name>/SKILL.md` runs the script with the user's arguments through `plugin/skills/run.py` | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-script-menu.md` | See "Menu rows" under "Rules" |
+| Ship the plugin | `dev/scripts/build_plugin.py` builds `plugin/` from the skill and the data of the Construct3-RAG clone beside this repository | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit that HEAD shares with `origin/main` |
 
 ## Rules
 
@@ -153,26 +147,6 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
   `references/`. Do not repeat what a script prints when it is needed.
   Evidence: `docs/decisions/project-tools-skill.md`, "What holds the design
   in place".
-
-### Menu rows
-
-- Name the row's folder `plugin/skills/<name>/`, where `name` is the
-  script's stem with hyphens.
-- Set `disable-model-invocation: true`, so that the row costs the model
-  nothing. Write the description in the third person.
-- Make `argument-hint` from groups of the script's usage line, in double
-  quotes, because a YAML parser reads a hint that starts with `[` as a
-  sequence.
-- Write `allowed-tools` as a YAML list of the row's own command, one rule
-  for the Bash tool and one for the PowerShell tool. Do not use the open
-  format's space-separated string, because each rule holds spaces that the
-  string form splits.
-- Keep the body free of teaching, because the main skill teaches.
-- A script without a row fails the build, unless `NOT_IN_MENU` in
-  `build_plugin.py` names it.
-- `disable-model-invocation` and `argument-hint` belong to Claude Code and
-  are outside the open format. So the reference validator fails on a row by
-  design, and the test pins its frontmatter instead.
 
 ### Paths
 

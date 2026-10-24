@@ -22,7 +22,6 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [An Entry of the Lookup Ends With Its Pitfalls File and the Built-In Preferred to Its Addon](lookup-pointers.md) — 2026-10-16
 - [A Pack Carries a Passing Check](pack-after-check.md) — 2026-10-16
 - [The Skill, the Prompts and the Plugin Live in This Repository](plugin-repository.md) — 2026-10-16
-- [The Plugin's `/` Menu Lists Each Script; the Model Routes Through One Skill](plugin-script-menu.md) — 2026-10-16
 - [One Run at a Time Holds a Browser Profile](profile-lock.md) — 2026-10-16
 - [A Map of the Sheets: Which Layouts Run Each, and What It Holds](sheet-map.md) — 2026-10-16
 - [Sound Files Are Measured, and Placeholders Pass the Measure](sound-files-measured.md) — 2026-10-16
