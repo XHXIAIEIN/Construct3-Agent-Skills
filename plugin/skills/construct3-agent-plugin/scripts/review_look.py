@@ -680,8 +680,25 @@ def spans(numbers: list[int]) -> str:
     return ", ".join(f"{r[0]}-{r[-1]}" if len(r) > 2 else ", ".join(map(str, r)) for r in runs)
 
 
-def check_reply(result: dict, reply: str, where: str) -> tuple[list[str], int]:
-    """A reviewer's reply against the brief of the result: what it lacks, then every yes to fix."""
+DONE = "next: every question is answered no; the look review is done"
+
+
+def done_line(root: Path) -> str:
+    """The next: line of a reply that answers every question no. When verify_change.py asked the questions, its
+    look step stays asked until --answered records the answers."""
+    try:
+        record = json.loads((root / ".tmp" / c3.VERIFY_RECORD).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return DONE
+    if ((record.get("steps") or {}).get("looked") or {}).get("state") != "asked":
+        return DONE
+    return (f"next: every question is answered no; run {c3.script_command(root, 'verify_change.py', ' --answered')}, "
+            f"which records the answers for the check chain")
+
+
+def check_reply(result: dict, reply: str, where: str, done: str) -> tuple[list[str], int]:
+    """A reviewer's reply against the brief of the result: what it lacks, then every yes to fix; done is the last
+    line when every answer is no."""
     layouts = (result.get("preview") or {}).get("layouts", [])
     names = [d["layout"] for d in layouts if shows_something(d)]
     asked = len(questions(len(layouts) > 1, result.get("places", [])))
@@ -708,7 +725,7 @@ def check_reply(result: dict, reply: str, where: str) -> tuple[list[str], int]:
         lines.append("next: fix each yes: name the layout and the object type at the place it describes, change it, "
                      "then run review_look.py again and have its new brief answered")
     else:
-        lines.append("next: every question is answered no; the look review is done")
+        lines.append(done)
     return lines, 1 if lost or yeses else 0
 
 
@@ -761,8 +778,8 @@ def look_line(results: list[dict], settle: float, out: Path, base: Path) -> str:
             f"{errors} runtime error{'' if errors == 1 else 's'}{unseen}; full result in {out}, screenshots in {base}")
 
 
-def reply_main(reply: Path, out: Path, limit: int) -> int:
-    """--reply: check a saved reply against the brief of the result at out."""
+def reply_main(reply: Path, out: Path, limit: int, root: Path) -> int:
+    """--reply: check a saved reply against the brief of the result at out, for the project at root."""
     if not reply.is_file():
         print(f"no reply at {reply}: save the reviewer's reply to that file, then run this again", file=sys.stderr)
         return 2
@@ -775,7 +792,7 @@ def reply_main(reply: Path, out: Path, limit: int) -> int:
         print(f"no run with a brief in {out}: run review_look.py first, have its brief.md answered, then check the "
               f"reply", file=sys.stderr)
         return 2
-    lines, code = check_reply(result, reply.read_text(encoding="utf-8"), str(reply))
+    lines, code = check_reply(result, reply.read_text(encoding="utf-8"), str(reply), done_line(root))
     shown, _ = oe.print_part(lines, limit, 0)
     if shown < len(lines):
         print(f"{len(lines) - shown} lines not printed: --limit 0 prints them")
@@ -828,7 +845,7 @@ def main() -> int:
         return 2
     if args.reply:
         return reply_main(args.reply, oe.kept(args.out, args.shots, projects[0], "review-look.json", "look")[0],
-                          args.limit)
+                          args.limit, projects[0])
     exe = args.browser or oe.browser_path()
     if not exe:
         print("no Edge, Chrome or Chromium found here, and this script needs one it can drive: install one, or open "

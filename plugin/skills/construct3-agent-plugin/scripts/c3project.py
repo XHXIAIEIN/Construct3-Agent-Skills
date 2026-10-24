@@ -392,6 +392,9 @@ def find_project(given: str | None) -> Path | None:
 RECORD = "check-project.json"
 # Set by verify_change.py for the scripts it runs: the checker's ok: line then names no next step.
 IN_VERIFY = "CONSTRUCT3_RAG_IN_VERIFY"
+# verify_change.py's record, in the project's .tmp/: each step's outcome and the questions that wait for
+# --answered. review_look.py --reply reads it to name the run that records the answers.
+VERIFY_RECORD = "verify-change.json"
 # The folders whose files project.c3proj lists by name, one JSON file each. The editor reads only
 # what the project lists and ignores any other file there. scripts/ is left out of the digest and
 # of the unlisted-file check, since the editor keeps unlisted TypeScript copies and definitions in

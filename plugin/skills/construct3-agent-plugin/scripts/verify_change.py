@@ -46,7 +46,7 @@ import c3project as c3
 
 STEPS = ("checked", "reviewed", "opened", "previewed", "played", "looked")
 EDITOR_STEPS = ("opened", "previewed", "played", "looked")      # rerun only when the files changed
-RECORD = "verify-change.json"
+RECORD = c3.VERIFY_RECORD
 PLANS = Path("tools") / "plans"
 DESIGN = Path("tools") / "design.json"
 QUESTION = re.compile(r"^\s+\d+\.\s+(.*\S)")
