@@ -1409,8 +1409,8 @@ class Checker:
                 declared[LOWER(name)] = (label, name)
         plugin = p.schema("plugins", p.plugin_of[obj])
         expressions = p.expressions_of(plugin)
-        members = member_types(p.families, obj)
-        if any(m in self.world_types for m in members):
+        # commonAces give the shared ones, Z on a Sprite no layout holds, none on an Array
+        if plugin is not None or any(m in self.world_types for m in member_types(p.families, obj)):
             expressions |= p.common_expressions_of(plugin)
         for key, (label, _) in declared.items():
             if key in expressions and " of family " not in label:

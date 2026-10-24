@@ -1085,6 +1085,27 @@ def test_instance_variable_named_like_an_expression(project):
         project, change, "objectTypes/Coin.json")
 
 
+def test_instance_variable_named_like_a_shared_expression_of_an_object_no_layout_holds(project):
+    """A Sprite that only the events create still has Z: the editor refuses its instance variable z with
+    "Expression name collision ... is also the name of an expression in Sprite objects"."""
+    coin_copy(project, "Spark", "Tween")
+    out = findings(project, lambda t: t["instanceVariables"].append(
+        {"name": "z", "type": "number", "desc": "", "show": True, "sid": 9102}), "objectTypes/Spark.json")
+    assert "Spark: instance variable z collides with the expression Spark.z" in out, out
+
+
+def test_instance_variable_named_like_a_world_expression_of_an_array(project):
+    """An Array has no X or Z, whose plugin's commonAces leave them out, so a variable z on it is its own."""
+    (project / "objectTypes" / "Grid.json").write_text(json.dumps({
+        "name": "Grid", "plugin-id": "Arr", "sid": 9200, "isGlobal": True,
+        "instanceVariables": [{"name": "z", "type": "number", "desc": "", "show": True, "sid": 9201}]}),
+        encoding="utf-8")
+    edit(project, "project.c3proj", lambda d: d["objectTypes"]["items"].append("Grid"))
+    add_addon(project, "plugin", "Arr", "Array")
+    code, out = check(project)
+    assert "Traceback" not in out and "Grid: instance variable z" not in out, out
+
+
 def test_instance_variable_and_behavior_share_a_name(project):
     def change(t):
         t["instanceVariables"].append({"name": "tween", "type": "number", "desc": "", "show": True, "sid": 6})
