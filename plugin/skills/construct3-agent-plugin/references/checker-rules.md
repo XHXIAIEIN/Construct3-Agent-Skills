@@ -20,7 +20,10 @@ type and only properties the schema has. Layers, layouts, animations,
 groups, timelines, flowcharts, project files and images must exist. So must
 a called function or custom action, with the right parameter count, and the
 function a *Map function to string* or *Map default function* names,
-matched without case.
+matched without case. A call passes a boolean parameter as a JSON `true` or
+`false`, as the editor's checkbox writes it and as all 550 boolean arguments
+of the official examples are written; a text `"0"` or `"false"` there
+reaches the function as true, so it is an error.
 
 An image is `images/<object type>-<animation>-<frame, three digits>.png`, or
 `images/<object type>.png` for a single image, in lower case; one imported

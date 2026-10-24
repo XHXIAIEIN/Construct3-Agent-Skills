@@ -88,7 +88,7 @@ QUOTED = re.compile(r"(?<!\w)'(?:[^'\\]|\\.)*'(?!\w)|\"(?:[^\"\\]|\\.)*\"")
 JSON_TYPES = {"number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
               "string": lambda v: isinstance(v, str), "boolean": lambda v: isinstance(v, bool)}
 JSON_EXAMPLES = {"number": "a number such as 1", "string": "text such as \"a\"", "boolean": "true or false"}
-FULL_TURN = 2 * math.pi + 1e-6      # the largest world angle the official examples hold is 2π
+FULL_TURN = 2 * math.pi + 1e-6  # the largest world angle the official examples hold is 2π
 # Names the editor reserves for an object besides the system expressions, compared without case.
 # "system" is not among them: it is the System object's own name, and an object of that name
 # stops the open.
@@ -109,7 +109,7 @@ PROJECT_OPTIONS = {"fullscreenMode": ("letterbox-scale", "letterbox-integer-scal
                    "sampling": ("trilinear", "bilinear", "nearest"),
                    "downscaling": ("medium", "low", "high"),
                    "loaderStyle": ("splash", "progress-logo", "progress", "percent", "none")}
-PROJECT_ALSO = {"sampling": ("linear", "point")}    # older ids the editor maps as it reads them
+PROJECT_ALSO = {"sampling": ("linear", "point")}  # older ids the editor maps as it reads them
 # Plugins whose object type carries an animations folder: the editor reads it as
 # it opens the type and stops with "TypeError: expected object" when it is not
 # there. The 2930 Sprite and 785 Shape3D types of the official examples all have
@@ -154,7 +154,7 @@ SHADOW_SUFFIX = {"string": "Text", "number": "Value", "boolean": "Flag"}
 # behind layers that are all transparent the preview shows black (r495.2 preview, 2026-10-09).
 TEXT_EDGE = 1
 TEXT_CONTRAST = 3
-SHORT_TEXT = 12             # characters: a number or a word, the thing a screen of one or two texts is about
+SHORT_TEXT = 12  # characters: a number or a word, the thing a screen of one or two texts is about
 # Instances created in a top-level event or trigger join the instance lists when it ends: until then only
 # Pick by unique ID finds them outside the creating event
 # (Construct3-Cookbook/guides/primitives/events/how-events-work.md). The
@@ -297,7 +297,7 @@ RESTACKS = {"move-to-top", "move-to-bottom", "move-to-layer", "move-to-object", 
 # A found path is there only after On path found: Move along path, and the node expressions, in the same
 # actions as Find path read the previous path, unless Wait for previous actions to complete stands between.
 PATH_NODES = re.compile(r"(\w+)\s*\.\s*(\w+)\s*\.\s*(?:nodecount|nodexat|nodeyat)\b", re.I)
-TRIGGER_ONCE = "trigger-once-while-true"       # the id of System Trigger once
+TRIGGER_ONCE = "trigger-once-while-true"  # the id of System Trigger once
 # Conditions that keep an event from running every tick, beside the triggers.
 PACING = {("system", "every-x-seconds"), ("system", TRIGGER_ONCE)}
 # Simulate control holds a control for the tick it runs in (manual: behavior-reference.md "Custom controls", the
@@ -389,7 +389,7 @@ def call_arguments(text: str, end: int) -> int:
                 return count if text[start:j].strip() else 0
         elif text[j] == "," and depth == 1:
             count += 1
-    return count     # not closed: the editor names that syntax error itself
+    return count  # not closed: the editor names that syntax error itself
 
 
 # find(text, find) and findcase take the text to search first. A one-character literal there
@@ -518,7 +518,7 @@ def joined_literals(expr: str) -> list[str]:
     parts, depth, start, quoted = [], 0, 0, False
     for i, ch in enumerate(expr):
         if ch == '"':
-            quoted = not quoted     # a doubled quote inside a literal toggles twice
+            quoted = not quoted  # a doubled quote inside a literal toggles twice
         elif not quoted and ch == "(":
             depth += 1
         elif not quoted and ch == ")":
@@ -586,9 +586,9 @@ def frames_of(folder: dict, prefix: str = "") -> Iterator[tuple[str, dict]]:
         yield from frames_of(sub, prefix)
 
 
-STYLE_RUN = 8      # actions in a row without a comment action
-STYLE_TREE = 3     # sub-event levels below an event, when every leaf calls the same function
-STYLE_LADDER = 5   # sibling events of one shape, their conditions and actions the same, only the values differ
+STYLE_RUN = 8  # actions in a row without a comment action
+STYLE_TREE = 3  # sub-event levels below an event, when every leaf calls the same function
+STYLE_LADDER = 5  # sibling events of one shape, their conditions and actions the same, only the values differ
 COUNTDOWN_ON_INSTANCE = ("subtract-from-instvar", "add-to-instvar", "set-instvar-value")
 
 
@@ -606,8 +606,8 @@ def declarations(events: list) -> Iterator[dict]:
 
 class Holder(NamedTuple):
     """What holds the trigger of an event branch."""
-    name: str       # "Touch:on-touched-object", or "the function AddScore"
-    fires: bool     # a trigger condition, as opposed to a function standing in for one
+    name: str  # "Touch:on-touched-object", or "the function AddScore"
+    fires: bool  # a trigger condition, as opposed to a function standing in for one
 
     @property
     def text(self) -> str:
@@ -623,58 +623,58 @@ class Checker:
     def __init__(self, p: c3.Project, limit: int = 0, sheets: dict[str, dict] | None = None,
                  style: bool = False, review: bool = False, record: bool = False) -> None:
         self.p = p
-        self.review = review            # someone else's project: no omitted parameters, no next steps
-        self.record = record            # keep the findings in .tmp/ and stop the fix loop at CAP
+        self.review = review  # someone else's project: no omitted parameters, no next steps
+        self.record = record  # keep the findings in .tmp/ and stop the fix loop at CAP
         self.limit = limit
-        self.unsaved = sheets or {}     # edit_sheet.py checks a sheet before it writes it
-        self.style = style              # the warnings of check_style, off unless asked
+        self.unsaved = sheets or {}  # edit_sheet.py checks a sheet before it writes it
+        self.style = style  # the warnings of check_style, off unless asked
         self.err, self.warn = p.err, p.warn
         self.layouts: dict[str, dict] = {}
-        self.global_layers: set[str] | None = None     # layer names some layout marks global
+        self.global_layers: set[str] | None = None  # layer names some layout marks global
         self.sheets: dict[str, dict] = {}
         self.layers: set[str] = set()
-        self.templates: set[str] = set()      # types with an instance in some layout
-        self.world_types: set[str] = set()    # types with an instance on a layer: they have X, Width, Angle ...
+        self.templates: set[str] = set()  # types with an instance in some layout
+        self.world_types: set[str] = set()  # types with an instance on a layer: they have X, Width, Angle ...
         self.uids: list[int] = []
-        self.sids: list[int] = []        # sids of events, variables, object types, instances, files
-        self.ace_sids: list[int] = []    # sids of condition and action entries
-        self.class_sids: dict[int, list[str]] = {}    # sid -> the object types and families that have it
+        self.sids: list[int] = []  # sids of events, variables, object types, instances, files
+        self.ace_sids: list[int] = []  # sids of condition and action entries
+        self.class_sids: dict[int, list[str]] = {}  # sid -> the object types and families that have it
         self.group_titles: set[str] = set()
-        self.functions: dict[str, int] = {}                     # name -> parameter count
-        self.returns: dict[str, str] = {}                       # lowercase name -> functionReturnType
-        self.custom_actions: dict[tuple[str, str], int] = {}    # (owner, name) -> parameter count
+        self.functions: dict[str, int] = {}  # name -> parameter count
+        self.returns: dict[str, str] = {}  # lowercase name -> functionReturnType
+        self.custom_actions: dict[tuple[str, str], int] = {}  # (owner, name) -> parameter count
         self.pending_calls: list[tuple] = []
         self.created: set[str] = set()
         self._eases: set[str] = set()
-        self.deprecated_uses: dict[str, list[str]] = {}      # warning -> where each use is
-        self.global_ids: set[int] = set()     # the top-level variables of every sheet
-        self.variable_names: set[str] = set()     # every variable and parameter name, as written
-        self.load_order: dict[int, int] = {}     # id of a local or parameter -> its place in the sheets' order
-        self.declared: dict[int, tuple[str, str, str]] = {}     # id -> (where, what a finding calls it, its scope)
-        self.renamed: set[int] = set()     # ids of the locals and parameters the editor renames
+        self.deprecated_uses: dict[str, list[str]] = {}  # warning -> where each use is
+        self.global_ids: set[int] = set()  # the top-level variables of every sheet
+        self.variable_names: set[str] = set()  # every variable and parameter name, as written
+        self.load_order: dict[int, int] = {}  # id of a local or parameter -> its place in the sheets' order
+        self.declared: dict[int, tuple[str, str, str]] = {}  # id -> (where, what a finding calls it, its scope)
+        self.renamed: set[int] = set()  # ids of the locals and parameters the editor renames
         self.callables: dict[tuple[str, str], tuple[str, str]] = {}  # (owner or "", lower name) -> (name, where)
-        self.numbers_on_disk = True      # whether the sheet being walked is the file, whose numbers a plan can name
-        self.signalled: set[str] | None = set()     # literal tags a Signal raises; None once one is not literal
-        self.awaited: list[tuple[str, str, str]] = []     # (tag, ACE id, where) of each Wait for signal and On signal
-        self.layer_effects: dict[str, set[str]] = {}     # layer name -> its effects' names, in any layout
-        self.glyph_white: dict[str, bool] = {}     # Sprite Font type -> its image draws every glyph white
-        self.layout_effects: set[str] = set()             # the effects of every layout
+        self.numbers_on_disk = True  # whether the sheet being walked is the file, whose numbers a plan can name
+        self.signalled: set[str] | None = set()  # literal tags a Signal raises; None once one is not literal
+        self.awaited: list[tuple[str, str, str]] = []  # (tag, ACE id, where) of each Wait for signal and On signal
+        self.layer_effects: dict[str, set[str]] = {}  # layer name -> its effects' names, in any layout
+        self.glyph_white: dict[str, bool] = {}  # Sprite Font type -> its image draws every glyph white
+        self.layout_effects: set[str] = set()  # the effects of every layout
         # Sprite Font type -> the characters its instances draw, whether any has BBCode on
         self.font_sets: dict[str, tuple[set[str], bool]] = {}
-        self.font_templates: dict[str, set[str]] = {}     # type -> the parts of its text a Set text replaces
-        self.solid_obstacles = False      # a Pathfinding instance takes its obstacles from Solids
-        self.solid_changes: list[str] = []    # where an action changes a Solid
-        self.regenerated = False          # some action regenerates the obstacle map or a region of it
-        self.function_blocks: dict[str, dict] = {}                 # name -> function block
-        self.custom_blocks: dict[tuple[str, str], dict] = {}       # (owner, name) -> custom action block
-        self.event_where: dict[int, str] = {}       # id(event) -> where it is, for a finding about another event
-        self.answered: dict[int, dict] = {}         # id(event that starts with Else) -> the event before it
-        self.action_lists: list[tuple[list, str]] = []     # (actions, where) of every block
+        self.font_templates: dict[str, set[str]] = {}  # type -> the parts of its text a Set text replaces
+        self.solid_obstacles = False  # a Pathfinding instance takes its obstacles from Solids
+        self.solid_changes: list[str] = []  # where an action changes a Solid
+        self.regenerated = False  # some action regenerates the obstacle map or a region of it
+        self.function_blocks: dict[str, dict] = {}  # name -> function block
+        self.custom_blocks: dict[tuple[str, str], dict] = {}  # (owner, name) -> custom action block
+        self.event_where: dict[int, str] = {}  # id(event) -> where it is, for a finding about another event
+        self.answered: dict[int, dict] = {}  # id(event that starts with Else) -> the event before it
+        self.action_lists: list[tuple[list, str]] = []  # (actions, where) of every block
         self.solid_overlaps: list[tuple[str, dict, str, str, set[int]]] = []  # (where, condition, Platform object, Solid, ids of its event's action lists)
         self.drops: list[tuple[str, dict, str, str]] = []  # (where, condition or action, Drag & Drop object, what it is dropped on)
-        self.timer_starts: list[tuple[str, dict, tuple, bool | None]] = []    # (where, Start timer, line, paced)
-        self.hit_pairs: list[tuple] = []        # (object, the object it hits) of each collision or overlap test
-        self.destroys: list[tuple] = []         # (object, whether it can be a bullet that missed) of each Destroy
+        self.timer_starts: list[tuple[str, dict, tuple, bool | None]] = []  # (where, Start timer, line, paced)
+        self.hit_pairs: list[tuple] = []  # (object, the object it hits) of each collision or overlap test
+        self.destroys: list[tuple] = []  # (object, whether it can be a bullet that missed) of each Destroy
         self._summaries: dict[int, tuple | None] = {}
 
     def check(self) -> None:
@@ -854,7 +854,7 @@ class Checker:
                      f"is reserved too, so the open stops with \"name is reserved\". Rename it, for example "
                      f"{name}Object")
             return
-        if LOWER(name) == "self":   # in an expression the word is Self, whatever object has the name
+        if LOWER(name) == "self":  # in an expression the word is Self, whatever object has the name
             lost = (f"{name}.X in an expression reads as Self, and in a System action the editor stops with "
                     f"\"Invalid use of 'self'\"")
         else:
@@ -886,7 +886,7 @@ class Checker:
         for a in p.data.get("usedAddons", []):
             if a.get("type") in ("plugin", "behavior"):
                 self.check_addon_id(a["type"] + "s", a["id"], "project.c3proj usedAddons")
-                p.schema(a["type"] + "s", a["id"])     # an id by Scirra that no addon has is reported here
+                p.schema(a["type"] + "s", a["id"])  # an id by Scirra that no addon has is reported here
         for name in p.types:
             if LOWER(name) == LOWER(p.functions_object):
                 self.err(f"object type {name} has the name of the built-in {p.functions_object} object, which "
@@ -983,7 +983,7 @@ class Checker:
             self.check_collision_polys(name, sub)
 
     def check_images(self) -> None:
-        sprite_ids: dict[int, list[str]] = {}    # imageSpriteId -> each image or frame that has it
+        sprite_ids: dict[int, list[str]] = {}  # imageSpriteId -> each image or frame that has it
         files = self.p.listed_files("objectTypes")
         for name, t in self.p.types.items():
             shown = (f"{name} ({files[name].relative_to(self.p.root).as_posix()})" if files.get(name)
@@ -1212,7 +1212,7 @@ class Checker:
             if lay.get("eventSheet") and lay["eventSheet"] not in self.sheets:
                 self.err(f"layout {lname}: event sheet {lay['eventSheet']} does not exist")
 
-        single_globals: dict[str, list[str]] = {}       # plugin id -> its single-global object types
+        single_globals: dict[str, list[str]] = {}  # plugin id -> its single-global object types
         for name, t in p.types.items():
             if "singleglobal-inst" in t:
                 single_globals.setdefault(t.get("plugin-id"), []).append(name)
@@ -1241,7 +1241,7 @@ class Checker:
         on moves with the arrow keys. An instance without the property reads as on, as the editor fills it.
         Instances of two or more object types with it on in one layout walk together: a crate given Platform
         to be pushed walks with the player. One type steered on purpose, two knights that move as one, passes."""
-        steered: dict[str, tuple[int, list[str]]] = {}     # type -> (instances, behavior names)
+        steered: dict[str, tuple[int, list[str]]] = {}  # type -> (instances, behavior names)
         for inst in layer_instances(layers):
             t = inst.get("type")
             behs = self.p.behaviors_of(t) if t in self.p.types else {}
@@ -1274,15 +1274,15 @@ class Checker:
         vw, vh = data.get("viewportWidth"), data.get("viewportHeight")
         if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in (vw, vh)):
             return
-        unit = 8 if vh <= 360 else 32           # the template's UNIT and MARGIN; its title is 2 UNIT pt
+        unit = 8 if vh <= 360 else 32  # the template's UNIT and MARGIN; its title is 2 UNIT pt
         if self.global_layers is None:
             self.global_layers = {layer.get("name") for other in self.layouts.values() if isinstance(other, dict)
                                   for layer, _ in c3.layers_of(other.get("layers") or []) if layer.get("global")}
         viewport_sized = (lay.get("width"), lay.get("height")) == (vw, vh)
-        backdrop = None         # (layer name, colour) of the nearest opaque layer below
-        unknown = False         # an effect or a global layer at or below: what shows behind is not known
-        behind: list[tuple] = []    # boxes of the other objects drawn so far
-        texts: list[tuple] = []     # (place, type, text, size, in the middle of the screen) of each text shown
+        backdrop = None  # (layer name, colour) of the nearest opaque layer below
+        unknown = False  # an effect or a global layer at or below: what shows behind is not known
+        behind: list[tuple] = []  # boxes of the other objects drawn so far
+        texts: list[tuple] = []  # (place, type, text, size, in the middle of the screen) of each text shown
         other_shown = False
         for layer, _ in c3.layers_of(lay["layers"]):
             if not isinstance(layer, dict):
@@ -1392,7 +1392,7 @@ class Checker:
         "name 'HP' already in object class 'Thing' namespace", and a family's hp beside
         a member's HP with the family named."""
         p = self.p
-        declared: dict[str, tuple[str, str]] = {}     # lower name -> (label, name)
+        declared: dict[str, tuple[str, str]] = {}  # lower name -> (label, name)
         for owner in [obj] + p.families_of(obj):
             d = p.types.get(owner) or p.families.get(owner) or {}
             entries = ([("instance variable", v["name"], v.get("type")) for v in d.get("instanceVariables", [])]
@@ -1430,7 +1430,7 @@ class Checker:
             self.err(f"{where}: the expression is empty; the editor stops with \"Empty expression: You must enter an "
                      f"expression\". Empty text is the literal \"\" (\"\\\"\\\"\" in the JSON), a number 0")
             return
-        if expr.count('"') % 2:     # a quote inside a literal is doubled, so an odd count leaves one open
+        if expr.count('"') % 2:  # a quote inside a literal is doubled, so an odd count leaves one open
             self.err(f"{where}: a text literal is not closed; the editor stops with \"Syntax error: String missing "
                      f"finishing \\\"\". A quote inside text is doubled: \"say \"\"hi\"\"\"")
             return
@@ -1476,7 +1476,7 @@ class Checker:
                      f"the editor stops with \"Invalid use of 'self'\"{hint}")
         for m in MEMBER.finditer(text):
             obj, member, sub = m.group(1), m.group(2), m.group(3)
-            if LOWER(obj) == "self" or NUMBER.fullmatch(obj):   # a decimal such as 0.5 is not a member access
+            if LOWER(obj) == "self" or NUMBER.fullmatch(obj):  # a decimal such as 0.5 is not a member access
                 continue
             if LOWER(obj) == LOWER(p.functions_object):
                 names = p.expression_names(p.system)
@@ -1873,7 +1873,7 @@ class Checker:
                      f"\"behaviorType\" is the name the behavior has on the object, not its id")
             return
         if not p.ace_sources(ace):
-            return      # no schema for this addon: warned about once, nothing to check against
+            return  # no schema for this addon: warned about once, nothing to check against
         entry = p.ace_entry(kind, ace)
         retired = p.deprecated_entry(kind, ace)
         if retired:
@@ -1906,7 +1906,7 @@ class Checker:
                 self.err(f"{where}: unknown parameter {k}; the parameters are: {', '.join(schema_params) or 'none'}")
         for k in schema_params:
             if k not in params:
-                if not self.review:     # the editor saves an ACE so and fills it on open
+                if not self.review:  # the editor saves an ACE so and fills it on open
                     self.warn(f"{where}: parameter {k} is omitted; the editor fills its default")
         named = [v for k, v in params.items() if schema_params.get(k, {}).get("type") == "object"]
         stand_in = named[0] if len(named) == 1 and named[0] in p.plugin_of else None
@@ -1944,7 +1944,7 @@ class Checker:
         if ace_id.startswith("set-layer-"):
             layer = params.get("layer")
             if not is_literal(layer) or unquote(layer) not in self.layer_effects:
-                return      # a layer by number or expression, or one check_param already says is missing
+                return  # a layer by number or expression, or one check_param already says is missing
             names, add = self.layer_effects[unquote(layer)], "the layer's Effects"
             missing, held = f"the layer {unquote(layer)} has no effect named {name!r}", "it has"
         elif ace_id.startswith("set-layout-"):
@@ -2282,7 +2282,7 @@ class Checker:
         p = self.p
         obj, ace_id, params = action.get("objectClass"), action.get("id"), action.get("parameters", {})
         if obj not in p.plugin_of or not isinstance(params, dict):
-            return      # a comment, a script, a function call or a custom action
+            return  # a comment, a script, a function call or a custom action
         behavior = p.behaviors_of(obj).get(action.get("behaviorType", ""), "").lower()
         if obj == "System" and ace_id == "wait-for-previous-actions":
             found.clear()
@@ -2761,12 +2761,12 @@ class Checker:
                     if paced is None or not any(isinstance(c, dict) and c.get("objectClass") == "System" and
                                                 c.get("id") == "on-start-of-layout"
                                                 for e in line for c in e.get("conditions", [])):
-                        break                 # started by another trigger, a function or every tick
+                        break  # started by another trigger, a function or every tick
                     continue
                 extra = [c for e in line[at:] for c in e.get("conditions", []) if isinstance(c, dict)
                          and not fires(c, obj, tag)]
                 if not extra or any(c.get("objectClass") == "System" and c.get("id") == "else" for c in extra):
-                    break                     # On timer starts it again whatever the state
+                    break  # On timer starts it again whatever the state
                 restarts.append((w, a, extra))
             else:
                 if not restarts:
@@ -2888,8 +2888,14 @@ class Checker:
                 else:
                     owner = a.get("customActionObjectClass", a["objectClass"])
                     self.pending_calls.append(("custom", a["customAction"], owner, len(params), w))
-                for param in params:
-                    self.check_expr(w, param, scope)
+                callee = self.called(a)
+                kinds = [q.get("type") for q in callee[1]["functionParameters"]] if callee else []
+                for i, param in enumerate(params, 1):
+                    if kinds[i - 1:i] != ["boolean"]:
+                        self.check_expr(w, param, scope)
+                    elif not isinstance(param, bool):
+                        self.err(f"{w}: parameter {i} of {callee[0]} is a boolean and gets {json.dumps(param)}, "
+                                 f"which reads as true, \"0\" and \"false\" too; write the JSON true or false")
                 continue
             self.check_ace("actions", a, scope, w)
 
@@ -3086,7 +3092,7 @@ class Checker:
         self.check_countdown(ev, where, conditions, actions)
         if depth == 0 and (actions or ev.get("children")):
             j = i - 1
-            while j >= 0 and siblings[j].get("eventType") == "variable":     # locals declared above the event
+            while j >= 0 and siblings[j].get("eventType") == "variable":  # locals declared above the event
                 j -= 1
             commented = j >= 0 and siblings[j].get("eventType") == "comment"
             comment = '{"eventType": "comment", "text": "..."}'
@@ -3503,7 +3509,7 @@ class Checker:
                 if not isinstance(a, dict):
                     continue
                 if self.waits(a):
-                    break       # the rest runs later, where when the instances join is not read here
+                    break  # the rest runs later, where when the instances join is not read here
                 t = self.made_by(a)
                 if t:
                     made.setdefault(t, (i, []))
@@ -3690,7 +3696,7 @@ class Checker:
         closing = 300 + (0 if errors else len(self.ok_line())) + (len(c3.REVIEW) if self.review else 0)
         room = max(self.limit - closing, 3)
         cut = self.limit and c3.fitting(warnings + errors, room) < len(warnings + errors)
-        shares = (0, 0)     # 0 is no limit
+        shares = (0, 0)  # 0 is no limit
         if cut:
             of_warnings = room // 3 if errors else room
             used = sum(len(w) + 1 for w in warnings[:max(c3.fitting(warnings, of_warnings), 1)])
@@ -3732,7 +3738,7 @@ class Checker:
             line += "".join(f"; {clause}" for clause in copied_sizes(p, self.layouts))
             line += (f"; when you write or change a script, look up each API it calls: "
                      f"{script_command(p.root, 'lookup_script_api.py')} NAME")
-        if os.environ.get(c3.IN_VERIFY) == "1":     # verify_change.py says the next step itself
+        if os.environ.get(c3.IN_VERIFY) == "1":  # verify_change.py says the next step itself
             return line
         return (f"{line}; next, run {script_command(p.root, 'verify_change.py')}, which goes on with the design "
                 f"review, the editor and its preview, the kept plays and the look, and says what to do at each")
@@ -4011,7 +4017,7 @@ def main() -> int:
         if lag:
             line, error = lag
             (findings.err if error else findings.warn)(line)
-    drift = None if behind and behind[1] else c3.skill_drift(project.rag)     # the update above refreshes the copy too
+    drift = None if behind and behind[1] else c3.skill_drift(project.rag)  # the update above refreshes the copy too
     if drift:
         findings.err(drift)
     helpers = helpers_behind(project.root, project.rag)

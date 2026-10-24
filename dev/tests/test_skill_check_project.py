@@ -203,6 +203,35 @@ def test_a_call_lists_its_arguments(project, role, params, said):
         assert warnings(out) == [] and out.splitlines()[-1].startswith("ok:"), out
 
 
+@pytest.mark.parametrize("role", ["function", "custom action"])
+@pytest.mark.parametrize("value, said", [
+    ("0", True), ("false", True), ('"false"', True), (0, True),
+    (False, False), (True, False),
+])
+def test_a_boolean_argument_is_a_json_boolean(project, role, value, said):
+    """The editor writes a boolean argument as a JSON boolean, as all 550 boolean arguments of the official
+    examples are; a text "0" passed to a loop switch ran the loop as if it were true."""
+    flag = {"name": "looping", "type": "boolean", "initialValue": "false", "comment": "", "sid": 900000000000060}
+    if role == "function":
+        defined = function_block("Spin", [number_param("turns", 900000000000061), flag], [], 900000000000062)
+        use = {"callFunction": "Spin", "sid": 900000000000063, "parameters": ["2", value]}
+        label = "Spin"
+    else:
+        defined = {"aceType": "action", "aceName": "Spin", "objectClass": "Coin", "functionDescription": "",
+                   "functionCategory": "", "functionReturnType": "none", "functionCopyPicked": True,
+                   "functionIsAsync": False, "functionParameters": [number_param("turns", 900000000000061), flag],
+                   "eventType": "custom-ace-block", "conditions": [], "actions": [], "sid": 900000000000062}
+        use = {"customAction": "Spin", "objectClass": "Coin", "sid": 900000000000063, "parameters": ["2", value]}
+        label = "Coin.Spin"
+    out = findings(project, lambda s: s["events"].extend([defined, block([cond("on-start-of-layout")], [use])]))
+    if said:
+        assert (f"action 1: parameter 2 of {label} is a boolean and gets {json.dumps(value)}, which reads as true, "
+                f'"0" and "false" too; write the JSON true or false') in out, out
+        assert out.splitlines()[-1] == "1 problem(s)", out
+    else:
+        assert warnings(out) == [] and out.splitlines()[-1].startswith("ok:"), out
+
+
 @pytest.mark.parametrize("block", [{}, {"enabled": True}])
 def test_an_instance_behavior_without_properties_is_named(project, block):
     """`"Tween": {}` on an instance stops the open with "Cannot convert undefined or
