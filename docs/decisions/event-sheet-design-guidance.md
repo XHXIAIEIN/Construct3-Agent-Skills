@@ -32,6 +32,13 @@ project.
 | `prompts/event-sheet-style.md` | How the official examples organise, name and comment a sheet |
 | `prompts/references/` | Material needed only sometimes, each named by the task that needs it: a new project's sheets, layers, objects and look; feel, and an attack's timing, animation and hit effects; the slot case, native and as a program; hand-editing project JSON; bars and life counters; sounds and placeholder audio; sequences and dialogue run from a data file; menus steered by keys or a gamepad |
 
+The index has since moved to `Construct3-Cookbook/guides/pitfalls.md`
+(`guides-in-cookbook.md`). From 2026-10-24 it gives a conclusion line only
+for the groups under its "Topics"; a group under "Feature pages" has its
+heading and when-to-read line alone. The rule for a new group is in that
+file's section "Adding an entry", and the evidence in
+`Construct3-Cookbook/docs/decisions/pitfalls-index-and-topics.md`.
+
 `AGENTS.md` section 3 is the SOP. In a game project, the block of
 `plugin/skills/construct3-agent-plugin/assets/game-project-block.md` sends the
 agent to `event-sheet-thinking.md` before it decides what the events are.

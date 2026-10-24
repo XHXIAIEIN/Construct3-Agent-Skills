@@ -91,9 +91,9 @@ is no Cookbook clone, give the user the `git clone` command that
 A runtime behaviour of events that changes which events an agent writes is a
 pitfall. Record it in Construct3-Cookbook, not here, as that repository's
 `AGENTS.md` describes: the entry and its source go on the page that owns it,
-and its conclusion goes as one line into `guides/pitfalls.md`. A lesson
-about the project file format, the editor, the preview or the look goes
-where the section "Adding an entry" of that index says.
+and the section "Adding an entry" of `guides/pitfalls.md` says what the
+index gets. A lesson about the project file format, the editor, the preview
+or the look goes where that section says.
 
 ## 4. Use from a game project
 

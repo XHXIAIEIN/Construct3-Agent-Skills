@@ -174,10 +174,11 @@ above. Then:
    a tween and a timer ending a tick apart, a mask that leaves a corner
    uncovered) is a runtime fact. Fix the generator, and when the fact would
    trip the next agent, record it with its source where it changes that
-   agent's work: `Construct3-Cookbook/guides/pitfalls.md` when it
-   changes which events are written, `editor-and-preview.md` beside this
-   file when it is about the editor or the preview, and the places its
-   "Adding an entry" section names for a file format or the look.
+   agent's work: Construct3-Cookbook when it changes which events are
+   written, as the section "Adding an entry" of
+   `Construct3-Cookbook/guides/pitfalls.md` says, `editor-and-preview.md`
+   beside this file when it is about the editor or the preview, and the
+   places that section names for a file format or the look.
 6. Commit the generator with the files it produced, on the branch `agents`
    (SKILL.md, "Before the first command"); the diff of the generated JSON is
    the review of the change.

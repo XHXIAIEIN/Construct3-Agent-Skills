@@ -7,8 +7,9 @@ below describe; a script of the agent's own needs them for what it does not
 cover, such as two fingers at once. A lesson from the editor, the preview or
 a script driving them goes here with its source, under the heading of its
 topic, one bullet each: fact, consequence, source. A runtime behaviour that
-changes which events are written goes to
-`Construct3-Cookbook/guides/pitfalls.md` instead, and a lesson about
+changes which events are written goes to Construct3-Cookbook instead, as
+the section "Adding an entry" of `Construct3-Cookbook/guides/pitfalls.md`
+says, and a lesson about
 which cases to play and how to reach and read them to
 [verifying-a-change.md](verifying-a-change.md).
 

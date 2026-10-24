@@ -406,8 +406,8 @@ starts. The shapes and the measurement behind them:
 
 What happens at runtime: which instances a condition picks, what order
 triggers fire in, whether an expression means what the comment says. The
-editor and the preview judge those; the observations in
-`Construct3-Cookbook/guides/pitfalls.md` and in
+editor and the preview judge those; the pitfalls indexed in
+`Construct3-Cookbook/guides/pitfalls.md` and the observations in
 `editor-and-preview.md` beside this file came from previewing, not from the
 checker. Expression syntax beyond those operators, argument types, and
 whether a `template` parameter names a template of the object are not
