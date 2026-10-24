@@ -35,7 +35,7 @@ something next to it.
 
 ## Decision
 
-Option 3 (`CAP` in `check_project.py`).
+Option 3 (`CAP` in `checker_common.py`).
 
 - A finding is known by:
   - its file;
