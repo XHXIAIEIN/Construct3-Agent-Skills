@@ -130,14 +130,11 @@ exists only in a session that loads the plugin.
   `token_share.py`, means a tool the scripts need is missing from the list,
   or the prompt is steering the route again.
 - Workers with Agent end with the look step not passed in 4 of 8 runs of
-  iterations 71 and 72, and workers without it in 0 of 8. The step passes
-  only when `verify_change.py --answered` records the answers.
-  `review_look.py --reply` does not record them, and when every answer is
-  no it ends with "the look review is done". One worker of iteration 72 ran
-  `--reply` with the judge's reply and then `verify_change.py` without
-  `--answered`. If more runs or production transcripts show the same, the
-  line that `review_look.py --reply` ends with is the place to name
-  `verify_change.py --answered`.
+  iterations 71 and 72, and workers without it in 0 of 8. In iterations 73
+  to 75 the cause was the plan the play step asks for, kept after the look
+  questions, which voided their answers; `verify-change.md` holds the
+  change and its runs. If workers still end so, read what they do after
+  the judge's reply.
 - Workers keep the brief in most runs: the sentence on the brief does not
   reach them, and the brief line of `review_look.py` is the next place to
   name the judge.
