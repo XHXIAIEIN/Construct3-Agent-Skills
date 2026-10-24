@@ -1549,6 +1549,38 @@ def test_a_second_event_of_the_same_trigger_that_tests_what_the_first_changed_is
     assert_one_warning(out, "same trigger as an earlier event", said)
 
 
+def value_is(obj: str, n: int) -> dict:
+    return cond("compare-instance-variable", obj, {"instance-variable": "value", "comparison": 0, "value": str(n)})
+
+
+def set_value(obj: str, n: int) -> dict:
+    return {"id": "set-instvar-value", "objectClass": obj, "sid": 61,
+            "parameters": {"instance-variable": "value", "value": str(n)}}
+
+
+@pytest.mark.parametrize("second, said", [("Coin", UNDONE + "coin.value"), ("KeyBox", None)])
+def test_an_instance_variable_of_the_same_name_on_another_object_is_another_value(project, second, said):
+    """An instance variable is a value of its object type: the second event of the trigger is named when it
+    tests the variable of the object the first changed, and passes when it tests the same name on another
+    object type, as two buttons that each clear their own pressed on the touch's end do."""
+    def give_value(data):
+        if isinstance(data, dict):
+            if data.get("type") == "KeyBox" and isinstance(data.get("instanceVariables"), dict):
+                data["instanceVariables"]["value"] = 0
+            for v in data.values():
+                give_value(v)
+        elif isinstance(data, list):
+            for v in data:
+                give_value(v)
+    edit(project, "objectTypes/KeyBox.json", lambda t: t["instanceVariables"].append(
+        {"name": "value", "type": "number", "desc": "", "show": True, "sid": 62}))
+    for lay in (project / "layouts").glob("*.json"):
+        edit(project, f"layouts/{lay.name}", give_value)
+    out = findings(project, side_and_phase([block([TAPPED, value_is("Coin", 0)], [set_value("Coin", 1)]),
+                                            block([TAPPED, value_is(second, 1)], [set_value(second, 0)])]))
+    assert_one_warning(out, "same trigger as an earlier event", said)
+
+
 @pytest.mark.parametrize("ace_id, flipped", [("on-animation-finished", False), ("is-animation-playing", True)])
 def test_a_condition_without_a_schema_is_a_trigger_when_its_id_starts_with_on(project, ace_id, flipped):
     """A condition of an addon without a schema counts as a trigger when its id starts with on-, as Scirra's
