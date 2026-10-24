@@ -980,6 +980,74 @@ def test_template_controls_generate_a_project_the_checker_passes(project):
     assert {"TextBox", "DragnDrop", "TiledBg", "Tween"} <= {a["id"] for a in written["usedAddons"]}
 
 
+BUTTONS_GAME = '''
+
+BEATS = [beat("intro", 0), beat("teach", 1, ["tap"]), beat("practice", 1, ["tap"]), beat("rest", 0, holds="pickup"),
+         beat("climax", 2, ["tap"]), beat("exit", 0)]
+FIRST_LAYOUT = "Menu"
+
+
+def build_files() -> None:
+    pass
+
+
+def build_images() -> None:
+    pattern("Backdrop", "plain")
+    for name in ("play", "quit"):
+        shape(f"{name}-default-000.png", "rect", *button_size("Play"), "solid")
+
+
+def build_object_types() -> tuple[dict, dict, list]:
+    types = {"Backdrop": pattern_type("Backdrop"),
+             "Touch": single_global_type("Touch", "Touch", {"use-mouse-input": True})}
+    for name, label in (("Play", "PlayLabel"), ("Quit", "QuitLabel")):
+        rel = f"{name.lower()}-default-000.png"
+        types[name] = sprite_type(name, [animation("Default", [drawn(rel)])], behaviors=[beh_def("Tween")])
+        types[label] = text_type(label)
+    return types, {}, []
+
+
+def build_layouts() -> dict[str, dict]:
+    lay = layout("Menu", [layer("Background", transparent=False), layer("UI", parallax=0)], sheet="Menu")
+    lay["layers"][0]["instances"].append(backdrop("Backdrop"))
+    ui = lay["layers"][1]["instances"]
+    ui += button("Play", "play-default-000.png", "PlayLabel", "Play", 4, 5, behaviors=dict(TWEEN))
+    ui += button("Quit", "quit-default-000.png", "QuitLabel", "Quit", 4, 12, behaviors=dict(TWEEN))
+    no_overlap(ui)
+    return {"Menu": lay}
+
+
+def build_event_sheet() -> dict:
+    return {"name": "Menu", "events": [
+        comment("Menu. Two buttons, each pressed down under the finger and acting on release"),
+        var("plays", "number", 0, "How many times Play was pressed"),
+        module("Buttons", events=[*press("Play", [add_var("plays", "1")]), *press("Quit", [restart_layout()])]),
+    ], "sid": sid()}
+
+
+if __name__ == "__main__":
+    build_and_check()
+'''
+
+
+def test_template_buttons_pressed_by_press_generate_a_project_the_checker_passes(project):
+    """Two buttons that press() writes, each with its own touch end testing its own "pressed",
+    generate a project that the checker passes without a warning: Play's release clears Play's
+    variable, which Quit's release does not read."""
+    source = project / "tools" / "build_project.py"
+    text = source.read_text(encoding="utf-8")
+    end = text.index("\n", text.index("# ==== construct3-agent-plugin helpers: end")) + 1
+    source.write_text(text[:end] + BUTTONS_GAME, encoding="utf-8")
+    for folder in ("layouts", "eventSheets", "objectTypes"):          # the stand-in's files
+        shutil.rmtree(project / folder)
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
+    assert warnings(out) == [], out
+    sheet = json.loads((project / "eventSheets" / "Menu.json").read_text(encoding="utf-8"))
+    assert sum(c.get("id") == "on-any-touch-end" for ev in every_event(sheet["events"])
+               for c in ev.get("conditions") or []) == 2
+
+
 def test_template_draws_only_the_colours_of_its_palette(built, tmp_path):
     """Every pixel the generator draws that shows is a colour of PALETTE: a new object reuses the
     game's colours or names the role a new one plays, and the message says which role is nearest."""
