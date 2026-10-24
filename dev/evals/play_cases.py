@@ -206,6 +206,80 @@ def fix_load_errors() -> dict:
     ]}
 
 
+def fix_open_errors() -> dict:
+    """fix-load-errors' plan, with the spark: an instance that the collect creates, of a type other than Coin,
+    rises from the coin."""
+    plan = fix_load_errors()
+    at = next(n for n, s in enumerate(plan["steps"]) if "tap" in s)
+    plan["steps"][at:at + 1] = [
+        js("vars.base = new Set(vars.h.all().map(i => i.uid));",
+           "vars.watch.made = () => vars.h.all().filter(i => !vars.base.has(i.uid) && i.objectType.name !== 'Coin')",
+           "  .map(i => [i.uid, i.objectType.name, vars.h.round(i.y)]); return vars.base.size"),
+        plan["steps"][at],
+        check("The collect sends a spark up from the coin",
+              "await wait(0.5); const ys = {};",
+              "for (const e of h.since('made', vars.tapAt)) for (const [uid, type, y] of e.v) (ys[uid] = ys[uid] || {type, y: []}).y.push(y);",
+              "const rose = Object.values(ys).filter(s => s.y[0] - Math.min(...s.y) >= vars.w0 / 4);",
+              "return {ok: rose.length > 0, said: `made after the tap: ${Object.values(ys).map(s => `${s.type} y ${s.y[0]} to ${Math.min(...s.y)}`).join('; ') || 'nothing'}`};")]
+    return plan
+
+
+def fix_endless_pulse() -> dict:
+    """In round 2, the score fades out and back in once when a coin is collected and then holds still; once the
+    last coin is gone it pulses until the next round starts."""
+    return {"touch": True, "steps": [
+        *COINS, js("vars.watch.op = () => vars.h.round(vars.h.first('ScoreText').opacity, 100); return true"),
+        tap(), *next_round(), tap(),
+        check("A collected coin fades the score out and back in",
+              "await wait(0.8); const seen = h.since('op', vars.tapAt).map(e => e.v);",
+              "return {ok: Math.min(...seen) < 0.8, said: `opacity after the collect: ${seen.slice(0, 12).join(', ') || 'no change'}`};"),
+        check("Then the score holds still at full opacity",
+              "await wait(Math.max(0, vars.tapAt + 1.2 - h.now())); const t = h.now(); await wait(1);",
+              "const ch = h.changes('op', t), now = h.at('op', h.now());",
+              "return {ok: !ch.length && now >= 0.99, said: `opacity ${now}; ${ch.length} change(s) in 1 s from ${(t - vars.tapAt).toFixed(1)} s after the collect`};"),
+        *collect(),
+        check("While the next round waits after the last coin, the score keeps pulsing",
+              "const end = vars.endAt[vars.endAt.length - 1], seen = h.since('op', end - 0.95).filter(e => e.at < end).map(e => e.v);",
+              "let dips = 0, high = (h.at('op', end - 0.95) ?? 1) >= 0.7;",
+              "for (const v of seen) { if (high && v < 0.7) dips++; high = v >= 0.7; }",
+              "return {ok: dips >= 2, said: `${dips} dip(s) below 0.7 in the last 0.95 s before the restart: ${seen.slice(0, 16).join(', ')}`};"),
+    ]}
+
+
+# A button found by the text on it: the middle of the UI Text that matches, where a tap lands on its shape too.
+BUTTON = r"""vars.h.button = re => { const t = vars.h.ui().find(i => vars.h.isText(i) && re.test(i.text));
+  if (!t) return null; const b = vars.h.box(t); return {x: (b.l + b.r) / 2, y: (b.t + b.b) / 2, layer: t.layer.name}; };
+vars.watch.round = () => vars.h.text('RoundTag'); return true"""
+SKIP, RESTART = r"/\bskip\b|\bnext\b/i", r"/restart|again|retry|reset/i"
+# Waits up to 3 s for the layout to start again, then 0.8 s for its coins.
+RESTARTED = ("for (let n = 0; n < 30 && vars.starts === vars.before; n++) await wait(0.1);",
+             "if (vars.starts === vars.before) return {ok: false, said: 'the layout did not start again within 3 s'};",
+             "await wait(0.8);")
+
+
+def two_buttons() -> dict:
+    """Skip in round 1 starts round 2; a coin collected there, Restart starts round 2 again with the score at 0."""
+    def press(pattern: str) -> list[dict]:
+        return [js("vars.before = vars.starts; vars.round0 = vars.h.text('RoundTag');",
+                   "vars.score0 = vars.h.lastNumber(vars.h.text('ScoreText')); return vars.round0"),
+                {"tap": {"js": f"vars.h.button({pattern}) || {{x: 4, y: 4, layer: 'UI'}}"}}]
+    return {"touch": True, "steps": [
+        *COINS, js(BUTTON),
+        check("A Skip button and a Restart button show",
+              f"const skip = h.button({SKIP}), restart = h.button({RESTART});",
+              "return {ok: !!skip && !!restart, said: `UI texts: ${JSON.stringify(h.ui().filter(h.isText).map(i => i.text))}`};"),
+        *press(SKIP),
+        check("Skip starts the next round",
+              *RESTARTED, "const now = h.text('RoundTag');",
+              "return {ok: now !== vars.round0 && h.count('Coin') === 3, said: `round ${JSON.stringify(vars.round0)}, then ${JSON.stringify(now)} with ${h.count('Coin')} coin(s)`};"),
+        tap(), {"wait": 0.8}, *press(RESTART),
+        check("Restart starts the same round over with the score at 0",
+              *RESTARTED, "const now = h.text('RoundTag'), score = h.lastNumber(h.text('ScoreText'));",
+              "return {ok: vars.score0 > 0 && now === vars.round0 && h.count('Coin') === 3 && score === 0, "
+              "said: `score ${vars.score0} in ${JSON.stringify(vars.round0)}, then ${score} in ${JSON.stringify(now)} with ${h.count('Coin')} coin(s)`};"),
+    ]}
+
+
 def countdown_between_rounds() -> dict:
     return {"touch": True, "steps": [
         *COINS,
@@ -720,6 +794,8 @@ PLANS: dict[str, Callable[[], dict]] = {
     "key-opens-door": key_opens_door,
     "lay-out-the-hud-portrait": lambda: lay_out_the_hud(PORTRAIT_VIEW), "lives-as-hearts-pixel": lives_as_hearts,
     "hud-over-a-scrolling-level": hud_over_a_scrolling_level,
+    "fix-open-errors-past-the-message": fix_open_errors, "fix-endless-pulse": fix_endless_pulse,
+    "two-buttons-in-the-generator": two_buttons,
 }
 
 
