@@ -17,12 +17,14 @@ It runs them in order and stops at the first that finds something, asks
 something or cannot run, and its last line says what to do next. A step that
 opens the editor is run again only when a file of the project changed since
 it passed: the record, .tmp/verify-change.json, keeps each step's outcome with
-a digest of every file of the project outside its dot folders. The checker
-and the design review always run, because they take seconds.
+a digest of every file of the project outside its dot folders and
+tools/plans/. The play step also runs again when a kept plan changed. The
+checker and the design review always run, because they take seconds.
 
 A question is answered for the files it was asked about: answer the questions
 it printed, then run it with --answered, which records them as answered. A
-change to the project asks them again, as it reruns the checks. --status runs nothing and
+change to the project asks them again, as it reruns the checks; keeping a plan
+does not. --status runs nothing and
 prints each step's outcome on the files as they are now. The steps run with
 CONSTRUCT3_RAG set to the clone and CONSTRUCT3_RAG_IN_VERIFY=1, under which
 the checker's ok: line names no next step.
@@ -73,15 +75,26 @@ exit codes: 0 passed, or --status; 1 findings or questions; 2 the project, the c
 used; 3 a step did not run; 5 another run holds the browser profile"""
 
 
-def files_digest(root: Path) -> str:
-    """Every file of the project outside its dot folders (.tmp, .git, the skill's copy): what the steps read,
-    images and scripts included, which the checker's own digest leaves out."""
+def digest(files) -> str:
     h = hashlib.sha256()
-    for f in sorted(root.rglob("*")):
-        rel = f.relative_to(root)
-        if f.is_file() and not any(part.startswith(".") for part in rel.parts) and "__pycache__" not in rel.parts:
-            h.update(rel.as_posix().encode("utf-8") + b"\0" + f.read_bytes())
+    for f, rel in files:
+        h.update(rel.as_posix().encode("utf-8") + b"\0" + f.read_bytes())
     return h.hexdigest()[:16]
+
+
+def files_digest(root: Path) -> str:
+    """Every file of the project outside its dot folders (.tmp, .git, the skill's copy) and its kept plans: what
+    the steps read, images and scripts included, which the checker's own digest leaves out."""
+    # A kept plan changes nothing the game runs, and the play step asks for one in the run that asks the design and
+    # look questions: a plan in this digest would void every answer recorded before it
+    return digest((f, rel) for f in sorted(root.rglob("*")) for rel in [f.relative_to(root)]
+                  if f.is_file() and not any(part.startswith(".") for part in rel.parts)
+                  and "__pycache__" not in rel.parts and not rel.is_relative_to(PLANS))
+
+
+def plans_digest(root: Path) -> str:
+    """The kept plans, which the play step plays."""
+    return digest((f, f.relative_to(root)) for f in sorted((root / PLANS).rglob("*")) if f.is_file())
 
 
 def last_line(out: str) -> str:
@@ -118,7 +131,7 @@ class Run:
             assert isinstance(self.record.get("steps"), dict)
         except (OSError, ValueError, AssertionError, AttributeError):
             self.record = {"steps": {}, "pending": [], "answered": []}
-        self.digest = files_digest(self.root)
+        self.digest, self.plans = files_digest(self.root), plans_digest(self.root)
         self.env = dict(os.environ, CONSTRUCT3_RAG=str(project.rag), **{c3.IN_VERIFY: "1"},
                         PYTHONIOENCODING="utf-8")
         self.style = args.style or (self.root / c3.GENERATOR).is_file()
@@ -142,11 +155,16 @@ class Run:
         return ["--browser", self.args.browser] if self.args.browser else []
 
     def keep(self, step: str, state: str, line: str, code: int | None = None) -> None:
-        self.record["steps"][step] = {"state": state, "digest": self.digest, "exit": code, "line": line[:400]}
+        self.record["steps"][step] = {"state": state, "digest": self.digest, "plans": self.plans, "exit": code,
+                                      "line": line[:400]}
+
+    def on_these_files(self, step: str, kept: dict) -> bool:
+        """Whether a kept outcome is of the files as they are now, the play step's of the kept plans too."""
+        return kept.get("digest") == self.digest and (step != "played" or kept.get("plans") == self.plans)
 
     def passed_here(self, step: str) -> bool:
         kept = self.record["steps"].get(step) or {}
-        return kept.get("state") == "passed" and kept.get("digest") == self.digest
+        return kept.get("state") == "passed" and self.on_these_files(step, kept)
 
     def key(self, step: str, question: str) -> str:
         return f"{step}: {question} @{self.digest}"
@@ -349,7 +367,7 @@ def status(run: Run) -> int:
         if not kept:
             show(step, "not run", "no run recorded")
             continue
-        here = "on these files" if kept.get("digest") == run.digest else "on files changed since"
+        here = "on these files" if run.on_these_files(step, kept) else "on files changed since"
         show(step, kept["state"], f"{here}; {kept.get('line', '')}")
     done = [s for s in STEPS if run.passed_here(s)]
     no_play = (run.record["steps"].get("played") or {}).get("state") == "not run"

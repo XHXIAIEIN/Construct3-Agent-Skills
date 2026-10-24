@@ -86,7 +86,7 @@ def drive(project: Path, monkeypatch: pytest.MonkeyPatch, editor: Editor, *args:
 def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: Path,
                                                                        monkeypatch: pytest.MonkeyPatch) -> None:
     """Without a kept plan the play does not run and does not stop the run; the ok: line names it as not run. A
-    second run runs the file steps again and not the editor's."""
+    second run runs the file steps again and not the editor's. A kept plan runs the play alone."""
     editor = Editor()
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and steps(out) == {"checked": "passed", "reviewed": "passed", "opened": "passed",
@@ -99,8 +99,12 @@ def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: 
     (project / "tools" / "plans").mkdir()
     (project / "tools" / "plans" / "collect.json").write_text("{}", encoding="utf-8")
     code, out = drive(project, monkeypatch, editor)
-    assert code == 0 and steps(out)["played"] == "passed" and editor.runs["open_in_editor.py"] == 2, out
+    assert code == 0 and steps(out)["played"] == "passed" and editor.runs["preview_project.py"] == 1, out
+    assert editor.runs["open_in_editor.py"] == 1 and editor.runs["review_look.py"] == 1, editor.runs
     assert "not run" not in out.splitlines()[-1]
+    (project / "tools" / "plans" / "collect.json").write_text('{"steps": []}', encoding="utf-8")
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 0 and editor.runs["preview_project.py"] == 2 and editor.runs["open_in_editor.py"] == 1, editor.runs
 
 
 def test_no_browser_hands_over_the_last_step_that_passed(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -132,6 +136,20 @@ def test_look_questions_wait_for_answered(project: Path, monkeypatch: pytest.Mon
     assert code == 0 and steps(out)["looked"] == "passed", out
     record = json.loads((project / ".tmp" / verify_change.RECORD).read_text(encoding="utf-8"))
     assert record["steps"]["looked"]["state"] == "passed" and record["pending"] == []
+
+
+def test_a_plan_kept_after_the_questions_keeps_their_answers(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The run that asks the look questions also asks for a kept plan. Keeping it changes no file the game runs, so
+    --answered records the answers on the same files, and the play step runs the plan."""
+    editor = Editor(**{"review_look.py": (0, "questions: answer every question yes or no for each screenshot\n"
+                                             "  1. Is any text cut off?\nlook: 0 findings on 2 layouts, 0 runtime "
+                                             "errors\nnext: hand the brief to a reviewer.")})
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 1 and steps(out)["played"] == "not run" and steps(out)["looked"] == "asked", out
+    (project / "tools" / "plans").mkdir()
+    (project / "tools" / "plans" / "collect.json").write_text("{}", encoding="utf-8")
+    code, out = drive(project, monkeypatch, editor, "--answered")
+    assert code == 0 and steps(out)["played"] == "passed" and steps(out)["looked"] == "passed", out
 
 
 def test_trace_counts_a_verify_change_run_as_the_steps_it_printed() -> None:
