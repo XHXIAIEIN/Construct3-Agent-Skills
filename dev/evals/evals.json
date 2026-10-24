@@ -476,6 +476,49 @@
         "Every box on the UI layer lies inside the viewport, and no two overlap but a box inside one that is not a label",
         "tools/build_project.py is the source: rerun in a copy, it writes the same layouts/Game.json"
       ]
+    },
+    {
+      "id": 31,
+      "name": "fix-open-errors-past-the-message",
+      "fixture": "coins-name-collision",
+      "prompt": "my coins game won't open in construct 3 anymore. it says \"Failed to open project\" and the console says \"Error: object class sid already in use\". folder: <project> . i had another AI add a little spark that flies up off each coin when you grab it, and i think it messed up more than one thing, so there could be more than one problem. can you get it to open again? keep the spark, and the coins should still score and shrink away.",
+      "expected_output": "Both mistakes of the spark repaired, not only the one the editor named: Spark, a Sprite copied from Coin's JSON that only Collect creates and no layout holds, gets a sid of its own, and its instance variable z is renamed with every use of it, because every Sprite has the expression Z and the editor refuses the name next. The spark still rises by its variable, the collect still scores, and the checker passes.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the edited project",
+        "Every object type has a sid of its own",
+        "No instance variable of the spark's type is named like an expression its plugin gives it, the shared Z among them",
+        "The spark still rises by its own variable: Collect creates it, and the tween that lifts it reads an instance variable of the spark",
+        "Every event of the game is still in it, by sid"
+      ]
+    },
+    {
+      "id": 32,
+      "name": "fix-endless-pulse",
+      "fixture": "coins-loop-flag",
+      "prompt": "in my coins game the score is supposed to blink once every time you grab a coin, and only keep blinking at the end of a round while it waits for the next one. but after the first coin it just keeps blinking nonstop. can you fix it? the project folder is <project> , the events are in eventSheets/Game.json",
+      "expected_output": "AddScore calls Pulse with the text \"0\" at its boolean parameter looping, which reaches the function as true, so the pulse loops from the first coin. The call passes the JSON false, as the round's end passes the JSON true: a collected coin pulses the score once, and the score pulses on while the next round waits. The checker passes.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the edited project",
+        "Every call of a function or custom action passes the JSON true or false at a boolean parameter",
+        "No call made when a coin is collected passes anything but false at a boolean parameter",
+        "Every event of the game is still in it, by sid, the seeded pulse aside"
+      ]
+    },
+    {
+      "id": 33,
+      "name": "two-buttons-in-the-generator",
+      "fixture": "coins-generator",
+      "prompt": "my coins game is built by tools/build_project.py, folder is <project> . i want two buttons in a corner: Restart, which starts the round you're on over, and Skip, which jumps straight to the next round. use the button stuff that's already in the generator (button() and press()) and rerun it. please don't edit the json files by hand, everything should come out of the generator.",
+      "expected_output": "tools/build_project.py extended and rerun: two buttons drawn with shape() at button_size(), placed with button() on the UI layer, and pressed through press(), so each has its own On touched and its own On any touch end that tests its own pressed. Restart restarts the layout on the same round, Skip moves beat on by one first. The checker passes without a warning: the two touch ends test two variables, one on each button type, and the generator is the source.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the regenerated project",
+        "check_project.py prints no warning",
+        "Both buttons are pressed through press(): two object types the fixture lacks each have an On touched event and an On any touch end event that tests a boolean instance variable of that type",
+        "tools/build_project.py is the source: rerun in a copy, it writes the same layouts/Game.json"
+      ]
     }
   ]
 }
