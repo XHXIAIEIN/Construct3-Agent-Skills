@@ -281,6 +281,15 @@ these rules:
   `--style` and in what `edit_sheet.py` adds, never an error. Its threshold
   comes from a measurement over the official examples, recorded with the
   finding.
+- `check_project.py` holds the `Checker` class, the order of its checks, the
+  report and the fix loop. The checks themselves are in its parts:
+  `checker_files.py` (`project.c3proj`, names, images, layouts, files and
+  addons), `checker_expressions.py` (expressions, parameters, conditions and
+  actions), `checker_events.py` (the names in scope and the runtime traps of
+  one event) and `checker_sheets.py` (the walk, the style warnings and the
+  checks over whole sheets), with the tables and helpers they share in
+  `checker_common.py`. Put a new rule in the part of its kind, and split a
+  part that nears the 256 KiB limit of a plugin file.
 
 ### Guidance for small models
 

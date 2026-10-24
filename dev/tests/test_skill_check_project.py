@@ -1846,7 +1846,7 @@ def test_missing_key_stops_with_a_sentence(project):
     def change(s):
         del events(s)["add_score"]["functionParameters"]
     out = findings(project, change)
-    assert "check_project.py stopped at check_project.py line" in out
+    assert re.search(r"^check_project\.py stopped at check(?:_project|er_\w+)\.py line ", out, re.M), out
     assert "missing key 'functionParameters'" in out
     assert "A project file lacks a key the editor always writes" in out and "not a finding" not in out
 

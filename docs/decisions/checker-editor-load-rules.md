@@ -124,7 +124,7 @@ Option 2 as the default, and option 3 as the step after it.
   that leaves out *Character set*, *Character width* and *Character height*
   opens and previews; asked for the instance's values on 2026-10-03, the
   r495.2 editor answered its default set (the letters, the digits and the
-  punctuation `SPRITE_FONT_DEFAULTS` in `check_project.py` holds), cells of
+  punctuation `SPRITE_FONT_DEFAULTS` in `checker_common.py` holds), cells of
   16 by 16 and *Enable BBCode* off. The checker reads the
   text against those values and warns that the properties are missing,
   since they fit the editor's own font image and a drawn one is mapped cell

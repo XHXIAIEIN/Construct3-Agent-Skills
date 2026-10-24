@@ -311,7 +311,7 @@ is two lines of the style prompt).
   such as the side that starts the next round. Narrow it to an *Else* with
   *Trigger once*, the form the seeded case produces.
 - The official examples change: rerun the survey scripts; the thresholds
-  are the `STYLE_` constants of `check_project.py`.
+  are the `STYLE_` constants of `checker_common.py`.
 - A game needs real art at generation time: design a generator that writes
   frames from a CC0 archive into `images/`, with the tile size as the unit.
 - Construct changes the picking model, `Else`, or family picking: re-read
