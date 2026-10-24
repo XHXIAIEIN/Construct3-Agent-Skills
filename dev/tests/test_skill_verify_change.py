@@ -124,32 +124,63 @@ def test_a_preview_error_stops_after_the_project_opened(project: Path, monkeypat
     assert out.splitlines()[-1].startswith("next: fix what open_in_editor.py names above, as its next: line says")
 
 
-def test_look_questions_wait_for_answered(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    editor = Editor(**{"review_look.py": (0, "questions: answer every question yes or no for each screenshot\n"
-                                             "  1. Is any text cut off?\nlook: 0 findings on 2 layouts, 0 runtime "
-                                             "errors\nnext: hand the brief to a reviewer.")})
+ASKS = (0, "questions: answer every question yes or no for each screenshot\n  1. Is any text cut off?\n"
+           "look: 0 findings on 2 layouts, 0 runtime errors\nnext: hand the brief to a reviewer.")
+
+
+class Look(Editor):
+    """An editor whose review_look.py asks its questions and writes a result named for the run, as the script
+    does in the project's .tmp/."""
+
+    def __init__(self, project: Path) -> None:
+        super().__init__(**{"review_look.py": ASKS})
+        self.result = project / ".tmp" / "review-look.json"
+
+    def __call__(self, name: str, *extra: str) -> tuple[int, str]:
+        if name == "review_look.py":
+            self.result.write_text(json.dumps({"run": f"r{self.runs.get(name, 0) + 1}"}), encoding="utf-8")
+        return super().__call__(name, *extra)
+
+    def replied(self, **verdict) -> None:
+        """--reply checked a reply against the brief of the last run."""
+        result = json.loads(self.result.read_text(encoding="utf-8"))
+        self.result.write_text(json.dumps({**result, "reply": {"file": "reply.md", **verdict}}), encoding="utf-8")
+
+
+def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--answered records the design questions; the look questions wait for a reply that review_look.py --reply
+    checked against the brief of the run that asked them, and that reply passes the step without a new review."""
+    editor = Look(project)
     code, out = drive(project, monkeypatch, editor)
     assert code == 1 and steps(out)["looked"] == "asked", out
-    assert out.splitlines()[-1].startswith("next: hand the brief to a reviewer; then run") and \
-        out.splitlines()[-1].endswith(" --answered"), out.splitlines()[-1]
+    last = out.splitlines()[-1]
+    assert last.startswith("next: hand the brief to a reviewer; then run python ") and "verify_change.py" in last \
+        and "--answered" not in last, last
     code, out = drive(project, monkeypatch, editor, "--answered")
-    assert code == 0 and steps(out)["looked"] == "passed", out
+    assert code == 1 and steps(out)["looked"] == "asked" and editor.runs["review_look.py"] == 2, out
+    editor.replied(complete=False, yes=0)
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 1 and steps(out)["looked"] == "asked" and editor.runs["review_look.py"] == 3, out
+    editor.replied(complete=True, yes=1)
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 3, out
+    assert "looked    passed: look: reply.md answers every question; name its 1 yes in the hand-over" in out
     record = json.loads((project / ".tmp" / verify_change.RECORD).read_text(encoding="utf-8"))
-    assert record["steps"]["looked"]["state"] == "passed" and record["pending"] == []
+    assert record["steps"]["looked"]["state"] == "passed"
 
 
-def test_a_plan_kept_after_the_questions_keeps_their_answers(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_plan_kept_after_the_look_questions_keeps_the_reply(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The run that asks the look questions also asks for a kept plan. Keeping it changes no file the game runs, so
-    --answered records the answers on the same files, and the play step runs the plan."""
-    editor = Editor(**{"review_look.py": (0, "questions: answer every question yes or no for each screenshot\n"
-                                             "  1. Is any text cut off?\nlook: 0 findings on 2 layouts, 0 runtime "
-                                             "errors\nnext: hand the brief to a reviewer.")})
+    a reply to that run's brief still passes the step, and the play step runs the plan."""
+    editor = Look(project)
     code, out = drive(project, monkeypatch, editor)
     assert code == 1 and steps(out)["played"] == "not run" and steps(out)["looked"] == "asked", out
     (project / "tools" / "plans").mkdir()
     (project / "tools" / "plans" / "collect.json").write_text("{}", encoding="utf-8")
-    code, out = drive(project, monkeypatch, editor, "--answered")
+    editor.replied(complete=True, yes=0)
+    code, out = drive(project, monkeypatch, editor)
     assert code == 0 and steps(out)["played"] == "passed" and steps(out)["looked"] == "passed", out
+    assert editor.runs["review_look.py"] == 1 and "looked    passed: look: reply.md answers every question no" in out
 
 
 def test_trace_counts_a_verify_change_run_as_the_steps_it_printed() -> None:

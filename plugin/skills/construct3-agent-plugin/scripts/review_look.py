@@ -77,6 +77,7 @@ import json
 import re
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import c3project as c3
@@ -616,8 +617,8 @@ def questions(several: bool, places: list[str] = ()) -> list[str]:
 def ask(several: bool, places: list[str] = ()) -> list[str]:
     """The questions, put to the agent about every screenshot."""
     lines = ["questions: answer every question yes or no for each screenshot above, through the brief as the last "
-             "line says, or with your image tool, one screenshot at a time. For each yes, name the layout, the object "
-             "type to change and what to change:"]
+             "line says, or with your image tool, one screenshot at a time, and check the answers with --reply as "
+             "that line says. For each yes, name the layout, the object type to change and what to change:"]
     return lines + [f"  {n}. {q}" for n, q in enumerate(questions(several, places), 1)]
 
 
@@ -683,22 +684,20 @@ def spans(numbers: list[int]) -> str:
 DONE = "next: every question is answered no; the look review is done"
 
 
-def done_line(root: Path) -> str:
-    """The next: line of a reply that answers every question no. When verify_change.py asked the questions, its
-    look step stays asked until --answered records the answers."""
+def verify_command(root: Path) -> str | None:
+    """verify_change.py for the project when its look step waits for these answers, else None."""
     try:
         record = json.loads((root / ".tmp" / c3.VERIFY_RECORD).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return DONE
+        return None
     if ((record.get("steps") or {}).get("looked") or {}).get("state") != "asked":
-        return DONE
-    return (f"next: every question is answered no; run {c3.script_command(root, 'verify_change.py', ' --answered')}, "
-            f"which records the answers for the check chain")
+        return None
+    return c3.script_command(root, "verify_change.py")
 
 
-def check_reply(result: dict, reply: str, where: str, done: str) -> tuple[list[str], int]:
-    """A reviewer's reply against the brief of the result: what it lacks, then every yes to fix; done is the last
-    line when every answer is no."""
+def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tuple[list[str], int, dict]:
+    """A reviewer's reply against the brief of the result: what it lacks, then every yes to fix, and the verdict
+    that verify_change.py passes its look step on; verify is the command that goes on with the check chain."""
     layouts = (result.get("preview") or {}).get("layouts", [])
     names = [d["layout"] for d in layouts if shows_something(d)]
     asked = len(questions(len(layouts) > 1, result.get("places", [])))
@@ -723,10 +722,14 @@ def check_reply(result: dict, reply: str, where: str, done: str) -> tuple[list[s
                      "where each yes is; then check its reply again")
     elif yeses:
         lines.append("next: fix each yes: name the layout and the object type at the place it describes, change it, "
-                     "then run review_look.py again and have its new brief answered")
+                     "then run review_look.py again and have its new brief answered"
+                     + (f"; name a yes about what your change did not touch in the hand-over, then run {verify}, "
+                        f"which passes its look step on this reply" if verify else ""))
+    elif verify:
+        lines.append(f"next: every question is answered no; run {verify}, which passes its look step on this reply")
     else:
-        lines.append(done)
-    return lines, 1 if lost or yeses else 0
+        lines.append(DONE)
+    return lines, 1 if lost or yeses else 0, {"complete": not lost and not unsaid, "yes": len(yeses)}
 
 
 def report(result: dict) -> list[str]:
@@ -792,7 +795,11 @@ def reply_main(reply: Path, out: Path, limit: int, root: Path) -> int:
         print(f"no run with a brief in {out}: run review_look.py first, have its brief.md answered, then check the "
               f"reply", file=sys.stderr)
         return 2
-    lines, code = check_reply(result, reply.read_text(encoding="utf-8"), str(reply), done_line(root))
+    lines, code, verdict = check_reply(result, reply.read_text(encoding="utf-8"), str(reply), verify_command(root))
+    # The verdict goes on the run whose brief the reply answers: verify_change.py passes its look step on it, and
+    # the next run of the review writes a result without it
+    result["reply"] = {"file": str(reply), **verdict}
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     shown, _ = oe.print_part(lines, limit, 0)
     if shown < len(lines):
         print(f"{len(lines) - shown} lines not printed: --limit 0 prints them")
@@ -868,6 +875,8 @@ def main() -> int:
             result = oe.open_one(browser, editor, project, browser.profile / "project-look.c3p", None,
                                  bool(args.release), review(args.layouts, args.settle, view, shots))
             result["places"] = unmeasured(project, args.design)
+            # Names this run, so that a reply checked against its brief is not taken for one of a later run
+            result["run"] = uuid.uuid4().hex[:12]
             if any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
                 result["brief"] = str(shots / "brief.md")
                 (shots / "brief.md").write_text(brief(result), encoding="utf-8")
@@ -902,7 +911,8 @@ def main() -> int:
               f"to {'reply.md beside the brief' if len(briefs) > 1 else reply} and run review_look.py --reply "
               f"{reply}, which prints each yes to fix and any answer it left out. Tell it nothing more about the "
               f"game: it has not seen the project, so it judges the pictures as a player does. Otherwise open each "
-              f"screenshot and answer the questions yourself.")
+              f"screenshot, answer the questions yourself in the form the brief gives, save the answers to the same "
+              f"file and run review_look.py --reply on it.")
     return 1 if found or errors else 0
 
 

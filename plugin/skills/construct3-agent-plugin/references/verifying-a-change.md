@@ -175,8 +175,11 @@ skipped a question is not taken for a pass, and it prints every yes. For
 each yes, name the layout and the object type at the place it describes.
 Otherwise open each screenshot with the
 image tool, answer each question from the picture, and name the same for
-each yes. A question answered from memory of the events, not from the
-picture, is not answered.
+each yes. Save these answers to `.tmp/look/reply.md` in the form the brief
+gives and check them with `--reply` as well, because `verify_change.py`
+passes its look step only on a reply that `--reply` checked: one that
+answers every question, each yes saying where. A question answered from
+memory of the events, not from the picture, is not answered.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up
 before it, and one whose start events leave at once is printed as left for

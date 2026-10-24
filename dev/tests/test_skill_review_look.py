@@ -195,8 +195,8 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
                       + ["Map 2: yes - top left: the score covers the timer"]
                       + [f"- Big map Q{q}. no" for q in range(1, asked)]          # Big map 7 left out
                       + ["Big map 5: yes", "Shop 1: no", "Map 99: no", "I looked at every screenshot."])
-    lines, code = rl.check_reply(REVIEWED, reply, "reply.md", rl.DONE)
-    assert code == 1
+    lines, code, verdict = rl.check_reply(REVIEWED, reply, "reply.md", None)
+    assert code == 1 and verdict == {"complete": False, "yes": 2}
     assert lines == [
         f"reply: reply.md, against the brief of 2 screenshots and {asked} questions: {2 * asked} answers asked",
         "  missing: Map 3, 4; Big map 7",
@@ -209,11 +209,19 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
         "next: give the reviewer the same brief again and have it answer the missing questions and say where each "
         "yes is; then check its reply again"]
     every_no = "\n".join(f"{shot} {q}: no" for shot in ("Map", "Big map") for q in range(1, asked + 1))
-    lines, code = rl.check_reply(REVIEWED, every_no, "reply.md", rl.DONE)
-    assert code == 0 and lines[-1] == "next: every question is answered no; the look review is done"
-    lines, code = rl.check_reply(REVIEWED, every_no.replace("Map 2: no", "Map 2: yes - the coin: a grey box"), "r",
-                                 rl.DONE)
-    assert code == 1 and "  yes: Map 2 - the coin: a grey box" in lines and lines[-1].startswith("next: fix each yes")
+    lines, code, verdict = rl.check_reply(REVIEWED, every_no, "reply.md", None)
+    assert code == 0 and verdict == {"complete": True, "yes": 0} and lines[-1] == rl.DONE
+    one_yes = every_no.replace("Map 2: no", "Map 2: yes - the coin: a grey box")
+    lines, code, verdict = rl.check_reply(REVIEWED, one_yes, "r", None)
+    assert code == 1 and verdict == {"complete": True, "yes": 1} and "  yes: Map 2 - the coin: a grey box" in lines
+    assert lines[-1] == ("next: fix each yes: name the layout and the object type at the place it describes, change "
+                         "it, then run review_look.py again and have its new brief answered")
+    # While verify_change.py waits for the answers, the last line goes on with it
+    lines, _, _ = rl.check_reply(REVIEWED, every_no, "reply.md", "python v.py")
+    assert lines[-1] == "next: every question is answered no; run python v.py, which passes its look step on this reply"
+    lines, _, _ = rl.check_reply(REVIEWED, one_yes, "r", "python v.py")
+    assert lines[-1].endswith("; name a yes about what your change did not touch in the hand-over, then run python "
+                              "v.py, which passes its look step on this reply"), lines[-1]
 
 
 def test_review_look_checks_a_saved_reply_without_a_browser(project):
@@ -228,16 +236,19 @@ def test_review_look_checks_a_saved_reply_without_a_browser(project):
     assert code == 1 and "  missing: Map 2-" in out and out.rstrip().splitlines()[-2].startswith("answers: 1 of "), out
 
 
-def test_a_reply_that_answers_every_question_no_names_the_run_that_records_it(project):
-    """verify_change.py keeps its look step asked until --answered records the answers, so a reply to the
-    questions it asked ends with that run; a review run on its own ends with the review done."""
+def test_a_checked_reply_is_kept_on_the_run_it_answers(project):
+    """--reply writes its verdict into the result of the run whose brief it answers, where verify_change.py passes
+    its look step on it; while that step waits, the last line names verify_change.py, and a review run on its own
+    ends with the review done."""
     (project / ".tmp").mkdir(exist_ok=True)
-    (project / ".tmp" / "review-look.json").write_text(json.dumps(REVIEWED), encoding="utf-8")
+    (project / ".tmp" / "review-look.json").write_text(json.dumps({**REVIEWED, "run": "r1"}), encoding="utf-8")
     asked = len(rl.questions(True, []))
     (project / "reply.md").write_text("\n".join(f"{shot} {q}: no" for shot in ("Map", "Big map")
                                                 for q in range(1, asked + 1)), encoding="utf-8")
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
     assert code == 0 and out.rstrip().splitlines()[-1] == rl.DONE, out
+    result = json.loads((project / ".tmp" / "review-look.json").read_text(encoding="utf-8"))
+    assert result["run"] == "r1" and result["reply"] == {"file": "reply.md", "complete": True, "yes": 0}, result
     record = project / ".tmp" / "verify-change.json"
     record.write_text(json.dumps({"steps": {"looked": {"state": "passed"}}}), encoding="utf-8")
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
@@ -246,7 +257,7 @@ def test_a_reply_that_answers_every_question_no_names_the_run_that_records_it(pr
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
     last = out.rstrip().splitlines()[-1]
     assert code == 0 and last.startswith("next: every question is answered no; run python "), out
-    assert "verify_change.py --answered, which records the answers for the check chain" in last, out
+    assert last.endswith("verify_change.py, which passes its look step on this reply"), out
 
 
 def test_review_look_prints_its_help_and_needs_a_project(tmp_path, project):

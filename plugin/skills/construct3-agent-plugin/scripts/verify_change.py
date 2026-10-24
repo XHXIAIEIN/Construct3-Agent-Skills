@@ -21,10 +21,12 @@ a digest of every file of the project outside its dot folders and
 tools/plans/. The play step also runs again when a kept plan changed. The
 checker and the design review always run, because they take seconds.
 
-A question is answered for the files it was asked about: answer the questions
-it printed, then run it with --answered, which records them as answered. A
-change to the project asks them again, as it reruns the checks; keeping a plan
-does not. --status runs nothing and
+A question is answered for the files it was asked about. Answer the design
+questions it printed, then run it with --answered, which records them. The look
+questions pass on a reply that review_look.py --reply checked against the brief
+of the run that asked them: one that answers every question, each yes saying
+where. A change to the project asks them again, as it reruns the checks;
+keeping a plan does not. --status runs nothing and
 prints each step's outcome on the files as they are now. The steps run with
 CONSTRUCT3_RAG set to the clone and CONSTRUCT3_RAG_IN_VERIFY=1, under which
 the checker's ok: line names no next step.
@@ -50,6 +52,7 @@ STEPS = ("checked", "reviewed", "opened", "previewed", "played", "looked")
 EDITOR_STEPS = ("opened", "previewed", "played", "looked")      # rerun only when the files changed
 RECORD = c3.VERIFY_RECORD
 PLANS = Path("tools") / "plans"
+LOOK_RESULT = Path(".tmp") / "review-look.json"         # where review_look.py writes its result by default
 DESIGN = Path("tools") / "design.json"
 QUESTION = re.compile(r"^\s+\d+\.\s+(.*\S)")
 SCRIPT_OF = {"checked": "check_project.py", "reviewed": "review_design.py", "opened": "open_in_editor.py",
@@ -313,9 +316,30 @@ def played(run: Run) -> tuple[int, str] | None:
     return None
 
 
+def look_result(run: Run) -> dict:
+    """The result of the last run of review_look.py on the project, with the verdict of the reply checked
+    against its brief; {} without one."""
+    try:
+        result = json.loads((run.root / LOOK_RESULT).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return result if isinstance(result, dict) else {}
+
+
 def looked(run: Run) -> tuple[int, str] | None:
     if run.passed_here("looked"):
         show("looked", "passed", "on these files, earlier")
+        return None
+    # The look questions pass on a reply that review_look.py --reply checked against the brief of the run that
+    # asked them, on the same files; --answered records the design questions alone
+    kept, result = run.record["steps"].get("looked") or {}, look_result(run)
+    reply = result.get("reply") or {}
+    if kept.get("state") == "asked" and run.on_these_files("looked", kept) and kept.get("run") \
+            and result.get("run") == kept["run"] and reply.get("complete"):
+        line = (f"look: {reply['file']} answers every question" + (
+            f"; name its {reply['yes']} yes in the hand-over" if reply.get("yes") else " no"))
+        run.keep("looked", "passed", line, 0)
+        show("looked", "passed", line)
         return None
     code, out = run.script("review_look.py", *run.browser())
     if code in (2, 3, 5):
@@ -323,18 +347,17 @@ def looked(run: Run) -> tuple[int, str] | None:
     told = next((line for line in out.splitlines() if line.startswith("next:")), "")
     shown = without_next(out)
     summary = next((line for line in shown.splitlines() if line.startswith("look: ")), last_line(shown))
-    open_ = run.unanswered("looked", questions_of(shown))
-    run.record["pending"] = [run.key("looked", q) for q in open_]
-    if code == 0 and not open_:
+    if code == 0 and not questions_of(shown):
         run.keep("looked", "passed", summary, code)
         show("looked", "passed", summary)
         return None
     how = told.removeprefix("next: ").rstrip(".")
-    flag = " --answered" if open_ else ""
-    return stopped(run, "looked", code or 1, shown,
-                   f"next: {how}; then run {again(run)}{flag}" if how else
-                   f"next: fix every finding above and answer every question from the screenshots, then run "
-                   f"{again(run)}{flag}", "failed" if code else "asked")
+    ended = stopped(run, "looked", code or 1, shown,
+                    f"next: {how}; then run {again(run)}" if how else
+                    f"next: fix every finding above and have the questions answered as the brief: line says, then "
+                    f"run {again(run)}", "failed" if code else "asked")
+    run.record["steps"]["looked"]["run"] = look_result(run).get("run")
+    return ended
 
 
 def skipped(run: Run, step: str, out: str) -> str:
