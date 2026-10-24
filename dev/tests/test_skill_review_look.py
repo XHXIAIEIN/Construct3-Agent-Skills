@@ -270,8 +270,10 @@ def test_review_look_prints_its_help_and_needs_a_project(tmp_path, project):
 
 
 def test_review_look_says_what_a_clean_run_left_unseen():
-    clean = {"status": "opened", "preview": {"layouts": [{"layout": "Map", "findings": [], "errors": []}]}}
-    found = {"status": "opened", "preview": {"layouts": [{"layout": "Map", "findings": [{}], "errors": []}]}}
+    clean = {"status": "opened", "preview": {"started": True,
+                                             "layouts": [{"layout": "Map", "findings": [], "errors": []}]}}
+    found = {"status": "opened", "preview": {"started": True,
+                                             "layouts": [{"layout": "Map", "findings": [{}], "errors": []}]}}
     assert rl.look_line([clean], 1.0, ".tmp/review-look.json", ".tmp/look") == (
         "look: 0 findings on 1 layout, 0 runtime errors; each layout ran 1 s after a jump to it, without play, so a "
         "scene the game reaches only in play is unseen; full result in .tmp/review-look.json, screenshots in .tmp/look")
@@ -287,6 +289,19 @@ def test_a_screenshot_of_one_colour_dark_or_clear_is_blank():
     coin = lambda x, y: (40, 100, 240, 255) if (x - 10) ** 2 + (y - 10) ** 2 < 36 else (0, 0, 0, 255)
     assert c3.blank_share(png(100, 100, coin)) is None          # a coin on black: 1.1% drawn
     assert c3.blank_share(png(100, 100, lambda x, y: (255, 255, 255, 255) if x else (0, 0, 0, 255))) is None
+
+
+def test_a_preview_that_did_not_run_looked_at_no_layout():
+    """A project that opened but whose preview stopped is a review that did not run (exit 3), not one with no
+    finding on no layout, which a reader and verify_change.py would take for a pass."""
+    stopped = {"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e", "warnings": [],
+               "preview": {"started": False, "layouts": [],
+                           "errors": ["the preview stopped answering: Not attached to an active page"]}}
+    ran = {**stopped, "project": "Other", "preview": {"started": True, "errors": [], "layouts": []}}
+    assert rl.unpreviewed([stopped, ran]) == ["Game"] and rl.unpreviewed([ran]) == []
+    assert rl.report(stopped)[-1] == "  preview did not run: the preview stopped answering: Not attached to an active page"
+    assert rl.look_line([stopped], 1.0, ".tmp/review-look.json", ".tmp/look") == (
+        "look: no layout was looked at, as the preview of Game did not run; full result in .tmp/review-look.json")
 
 
 def test_review_look_retakes_a_blank_screenshot_and_asks_nothing_about_one_that_stays_blank():

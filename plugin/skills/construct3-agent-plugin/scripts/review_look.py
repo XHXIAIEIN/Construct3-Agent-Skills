@@ -118,8 +118,9 @@ output of --reply:
 exit codes: 0 every layout was visited with no finding and no runtime error, or with --reply every answer is
 there and no; 1 a finding, a runtime error, or the project did not open, or with --reply an answer missing or
 a yes; 2 the project or the editor could not be used, or with --reply the reply or the result of a run with a
-brief was not found; 3 no browser here; 5 another run holds the browser profile, named in the line with its
-pid: wait for it to end, or pass --profile for a profile of this run's own
+brief was not found; 3 no browser here, or the preview did not run, so no layout was looked at; 5 another run
+holds the browser profile, named in the line with its pid: wait for it to end, or pass --profile for a profile
+of this run's own
 """
 
 # Pixels of slack before a text, an overlap or a box on screen counts.
@@ -772,8 +773,16 @@ def counts(result: dict) -> tuple[int, int, int]:
     return (sum(len(d.get("findings", [])) for d in layouts), sum(len(d["errors"]) for d in layouts), len(layouts))
 
 
+def unpreviewed(results: list[dict]) -> list[str]:
+    """The projects that opened but whose preview did not start, so that none of their layouts was looked at."""
+    return [r["project"] for r in results if r["status"] == "opened" and not (r.get("preview") or {}).get("started")]
+
+
 def look_line(results: list[dict], settle: float, out: Path, base: Path) -> str:
     """The count of findings, and when there is none, what the run did not see."""
+    if unpreviewed(results):
+        return f"look: no layout was looked at, as the preview of {', '.join(unpreviewed(results))} did not run; " \
+               f"full result in {out}"
     found, errors, layouts = map(sum, zip(*(counts(r) for r in results)))
     unseen = "" if found or errors else (f"; each layout ran {settle:g} s after a jump to it, without play, so a "
                                          f"scene the game reaches only in play is unseen")
@@ -901,6 +910,10 @@ def main() -> int:
     if any(r["status"] != "opened" for r in results):
         print(oe.NEXT)
         return 1
+    if unpreviewed(results):
+        print("next: the preview did not run, so no layout was looked at and nothing passed; run this again, and if "
+              "the preview stops again, run open_in_editor.py --preview, whose lines say why")
+        return 3
     briefs = [r["brief"] for r in results if r.get("brief")]
     print("next: fix every finding line; a runtime error on a layout reached straight away may need the run that "
           "leads there, so play to it with preview_project.py before blaming the events. Then have the questions "

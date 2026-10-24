@@ -169,6 +169,16 @@ def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatc
     assert record["steps"]["looked"]["state"] == "passed"
 
 
+def test_a_look_whose_preview_did_not_run_is_skipped(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """review_look.py exits 3 when its preview did not run: the look step is skipped, never passed."""
+    code, out = drive(project, monkeypatch, Editor(**{"review_look.py": (3, (
+        "opened   coins  (coins, r506)\n  preview did not run: the preview stopped answering\nlook: no layout was "
+        "looked at, as the preview of coins did not run; full result in .tmp/review-look.json\nnext: the preview did "
+        "not run, so no layout was looked at and nothing passed; run this again"))}))
+    assert code == 3 and steps(out)["looked"] == "skipped", out
+    assert out.splitlines()[-1].startswith("skipped: looked did not run"), out.splitlines()[-1]
+
+
 def test_a_plan_kept_after_the_look_questions_keeps_the_reply(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The run that asks the look questions also asks for a kept plan. Keeping it changes no file the game runs, so
     a reply to that run's brief still passes the step, and the play step runs the plan."""
