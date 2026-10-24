@@ -1364,7 +1364,7 @@ def grade_countdown_between_rounds(run: Path) -> list[tuple[bool, str]]:
     return results
 
 
-SEEDED = re.compile(r"^6(?:333|444|555)\d{11}$")     # the sids make_fixtures.py gives the entries it seeds
+SEEDED = re.compile(r"^6(?:333|444|555|777|888)\d{11}$")     # the sids make_fixtures.py gives the entries it seeds
 
 
 def game_sids(run: Path, rows: list) -> tuple[bool, str]:
@@ -1622,6 +1622,133 @@ def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
             unchanged(run, ("tools/",))]
 
 
+def object_types(project: Path) -> dict[str, dict]:
+    """Every readable object type file of the project, by its type's name."""
+    out = {}
+    for path in sorted((project / "objectTypes").glob("*.json")):
+        try:
+            t = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out[t.get("name", path.stem)] = t
+    return out
+
+
+def grade_fix_open_errors_past_the_message(run: Path) -> list[tuple[bool, str]]:
+    """The spark is the Sprite that Collect creates, found by that and not by its name: it needs a sid of its
+    own, which the editor's message named, and an instance variable named unlike every expression of its
+    plugin, the shared ones of commonAces among them, which the editor names only once the sid is fixed."""
+    project = run / "project"
+    results = [checker_line(project)]
+    types = object_types(project)
+    sids: dict = {}
+    for name, t in types.items():
+        sids.setdefault(t.get("sid"), []).append(name)
+    shared = [names for names in sids.values() if len(names) > 1]
+    results.append((bool(types) and not shared, f"object types that share a sid: {shared or 'none'}"))
+    events = sheet_of(project)
+    if events is None:
+        return results + [(False, "eventSheets/Game.json is not readable JSON")] * 3
+    rows = list(walk(events))
+    collect = next((ev for ev, _ in rows if ev.get("eventType") == "custom-ace-block"), None)
+    made = {params(a).get("object-to-create") for ev, above in rows if ev is collect or collect in above
+            for a in ev.get("actions", []) if a.get("id") == "create-object"} - {"Coin", None}
+    spark = next((n for n in sorted(made) if types.get(n, {}).get("plugin-id") == "Sprite"), None)
+    if spark is None:
+        return results + [(False, f"Collect creates no Sprite but the coin: {sorted(made) or 'nothing'}")] * 2 \
+            + [game_sids(run, rows)]
+    p = c3.Project(project, PLUGIN, "en-US", c3.Findings())
+    plugin = p.schema("plugins", "Sprite")
+    expressions = p.expressions_of(plugin) | p.common_expressions_of(plugin)
+    ivars = [v["name"] for v in types[spark].get("instanceVariables", [])]
+    clash = [v for v in ivars if v.lower() in expressions]
+    results.append((not clash, f"{spark}'s instance variables {ivars}; named like an expression: {clash or 'none'}"))
+    reads = re.compile(rf"\b(?:{re.escape(spark)}|self)\s*\.\s*(?:{'|'.join(map(re.escape, ivars)) or '(?!)'})\b", re.I)
+    lifts = [values([a]) for ev, _ in rows for a in ev.get("actions", [])
+             if a.get("objectClass") == spark and str(a.get("id", "")).startswith("tween-") and reads.search(values([a]))]
+    results.append((bool(lifts), f"Collect creates {spark}; tweens of it that read its variables: {lifts or 'none'}"))
+    results.append(game_sids(run, rows))
+    return results
+
+
+def callee_of(a: dict) -> tuple | None:
+    """What a call action calls, ("function", name) or ("custom", object, name), names in lower case; None for
+    any other action."""
+    if "callFunction" in a:
+        return "function", str(a["callFunction"]).lower()
+    if "customAction" in a:
+        return "custom", a.get("objectClass"), str(a["customAction"]).lower()
+    return None
+
+
+def defined_as(ev: dict) -> tuple | None:
+    """What a function or custom action block defines, keyed as callee_of() keys its calls; None for any other
+    event."""
+    if ev.get("eventType") == "function-block":
+        return "function", str(ev.get("functionName")).lower()
+    if ev.get("eventType") == "custom-ace-block":
+        return "custom", ev.get("objectClass"), str(ev.get("aceName")).lower()
+    return None
+
+
+def grade_fix_endless_pulse(run: Path) -> list[tuple[bool, str]]:
+    """A boolean argument is the JSON true or false; the text "0" reads as true. The calls made when a coin is
+    collected are those of the events under Coin's On touched and of every function or custom action reached
+    from them, Collect and AddScore among them, and each passes false at a boolean parameter."""
+    project = run / "project"
+    results = [checker_line(project)]
+    events = sheet_of(project)
+    if events is None:
+        return results + [(False, "eventSheets/Game.json is not readable JSON")] * 3
+    rows = list(walk(events))
+    blocks = {defined_as(ev): ev for ev, _ in rows if defined_as(ev)}
+    slots = {key: [n for n, q in enumerate(ev.get("functionParameters", [])) if q.get("type") == "boolean"]
+             for key, ev in blocks.items()}
+    calls = [(callee_of(a), a.get("parameters") if isinstance(a.get("parameters"), list) else [], ev, above)
+             for ev, above in rows for a in ev.get("actions", []) if callee_of(a)]
+
+    def said(c: tuple, args: list) -> str:
+        return f"{c[-1]}({', '.join(json.dumps(v) for v in args)})"
+    texts = [said(c, args) for c, args, _, _ in calls
+             if any(not isinstance(args[n], bool) for n in slots.get(c, []) if n < len(args))]
+    results.append((not texts, f"calls with a non-boolean at a boolean parameter: {texts or 'none'}"))
+    # The events a collect runs, by id: those under Coin's On touched, then the blocks their calls reach
+    tops = {id(ev) for ev, above in rows if any(c.get("id") == "on-touched-object" and params(c).get("object") == "Coin"
+                                                for c in conditions_over(ev, above))}
+    while True:
+        collected = [(c, args) for c, args, ev, above in calls if any(id(e) in tops for e in (ev, *above))]
+        more = {id(blocks[c]) for c, _ in collected if c in blocks} - tops
+        if not more:
+            break
+        tops |= more
+    loose = [said(c, args) for c, args in collected
+             if any(args[n] is not False for n in slots.get(c, []) if n < len(args))]
+    flagged = [c[-1] for c, _ in collected if slots.get(c)]
+    results.append((not loose, f"calls on a collect to a callee with a boolean parameter: {flagged or 'none'}; "
+                               f"passing other than false: {loose or 'none'}"))
+    results.append(game_sids(run, rows))
+    return results
+
+
+def grade_two_buttons_in_the_generator(run: Path) -> list[tuple[bool, str]]:
+    """press() writes, for each button type, an On touched of it and an On any touch end that tests a boolean
+    instance variable of that type; two types the fixture lacks have both. The checker passes them without the
+    warning that the second touch end repeats the first one's trigger."""
+    project = run / "project"
+    results = checker_and_warnings(project)
+    before = fixture_types(run)
+    new = [n for n, t in object_types(project).items() if n not in before]
+    rows = sheet_rows(project)
+    touched = {params(c).get("object") for ev, _ in rows for c in ev.get("conditions", [])
+               if c.get("id") == "on-touched-object"}
+    released = {c.get("objectClass") for ev, _ in rows if any(x.get("id") == "on-any-touch-end" for x in ev.get("conditions", []))
+                for c in ev.get("conditions", []) if c.get("id") == "is-boolean-instance-variable-set"}
+    pressed = [n for n in new if n in touched and n in released]
+    results.append((len(pressed) >= 2, f"new object types {new or 'none'}; pressed as press() writes: {pressed or 'none'}"))
+    results.append(generator_is_source(run))
+    return results
+
+
 def grade_kept(run: Path, own_warnings: bool = True) -> list[tuple[bool, str]]:
     """The file assertions of a case whose request the plan judges: the checker passes, it warns on no event the
     run added (on none at all without own_warnings), and every event of the fixture's sheets is still there."""
@@ -1653,6 +1780,9 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "walk-with-wasd": grade_walk_with_wasd, "countdown-between-rounds": grade_countdown_between_rounds,
            "fix-wasd-twitch": grade_fix_wasd_twitch, "fix-next-round": grade_fix_next_round,
            "fix-turn-flip": grade_fix_turn_flip, "two-player-turns": grade_two_player_turns,
+           "fix-open-errors-past-the-message": grade_fix_open_errors_past_the_message,
+           "fix-endless-pulse": grade_fix_endless_pulse,
+           "two-buttons-in-the-generator": grade_two_buttons_in_the_generator,
            "two-player-turn-limit": grade_two_player_turns, "find-a-drag-example": grade_find_a_drag_example,
            "script-shift-and-edges": grade_script_shift_and_edges,
            "platform-state-in-chinese": grade_platform_state_in_chinese,

@@ -297,6 +297,93 @@ def seed_door(root: Path) -> None:
     write_json(layout_path, layout)
 
 
+def seed_name_collision(root: Path) -> None:
+    """Spark, a Sprite copied from Coin's JSON that only Collect creates and no layout holds, with two mistakes
+    the editor refuses. It kept Coin's sid, which the editor names first: "object class sid already in use".
+    Its instance variable z the editor refuses next, as "the name of an expression in Sprite objects", because
+    every Sprite has Z whether a layout holds one or not. The spark rises from the collected coin by its z."""
+    path = root / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+    types = [read_json(p) for p in (root / "objectTypes").glob("*.json")]
+    sprite_ids = [f["imageSpriteId"] for t in types for a in t.get("animations", {}).get("items", []) for f in a["frames"]]
+    spark = read_json(root / "objectTypes" / "Coin.json")
+    first = spark["animations"]["items"][0]
+    spark.update(name="Spark",
+                 instanceVariables=[{"name": "z", "type": "number", "desc": "How far the spark rises, in px.",
+                                     "show": True, "sid": 677777777777702}],
+                 behaviorTypes=[{"behaviorId": "Tween", "name": "Tween", "sid": 677777777777703}],
+                 animations={"items": [{**first, "sid": 677777777777704,
+                                        "frames": [{**first["frames"][0], "imageSpriteId": max(sprite_ids) + 1}]}],
+                             "subfolders": []})
+    write_json(root / "objectTypes" / "Spark.json", spark)
+    shutil.copy(root / "images" / "coin-default-000.png", root / "images" / "spark-default-000.png")
+    edit_json(root / "project.c3proj", lambda p: p["objectTypes"]["items"].append("Spark"))
+    collect = next(e for e in sheet["events"] if e.get("eventType") == "custom-ace-block")
+    at = next(n for n, a in enumerate(collect["actions"]) if a.get("callFunction") == "AddScore") + 1
+    collect["actions"][at:at] = [
+        {"id": "create-object", "objectClass": "System", "sid": 677777777777705,
+         "parameters": {"object-to-create": "Spark", "layer": "\"Game\"", "x": "Coin.X", "y": "Coin.Y",
+                        "create-hierarchy": False, "template-name": "\"\""}},
+        {"id": "set-size", "objectClass": "Spark", "sid": 677777777777706,
+         "parameters": {"width": "Coin.Width / 3", "height": "Coin.Height / 3"}},
+        {"id": "set-instvar-value", "objectClass": "Spark", "sid": 677777777777707,
+         "parameters": {"instance-variable": "z", "value": "Coin.Height"}},
+        {"id": "tween-one-property", "objectClass": "Spark", "behaviorType": "Tween", "sid": 677777777777708,
+         "parameters": {"tags": "\"rise\"", "property": "offsetY", "end-value": "Spark.Y - Spark.z", "time": "0.4",
+                        "ease": "easeoutsine", "destroy-on-complete": "yes", "loop": "no", "ping-pong": "no",
+                        "repeat-count": "1"}}]
+    write_json(path, sheet)
+
+
+def seed_loop_flag(root: Path) -> None:
+    """ScoreText pulses through a function Pulse(looping), whose boolean parameter picks a pulse that loops or
+    one that plays once. The round's end calls Pulse(true), and AddScore calls Pulse("0"), a text, which
+    reaches the function as true. So after the first coin the score pulses until the round ends."""
+    edit_json(root / "objectTypes" / "ScoreText.json",
+              lambda t: t["behaviorTypes"].append({"behaviorId": "Tween", "name": "Tween", "sid": 688888888888801}))
+    edit_json(root / "layouts" / "Game.json",
+              lambda d: next(i for layer in d["layers"] for i in layer["instances"]
+                             if i["type"] == "ScoreText")["behaviors"].update(Tween={"properties": {"enabled": True}}))
+    sid = iter(range(688888888888802, 688888888888899))
+    tween = {"objectClass": "ScoreText", "behaviorType": "Tween"}
+
+    def pulse(loop: str) -> dict:
+        return {"id": "tween-one-property", **tween, "sid": next(sid),
+                "parameters": {"tags": "\"pulse\"", "property": "offsetOpacity", "end-value": "30", "time": "0.2",
+                               "ease": "easeinoutsine", "destroy-on-complete": "no", "loop": loop,
+                               "ping-pong": "yes", "repeat-count": "1"}}
+
+    def change(sheet: dict) -> None:
+        rows = sheet["events"]
+        add_score = next(e for e in rows if e.get("eventType") == "function-block")
+        add_score["actions"].append({"callFunction": "Pulse", "sid": next(sid), "parameters": ["0"]})
+        restart = next(e for e in rows if e.get("eventType") == "group" and e.get("title") == "Restart")
+        end = next(e for e in restart["children"] if e["eventType"] == "block")
+        end["actions"].insert(0, {"callFunction": "Pulse", "sid": next(sid), "parameters": [True]})
+        at = rows.index(add_score) + 1
+        rows[at:at] = [
+            {"eventType": "comment", "text": "Pulse the score: once for a coin, or on and on while the next round "
+                                             "waits", "sid": next(sid)},
+            {"functionName": "Pulse", "functionDescription": "Fade the score out and back in", "functionCategory": "",
+             "functionReturnType": "none", "functionCopyPicked": False, "functionIsAsync": False,
+             "functionParameters": [{"name": "looping", "type": "boolean", "initialValue": "false",
+                                     "comment": "Pulse until the layout ends, not once", "sid": next(sid)}],
+             "eventType": "function-block", "conditions": [],
+             "actions": [{"id": "stop-tweens", **tween, "sid": next(sid), "parameters": {"tags": "\"pulse\""}},
+                         {"id": "set-opacity", "objectClass": "ScoreText", "sid": next(sid),
+                          "parameters": {"opacity": "100"}}],
+             "children": [
+                 {"eventType": "block", "sid": next(sid),
+                  "conditions": [{"id": "compare-boolean-eventvar", "objectClass": "System", "sid": next(sid),
+                                  "parameters": {"variable": "looping"}}],
+                  "actions": [pulse("yes")]},
+                 {"eventType": "block", "sid": next(sid),
+                  "conditions": [{"id": "else", "objectClass": "System", "sid": next(sid)}],
+                  "actions": [pulse("no")]}],
+             "sid": next(sid)}]
+    edit_json(root / "eventSheets" / "Game.json", change)
+
+
 BIG_SHEET = "Waves"
 WAVES = 24
 BIG_SHEET_FOCUS = 17
@@ -426,10 +513,12 @@ def seed_big_sheet(root: Path) -> None:
 
 
 # fixture -> (the fixture it starts from, the fault written into it). The seeded entries' sids start
-# with 6333, 6444, 6555 or 6666, so a grader can tell the example's own events from them.
+# with 6333, 6444, 6555, 6666, 6777 or 6888, so a grader can tell the example's own events from them.
 SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "coins-timer-restart": ("coins", seed_timer_restart),
          "coins-turn-flip": ("coins", seed_turn_flip),
+         "coins-name-collision": ("coins", seed_name_collision),
+         "coins-loop-flag": ("coins", seed_loop_flag),
          "persistent-walls": ("example:persistent-layouts", seed_no_solid),
          "platformer-door": ("example:template-platformer", seed_door),
          "coins-big-sheet": ("coins", seed_big_sheet)}
