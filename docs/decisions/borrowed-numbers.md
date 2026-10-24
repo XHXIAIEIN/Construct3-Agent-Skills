@@ -143,21 +143,36 @@ them later still.
 ### An editor open while files change
 
 The borrowed rule asks for an explicit refresh after files change on
-disk. A probe opened the template's stand-in game in the stable editor.
-It saved the game as a project folder into the page's origin-private file
-system, through a stubbed folder picker. A script then changed files in
-that folder as another tool would: a comment added to the event sheet, an
-instance moved 7 px in the layout, a new text file. The editor showed no
-dialog and kept the files as it had loaded them. Then it saved:
+disk. Two probes held a folder project open in the stable editor and
+changed its files with a script, as another tool would. One project was in
+the page's origin-private file system, saved there through a stubbed
+folder picker. The other was on a local disk, opened with *Open local
+project folder* in r506.3.
+
+The script added a comment to the event sheet and changed the layout: it
+moved an instance in the first project and set the width in the second.
+It also added a text file to the first project. In the second it set a
+project property and added a sheet to the listing in `project.c3proj`.
+The editor showed no dialog and kept the files as it had loaded them.
+*Reload all from folder* (F9) re-reads script files only (manual:
+`interface/keyboard-shortcuts.md`), and it left the sheet and the layout
+as the editor had them. Then the editor saved:
 
 | Before the save | Written by the save | The outside changes |
 |-----------------|---------------------|---------------------|
-| No edit in the editor | one file of the editor's own interface state | all kept |
-| Every instance of the layout nudged 1 px in the editor | that layout and interface state | the sheet's and the new file kept; the layout's lost, the instance at the editor's position plus 1 px |
+| No edit in the editor | at most the editor's interface state, and `project.c3proj` when the file on disk differed from the editor's copy | the sheet's, the layout's and the added file kept; the property and the added sheet's entry in `project.c3proj` lost |
+| The layout edited in the editor: every instance nudged 1 px, or a layer added or deleted | that layout | the layout's lost; the sheet's and the added file kept |
+| A comment added to the same sheet in the editor | that sheet | the sheet's lost, also after F9 |
 
 So a save writes each file edited in the editor, from the copy the editor
-loaded, over any change made to that file on disk. A folder on disk is
-reached through the same kind of folder handle; that case was not run.
+loaded, over any change made to that file on disk. A save with no edit in
+the editor still writes `project.c3proj` from the editor's copy when the
+file on disk differs. A sheet that the outside change added to the listing
+then loses its entry. Its file stays, and `check_project.py` warns that
+the file is not listed. A tab that `open_in_editor.py` opens holds a
+`.c3p` copy, not the folder, and closes when the run ends; a run on the
+probe project left it unchanged. The driver and the probe project are in
+`.local/docs/evidence/borrowed-numbers/editor-open-disk/`.
 
 ### Design size and build success
 
@@ -239,9 +254,11 @@ the first line.
   checker warning: the template's small sprites show by the next tick, its
   scene pictures are placed in their layouts, and only a large picture
   created by events shows late.
-- An editor open while files change: a bullet in the skill's "Before the
-  first command" says to ask the user to save and close the project before
-  its files change, and to open it again after, because the loss is silent.
+- An editor open while files change: a bullet in the skill's "Gotchas"
+  says to ask the user to save and close the project before its files
+  change, and to open it again after, because the loss is silent.
+  `Construct3-Cookbook/guides/project-files/hand-editing.md` says the same
+  under "The project folder", with what a save writes back.
   `edit_sheet.py`'s note after a write says to close the project without
   saving and open it again, since a save then would write over the change.
 - Design size: no warning in `check_design.py`. A threshold needs runs that
@@ -271,7 +288,8 @@ the first line.
   generated game creates large pictures by events: measure the export,
   then decide on a warning.
 - The editor reloads a folder project from disk, or warns of a file
-  changed there: the skill's bullet and the note change with it.
+  changed there: the skill's bullet, the note and the Cookbook's bullet
+  change with it.
 - An eval case builds a game from its design in a preview: count the
   design's rules against the build's outcome over its runs.
 - The preview applies *Viewport fit*, or a phone shows the template's HUD
