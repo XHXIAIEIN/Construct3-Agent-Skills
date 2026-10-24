@@ -116,8 +116,12 @@ Traps of the running game are warnings:
 - an event whose first condition is the same trigger as that of an earlier
   event in its list, and whose other conditions test a value that the
   earlier event's actions or sub-events change: a variable, an instance
-  variable, or an object's animation, animation frame or visibility. Both
-  events run on the same input, this one after the other's actions, so it
+  variable, or an object's animation, animation frame or visibility. The
+  state of an object counts only on the object type that the earlier event
+  changed, on a family it is in and on a member of that family. An instance
+  variable of the same name on another object type is another value, so
+  two buttons that each clear their own `pressed` on *On any touch end*
+  pass. Both events run on the same input, this one after the other's actions, so it
   sees the value just set and can set it back: a switch written as
   "frame 0: set 1" and "frame 1: set 0" never stays switched
   [`Construct3-Cookbook/guides/primitives/events/conditions.md`]. The finding

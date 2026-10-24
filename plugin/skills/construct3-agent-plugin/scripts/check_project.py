@@ -3199,21 +3199,21 @@ class Checker:
         return conds[0] if (entry.get("isTrigger") if entry else str(conds[0].get("id", "")).startswith("on-")) \
             else None
 
-    @staticmethod
-    def state_set(actions: list) -> set[str]:
+    def state_set(self, actions: list) -> set[str]:
         """The variables these actions set, and Obj.animationframe and the like for the state of an object, up to
-        the first wait: what a wait leaves for later, the next event of the same input does not see."""
+        the first wait: what a wait leaves for later, the next event of the same input does not see. Object state
+        is keyed by names_of(), never bare."""
         out = set()
         for a in actions:
-            if Checker.waits(a):
+            if self.waits(a):
                 break
             params = params_of(a)
-            if a.get("id") in SETS or (a.get("objectClass") == "System" and a.get("id") in ("add-to-eventvar",
-                                                                                       "subtract-from-eventvar")):
+            obj = str(a.get("objectClass"))
+            if obj == "System" and a.get("id") in {*SETS, "add-to-eventvar", "subtract-from-eventvar"}:
                 out.add(str(params.get(SETS.get(a["id"], "variable"), "")).lower())
-            if a.get("id") in STATE_SETS and a.get("objectClass") != "System":
+            if a.get("id") in STATE_SETS and obj != "System":
                 prop = STATE_SETS[a["id"]] or str(params.get("instance-variable", "")).lower()
-                out.add(f"{str(a.get('objectClass')).lower()}.{prop}")
+                out |= {f"{name.lower()}.{prop}" for name in self.names_of(obj)}
         return out
 
     def state_read(self, conditions: list) -> set[str]:
@@ -3225,8 +3225,8 @@ class Checker:
                 out.add(f"{obj}.{STATE_TESTS[c['id']]}")
             if c.get("id") in INSTANCE_VALUE_TESTS:
                 out.add(f"{obj}.{str(params_of(c).get('instance-variable', '')).lower()}")
-            for value in params_of(c).values():
-                if isinstance(value, str):
+            for key, value in params_of(c).items():
+                if isinstance(value, str) and key != "instance-variable":
                     out |= {m.lower() for m in re.findall(r"\w+\.\w+", value)} | {w.lower() for w in IDENT.findall(value)}
         return out
 
