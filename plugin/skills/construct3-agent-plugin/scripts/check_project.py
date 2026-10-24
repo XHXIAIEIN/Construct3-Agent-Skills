@@ -2884,12 +2884,16 @@ class Checker:
                              f"call passes none")
                     params = []
                 if "callFunction" in a:
-                    self.pending_calls.append(("function", a["callFunction"], None, len(params), w))
+                    self.pending_calls.append(("function", a["callFunction"], None, params, w))
                 else:
                     owner = a.get("customActionObjectClass", a["objectClass"])
-                    self.pending_calls.append(("custom", a["customAction"], owner, len(params), w))
-                for param in params:
-                    self.check_expr(w, param, scope)
+                    self.pending_calls.append(("custom", a["customAction"], owner, params, w))
+                callee = self.called(a)
+                types = [q.get("type") for q in callee[1]["functionParameters"]] if callee else []
+                for param, ptype in zip(params, types + [None] * len(params)):
+                    # check_calls() names a boolean slot that holds anything but a JSON boolean.
+                    if ptype != "boolean":
+                        self.check_expr(w, param, scope)
                 continue
             self.check_ace("actions", a, scope, w)
 
@@ -3341,9 +3345,21 @@ class Checker:
             self.numbers_on_disk = sname not in self.unsaved
             self.walk(sheet["events"], globals_, f"sheet {sname}", [0])
 
+    def check_boolean_args(self, where: str, label: str, block: dict, args: list) -> None:
+        """The editor shows a boolean parameter as a checkbox and writes it as a JSON boolean, as every
+        call of the official examples does. Text there is not compared with "true": "0" and "false"
+        both reach the function as true."""
+        for i, (param, value) in enumerate(zip(block["functionParameters"], args), 1):
+            if param.get("type") == "boolean" and not isinstance(value, bool):
+                self.err(f"{where}: parameter {i} of {label}, {param.get('name')}, is a boolean, and the call "
+                         f"passes {json.dumps(value, ensure_ascii=False)}; the editor writes a boolean argument as "
+                         f"a JSON boolean, and text such as \"0\" or \"false\" reaches the function as true. "
+                         f"Write the JSON true or false, without quotes")
+
     def check_calls(self) -> None:
         p = self.p
-        for kind, name, owner, nparams, where in self.pending_calls:
+        for kind, name, owner, args, where in self.pending_calls:
+            nparams = len(args)
             if kind == "function":
                 if name not in self.functions:
                     self.err(f"{where}: call to undefined function {name}{closest(name, self.functions)}")
@@ -3353,6 +3369,8 @@ class Checker:
                     self.err(f"{where}: {name} returns a {self.returns[LOWER(name)]} and is called as an action; the "
                              f"editor stops with \"function '{name}' has wrong return type\". Read it in an expression, "
                              f"{p.functions_object}.{name}{'(...)' if nparams else ''}, or set its return type to none")
+                else:
+                    self.check_boolean_args(where, name, self.function_blocks[name], args)
             else:
                 owners = [owner] + p.families_of(owner)
                 hit = next(((o, name) for o in owners if (o, name) in self.custom_actions), None)
@@ -3362,6 +3380,8 @@ class Checker:
                 elif self.custom_actions[hit] != nparams:
                     self.err(f"{where}: {owner}.{name} called with {nparams} parameters, "
                              f"defined with {self.custom_actions[hit]}")
+                else:
+                    self.check_boolean_args(where, f"{owner}.{name}", self.custom_blocks[hit], args)
         # Signals are not kept: a Wait for signal or On signal that no Signal raises never ends or runs.
         for tag, ace, where in self.awaited if self.signalled is not None else []:
             if tag not in self.signalled:
