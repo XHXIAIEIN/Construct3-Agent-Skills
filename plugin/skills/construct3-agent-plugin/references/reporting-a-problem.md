@@ -55,7 +55,8 @@ A transcript runs to megabytes, so search it for the errors, such as
 `error`, `Failed`, `exception` or the addon's id, and read the lines around
 each hit, not the whole file. Take the verbatim text, the cause and the fix
 from what the session said at the time. Write one report for all of them,
-and give the date and the project of each session in its errors' entries.
+with the session's date in the tag of each of its errors,
+`[R2 0.1.0.1 10-24]`.
 What the transcripts do not show is [unknown]. Take from a transcript only
 the lines about the errors, their causes and their fixes, never the rest of
 what the user said in that session.
@@ -108,60 +109,57 @@ should read the report before filing it.
 
 ## The report
 
-Copy error messages, editor dialog text and console output verbatim: do not
-paraphrase or translate them, because a checker rule matches the editor's
-own words. The replacements of "What stays out of the report" are the only
-change. Write [unknown] for anything this session does not know, and do
-not guess.
-
-Use these categories, in this order:
-
-1. **Environment**: the Construct 3 release (e.g. r504, and whether stable
-   or beta), the browser, the operating system, the agent and model, and
-   the skill's version or commit if known.
-2. **Task**: what the user asked for, in one or two sentences, and what was
-   made: the sheets, layouts or objects changed, or, for an addon, the
-   fields of "The addon" below.
-3. **Checks run**: the skill scripts that ran, with their arguments, the
-   skill documents and guides read, and what each check reported. Say
-   whether `open_in_editor.py` ran with `--preview` (and `--install-addon`
-   for an addon), and if not, why not.
-4. **Errors**: one entry per error, in the order they happened, each with:
-   - Round: after which hand-over to the user it was found
-   - Stage: the step where it showed, such as the checker, opening in the
-     editor, the Properties Bar, the preview, or the user's own project
-   - The error text, verbatim
-   - Cause: what it finally turned out to be
-   - Fix: which file was changed, and how
-   - Catchable before hand-over: whether a check could have caught it
-     before the hand-over, and which
-5. **Errors in the user's project**: problems that did not show in the
-   session's own test but appeared when the user used the result in their
-   project. Same format as category 4, plus how the project uses it.
-6. **Final state**: whether the result works now, which problems are still
-   open, and which were only worked around.
-
-Format an error of categories 4 and 5 as:
+Each line answers one question a maintainer asks, so the report is a few
+fields and the errors, with no prose. Copy error messages, editor dialog
+text and console output verbatim: do not paraphrase or translate them,
+because a checker rule matches the editor's own words. The replacements
+above are the only change. Write [unknown] for what this session does not
+know, and do not guess. Leave out a line that does not apply, such as the
+addon lines for a game.
 
 ```
-[Round N][Stage] verbatim error text
-  Cause: ...
-  Fix: ...
-  Catchable before hand-over: ...
+env:   r504 stable | Edge | Windows 11 | Codex, <model> | skill 1.1.55
+task:  a line-drawing plugin with a Width and a Color property
+addon: plugin | plugin-sdk/drawingPlugin | sdk-version 2
+ran:   check_project.py ok; open_in_editor.py --install-addon --preview not run: <why>
+
+[R1 0.1.0.0][install] verbatim error text
+  cause: what it turned out to be
+  fix:   c3runtime/instance.js: what changed
+  catch: --install-addon | --preview | check_project.py | none
+
+[R3 0.1.0.2][project] verbatim error text
+  use:   the object it is on, the parameters set, Bundle addons on or off
+  cause: ...
+
+files: + c3runtime/line-core.js (file-list: no; imported by main.js)
+       + lang/zh-CN.json (vs en-US.json: - line-width, + Line-Width)
+state: works | open: <error> | worked around: <error>
+gaps:  0.1.0.5 and 0.1.0.6 were made outside this session
 ```
 
-Wrap the whole report in one code block. After it, say whether it covers
-every error, or whether some are no longer in this session's context, and
-list the ones remembered without their verbatim text.
+- `env`: the release with stable or beta, the browser, the operating
+  system, the agent and model, and the skill's version or commit.
+- `addon`: its type, its sample, its `sdk-version`, and for an effect its
+  `supported-renderers`.
+- `ran`: the skill scripts that ran and what each ended with. Say whether
+  `open_in_editor.py --preview` ran, and `--install-addon` for an addon,
+  and if not, why not. The documents read do not go here.
+- An error: `R` is the hand-over after which it was found, followed by
+  the addon's version at that round. The stage is `check`, `open`,
+  `properties`, `preview`, `project`, or for an addon `pack`, `install`,
+  `webgl` or `webgpu`. Give the message and, of a stack trace, its first
+  line and the line that names a file of the project or the addon. An error
+  that came back the same is one entry with `×N` after its stage. `catch`
+  names the check that would have caught it before the hand-over, or
+  `none`.
+- `files`: only the files that differ from the sample, `+` added, `-`
+  removed, `~` renamed, never the whole list. An added script says whether
+  `addon.json` lists it in `file-list` and which file imports it; a lang
+  file says which keys it lacks or adds against `en-US.json`. Name the
+  sample by its folder and name, not a full path.
+- `gaps`: the rounds, versions or sessions this report does not cover.
+  The version history goes here only where it shows such a gap.
 
-## The addon
-
-For a plugin, behavior, effect or theme written for the Addon Manager,
-category 2 also gives: the addon's type, what it does, the official sample
-under `Construct-Addon-SDK/` it was based on (such as
-`effect-sdk/sample-tint`), its `sdk-version`, its `supported-renderers`, and
-the list of its files. The stages of category 4 are then: packing,
-installing into the editor, the Properties Bar, the preview in the editor,
-the runtime under WebGL, the runtime under WebGPU, and the user's own
-project. Category 5 also says which object the addon is on, how its
-parameters are set, and whether the project has Bundle addons turned on.
+Wrap the report in one code block, and say after it, in one sentence,
+whether it covers every error.

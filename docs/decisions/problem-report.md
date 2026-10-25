@@ -39,15 +39,20 @@ editor showed, so none of it could become a checker rule or a fix.
 The third: `references/reporting-a-problem.md`, which `SKILL.md` points at
 when a handed-over change came back with an error twice or the user asks how
 to report a problem. The agent offers the report once, gives it to the user
-and leaves the filing to the user. Since an issue is public, the agent
-first replaces keys, paths, accounts, ids, comments and the words of every
-string with placeholders, keeping each string's quotes, escapes and special
+and leaves the filing to the user. Since an issue is public, the agent first
+replaces keys, paths, accounts, ids, comments and the words of every string
+with placeholders, keeping each string's quotes, escapes and special
 characters, rounds every number to one significant figure except the
-versions and a number the error is about, and asks which of the project's names may stay, because a
-name can be what the error is about. The rules are prose for now: a script
-that checks the report, reusing the key scan of `secret-scan.md`, waits
-until reports show what the agents miss. An addon report adds the addon's type, sample, SDK version,
-renderers and files, and the stages an addon fails at.
+versions and a number the error is about, and asks which of the project's
+names may stay, because a name can be what the error is about. The rules are
+prose for now: a script that checks the report, reusing the key scan of
+`secret-scan.md`, waits until reports show what the agents miss. The report
+is a few one-line fields and the errors, in a template, because the first
+reports listed what a maintainer gets nowhere with: every file of the addon
+where only the files that differ from its sample say anything, and a version
+history where only a version made outside the session does. An addon report
+adds the addon's type, sample, SDK version and renderers, and the stages an
+addon fails at.
 
 Problems from earlier sessions, often in another project, are in no
 session the user has open now. The reference says where the common agents
