@@ -6,14 +6,39 @@ the user asks how to report a problem with the skill, or when a handed-over
 change came back from the user with an editor or runtime error twice: then
 offer the report once, in one sentence.
 
-The report comes from this session's own context: the errors as they were
-pasted or printed, the commands that ran, and what each fix changed. A
+The report comes from this session's own context, or from the sessions the
+user names (below): the errors as they were pasted or printed, the commands
+that ran, and what each fix changed. A
 maintainer reads it without the project, so it carries the text itself, not
 a pointer to it. Give the report to the user in the reply; the user files it
 at https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues. Do not file
 it yourself. Before handing it over, leave out what the user may not want
 public: names of people, keys and tokens, and file contents beyond the lines
 an error names. Shorten a path to the part below the project folder.
+
+## When the problems are in other sessions
+
+A user may want to report problems from earlier sessions, often in another
+project, that this session never saw. Ask which project and roughly when,
+then ask before you read those sessions, because a transcript holds
+everything that was said and read in it. The transcripts are kept here:
+
+- Claude Code: `~/.claude/projects/<folder>/<session id>.jsonl`, where
+  `<folder>` is the session's working folder with every character other
+  than a letter or digit replaced by `-`, as in
+  `D--Games-MyGame` for `D:\Games\MyGame`.
+- Codex: `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl`. The
+  first line, `session_meta`, names the working folder as `cwd`. Older
+  sessions are in `~/.codex/archived_sessions/`, compressed as `.jsonl.zst`.
+- Another agent: ask the user to export the conversation or paste its
+  errors.
+
+A transcript runs to megabytes, so search it for the errors, such as
+`error`, `Failed`, `exception` or the addon's id, and read the lines around
+each hit, not the whole file. Take the verbatim text, the cause and the fix
+from what the session said at the time. Write one report for all of them,
+and give the date and the project of each session in its errors' entries.
+What the transcripts do not show is [unknown].
 
 ## The report
 
