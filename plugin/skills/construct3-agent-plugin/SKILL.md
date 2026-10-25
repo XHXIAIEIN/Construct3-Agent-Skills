@@ -153,6 +153,9 @@ scripts print the `git clone`: run it once the user agrees.
   mixes styles. When this session has an image generation tool, run
   `python scripts/prepare_art.py --list` and follow its output; without
   one, keep the stand-ins.
+- A handed-over change that came back with an editor or runtime error
+  twice, or a user asking how to report a problem with the skill: read
+  [references/reporting-a-problem.md](references/reporting-a-problem.md).
 
 ## Look an ACE up before writing it
 
