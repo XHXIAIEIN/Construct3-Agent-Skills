@@ -44,8 +44,10 @@ want public. An addon report adds the addon's type, sample, SDK version,
 renderers and files, and the stages an addon fails at.
 
 Problems from earlier sessions, often in another project, are in no
-session the user has open now. The reference says where Claude Code and
-Codex keep their transcripts, has the agent ask before it reads them, and
+session the user has open now. The reference says where the common agents
+keep their transcripts (Claude Code, Codex, Cursor, Gemini CLI and
+Antigravity, GitHub Copilot, WorkBuddy), as found on a machine that has
+them, has the agent ask before it reads them, and
 has it search them for the errors instead of reading them whole. Users
 learn of the report from the README's "Reporting a problem" and the
 problem report issue template, which both give the one sentence to tell

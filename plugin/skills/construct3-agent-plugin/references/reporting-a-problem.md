@@ -30,8 +30,27 @@ everything that was said and read in it. The transcripts are kept here:
 - Codex: `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl`. The
   first line, `session_meta`, names the working folder as `cwd`. Older
   sessions are in `~/.codex/archived_sessions/`, compressed as `.jsonl.zst`.
-- Another agent: ask the user to export the conversation or paste its
-  errors.
+- Cursor: `~/.cursor/projects/<folder>/agent-transcripts/<id>/<id>.jsonl`,
+  where `<folder>` is the working folder's path with its separators turned
+  into `-`, as in `d-Games-MyGame` for `D:\Games\MyGame`.
+- Gemini CLI: `~/.gemini/tmp/<project>/chats/session-*.jsonl`;
+  `~/.gemini/projects.json` maps each working folder to its `<project>`.
+  Antigravity keeps each conversation as a SQLite file in
+  `~/.gemini/antigravity-cli/conversations/<id>.db`, and
+  `~/.gemini/antigravity-cli/history.jsonl` names the `workspace` of each
+  `conversationId`; read it with Python's `sqlite3`, its `steps` table
+  first.
+- GitHub Copilot in VS Code: `<VS Code user folder>/workspaceStorage/<hash>/chatSessions/*.jsonl`,
+  where `workspace.json` beside `chatSessions` names the folder. The user
+  folder is `%APPDATA%\Code\User` on Windows,
+  `~/Library/Application Support/Code/User` on macOS and `~/.config/Code/User`
+  on Linux. Copilot CLI: `~/.copilot/session-state/<id>/`, whose
+  `workspace.yaml` names the folder as `cwd`.
+- WorkBuddy: `~/.workbuddy-ai/projects/<folder>/<session id>.jsonl`.
+- Grok Bot and CodeBuddy keep no transcript file to search. For them and
+  for an agent not listed here, ask the user to export the conversation or
+  paste its errors. `~/.agents` holds skills, not conversations, and Ollama's
+  `~/.ollama/history` holds only the prompts typed into `ollama run`.
 
 A transcript runs to megabytes, so search it for the errors, such as
 `error`, `Failed`, `exception` or the addon's id, and read the lines around
