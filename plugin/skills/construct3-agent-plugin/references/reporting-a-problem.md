@@ -12,9 +12,8 @@ that ran, and what each fix changed. A
 maintainer reads it without the project, so it carries the text itself, not
 a pointer to it. Give the report to the user in the reply; the user files it
 at https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues. Do not file
-it yourself. Before handing it over, leave out what the user may not want
-public: names of people, keys and tokens, and file contents beyond the lines
-an error names. Shorten a path to the part below the project folder.
+it yourself. An issue is public, so before handing the report over, take
+out what "What stays out of the report" below lists.
 
 ## When the problems are in other sessions
 
@@ -57,13 +56,48 @@ A transcript runs to megabytes, so search it for the errors, such as
 each hit, not the whole file. Take the verbatim text, the cause and the fix
 from what the session said at the time. Write one report for all of them,
 and give the date and the project of each session in its errors' entries.
-What the transcripts do not show is [unknown].
+What the transcripts do not show is [unknown]. Take from a transcript only
+the lines about the errors, their causes and their fixes, never the rest of
+what the user said in that session.
+
+## What stays out of the report
+
+Go through the whole report once it is written, the verbatim errors
+included, and replace each of these:
+
+- Keys, tokens, passwords and cookies, wherever they appear, even inside an
+  error or a URL: `<key>`.
+- A path: below the project folder, the part from that folder down, as in
+  `eventSheets/Game.json`; under the user's home, `~` for the home, as in
+  `~/.cursor/projects/...`; any other absolute path, the file's name alone.
+  A path then names neither the user's account on the machine nor the
+  project's location.
+- Email addresses, account names (Construct, GitHub, the agent's), the
+  machine's name, IP addresses: `<email>`, `<account>`, `<machine>`, `<ip>`.
+- Session, device, installation and user ids: `<id>`. A release number and
+  an addon's id stay, because they are what the maintainers look up.
+- Names of people, and text the player reads: dialogue, story and other
+  content that is the user's own work.
+- File contents beyond the lines an error names.
+
+The project's own names, its title and the names of its sheets, layouts,
+objects, variables and functions, can matter to the error, as when a name
+collides or an expression misspells one, and can also be unreleased. Ask
+the user which: keep the names they allow, and replace the others with a
+role, `Player`, `Enemy`, `Score`, the same replacement for the same name
+throughout, so that the events still read. An addon the user wrote is
+theirs too: ask before including its code, and include only the lines an
+error names.
+
+Then tell the user, in one sentence, what was replaced, and that they
+should read the report before filing it.
 
 ## The report
 
 Copy error messages, editor dialog text and console output verbatim: do not
 paraphrase or translate them, because a checker rule matches the editor's
-own words. Write [unknown] for anything this session does not know, and do
+own words. The replacements of "What stays out of the report" are the only
+change. Write [unknown] for anything this session does not know, and do
 not guess.
 
 Use these categories, in this order:
