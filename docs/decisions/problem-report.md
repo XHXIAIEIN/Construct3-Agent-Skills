@@ -43,13 +43,14 @@ and leaves the filing to the user. Since an issue is public, the agent first
 replaces keys, paths, accounts, ids, comments and the words of every string
 with placeholders, keeping each string's quotes, escapes and special
 characters, rounds every number to one significant figure except the
-versions and a number the error is about, and asks which of the project's
-names may stay, because a name can be what the error is about. The rules are
+versions and a number the error is about, and replaces each of the
+project's names with a role, the same role for the same name, so that a
+collision still shows without the name itself. The rules are
 prose for now: a script that checks the report, reusing the key scan of
 `secret-scan.md`, waits until reports show what the agents miss. The report
 is a few one-line fields and the errors, in a template, because the first
 reports listed what a maintainer gets nowhere with: every file of the addon
-where only the files that differ from its sample say anything, and a version
+where only the files an error is about say anything, and a version
 history where only a version made outside the session does. An addon report
 adds the addon's type, sample, SDK version and renderers, and the stages an
 addon fails at.

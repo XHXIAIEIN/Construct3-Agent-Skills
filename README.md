@@ -90,7 +90,7 @@ The errors, their causes and their fixes are in the agent's sessions, not in the
 
 > Write a problem report for the Construct 3 skill's maintainers, as references/reporting-a-problem.md of the construct3-agent-plugin skill describes.
 
-If the problems happened in earlier sessions or in another project, add which project and roughly when. The agent asks before it reads those sessions, then searches them for the errors. It replaces keys, paths, accounts, ids, comments and the text of strings in the report, rounds its numbers, asks which of the project's names may stay, and gives you the report to read before you file it as a [problem report](https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues/new?template=problem-report.yml). An older copy of the skill has no `reporting-a-problem.md`: give the agent [the file](plugin/skills/construct3-agent-plugin/references/reporting-a-problem.md) from GitHub instead.
+If the problems happened in earlier sessions or in another project, add which project and roughly when. The agent asks before it reads those sessions, then searches them for the errors. It replaces keys, paths, accounts, ids, comments and the text of strings in the report, rounds its numbers, replaces the project's names with roles such as `Player`, and gives you the report to read before you file it as a [problem report](https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues/new?template=problem-report.yml). An older copy of the skill has no `reporting-a-problem.md`: give the agent [the file](plugin/skills/construct3-agent-plugin/references/reporting-a-problem.md) from GitHub instead.
 
 ## Repository
 
