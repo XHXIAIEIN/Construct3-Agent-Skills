@@ -357,6 +357,13 @@ class FileChecks:
             if items and v not in items:
                 self.err(f"{where}: {k}={v!r} is not one of {list(items)}")
 
+    def single_global(self, name: str) -> bool:
+        """Keyboard, Touch, Audio: a plugin the editor makes single-global. Only the other plugins get the shared
+        Destroy action, so a schema whose commonAces lack it names one."""
+        plugin = self.p.schema("plugins", self.p.types[name].get("plugin-id") or "")
+        common = (plugin or {}).get("commonAces")
+        return common is not None and plugin["id"] != "system" and "destroy" not in common.get("actions", [])
+
     def check_effects(self, effect_types: list) -> None:
         """Only whether the effect has a schema; an unknown one is warned about once."""
         for e in effect_types:
@@ -372,6 +379,11 @@ class FileChecks:
         self.templates.add(t)
         if t not in p.types:
             self.err(f"{where}: instance of unknown type {t}{closest(t or '', p.types)}")
+            return
+        if self.single_global(t):
+            self.err(f"{where}: {t} is a {p.types[t].get('plugin-id')} object, which the project holds once, in "
+                     f"objectTypes/{t}.json, and no layout places; the editor stops with \"wrong plugin type\". "
+                     f"Take this instance out of the layout")
             return
         ivars = p.ivars_of(t)
         ivar_types = p.ivar_types_of(t)
@@ -532,6 +544,14 @@ class FileChecks:
                 plugin = p.schema("plugins", t["plugin-id"])
                 self.check_properties(f"{name}", t["singleglobal-inst"].get("properties", {}),
                                       plugin.get("properties") if plugin else None)
+            elif self.single_global(name):
+                self.err(f"object type {name}: {t.get('plugin-id')} is an object the project holds once, and the "
+                         f"editor reads its one instance from the type's own file; without it the editor stops with "
+                         f"\"Cannot read properties of undefined (reading 'hasOwnProperty')\". Write "
+                         f"objectTypes/{name}.json as {{\"name\": \"{name}\", \"plugin-id\": \"{t.get('plugin-id')}\", "
+                         f"\"sid\": {t.get('sid', '<new sid>')}, \"singleglobal-inst\": {{\"type\": \"{name}\", "
+                         f"\"properties\": {{}}, \"uid\": <a uid no instance has>}}}}, and place no instance of it "
+                         f"in a layout")
             self.check_effects(t.get("effectTypes", []))
             self.collect_sids(t)
             self.class_sids.setdefault(t.get("sid"), []).append(name)
