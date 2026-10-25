@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [A Problem Report the Agent Writes from Its Own Session](problem-report.md) — 2026-10-25
 - [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-24
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
