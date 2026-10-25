@@ -92,14 +92,13 @@ included, and replace each of these:
   outside a range; name the numbers left as they were.
 - File contents beyond the lines an error names.
 
-The project's own names, its title and the names of its sheets, layouts,
-objects, variables and functions, can matter to the error, as when a name
-collides or an expression misspells one, and can also be unreleased. Ask
-the user which: keep the names they allow, and replace the others with a
-role, `Player`, `Enemy`, `Score`, the same replacement for the same name
-throughout, so that the events still read. An addon the user wrote is
-theirs too: ask before including its code, and include only the lines an
-error names.
+The project's own names do not go in either. Its title is `<project>`, and
+each name of a sheet, layout, object, variable or function becomes a role,
+`Player`, `Enemy`, `Score`, the same role for the same name throughout, so
+that the events still read and two names that collide still collide. A name
+that an expression uses and that matches nothing in the project is
+`<no such name>`. An addon the user wrote is theirs: ask before including
+its code, and include only the lines an error names.
 
 What is left is the structure: the events, conditions, actions and
 expressions by their ids, the parameters and their types, the files, and
@@ -153,11 +152,12 @@ gaps:  0.1.0.5 and 0.1.0.6 were made outside this session
   that came back the same is one entry with `×N` after its stage. `catch`
   names the check that would have caught it before the hand-over, or
   `none`.
-- `files`: only the files that differ from the sample, `+` added, `-`
-  removed, `~` renamed, never the whole list. An added script says whether
-  `addon.json` lists it in `file-list` and which file imports it; a lang
-  file says which keys it lacks or adds against `en-US.json`. Name the
-  sample by its folder and name, not a full path.
+- `files`: only the files an error is about, `+` added, `-` removed, `~`
+  renamed or changed, never the whole list; leave the line out when no
+  error is about a file. An added script says whether `addon.json` lists
+  it in `file-list` and which file imports it; a lang file says which keys
+  it lacks or adds against `en-US.json`. Name the sample by its folder and
+  name, not a full path.
 - `gaps`: the rounds, versions or sessions this report does not cover.
   The version history goes here only where it shows such a gap.
 
