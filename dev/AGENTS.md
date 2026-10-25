@@ -86,6 +86,10 @@ The reasons are in `docs/decisions/plugin-repository.md`,
   words or by its URL in backticks. Never write `owner/repo#N` or `#N`,
   because GitHub turns these forms into a public cross-reference on that
   issue's timeline, and nobody can remove it.
+- Finish a branch by merging it into `main` in the main clone with `git
+  merge --no-ff`, as the "Merge branch 'claude/...'" commits of the history
+  do, not through a pull request. Check first that the main clone is on
+  `main` with nothing uncommitted, and push only when the user asks.
 - `.claude/workflows/polish.js` is a verified run that polishes the skill's
   sources, docs, records and code. Start it only when no other session edits
   the repository.
