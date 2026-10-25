@@ -84,6 +84,14 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 如果 skill 从 GitHub 的 Git clone 运行，检查器会读取 clone 上游分支的插件版本号。它通过 HTTPS 读取，每小时最多一次，不使用用户的 Git 凭据。如果上游的版本较新，检查器把更新 clone 的 `git pull --ff-only` 交给 agent 执行。如果 clone 里有它自己的改动，检查器让 agent 询问用户。对存放坑点的 Construct3-Cookbook clone，检查器也这样做：它用同样的方式从 GitHub 的 API 读取 clone 上游分支的最新提交，如果 clone 里没有这个提交，就把 `git pull --ff-only` 交给 agent。要关掉这些检查，设 `CONSTRUCT3_RAG_OFFLINE=1`。
 
+## 报告问题
+
+报错原文、原因和改法都在 agent 的会话里，不在它给你的摘要里，所以报告让 agent 来写。对它说：
+
+> Write a problem report for the Construct 3 skill's maintainers, as references/reporting-a-problem.md of the construct3-agent-plugin skill describes.
+
+如果问题出在以前的会话或别的项目里，再告诉它是哪个项目、大概什么时候。agent 读那些会话前会先问你，然后在里面找报错。它把报告交给你，其中的人名、密钥和文件内容已经去掉，你把它提交为 [problem report](https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues/new?template=problem-report.yml)。旧版本的 skill 里没有 `reporting-a-problem.md`，这时把 GitHub 上的[这个文件](plugin/skills/construct3-agent-plugin/references/reporting-a-problem.md)交给 agent。
+
 ## 仓库结构
 
 ```

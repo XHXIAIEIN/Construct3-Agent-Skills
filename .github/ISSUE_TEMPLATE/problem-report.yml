@@ -1,0 +1,37 @@
+name: Problem report
+description: Errors that came up while an agent used the Construct 3 skill, as the agent wrote them up
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Let your agent write this report: the errors, their causes and their fixes are in its sessions. Tell it:
+
+        > Write a problem report for the Construct 3 skill's maintainers, as references/reporting-a-problem.md of the construct3-agent-plugin skill describes.
+
+        If the problems happened in earlier sessions or in another project, add which project and roughly when. If the agent's copy of the skill has no `reporting-a-problem.md`, give it [the file](https://github.com/XHXIAIEIN/Construct3-Agent-Skills/blob/main/plugin/skills/construct3-agent-plugin/references/reporting-a-problem.md).
+  - type: input
+    id: release
+    attributes:
+      label: Construct 3 release
+      placeholder: r504 stable
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and model
+      placeholder: Codex, Claude Code, ...
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: The agent's report
+      description: Paste the code block the agent wrote, and the note after it.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: What you saw that the report leaves out, such as a screenshot of the editor.
