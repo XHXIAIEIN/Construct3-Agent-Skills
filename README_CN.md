@@ -90,7 +90,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 > Write a problem report for the Construct 3 skill's maintainers, as references/reporting-a-problem.md of the construct3-agent-plugin skill describes.
 
-如果问题出在以前的会话或别的项目里，再告诉它是哪个项目、大概什么时候。agent 读那些会话前会先问你，然后在里面找报错。它会替换报告里的密钥、路径、账号、id、注释和字符串里的文字，把数字取整，把项目里的名字换成 `Player` 这样的角色名，然后把报告交给你，你看过后提交为 [problem report](https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues/new?template=problem-report.yml)。旧版本的 skill 里没有 `reporting-a-problem.md`，这时把 GitHub 上的[这个文件](plugin/skills/construct3-agent-plugin/references/reporting-a-problem.md)交给 agent。
+如果问题出在以前的会话或别的项目里，再告诉它是哪个项目、大概什么时候。agent 读那些会话前会先问你，然后在里面找报错。它会替换报告里的密钥、路径、文件名、账号、id、注释和字符串里的文字，把数字取整，把项目里的名字换成 `Player` 这样的角色名，然后把报告交给你，你看过后提交为 [problem report](https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues/new?template=problem-report.yml)。旧版本的 skill 里没有 `reporting-a-problem.md`，这时把 GitHub 上的[这个文件](plugin/skills/construct3-agent-plugin/references/reporting-a-problem.md)交给 agent。
 
 ## 仓库结构
 
