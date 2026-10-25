@@ -76,8 +76,19 @@ included, and replace each of these:
   machine's name, IP addresses: `<email>`, `<account>`, `<machine>`, `<ip>`.
 - Session, device, installation and user ids: `<id>`. A release number and
   an addon's id stay, because they are what the maintainers look up.
-- Names of people, and text the player reads: dialogue, story and other
-  content that is the user's own work.
+- Comments, of events, groups, scripts and shaders: `<comment>`.
+- Every text the user wrote into a string: names of people, text the
+  player reads, dialogue, story, labels, keys of a dictionary or a JSON
+  file. Keep the quotes, escapes and special characters, such as `\"`,
+  `\n`, `{0}`, `%`, `&` and the separators of a `tokenat`, and replace the
+  words with generic ones, so `"\"Hi, {0}!\n\""` becomes
+  `"\"Text, {0}!\n\""`. The structure that the error depends on stays,
+  and the content does not.
+- Numbers: round each to one significant figure, keeping its sign and
+  whether it is whole, so `37.6` becomes `40.0`, `1280` becomes `1000` and
+  `-0.27` becomes `-0.3`. Leave the release, `sdk-version`, a version
+  string, and a number the error itself is about, such as the value
+  outside a range; name the numbers left as they were.
 - File contents beyond the lines an error names.
 
 The project's own names, its title and the names of its sheets, layouts,
@@ -89,7 +100,10 @@ throughout, so that the events still read. An addon the user wrote is
 theirs too: ask before including its code, and include only the lines an
 error names.
 
-Then tell the user, in one sentence, what was replaced, and that they
+What is left is the structure: the events, conditions, actions and
+expressions by their ids, the parameters and their types, the files, and
+the punctuation of each value. Then tell the user, in one sentence, what
+was replaced and which values were left as they were, and that they
 should read the report before filing it.
 
 ## The report
