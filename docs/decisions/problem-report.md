@@ -45,7 +45,10 @@ with placeholders, keeping each string's quotes, escapes and special
 characters, rounds every number to one significant figure except the
 versions and a number the error is about, and replaces each of the
 project's names with a role, the same role for the same name, so that a
-collision still shows without the name itself. The rules are
+collision still shows without the name itself. A file name the user or
+an agent chose becomes `name.js`, `name2.js`, but its folder and the names
+the SDK gives stay, since `c3runtime/instance.js` and `instance.js` are
+two files on the two sides of an addon. The rules are
 prose for now: a script that checks the report, reusing the key scan of
 `secret-scan.md`, waits until reports show what the agents miss. The report
 is a few one-line fields and the errors, in a template, because the first

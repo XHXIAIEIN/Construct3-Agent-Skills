@@ -73,6 +73,12 @@ included, and replace each of these:
   `~/.cursor/projects/...`; any other absolute path, the file's name alone.
   A path then names neither the user's account on the machine nor the
   project's location.
+- A file name that the user or an agent chose, such as an added script:
+  `name.js`, `name2.js`, `name.json`, numbered in the order they first
+  appear and the same throughout, the errors included. Keep the folder, as
+  in `c3runtime/name.js`, because it says which side of the addon the file
+  is on, and keep the names the SDK and the editor give, such as
+  `addon.json`, `instance.js`, `lang/en-US.json` and `project.c3proj`.
 - Email addresses, account names (Construct, GitHub, the agent's), the
   machine's name, IP addresses: `<email>`, `<account>`, `<machine>`, `<ip>`.
 - Session, device, installation and user ids: `<id>`. A release number and
@@ -131,7 +137,7 @@ ran:   check_project.py ok; open_in_editor.py --install-addon --preview not run:
   use:   the object it is on, the parameters set, Bundle addons on or off
   cause: ...
 
-files: + c3runtime/line-core.js (file-list: no; imported by main.js)
+files: + c3runtime/name.js (file-list: no; imported by c3runtime/main.js)
        + lang/zh-CN.json (vs en-US.json: - line-width, + Line-Width)
 state: works | open: <error> | worked around: <error>
 gaps:  0.1.0.5 and 0.1.0.6 were made outside this session
