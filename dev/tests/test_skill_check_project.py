@@ -1205,6 +1205,26 @@ def test_a_second_object_type_of_a_single_global_plugin_is_an_error(project):
     assert code != 0 and "AdvancedRandom, RewardRandom are all AdvancedRandom" in out, out
 
 
+def test_a_single_global_object_written_as_a_plain_one_is_an_error(project):
+    """A Keyboard written like an Array, its instance in a layout's nonworld-instances: the editor refuses the
+    type with "reading 'hasOwnProperty'" and the instance with "wrong plugin type"."""
+    add_global_object(project, "Keyboard")
+    keyboard = {"name": "Keyboard", "plugin-id": "Keyboard", "sid": 3, "isGlobal": False, "instanceVariables": []}
+    (project / "objectTypes" / "Keyboard.json").write_text(json.dumps(keyboard), encoding="utf-8")
+    edit(project, "layouts/Game.json", lambda lay: lay.setdefault("nonworld-instances", []).append(
+        {"type": "Keyboard", "properties": {}, "uid": 900, "sid": 4, "tags": "", "instanceVariables": {}}))
+    code, out = check(project)
+    assert code != 0, out
+    assert "reading 'hasOwnProperty'" in out and '"singleglobal-inst": {"type": "Keyboard"' in out, out
+    assert "wrong plugin type" in out and "Take this instance out of the layout" in out, out
+
+
+def test_a_single_global_object_as_the_editor_saves_it_passes(project):
+    add_global_object(project, "Keyboard")
+    code, out = check(project)
+    assert code == 0 and "wrong plugin type" not in out, out
+
+
 @pytest.mark.parametrize("text, warned", [
     ('find("^", str(Coin.X))', True),
     ('findCase("""", str(Coin.X)) + 1', True),

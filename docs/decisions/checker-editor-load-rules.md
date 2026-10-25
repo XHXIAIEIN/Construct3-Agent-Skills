@@ -240,6 +240,21 @@ Option 2 as the default, and option 3 as the step after it.
   over a global constant. The checker resolves a variable parameter the same
   way, so it passes the two probes that opened. The official examples and
   the game folders print as before.
+- A problem report of 2026-10-25 had an agent's demo project, written by a
+  script, fail with "not a valid Construct 3 project file"; the checker had
+  passed it. Its Keyboard was written like an Array: a plain object type,
+  with its instance in a layout's `nonworld-instances`. Probes on copies of
+  `data/c3-new-project` in r506.3 split it in two. The type without
+  `singleglobal-inst` stops the open with `Cannot read properties of
+  undefined (reading 'hasOwnProperty')`, with or without the instance, and
+  an instance in a layout of a type saved as the editor saves it stops it
+  with `wrong plugin type`. Which plugins are single-global comes from the
+  schemas: the Construct3-RAG build reads `SetIsSingleGlobal` from the
+  editor and gives only the other plugins the shared Destroy action, so a
+  schema whose `commonAces` lack `destroy` names one. The 27 plugins that
+  the official examples save with `singleglobal-inst` are all among them,
+  except the deprecated Function; no example saves one of them otherwise,
+  and the sweep changed no finding.
 - Names that differ only in case were probed on 2026-10-05, after a game
   project's sheet read a group's constant where a function meant its
   parameter of that name. Each copy of `data/c3-new-project` held one pair,
