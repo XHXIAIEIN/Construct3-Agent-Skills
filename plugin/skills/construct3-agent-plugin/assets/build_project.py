@@ -242,11 +242,15 @@ def row(where: str, n: int, w: float, h: float, gap: float = 1, ox: float = 0.5,
 
 # --- the screen ---------------------------------------------------------------------------
 # Scale outer fills any screen; pixel art takes Integer scale outer, which keeps pixels square.
-# anchored() holds a HUD element to an edge, screen_box() pads a backdrop or a cover by
-# SCREEN_PAD, and layout() scrolls a one-screen layout unbounded.
+# anchored() holds a HUD element to an edge and STRETCHED a backdrop to all four, screen_box()
+# pads a scrolling level's backdrop or a cover by SCREEN_PAD, and layout() scrolls a one-screen
+# layout unbounded. A plain colour behind everything is an opaque layer's, which fills any screen.
 FULLSCREEN = "integer-scale-outer" if PIXEL_ART else "scale-outer"
 # px a backdrop reaches past each viewport edge: covers any screen up to 4:1 and a shaking camera
 SCREEN_PAD = math.ceil(2 * max(VIEW_W, VIEW_H) / UNIT) * UNIT
+# The Anchor block that resizes a parallax-0 instance laid over the viewport to the whole screen
+STRETCHED = {"Anchor": {"properties": {"left-edge": "window-left", "top-edge": "window-top",
+                                       "right-edge": "window-right", "bottom-edge": "window-bottom", "enabled": True}}}
 
 
 def anchored(where: str) -> dict:
@@ -264,7 +268,7 @@ def anchored(where: str) -> dict:
 def screen_box(width: int | None = None, height: int | None = None, ox: float = 0, oy: float = 0) -> tuple[int, int, int, int]:
     """(x, y, w, h) of a box over the layout, `width` x `height` (the viewport's by default),
     reaching SCREEN_PAD past it on every side, with (x, y) at its origin (ox, oy). For a
-    backdrop, or a popup's dim: sprite_inst("Dim", *screen_box(ox=0.5, oy=0.5)).
+    scrolling level's backdrop, or a popup's dim: sprite_inst("Dim", *screen_box(ox=0.5, oy=0.5)).
     A dim that closes its popup tests the tap against the panel (On any touch start and NOT Is
     touching the panel), so the dim's size decides nothing about input."""
     w = (VIEW_W if width is None else width) + 2 * SCREEN_PAD
@@ -1041,14 +1045,18 @@ def pointer_module(kind: str, pressed: bool = True) -> list[dict]:
 
 # Patterns of areas and edges, Tiled Backgrounds that repeat at any size: two PALETTE roles and
 # one job each. A danger triangle is one hazard, a danger-striped area a hazardous region.
+# The plain paper is no pattern: it is the colour of an opaque layer.
 PATTERNS = {
-    "plain": ("canvas", "canvas"),         # the paper; backdrop only
     "checker": ("canvas", "canvas_alt"),   # transparency, a mask, a background to come; backdrop only
     "low": ("solid", "dim"),               # a harmless special surface: a one-way platform, a safe zone
     "caution": ("ink", "canvas"),          # what moves, triggers or blocks on a condition: a door, a plate
     "hazard": ("danger", "ink"),           # an area that hurts: lava, a kill zone
 }
-BACKDROPS = ("plain", "checker")           # patterns of backdrop() only
+BACKDROPS = ("checker",)                   # patterns of backdrop() only
+# Said when a generator still lays the plain paper as an object
+PLAIN_IS_THE_LAYER = ("the plain paper is the colour of the opaque layer under the game, layer(name, "
+                      "transparent=False), which fills any screen; remove the backdrop() of the plain pattern, its "
+                      "pattern() and its pattern_type()")
 PATTERN_OF: dict[str, str] = {}            # pattern of each type pattern() drew, by type name
 LAID_AS: dict[str, str] = {}               # "backdrop" or "area": a type of the user's look laid by either
 TILES: dict[str, int] = {}                 # tile size in px, which tiledbg_inst() aligns to the layout
@@ -1058,6 +1066,8 @@ def pattern(name: str, kind: str) -> None:
     """images/<name lower>.png: a one-unit tile of the pattern `kind` for the Tiled Background type
     `name`. The checker has two cells to a unit, so the backdrop counts units; the stripes run at
     45 degrees and join across tiles."""
+    if kind == "plain":
+        sys.exit(f"pattern({name!r}, 'plain'): {PLAIN_IS_THE_LAYER}")
     if kind not in PATTERNS:
         sys.exit(f"pattern({name!r}, {kind!r}): the patterns are {', '.join(PATTERNS)}")
     a, b = PATTERNS[kind]
@@ -1982,8 +1992,8 @@ def tiledbg_inst(otype: str, x: float, y: float, w: float, h: float, ox: float =
 def area(otype: str, col: int, row: int, cols: int, rows: int, ivars=None, behaviors=None) -> dict:
     """An area or an edge of the pattern type `otype`, cols x rows cells from cell (col, row): a
     one-way platform in low stripes, a door in caution, lava in hazard. Caution and hazard cover
-    strips and small zones, their shorter side a quarter of the viewport's at most. The plain paper
-    and the checker are for backdrop() only. With USER_LOOK set, `otype` is any Tiled Background
+    strips and small zones, their shorter side a quarter of the viewport's at most. The checker is
+    for backdrop() only. With USER_LOOK set, `otype` is any Tiled Background
     type, such as an image_type(name, "TiledBg", w, h, 0, 0) of a tile in the user's look."""
     kind = PATTERN_OF.get(otype)
     if not paper_and_ink():
@@ -2001,16 +2011,22 @@ def area(otype: str, col: int, row: int, cols: int, rows: int, ivars=None, behav
 
 
 def backdrop(otype: str, width: int | None = None, height: int | None = None) -> dict:
-    """The backdrop in the pattern `otype` behind everything: one Tiled Background over the layout
-    (`width` x `height`, the viewport's by default) reaching SCREEN_PAD past it, so no screen shows
-    its edge. The plain paper, or the checker when the game has something transparent, a mask or a
-    background to come. With USER_LOOK set, `otype` is any Tiled Background type of the user's look."""
+    """The backdrop in the pattern `otype` behind everything, a Tiled Background: the checker when
+    the game has something transparent, a mask or a background to come. In a one-screen layout it
+    lies over the viewport and STRETCHED resizes it to the screen, on its own layer at parallax 0
+    below the game's, layer("Backdrop", parallax=0, transparent=False), with the layers above it
+    transparent; its cells then follow the screen's edge, not the grid. In a layout larger than the
+    viewport (`width` x `height`) it is the floor that scrolls: it lies on a layer at parallax 1 and
+    reaches SCREEN_PAD past the layout, so no screen shows its edge. With USER_LOOK set, `otype` is
+    any Tiled Background type of the user's look."""
     if not paper_and_ink():
         if PATTERN_OF.get(otype) not in BACKDROPS:
             LAID_AS[otype] = "backdrop"
     elif PATTERN_OF.get(otype) not in BACKDROPS:
-        sys.exit(f"backdrop({otype!r}): the backdrop is the plain paper or the checker; draw it with "
-                 f"pattern({otype!r}, \"plain\") or pattern({otype!r}, \"checker\"). {NOT_THE_USERS}")
+        sys.exit(f"backdrop({otype!r}): the backdrop is the checker; draw it with pattern({otype!r}, \"checker\"). If "
+                 f"it is the plain paper, {PLAIN_IS_THE_LAYER}. {NOT_THE_USERS}")
+    if (width or VIEW_W, height or VIEW_H) == (VIEW_W, VIEW_H):
+        return tiledbg_inst(otype, 0, 0, VIEW_W, VIEW_H, 0, 0, behaviors=dict(STRETCHED))
     return tiledbg_inst(otype, *screen_box(width, height), 0, 0)
 
 
@@ -2895,9 +2911,17 @@ def z_order(instances: list) -> list:
 
 
 def anchor_types(types: dict, layouts: dict) -> None:
-    """Gives the Anchor behavior to every type with an instance that anchored() holds, and a
-    disabled block to that type's other instances, because the editor reads a block on every
-    instance for each behavior of its type."""
+    """Gives the Anchor behavior to every type with an instance that anchored() or STRETCHED holds,
+    and a disabled block to that type's other instances, because the editor reads a block on every
+    instance for each behavior of its type. Stops the run on such an instance off a parallax-0 layer."""
+    for name, lay in layouts.items():
+        for layer_ in layers_in(lay["layers"]):
+            for inst in layer_["instances"]:
+                held_here = inst.get("behaviors", {}).get("Anchor", {}).get("properties", {}).get("enabled")
+                if held_here and (layer_["parallaxX"], layer_["parallaxY"]) != (0, 0):
+                    sys.exit(f"layout {name}, layer {layer_['name']}: {inst['type']} carries Anchor, which holds it to "
+                             f"the screen's edges only on a layer at parallax 0; give the layer parallax=0, or, for a "
+                             f"backdrop that scrolls with a level, pass backdrop() the layout's size")
     instances = [inst for lay in layouts.values() for layer_ in layers_in(lay["layers"]) for inst in layer_["instances"]]
     held = sorted({inst["type"] for inst in instances if "Anchor" in inst.get("behaviors", {})} & set(types))
     for name in held:
@@ -3179,7 +3203,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-23, stamp cefdb2addb06 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-26, stamp 485fa93691bb ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3228,7 +3252,6 @@ def build_files() -> None:
 
 
 def build_images() -> None:
-    pattern("Backdrop", "plain")
     zone_image("KeyBox", None, "ink")
     # Board slot: a coin-sized disc in canvas_alt and a unit of space, repeated by the Tiled
     # Background; a ring as thick as it is wide, so its edge is antialiased
@@ -3247,7 +3270,6 @@ def build_object_types() -> tuple[dict, dict, list]:
                             ivars=[ivar_def("value", "number", "Points it is worth."),
                                    ivar_def("kind", "string", "Which coin: \"gold\" or \"silver\".")],
                             behaviors=[beh_def("Tween")]),
-        "Backdrop": pattern_type("Backdrop"),
         "Board": image_type("Board", "TiledBg", PITCH, PITCH, 0, 0),
         "RoundTag": text_type("RoundTag"),
         "ScoreLabel": text_type("ScoreLabel"),
@@ -3269,10 +3291,11 @@ def build_layouts() -> dict[str, dict]:
         layer("Game"),
         layer("UI", parallax=0),
     ], sheet="Game")
-    # Backdrop and board. A patterned area or edge is area(type, col, row, cols, rows) on the Game
-    # layer; an area or a range drawn as lines is zone(), a reach a ring(). Add instances in any
-    # order: build_all() sorts each layer
-    game["layers"][0]["instances"].append(backdrop("Backdrop"))
+    # The Background layer's colour is the paper, on any screen. A checker backdrop is backdrop(type)
+    # on layer("Backdrop", parallax=0, transparent=False) below it, with Background transparent.
+    # The board. A patterned area or edge is area(type, col, row, cols, rows) on the Game layer; an
+    # area or a range drawn as lines is zone(), a reach a ring(). Add instances in any order:
+    # build_all() sorts each layer
     board = tiledbg_inst("Board", BOARD_LEFT, BOARD_TOP, BOARD_W, BOARD_H, 0, 0)
     game["layers"][0]["instances"].append(board)
     # HUD on the edges: a tag by hud_tag(), a value under its name by hud_stat(), keys by hud_keys(),

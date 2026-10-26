@@ -113,7 +113,7 @@ then names where it comes from in `USER_LOOK` and takes `PALETTE` from it,
 `canvas` and `canvas_alt` from the backdrop. When the user gives none,
 `USER_LOOK` stays empty and the game takes paper and ink, the template's
 fallback. Only paper and ink is held to its taste: with `USER_LOOK` set, the
-white paper's ratio, the plain or checker backdrop, the stripes' sizes and
+white paper's ratio, the checker backdrop, the stripes' sizes and
 the ban on the Flash behavior stop nothing, and contrast, the grid and a
 clean alpha channel still stop the run. The `scope` of each rule of
 `assets/look-manifest.json` says which it is.
@@ -430,15 +430,20 @@ parameters are in the template.
   and, for an instant, a touched one's pressed frame. An object a touch
   already hits, the stand-in's coin, takes `pointer_module(type,
   pressed=False)` and `hit(type, frame="pressed")`.
-- The backdrop is `backdrop("Backdrop")` on a layer at parallax 1, of
-  `pattern("Backdrop", "plain")`, reaching `SCREEN_PAD` past the viewport so
-  the screen shows no edge of it. A popup's dim is laid out over
+- The paper is the colour of the opaque `Background` layer, which fills
+  any screen, so it takes no object. A popup's dim is laid out over
   `screen_box()` on the popup's own layer. A game with something
-  transparent, a mask or a background still to come draws it as
-  `"checker"` instead, as editors show transparency; its cells, two to a
-  unit, are then the ruler, so draw no grid. An area with a rule of its own
-  is `area(type, col, row, cols, rows)` of a type whose tile `pattern(name,
-  kind)` drew in `build_images()` and `pattern_type(name)` declares: `low`
+  transparent, a mask or a background still to come draws the checker, as
+  editors show transparency: `pattern("Backdrop", "checker")`. In a
+  one-screen layout, `backdrop("Backdrop")`, which Anchor stretches to the
+  screen, goes on `layer("Backdrop", parallax=0, transparent=False)` under
+  a transparent `Background`; its cells follow the screen's edge, not the
+  grid. In a level larger than the viewport, `backdrop("Backdrop", width,
+  height)` goes on the `Background` layer at parallax 1 and reaches
+  `SCREEN_PAD` past the layout, so it scrolls as the floor. An area with a
+  rule of its own is `area(type, col, row, cols, rows)` of a type whose
+  tile `pattern(name, kind)` drew in `build_images()` and
+  `pattern_type(name)` declares: `low`
   stripes for a harmless special surface, `caution`, ink stripes, for what
   moves or triggers, `hazard`, accent stripes, for what hurts, the last two
   on strips and small zones only. `tiledbg_inst()` offsets a pattern so

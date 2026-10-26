@@ -62,7 +62,7 @@ Option 3.
   paper and ink. A generator older than the setting gets `""` between the
   markers, so it keeps paper and ink.
 - `paper_and_ink()` is true while `USER_LOOK` is empty. Only then do
-  `check_palette()`'s 1.2:1, `backdrop()`'s plain or checker pattern,
+  `check_palette()`'s 1.2:1, `backdrop()`'s checker pattern,
   `area()`'s pattern and stripe size, and `beh_def()`'s refusal of the Flash
   behavior stop the run, each with a message that names `USER_LOOK`. With it
   set, `backdrop()` and `area()` take any Tiled Background type, and

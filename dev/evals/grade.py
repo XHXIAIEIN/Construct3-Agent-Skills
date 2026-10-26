@@ -1101,18 +1101,21 @@ def colours_of(project: Path, kind: str) -> set[tuple]:
 
 
 def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str]:
-    """What the viewport shows behind the game: the image of an instance on the Background layer that
-    covers the viewport (the template's backdrop), else the layer's colour when it is opaque."""
-    back = next((layer for layer in layout.get("layers", []) if layer.get("name", "").lower() == "background"), None)
-    if back is None:
+    """What the viewport shows behind the game: from the Background layer down through the layers under it,
+    such as the template's parallax-0 layer of a checker, the image of the first instance that covers the
+    viewport (a backdrop), else the colour of the first opaque layer (the template's paper)."""
+    layers = layout.get("layers", [])
+    names = [layer.get("name", "").lower() for layer in layers]
+    if "background" not in names:
         return set(), "no Background layer"
-    cover = next((i for i in reversed(back.get("instances", []))
-                  if contains(box_of(i), (0, 0, *view_of(project))) and colours_of(project, i["type"])), None)
-    if cover:
-        return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport"
-    if back.get("isTransparent", True):
-        return set(), "a transparent Background layer and nothing covering the viewport"
-    return {rgb255(back["backgroundColor"])}, "the Background layer's colour"
+    for layer in reversed(layers[:names.index("background") + 1]):
+        cover = next((i for i in reversed(layer.get("instances", []))
+                      if contains(box_of(i), (0, 0, *view_of(project))) and colours_of(project, i["type"])), None)
+        if cover:
+            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport"
+        if not layer.get("isTransparent", True):
+            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour"
+    return set(), "a transparent Background layer and nothing covering the viewport"
 
 
 def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
@@ -1122,8 +1125,8 @@ def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
         layout = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return results + [(False, "layouts/Game.json is not readable JSON")] * 5
-    # The template's backdrop covers the layer: its colour alone is never seen. Its labels are dark ink on
-    # light grey, so the navy is what puts readability at stake.
+    # The template's paper is the Background layer's colour, unless a backdrop covers the layer. Its labels
+    # are dark ink on white, so the navy is what puts readability at stake.
     shown, source = background_colours(layout, project)
     dark = bool(shown) and all(abs(a - b) <= 40 for colour in shown for a, b in zip(colour, NAVY))
     results.append((dark, f"{source}: {sorted(shown) or 'no colour'}"))

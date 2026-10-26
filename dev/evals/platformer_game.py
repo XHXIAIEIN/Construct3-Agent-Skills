@@ -36,7 +36,6 @@ def build_files() -> None:
 
 
 def build_images() -> None:
-    pattern("Backdrop", "plain")
     zone_image("Ground")
     zone_image("Goal", "canvas_alt", "reward")
     zone_image("KeyBox", None, "ink")
@@ -51,7 +50,6 @@ def build_object_types() -> tuple[dict, dict, list]:
         "Gem": sprite_type("Gem", [animation("Default", [drawn("gem-default-000.png")])]),
         "Ground": zone_type("Ground", behaviors=[beh_def("solid", "Solid")]),
         "Goal": zone_type("Goal"),
-        "Backdrop": pattern_type("Backdrop"),
         "LevelTag": text_type("LevelTag"),
         "ScoreLabel": text_type("ScoreLabel"),
         "ScoreText": text_type("ScoreText"),
@@ -69,8 +67,7 @@ def build_layouts() -> dict[str, dict]:
         layer("Game"),
         layer("UI", parallax=0),
     ], sheet="Game", width=LEVEL_W, height=VIEW_H)
-    back, world_ = game["layers"][0]["instances"], game["layers"][1]["instances"]
-    back.append(backdrop("Backdrop", LEVEL_W, VIEW_H))
+    world_ = game["layers"][1]["instances"]
     # The ground, one piece from gap to gap, so no seam shows where two zones meet; a gem over every gap, one on
     # the rest
     col = start = 0

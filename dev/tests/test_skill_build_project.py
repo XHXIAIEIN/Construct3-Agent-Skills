@@ -181,12 +181,14 @@ def test_template_palette_keeps_the_ratios_of_the_blockout():
 def test_template_patterns_tile_by_the_unit_and_meet_without_a_seam(tmp_path):
     """An area is a Tiled Background of a pattern; its image offset is minus its corner modulo
     the tile, which the runtime subtracts from the texture coordinate, so every piece lines up
-    with the layout. The plain paper and the checker are the backdrop's alone, the high-contrast
-    stripes strips and small zones."""
+    with the layout. The checker is the backdrop's alone, the high-contrast stripes strips and
+    small zones, and the plain paper no pattern but an opaque layer's colour."""
     t = template_module()
     t.ROOT = tmp_path
-    for name, kind in (("Sheet", "plain"), ("Backdrop", "checker"), ("Ledge", "low"), ("Door", "caution"),
-                       ("Lava", "hazard")):
+    with pytest.raises(SystemExit, match=r"pattern\('Sheet', 'plain'\): the plain paper is the colour of the opaque "
+                                         r"layer under the game, .* remove the backdrop\(\) of the plain pattern"):
+        t.pattern("Sheet", "plain")
+    for name, kind in (("Backdrop", "checker"), ("Ledge", "low"), ("Door", "caution"), ("Lava", "hazard")):
         t.pattern(name, kind)
         px = png_pixels(tmp_path / "images" / f"{name.lower()}.png")
         assert (len(px), len(px[0])) == (32, 32)
@@ -204,21 +206,29 @@ def test_template_patterns_tile_by_the_unit_and_meet_without_a_seam(tmp_path):
     assert (off["properties"]["image-offset-x"], off["properties"]["image-offset-y"]) == (28, 14)
     assert all(((x - 68) - 28) % 32 == x % 32 for x in range(68, 132))      # texture x = (local - offset) / tile
     assert t.tiledbg_inst("HpFill", 100, 50, 64, 64)["properties"]["image-offset-x"] == 0   # a bar is no pattern
-    # The backdrop reaches SCREEN_PAD, twice the viewport's longer side, past the layout on every
-    # side, so Scale outer shows no edge of it on a screen up to 4:1, and its tiles meet the layout's.
+    # In a one-screen layout the backdrop lies over the viewport and Anchor stretches it to the
+    # screen's four edges, which Scale outer moves past the viewport.
     back = t.backdrop("Backdrop")
-    assert t.SCREEN_PAD == 3840
-    assert (back["world"]["x"], back["world"]["y"], back["world"]["width"], back["world"]["height"]) ==         (-3840, -3840, 1920 + 7680, 1080 + 7680)
-    assert (back["properties"]["image-offset-x"], back["properties"]["image-offset-y"]) == (0, 0)
-    assert t.backdrop("Sheet", 4000, 1080)["world"]["width"] == 4000 + 7680
+    assert (back["world"]["x"], back["world"]["y"], back["world"]["width"], back["world"]["height"]) == (0, 0, 1920, 1080)
+    assert back["behaviors"]["Anchor"]["properties"] == {"left-edge": "window-left", "top-edge": "window-top",
+                                                          "right-edge": "window-right", "bottom-edge": "window-bottom",
+                                                          "enabled": True}
+    assert "Anchor" in t.backdrop("Backdrop", 1920, 1080)["behaviors"]
+    # A level's backdrop scrolls with it, so it reaches SCREEN_PAD, twice the viewport's longer side, past
+    # the layout on every side: Scale outer shows no edge of it on a screen up to 4:1, and its tiles meet
+    # the layout's.
+    level = t.backdrop("Backdrop", 4000, 1080)
+    assert t.SCREEN_PAD == 3840 and not level.get("behaviors")
+    assert (level["world"]["x"], level["world"]["width"], level["world"]["height"]) == (-3840, 4000 + 7680, 1080 + 7680)
+    assert (level["properties"]["image-offset-x"], level["properties"]["image-offset-y"]) == (0, 0)
     assert t.screen_box(ox=0.5, oy=0.5) == (960, 540, 1920 + 7680, 1080 + 7680)   # a dim centred on the viewport
-    for name, kind in (("Backdrop", "checker"), ("Sheet", "plain")):
-        with pytest.raises(SystemExit, match=rf"area\('{name}'\): the {kind} pattern is empty space, the backdrop alone"):
-            t.area(name, 0, 0, 4, 4)
+    with pytest.raises(SystemExit, match=r"area\('Backdrop'\): the checker pattern is empty space, the backdrop alone"):
+        t.area("Backdrop", 0, 0, 4, 4)
     with pytest.raises(SystemExit, match=r"area\('Lava'\): 12x10 cells of hazard stripes; .* keep the shorter side to 8 cells"):
         t.area("Lava", 0, 0, 12, 10)
     t.area("Ledge", 0, 0, 10, 6)                                             # low stripes may cover more
-    with pytest.raises(SystemExit, match=r"backdrop\('Door'\): the backdrop is the plain paper or the checker"):
+    with pytest.raises(SystemExit, match=r"backdrop\('Door'\): the backdrop is the checker; .* If it is the plain "
+                                         r"paper, the plain paper is the colour of the opaque layer"):
         t.backdrop("Door")
     with pytest.raises(SystemExit, match=r"area\('Wall'\): not a pattern"):
         t.area("Wall", 0, 0, 1, 1)
@@ -244,7 +254,7 @@ def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_re
         t.check_palette()
     t.write_png("sky.png", 32, 32, lambda x, y: (*t.rgb("canvas" if (x * 7 + y * 3) % 11 else "line"), 255))
     t.pattern("Lava", "hazard")
-    with pytest.raises(SystemExit, match=r"backdrop\('Sky'\): the backdrop is the plain paper or the checker"):
+    with pytest.raises(SystemExit, match=r"backdrop\('Sky'\): the backdrop is the checker"):
         t.backdrop("Sky")
     with pytest.raises(SystemExit, match=r"area\('Sky'\): not a pattern"):
         t.area("Sky", 0, 0, 4, 4)
@@ -257,7 +267,7 @@ def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_re
     t.check_palette()
     t.image_type("Sky", "TiledBg", 32, 32, 0, 0)
     sky, lava, cloud = t.backdrop("Sky"), t.area("Lava", 0, 0, 12, 10), t.area("Sky", 2, 2, 20, 12)
-    assert sky["world"]["width"] == 1920 + 2 * t.SCREEN_PAD
+    assert sky["world"]["width"] == 1920 and "Anchor" in sky["behaviors"]
     assert t.beh_def("Flash", "Blink")["behaviorId"] == "Flash"
     t.shape("coin.png", "circle", 64, 64, "reward")
     coin = t.shape_inst("Coin", "coin.png", 4, 4)
@@ -518,7 +528,7 @@ def test_template_places_the_hud_on_the_grid(built):
     assert len(said) == 4 and "reaches past" in said[0] and all("overlaps" in line for line in said[1:])
 
 
-def test_template_holds_the_hud_to_the_screens_edges(built):
+def test_template_holds_the_hud_to_the_screens_edges(built, tmp_path):
     """Scale outer shows more than the viewport on the screen's longer side and keeps a parallax 0
     layer centred on the viewport. So every helper that holds a HUD element to an edge gives it the
     Anchor behavior for that edge, in the keys and values the editor writes. A centred axis holds
@@ -570,6 +580,14 @@ def test_template_holds_the_hud_to_the_screens_edges(built):
     assert [b["behaviorId"] for b in types["Hint"]["behaviorTypes"]] == ["Anchor"] and types["Coin"]["behaviorTypes"] == []
     assert loose["behaviors"]["Anchor"]["properties"] == {"left-edge": "none", "top-edge": "none", "right-edge": "none",
                                                           "bottom-edge": "none", "enabled": False}
+    # Anchor holds to the screen only on a parallax-0 layer, so a stretched backdrop on a world layer stops the run.
+    t.ROOT = tmp_path
+    t.pattern("Backdrop", "checker")
+    world_ = t.layout("Game", [t.layer("Background", transparent=False)], sheet=None)
+    world_["layers"][0]["instances"].append(t.backdrop("Backdrop"))
+    with pytest.raises(SystemExit, match=r"layout Game, layer Background: Backdrop carries Anchor, which holds it to "
+                                         r"the screen's edges only on a layer at parallax 0"):
+        t.anchor_types({"Backdrop": t.pattern_type("Backdrop")}, {"Game": world_})
 
 
 def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
@@ -579,7 +597,7 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     user would see."""
     t = template_module()
     t.ROOT = tmp_path
-    t.pattern("Backdrop", "plain")
+    t.pattern("Backdrop", "checker")
     t.pattern("Lava", "hazard")
     near = t.sprite_inst("Tree", 400, 600, 64, 64)                    # feet at 632
     far = t.sprite_inst("Tree", 500, 300, 64, 64)                     # feet at 332
@@ -594,7 +612,7 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     assert ordered[2] is far and ordered[5] is near
     assert t.z_order(ordered) == ordered
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
-    assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] ==         [["Backdrop", "Board"], [],
+    assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [],
          ["RoundTag", "ScoreLabel", "ScoreText", "KeyBox", "KeyText", "KeyVerb"]]
 
 
@@ -922,7 +940,7 @@ def build_files() -> None:
 
 
 def build_images() -> None:
-    pattern("Backdrop", "plain")
+    pattern("Backdrop", "checker")
 
 
 def build_object_types() -> tuple[dict, dict, list]:
@@ -935,7 +953,8 @@ def build_object_types() -> tuple[dict, dict, list]:
 
 
 def build_layouts() -> dict[str, dict]:
-    lay = layout("Settings", [layer("Background", transparent=False), layer("UI", parallax=0)], sheet="Settings")
+    lay = layout("Settings", [layer("Backdrop", transparent=False, parallax=0), layer("UI", parallax=0)],
+                 sheet="Settings")
     lay["layers"][0]["instances"].append(backdrop("Backdrop"))
     ui = lay["layers"][1]["instances"]
     ui += slider("volume", 4, 5, units(24), value=50, text="Volume", label_cols=6)
@@ -992,14 +1011,12 @@ def build_files() -> None:
 
 
 def build_images() -> None:
-    pattern("Backdrop", "plain")
     for name in ("play", "quit"):
         shape(f"{name}-default-000.png", "rect", *button_size("Play"), "solid")
 
 
 def build_object_types() -> tuple[dict, dict, list]:
-    types = {"Backdrop": pattern_type("Backdrop"),
-             "Touch": single_global_type("Touch", "Touch", {"use-mouse-input": True})}
+    types = {"Touch": single_global_type("Touch", "Touch", {"use-mouse-input": True})}
     for name, label in (("Play", "PlayLabel"), ("Quit", "QuitLabel")):
         rel = f"{name.lower()}-default-000.png"
         types[name] = sprite_type(name, [animation("Default", [drawn(rel)])], behaviors=[beh_def("Tween")])
@@ -1009,7 +1026,6 @@ def build_object_types() -> tuple[dict, dict, list]:
 
 def build_layouts() -> dict[str, dict]:
     lay = layout("Menu", [layer("Background", transparent=False), layer("UI", parallax=0)], sheet="Menu")
-    lay["layers"][0]["instances"].append(backdrop("Backdrop"))
     ui = lay["layers"][1]["instances"]
     ui += button("Play", "play-default-000.png", "PlayLabel", "Play", 4, 5, behaviors=dict(TWEEN))
     ui += button("Quit", "quit-default-000.png", "QuitLabel", "Quit", 4, 12, behaviors=dict(TWEEN))

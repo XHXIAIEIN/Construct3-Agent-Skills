@@ -1,6 +1,6 @@
 # A Generated Game Fills the Screen, and Its Layers Read in Order
 
-Date: 2026-10-08
+Date: 2026-10-08; the backdrop 2026-10-26
 Schema: Construct 3 r495.2
 
 ## Problem
@@ -52,6 +52,19 @@ label listed before its panel draws under it.
   320×180 under *Integer scale outer* (r495.2): every label sat `MARGIN`
   from the screen's edges it hangs on, right and bottom included. The
   backdrop and a dim covered every corner of the screen.
+- Previews of the stand-in at 430×932, 1600×700, 2000×500 and 300×1200,
+  each again after the camera moved 300 px right and 200 px up
+  (2026-10-26): the opaque Background layer's colour filled every corner
+  with no backdrop object. A checker Tiled Background laid over the
+  viewport on a parallax-0 layer, with Anchor's four edges on the
+  viewport's, had the box of that layer's viewport each time, from
+  -1200..3120 across at 4:1 to -3300..4380 down at 1:4. Its cells start
+  at the screen's left edge, not at the layout's origin: at 2420×1080 the
+  layout's x 0 drew 250 px in, and the cell edges at multiples of 16 from
+  the screen's edge. A centred origin changed nothing.
+- The manual: *Right edge* and *Bottom edge* take only *Viewport right*
+  and *Viewport bottom* or *None*, and resize the object
+  (`behavior-reference/anchor.md`).
 
 ## Options
 
@@ -62,6 +75,27 @@ label listed before its panel draws under it.
 3. **Scale outer in the template, with the HUD helpers anchoring and the
    backdrop covering by default.** The helpers already know the edge each
    element hangs on. Chosen.
+
+For the backdrop under option 3, the template laid one Tiled Background
+`SCREEN_PAD` past the viewport on every side, 9600×8760 at 1920×1080. It
+covered every screen, but in the editor it dwarfed the layout, and a
+plain one only repeated the opaque layer's colour beneath it. Three ways
+cover a one-screen layout instead:
+
+- **The opaque layer's colour** for the plain paper. Nothing to place,
+  and it fills any screen and any scroll.
+- **Anchor on all four edges** for a pattern, on a layer at parallax 0.
+  The object is the viewport's size in the editor and the screen's at
+  run time, but its cells follow the screen's edge, so the checker is no
+  longer a ruler that lines up with the grid. Chosen.
+- **Anchor plus an event that sets the image offset** from the box every
+  tick. It keeps the cells on the grid at the cost of an event in every
+  game with a checker; the checker marks transparency, as editors draw
+  it, so its alignment was not worth the event.
+
+A level larger than the viewport keeps the padded backdrop on a layer at
+parallax 1, because it is the floor that scrolls with the camera, and a
+parallax-0 backdrop would stand still behind a moving world.
 
 For pixel art, *Integer scale outer* is chosen because every pixel stays
 square. The cost is a margin that varies with the screen. *Scale outer*
@@ -96,11 +130,18 @@ offset by the safe-area insets, which the helpers do not compute.
   `SafeAreaInset` expressions itself. Not verified on a device: no phone
   with a notch or rounded corners has run a generated game, so this rests
   on the manual.
-- `backdrop()` and `screen_box()` reach `SCREEN_PAD`, twice the viewport's
-  longer side, past the viewport on every side. This covers a screen up to
-  4:1 in either orientation. A dim is laid out over `screen_box()`. The tap
-  that closes a popup is still tested against the panel, as `input.md`
-  says.
+- The plain paper is the colour of the opaque `Background` layer, and no
+  object: `pattern(name, "plain")` and `backdrop()` of a plain pattern
+  stop the run and say so.
+- In a one-screen layout, `backdrop()` lays its pattern over the viewport
+  with `STRETCHED`, Anchor's four edges on the viewport's, on a layer at
+  parallax 0 under the game's. `anchor_types()` stops the run on an
+  enabled Anchor on a layer of any other parallax.
+- In a layout larger than the viewport, `backdrop(type, width, height)`
+  and `screen_box()` reach `SCREEN_PAD`, twice the viewport's longer
+  side, past the layout on every side. This covers a screen up to 4:1 in
+  either orientation. A dim is laid out over `screen_box()`. The tap that
+  closes a popup is still tested against the panel, as `input.md` says.
 - `layout()` turns on *Unbounded scrolling* in a layout of the viewport's
   size. Bounded, the camera keeps the layout's left and top edges on the
   screen's: a preview at 1600×700 showed the stage left of the screen's
@@ -129,6 +170,10 @@ offset by the safe-area insets, which the helpers do not compute.
 
 - A preview shows an anchored HUD element off its edge, or a backdrop edge
   on screen.
+- A game needs the checker's cells on the grid, which takes the image
+  offset event.
+- A popup's dim, still padded by `SCREEN_PAD`, gets in the way in the
+  editor as the backdrop did; it can be stretched the same way.
 - A small model's generated game places a HUD element without
   `anchored()`. No eval has run on this change, because it is in the
   helpers' defaults, which a run copies with the template.

@@ -46,7 +46,6 @@ def build_files() -> None:
 
 
 def build_images() -> None:
-    pattern("Backdrop", "plain")
     zone_image("KeyBox", None, "ink")
     # Board slot: a coin-sized disc in canvas_alt and a unit of space, repeated by the Tiled
     # Background; a ring as thick as it is wide, so its edge is antialiased
@@ -68,7 +67,6 @@ def build_object_types() -> tuple[dict, dict, list]:
                             ivars=[ivar_def("value", "number", "Points it is worth."),
                                    ivar_def("kind", "string", "Which coin: \"gold\" or \"silver\".")],
                             behaviors=[beh_def("Tween")]),
-        "Backdrop": pattern_type("Backdrop"),
         "Board": image_type("Board", "TiledBg", PITCH, PITCH, 0, 0),
         "RoundTag": text_type("RoundTag"),
         "ScoreLabel": text_type("ScoreLabel"),
@@ -94,10 +92,9 @@ def build_layouts() -> dict[str, dict]:
         layer("Game"),
         layer("UI", parallax=0),
     ], sheet="Game")
-    # Backdrop and board. A patterned area or edge is area(type, col, row, cols, rows) on the Game
+    # The board. A patterned area or edge is area(type, col, row, cols, rows) on the Game
     # layer; an area or a range drawn as lines is zone(), a reach a ring(). Add instances in any
     # order: build_all() sorts each layer
-    game["layers"][0]["instances"].append(backdrop("Backdrop"))
     board = tiledbg_inst("Board", BOARD_LEFT, BOARD_TOP, BOARD_W, BOARD_H, 0, 0)
     game["layers"][0]["instances"].append(board)
     # HUD on the edges: a tag by hud_tag(), a value under its name by hud_stat(), keys by hud_keys(),

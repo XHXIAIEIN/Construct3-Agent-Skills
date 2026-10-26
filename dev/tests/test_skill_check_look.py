@@ -6,7 +6,7 @@ from tests.skill_helpers import tool, edit, template_module, cond, block, png
 
 def test_check_look_passes_the_stand_in_and_names_each_fault(project):
     code, out = tool(project, "check_look")
-    assert code == 0 and out.splitlines()[-1].startswith("ok: 5 images, 3 world instances on a 32 px grid, "
+    assert code == 0 and out.splitlines()[-1].startswith("ok: 4 images, 2 world instances on a 32 px grid, "
                                                           "1 runtime creations"), out
     t = template_module()
     t.ROOT = project

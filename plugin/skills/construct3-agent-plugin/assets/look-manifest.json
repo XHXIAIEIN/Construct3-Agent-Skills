@@ -174,7 +174,7 @@
       "id": "screen.fill",
       "status": "adopted",
       "scope": "every-look",
-      "says": "The project fills the screen at any aspect ratio: Scale outer, and Integer scale outer for pixel art, never a Letterbox mode with bars. A HUD element held to an edge carries the Anchor behavior for that edge; a backdrop or a dim reaches SCREEN_PAD past the viewport on every side.",
+      "says": "The project fills the screen at any aspect ratio: Scale outer, and Integer scale outer for pixel art, never a Letterbox mode with bars. A HUD element held to an edge carries the Anchor behavior for that edge. A plain backdrop is an opaque layer's colour, which fills any screen; a patterned one in a one-screen layout is stretched to the screen's four edges by Anchor on a layer at parallax 0; a scrolling level's backdrop or a dim reaches SCREEN_PAD past the layout on every side.",
       "template": "FULLSCREEN",
       "value": "'integer-scale-outer' if PIXEL_ART else 'scale-outer'",
       "helpers": "anchored(), hud_text(), hud_bar(), labelled_bar(), band_text(), screen_box(), backdrop(), anchor_types()",
@@ -349,9 +349,9 @@
       "status": "enforced",
       "scope": "paper-and-ink",
       "strict": true,
-      "says": "One Tiled Background behind everything, over the layout and SCREEN_PAD past it on every side, and no area elsewhere: the plain paper in canvas, or, in a game with something transparent, a mask or a background still to come, the transparency checker, cells of UNIT / 2 in canvas and canvas_alt, the ruler in place of a grid. With USER_LOOK set, backdrop() lays any Tiled Background of the user's look.",
+      "says": "The plain paper is the opaque Background layer's colour, canvas, and no object. In a game with something transparent, a mask or a background still to come, the backdrop is the transparency checker, cells of UNIT / 2 in canvas and canvas_alt: one Tiled Background behind everything and no area elsewhere, stretched to the screen in a one-screen layout, its cells following the screen's edge rather than the grid. With USER_LOOK set, backdrop() lays any Tiled Background of the user's look.",
       "template": "{kind: PATTERNS[kind] for kind in BACKDROPS}",
-      "value": "{'plain': ('canvas', 'canvas'), 'checker': ('canvas', 'canvas_alt')}",
+      "value": "{'checker': ('canvas', 'canvas_alt')}",
       "helpers": "pattern(), pattern_type(), backdrop()"
     },
     {

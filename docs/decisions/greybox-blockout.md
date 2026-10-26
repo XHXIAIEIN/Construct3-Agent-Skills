@@ -263,15 +263,18 @@ stops, naming the roles that would pass, when:
 
 ### Backdrop and patterns
 
-`backdrop()` lays a backdrop pattern on a layer at parallax 1 from the
-layout's origin: the plain paper by default, or, in a game with something
-transparent, a mask or a background still to come, the checker, cells of
-`UNIT / 2` in `canvas` and `canvas_alt`. The checker is then the ruler:
-never a grid as well. In a top-down game the backdrop is the floor.
+The plain paper is the colour of the opaque `Background` layer, `canvas`,
+with no object. In a game with something transparent, a mask or a
+background still to come, `backdrop()` lays the checker, cells of
+`UNIT / 2` in `canvas` and `canvas_alt`: in a one-screen layout over the
+viewport on a layer at parallax 0, stretched to the screen by Anchor, its
+cells following the screen's edge rather than the grid
+(`fill-the-screen.md`); in a level larger than the viewport on a layer at
+parallax 1 from the layout's origin, so it scrolls as the floor. In a
+top-down game the backdrop is the floor.
 
 | Pattern | Colours | Marks |
 |---------|---------|-------|
-| Plain | `canvas` | Empty space: the backdrop only |
 | Checker | `canvas`, `canvas_alt` | Empty space over transparency: the backdrop only |
 | Low stripes | `solid`, `dim` | A surface that is special and harmless: a one-way platform, a safe zone |
 | Caution stripes | `ink`, `canvas` | What moves, triggers or blocks on a condition |

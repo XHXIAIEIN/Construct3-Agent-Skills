@@ -241,8 +241,8 @@ def check_screen(project: dict, warned: list[str]) -> None:
         warned.append(f"warning: screen.fill: project.c3proj has fullscreenMode {mode}, which shows bars where the "
                       f"screen's shape differs from the viewport's; the template's build_project() writes {want} "
                       f"(FULLSCREEN). Run the generator again, or remove the line that sets another mode. The "
-                      f"generator also holds the HUD to the screen's edges (anchored()) and extends the backdrop "
-                      f"past the viewport (backdrop()).")
+                      f"generator also holds the HUD to the screen's edges (anchored()) and stretches the backdrop "
+                      f"to them (backdrop()).")
 
 
 # PlatformInfo's four SafeAreaInset expressions in an event, or the CSS env() names in a script.

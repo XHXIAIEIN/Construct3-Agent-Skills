@@ -157,9 +157,9 @@ def add_keyboard(root: Path, key) -> None:
     edit(root, SHEET, lambda s: s["events"].append(block([cond("on-key-pressed", "Keyboard", {"key": key})])))
 
 
-def solid_backdrop(project: Path) -> None:
-    """Backdrop gets Solid, on its type and on its instance in the Game layout."""
-    edit(project, "objectTypes/Backdrop.json", lambda t: t["behaviorTypes"].append(
+def solid_board(project: Path) -> None:
+    """Board gets Solid, on its type and on its instance in the Game layout."""
+    edit(project, "objectTypes/Board.json", lambda t: t["behaviorTypes"].append(
         {"behaviorId": "solid", "name": "Solid", "sid": 12}))
     edit(project, "layouts/Game.json", lambda d: d["layers"][0]["instances"][0].setdefault("behaviors", {}).update(
         Solid={"properties": {}}))
@@ -167,13 +167,13 @@ def solid_backdrop(project: Path) -> None:
 
 
 def pathfinding_coin(project: Path, obstacles: str = "solids") -> None:
-    """Coin gets Pathfinding, taking its obstacles from Solids, and the Backdrop, which no event changes, Solid."""
+    """Coin gets Pathfinding, taking its obstacles from Solids, and the Board, which no event changes, Solid."""
     edit(project, "objectTypes/Coin.json", lambda t: t["behaviorTypes"].append(
         {"behaviorId": "Pathfinding", "name": "Pathfinding", "sid": 11}))
     edit(project, "layouts/Objects.json", lambda d: d["layers"][0]["instances"][0]["behaviors"].update(
         Pathfinding={"properties": {"obstacles": obstacles}}))
     add_addon(project, "behavior", "Pathfinding", "Pathfinding")
-    solid_backdrop(project)
+    solid_board(project)
 
 
 def coin_copy(project: Path, name: str, behavior: str) -> dict:

@@ -13,7 +13,7 @@ import pytest
 from tests.skill_helpers import (
     PLUGIN,    DATA,
     REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, every_event, collect_tween, warnings,
-    findings, plan, add_addon, add_global_object, add_keyboard, coin_copy, pathfinding_coin, solid_backdrop, EXAMPLES,
+    findings, plan, add_addon, add_global_object, add_keyboard, coin_copy, pathfinding_coin, solid_board, EXAMPLES,
     NEEDS_EXAMPLES,
 )
 
@@ -134,9 +134,9 @@ def test_a_sprite_without_its_animations_folder_is_named(project):
 def test_a_single_image_type_without_its_image_is_named(project, change, said):
     """A Tiled Background, Sprite Font, Particles, Tilemap or 9-patch type without
     "image" stops the open with "TypeError: expected object"."""
-    out = findings(project, change, "objectTypes/Backdrop.json")
-    assert "object type Backdrop: a TiledBg carries one image" in out and said in out
-    assert "the size of images/backdrop.png" in out
+    out = findings(project, change, "objectTypes/Board.json")
+    assert "object type Board: a TiledBg carries one image" in out and said in out
+    assert "the size of images/board.png" in out
 
 
 @pytest.mark.parametrize("points, said", [
@@ -169,7 +169,7 @@ def test_a_frame_collision_polygon_holds_three_points(project, points, said):
     ("objectTypes/Coin.json", "instanceVariables", '"instanceVariables": [...], the folder\'s items in a list'),
     ("objectTypes/Coin.json", "behaviorTypes", '"behaviorTypes": [...], the folder\'s items in a list'),
     ("objectTypes/Coin.json", "effectTypes", '"effectTypes": []'),
-    ("objectTypes/Backdrop.json", "instanceVariables", '"instanceVariables": []'),
+    ("objectTypes/Board.json", "instanceVariables", '"instanceVariables": []'),
 ])
 def test_an_object_type_list_written_as_a_folder_is_named(project, rel, key, write):
     """A folder in place of a list stops the editor with "TypeError: ... is not iterable". The
@@ -1165,13 +1165,13 @@ def test_images_sharing_an_image_sprite_id_stop_the_editor(project):
     A project that gives one of them the id in the finding opens."""
     coin = json.loads((project / "objectTypes/Coin.json").read_text(encoding="utf-8"))
     frame_id = coin["animations"]["items"][0]["frames"][0]["imageSpriteId"]
-    out = findings(project, lambda t: t["image"].update(imageSpriteId=frame_id), "objectTypes/Backdrop.json")
+    out = findings(project, lambda t: t["image"].update(imageSpriteId=frame_id), "objectTypes/Board.json")
     line = next((x for x in out.splitlines() if "imageSpriteId" in x), "")
-    assert ("the frame images/coin-default-000.png of Coin (objectTypes/Coin.json) and the image of Backdrop "
-            f"(objectTypes/Backdrop.json) share the imageSpriteId {frame_id}, and the editor stops with \"id "
+    assert ("the frame images/coin-default-000.png of Coin (objectTypes/Coin.json) and the image of Board "
+            f"(objectTypes/Board.json) share the imageSpriteId {frame_id}, and the editor stops with \"id "
             "already in use\"") in line, out
     offered = int(line.rsplit(" ", 1)[-1])
-    out = findings(project, lambda t: t["image"].update(imageSpriteId=offered), "objectTypes/Backdrop.json")
+    out = findings(project, lambda t: t["image"].update(imageSpriteId=offered), "objectTypes/Board.json")
     assert "imageSpriteId" not in out and out.splitlines()[-1].startswith("ok:"), out
 
 
@@ -1277,7 +1277,7 @@ FIND_PATH = {"id": "find-path", "objectClass": "Coin", "sid": 13, "behaviorType"
              "parameters": {"x": "100", "y": "100"}}
 MOVE_ALONG = {"id": "move-along-path", "objectClass": "Coin", "sid": 14, "behaviorType": "Pathfinding"}
 WAIT_FOR_PREVIOUS = {"id": "wait-for-previous-actions", "objectClass": "System", "sid": 15}
-DESTROY_WALL = {"id": "destroy", "objectClass": "Backdrop", "sid": 16}
+DESTROY_WALL = {"id": "destroy", "objectClass": "Board", "sid": 16}
 REGENERATE_MAP = {"id": "regenerate-obstacle-map", "objectClass": "Coin", "sid": 17, "behaviorType": "Pathfinding"}
 NODE_X = {"id": "set-x", "objectClass": "Coin", "sid": 18, "parameters": {"x": "Coin.Pathfinding.NodeXAt(0)"}}
 START = cond("on-start-of-layout")
@@ -1331,7 +1331,7 @@ FIRE = block([START], [{"id": "create-object", "objectClass": "System", "sid": 1
     "template-name": '""'}}])
 DESTROY_SHOT = {"id": "destroy", "objectClass": "Shot", "sid": 20}
 HIT_BOARD = block([cond("on-collision-with-another-object", "Shot", {"object": "Board"})], [DESTROY_SHOT])
-HIT_BACKDROP = block([cond("on-collision-with-another-object", "Shot", {"object": "Backdrop"})], [DESTROY_SHOT])
+HIT_BOARD = block([cond("on-collision-with-another-object", "Shot", {"object": "Board"})], [DESTROY_SHOT])
 OUTSIDE = block([cond("is-outside-layout", "Shot")], [DESTROY_SHOT])
 STRAY = "moves with the Bullet behavior and the events create it, but nothing removes one that misses"
 
@@ -1370,16 +1370,16 @@ def test_a_bullet_that_hits_a_solid_or_has_destroy_outside_is_not_named(project)
     edit(project, "objectTypes/Shot.json", lambda t: t["behaviorTypes"].pop())
     edit(project, "layouts/Objects.json", lambda d: next(i for i in d["layers"][0]["instances"] if i["type"] == "Shot")
          ["behaviors"].pop("DestroyOutsideLayout"))
-    solid_backdrop(project)
-    out = findings(project, lambda s: s["events"].append(HIT_BACKDROP))
+    solid_board(project)
+    out = findings(project, lambda s: s["events"].append(HIT_BOARD))
     assert_one_warning(out, STRAY, None)
 
 
 def platform_instances(project, *placed: tuple[str, dict]) -> None:
-    """Coin and Backdrop get Platform. The Objects layout holds one instance per (type, Platform properties)
-    instead of the Coin it had. The Game layout's Backdrop, the model for a Backdrop there, has Default
+    """Coin and Board get Platform. The Objects layout holds one instance per (type, Platform properties)
+    instead of the Coin it had. The Game layout's Board, the model for a Board there, has Default
     controls off."""
-    for t, behavior_sid in (("Coin", 11), ("Backdrop", 12)):
+    for t, behavior_sid in (("Coin", 11), ("Board", 12)):
         edit(project, f"objectTypes/{t}.json", lambda o, s=behavior_sid: o["behaviorTypes"].append(
             {"behaviorId": "Platform", "name": "Platform", "sid": s}))
     add_addon(project, "behavior", "Platform", "Platform")
@@ -1388,7 +1388,7 @@ def platform_instances(project, *placed: tuple[str, dict]) -> None:
     game = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))
 
     def place(d):
-        made = {"Coin": d["layers"][0]["instances"][0], "Backdrop": game["layers"][0]["instances"][0]}
+        made = {"Coin": d["layers"][0]["instances"][0], "Board": game["layers"][0]["instances"][0]}
         d["layers"][0]["instances"] = []
         for i, (t, properties) in enumerate(placed):
             inst = json.loads(json.dumps(made[t]))
@@ -1402,9 +1402,9 @@ ON, OFF = {"default-controls": True}, {"default-controls": False}
 
 
 @pytest.mark.parametrize("placed, said", [
-    ((("Coin", ON), ("Backdrop", ON)), "Coin (1 instance, Platform); Backdrop (1 instance, Platform) have Default"),
-    ((("Coin", ON), ("Coin", ON), ("Backdrop", {})), "Coin (2 instances, Platform); Backdrop (1 instance, Platform)"),
-    ((("Coin", ON), ("Backdrop", OFF)), None),
+    ((("Coin", ON), ("Board", ON)), "Coin (1 instance, Platform); Board (1 instance, Platform) have Default"),
+    ((("Coin", ON), ("Coin", ON), ("Board", {})), "Coin (2 instances, Platform); Board (1 instance, Platform)"),
+    ((("Coin", ON), ("Board", OFF)), None),
     ((("Coin", ON), ("Coin", ON)), None),
 ])
 def test_two_types_steered_by_the_arrow_keys_are_named(project, placed, said):
@@ -1499,7 +1499,7 @@ ONCE_A_ROUND = "Set side to 3 - side under Trigger once flips side once each tim
     ([block([TAPPED], [FLIP_SIDE])], None),
     ([block([TAPPED], [], [block([], [FLIP_SIDE])])], None),
     ([block([cond("every-x-seconds", params={"interval-seconds": "0.5"})], [FLIP_SIDE])], None),
-    ([block([cond("is-overlapping-another-object", "Coin", {"object": "Backdrop"}), ONCE], [FLIP_SIDE])], None),
+    ([block([cond("is-overlapping-another-object", "Coin", {"object": "Board"}), ONCE], [FLIP_SIDE])], None),
     ([function("SwitchSide", 55, [FLIP_SIDE])], None),
     # the branch changes what it tests: a flag an input raised, the variable it flips, what the Else answers,
     # the object a test reads, through a function it calls; a call that changes nothing it tests does not
@@ -1614,12 +1614,12 @@ def test_a_condition_without_a_schema_is_a_trigger_when_its_id_starts_with_on(pr
 
 def sprite_font_label(project, text: str, bbcode: bool = True, properties: dict | None = None) -> None:
     """A Sprite Font Label on the Objects layout, drawing capitals, digits and the space, or with `properties`;
-    its image is the backdrop's."""
-    backdrop = json.loads((project / "objectTypes" / "Backdrop.json").read_text(encoding="utf-8"))
-    (project / "images" / "label.png").write_bytes((project / "images" / "backdrop.png").read_bytes())
+    its image is the board's."""
+    board = json.loads((project / "objectTypes" / "Board.json").read_text(encoding="utf-8"))
+    (project / "images" / "label.png").write_bytes((project / "images" / "board.png").read_bytes())
     (project / "objectTypes" / "Label.json").write_text(json.dumps({
         "name": "Label", "plugin-id": "Spritefont2", "sid": 21, "instanceVariables": [], "behaviorTypes": [],
-        "effectTypes": [], "image": {**backdrop["image"], "imageSpriteId": 25}}), encoding="utf-8")
+        "effectTypes": [], "image": {**board["image"], "imageSpriteId": 25}}), encoding="utf-8")
     edit(project, "project.c3proj", lambda p: p["objectTypes"]["items"].append("Label"))
     add_addon(project, "plugin", "Spritefont2", "Sprite font")
 
@@ -2197,11 +2197,11 @@ def test_text_that_does_not_read_on_the_layer_behind_it_is_named(project, change
 
 
 def test_text_over_another_object_is_left_to_the_eye(project):
-    """A Backdrop under the text: what shows behind it is an image, which this check does not read."""
+    """A Board under the text: what shows behind it is an image, which this check does not read."""
     def cover(layers, text):
         layers[0]["isTransparent"] = True
         under = json.loads(json.dumps(text))
-        under.update(type="Backdrop", properties={}, uid=900, sid=901)
+        under.update(type="Board", properties={}, uid=900, sid=901)
         layers[0]["instances"] = [under]
     out = screen_text(project, cover)
     assert not [w for w in warnings(out) if "to read (WCAG" in w], out
