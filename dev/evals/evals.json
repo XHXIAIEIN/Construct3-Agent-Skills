@@ -519,6 +519,19 @@
         "Both buttons are pressed through press(): two object types the fixture lacks each have an On touched event and an On any touch end event that tests a boolean instance variable of that type",
         "tools/build_project.py is the source: rerun in a copy, it writes the same layouts/Game.json"
       ]
+    },
+    {
+      "id": 34,
+      "name": "report-two-enemies",
+      "fixture": "coins-two-enemies",
+      "prompt": "my coins game is at <project> . yesterday another ai session added two enemy sprites, Goblin and Orc, that turn toward the coin every tick. before it worked, check_project.py printed this:\n\nOrc: instance variable z collides with the expression Orc.z; rename it\nsheet Game event 13 (sid 699999999999901) action 1 Goblin:set-angle-toward-position x: unknown object Cion in expression; closest: Coin, Functions\nsheet Game event 13 (sid 699999999999901) action 1 Goblin:set-angle-toward-position y: unknown object Cion in expression; closest: Coin, Functions\n3 problem(s)\n\nit fixed the typo (Cion for Coin) and renamed the orc's variable z to lift, and now the checker passes. can you write this up as a report for the skill's maintainers? i'll file it on github myself.",
+      "expected_output": "A report for the maintainers in a code block, which the user files: the checker's lines kept word for word but for the project's names. Goblin and Orc are two different roles, such as Enemy and Enemy2, so the report still tells the two errors' objects apart, and the misspelt Cion, which matches nothing in the project, is <no such name>. The project is left unchanged.",
+      "files": [],
+      "assertions": [
+        "The report gives Goblin and Orc two different roles in their error lines, and names neither",
+        "The report writes the misspelt Cion as <no such name> and never as Cion",
+        "No project file differs from the fixture"
+      ]
     }
   ]
 }

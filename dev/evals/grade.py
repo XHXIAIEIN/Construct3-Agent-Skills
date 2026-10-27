@@ -1771,6 +1771,29 @@ def grade_kept(run: Path, own_warnings: bool = True) -> list[tuple[bool, str]]:
             (bool(original) and not lost, f"{len(original) - len(lost)} of {len(original)} original event sids present")]
 
 
+def report_of(answer: str) -> str:
+    """The report in the answer: its code blocks, or the whole answer when it has none."""
+    blocks = re.findall(r"^\s*```[^\n]*\n(.*?)^\s*```", answer, re.M | re.S)
+    return "\n".join(blocks) if blocks else answer
+
+
+def grade_report_two_enemies(run: Path) -> list[tuple[bool, str]]:
+    """The report of the checker's lines that the prompt quotes: Goblin's action, which read the misspelt Cion,
+    and Orc's instance variable z. Each object is found by the line its error is on, not by the role given it,
+    and the two lines differ in nothing else, so one role for both would merge them."""
+    report = report_of(answer_of(run))
+    goblin = set(re.findall(r"action \d+ (\S+?):set-angle-toward-position", report))
+    orc = set(re.findall(r"(\S+): instance variable \S+ collides with the expression", report))
+    named = sorted({m.lower() for m in re.findall(r"\b(goblin|orc)s?\b", report, re.I)})
+    results = [(bool(goblin) and bool(orc) and not goblin & orc and not named,
+                f"roles on Goblin's lines: {sorted(goblin) or 'none'}; on Orc's: {sorted(orc) or 'none'}; "
+                f"names left in the report: {named or 'none'}")]
+    cion = len(re.findall(r"\bcion\b", report, re.I))
+    results.append(("<no such name>" in report and not cion,
+                    f"<no such name> {'in' if '<no such name>' in report else 'not in'} the report; Cion {cion} times"))
+    return results + [unchanged(run)]
+
+
 GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_load_errors,
            "keep-checking-after-compaction": grade_keep_checking_after_compaction,
            "name-the-restart-event": grade_name_the_restart_event, "find-in-a-long-sheet": grade_find_in_a_long_sheet,
@@ -1789,7 +1812,7 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "two-player-turn-limit": grade_two_player_turns, "find-a-drag-example": grade_find_a_drag_example,
            "script-shift-and-edges": grade_script_shift_and_edges,
            "platform-state-in-chinese": grade_platform_state_in_chinese,
-           "design-a-catch-game": grade_design_a_catch_game,
+           "design-a-catch-game": grade_design_a_catch_game, "report-two-enemies": grade_report_two_enemies,
            "double-jump": grade_kept, "key-opens-door": grade_kept, "stay-on-screen": grade_kept, "walls-stop-the-player": grade_kept,
            "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False)}
 
