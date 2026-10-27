@@ -1229,7 +1229,11 @@ def module(title: str, events: list | None = None, variables: list | None = None
     layout, On loader layout complete), then its functions and custom actions, then its other
     events. What runs every tick goes in a module of its own, "Update" unless a better name says
     what it does. A variable only this group reads, a constant too, is one of its
-    variables, not a global. Entries may be rows or the row pairs of event() and procedure()."""
+    variables. The sheet's modules sit in one outer module named for the game, whose static
+    variables hold what several of them share, so the sheet needs no globals:
+    module("Coins", variables=[var("score", "number", 0, "...", static=True)],
+    events=[module_setup(), module_input(), module_update()]). Entries may be rows or the row
+    pairs of event() and procedure()."""
     return group(title, list(variables or []) + flat(triggers or []) + flat(procedures or []) + flat(events or []),
                  active=active)
 
@@ -3283,7 +3287,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp 96c53d9afae7 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp c9f6f1a0f53b ================
 
 
 # --- the game ---------------------------------------------------------------------------
