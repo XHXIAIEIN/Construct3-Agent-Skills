@@ -764,10 +764,10 @@ class Plan:
 # deleted condition, and the traps of the running game whose fix is one condition or one move: a Find path or a
 # Start timer that runs every tick, a Once timer only its own On timer restarts under a condition, Simulate
 # control under a trigger, X.Count = 0 after X's Destroy, X.PickedCount = 0 after a pick of X, a variable flipped
-# every tick, X: v = 1 below X: v = 0, Is overlapping a Solid from a Platform object, and a Drag & Drop object
-# dropped on one the layout draws above it.
+# every tick, X: v = 1 below X: v = 0, Is overlapping a Solid from a Platform object, a Drag & Drop object
+# dropped on one the layout draws above it, and Mouse.X or Touch.X read under Mouse On movement.
 REFUSED_STYLE = ("comment", "run", "cases", "tick", "pathfinding", "timer", "dead-timer", "control", "count", "picked",
-                 "flip", "narrowed", "undone", "solid-overlap", "drop-under")
+                 "flip", "narrowed", "undone", "solid-overlap", "drop-under", "movement")
 
 
 def findings_of(project: c3.Project, locale: str, sheets: dict) -> tuple[check_project.Checker, c3.Findings]:
