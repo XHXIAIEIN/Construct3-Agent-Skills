@@ -1332,6 +1332,33 @@ def test_the_pulse_case_wants_the_json_false_on_a_collect(tmp_path: Path, projec
     assert [ok for ok, _ in graded_by(run_dir).values()] == passed, graded_by(run_dir)
 
 
+REPORT_ANSWERS = Path(__file__).parent / "fixtures" / "report_answers"
+
+
+@pytest.mark.parametrize(("answer", "passed"), [
+    # The prose to the user may name Goblin and Orc; only the code block is the report
+    ("two_roles.md", [True, True, True]),
+    # Enemy for both: the two error lines no longer tell Goblin's object from Orc's
+    ("one_role.md", [False, True, True]),
+    ("keeps_a_name.md", [False, True, True]),
+    ("keeps_the_typo.md", [True, False, True]),
+])
+def test_the_report_numbers_two_enemies_and_marks_the_typo(tmp_path: Path, project: Path, answer: str,
+                                                          passed: list) -> None:
+    shutil.rmtree(project / "tools")     # as make_fixtures.stand_in() leaves the game, so nothing differs
+    run_dir = seeded_case(tmp_path, project, "report-two-enemies", make_fixtures.seed_two_enemies)
+    (run_dir / "outputs").mkdir()
+    shutil.copy(REPORT_ANSWERS / answer, run_dir / "outputs" / "answer.md")
+    assert [ok for ok, _ in graded_by(run_dir).values()] == passed, graded_by(run_dir)
+
+
+def test_the_two_enemies_fixture_passes_the_checker(project: Path) -> None:
+    """The prompt quotes the checker's lines from before the fixes; the fixture is the project after them."""
+    make_fixtures.seed_two_enemies(project)
+    code, out = grader.checker(project)
+    assert code == 0, out
+
+
 BUTTON_ANSWERS = Path(__file__).parent / "fixtures" / "button_answers"
 
 

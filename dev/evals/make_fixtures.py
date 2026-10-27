@@ -335,6 +335,31 @@ def seed_name_collision(root: Path) -> None:
     write_json(path, sheet)
 
 
+def seed_two_enemies(root: Path) -> None:
+    """Goblin and Orc, two Sprites copied from Coin's JSON, which an event 13 turns toward the coin every tick,
+    as another session left them once the checker passed. Before that, Goblin's action read the misspelt Cion
+    and Orc's instance variable lift was z, which the prompt of report-two-enemies quotes as the checker printed."""
+    types = [read_json(p) for p in (root / "objectTypes").glob("*.json")]
+    sprite_ids = [f["imageSpriteId"] for t in types for a in t.get("animations", {}).get("items", []) for f in a["frames"]]
+    coin = read_json(root / "objectTypes" / "Coin.json")
+    first = coin["animations"]["items"][0]
+    for n, name in enumerate(("Goblin", "Orc")):
+        ivars = [{"name": "lift", "type": "number", "desc": "How far it rises, in px.", "show": True,
+                  "sid": 699999999999930}] if name == "Orc" else []
+        write_json(root / "objectTypes" / f"{name}.json", {
+            **coin, "name": name, "sid": 699999999999910 + n, "instanceVariables": ivars, "behaviorTypes": [],
+            "animations": {"items": [{**first, "sid": 699999999999920 + n,
+                                      "frames": [{**first["frames"][0], "imageSpriteId": max(sprite_ids) + 1 + n}]}],
+                           "subfolders": []}})
+        shutil.copy(root / "images" / "coin-default-000.png", root / "images" / f"{name.lower()}-default-000.png")
+        edit_json(root / "project.c3proj", lambda p: p["objectTypes"]["items"].append(name))
+    edit_json(root / "eventSheets" / "Game.json", lambda sheet: sheet["events"].append({
+        "eventType": "block", "sid": 699999999999901,
+        "conditions": [{"id": "every-tick", "objectClass": "System", "sid": 699999999999902}],
+        "actions": [{"id": "set-angle-toward-position", "objectClass": name, "sid": 699999999999903 + n,
+                     "parameters": {"x": "Coin.X", "y": "Coin.Y"}} for n, name in enumerate(("Goblin", "Orc"))]}))
+
+
 def seed_loop_flag(root: Path) -> None:
     """ScoreText pulses through a function Pulse(looping), whose boolean parameter picks a pulse that loops or
     one that plays once. The round's end calls Pulse(true), and AddScore calls Pulse("0"), a text, which
@@ -513,11 +538,12 @@ def seed_big_sheet(root: Path) -> None:
 
 
 # fixture -> (the fixture it starts from, the fault written into it). The seeded entries' sids start
-# with 6333, 6444, 6555, 6666, 6777 or 6888, so a grader can tell the example's own events from them.
+# with 6333, 6444, 6555, 6666, 6777, 6888 or 6999, so a grader can tell the example's own events from them.
 SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "coins-timer-restart": ("coins", seed_timer_restart),
          "coins-turn-flip": ("coins", seed_turn_flip),
          "coins-name-collision": ("coins", seed_name_collision),
+         "coins-two-enemies": ("coins", seed_two_enemies),
          "coins-loop-flag": ("coins", seed_loop_flag),
          "persistent-walls": ("example:persistent-layouts", seed_no_solid),
          "platformer-door": ("example:template-platformer", seed_door),
