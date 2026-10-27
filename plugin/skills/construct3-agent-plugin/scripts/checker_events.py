@@ -525,7 +525,7 @@ class EventChecks:
 
                 def own(e: dict) -> None:
                     if isinstance(e.get("actions"), list):
-                        lists.add(id(e["actions"]))
+                        lists.add(id(self.running(e["actions"])))
                     for k in e.get("children") or []:
                         if isinstance(k, dict):
                             own(k)

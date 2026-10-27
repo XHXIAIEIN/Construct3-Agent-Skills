@@ -388,7 +388,7 @@ class ExpressionChecks:
                          f"the editor stops with 'event variable {value} is constant'")
         elif ptype == "layer":
             if is_literal(value):
-                if unquote(value) not in self.layers:
+                if unquote(value) not in self.layers and not self.off:
                     self.err(f"{where}: no layer named {unquote(value)!r} in any layout")
             else:
                 self.check_expr(f"{where} {key}", value, scope, obj, stand_in)
@@ -396,12 +396,12 @@ class ExpressionChecks:
             if value not in self.layouts:
                 self.err(f"{where}: no layout named {value!r}{bare(value, self.layouts) or closest(value, self.layouts)}")
         elif ptype == "groupname":
-            if is_literal(value) and unquote(value) not in self.group_titles:
+            if is_literal(value) and unquote(value) not in self.group_titles and not self.off:
                 self.err(f"{where}: no group titled {unquote(value)!r}")
         elif ptype == "animation":
             anims = p.animations_of(obj)
             if is_literal(value):
-                if anims is not None and LOWER(unquote(value)) not in anims:
+                if anims is not None and LOWER(unquote(value)) not in anims and not self.off:
                     self.err(f"{where}: {obj} has no animation {unquote(value)!r}")
             else:
                 self.check_expr(f"{where} {key}", value, scope, obj, stand_in)
@@ -516,6 +516,8 @@ class ExpressionChecks:
                 continue
             self.check_param(where, k, v, schema_params[k]["type"], schema_params[k].get("items"), obj, scope,
                              writes=kind == "actions", stand_in=stand_in)
+        if self.off:
+            return  # what follows is about what the action does when it runs
         if kind == "actions" and ace_id in EFFECT_ACTIONS:
             self.check_effect_name(where, obj, ace_id, params)
         if kind == "actions" and ace_id in SPRITE_FONT_TEXT and isinstance(params.get("text"), str) \
@@ -597,7 +599,7 @@ class ExpressionChecks:
                          f"the editor stops with 'condition not invertible'")
             # Trigger once, Every X seconds: the editor keeps them out of a triggered branch, where they
             # are tested only in the tick the trigger fires. Else has its own rule below.
-            if e.get("isCompatibleWithTriggers") is False and c["id"] != "else" \
+            if e.get("isCompatibleWithTriggers") is False and c["id"] != "else" and not self.off \
                     and (triggers or (above and above.fires)):
                 self.warn(f"{its}: {describe(c)} is in a branch run by the trigger "
                           f"{describe(triggers[0]) if triggers else above.name}; the editor does not offer it there, "

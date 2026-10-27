@@ -24,10 +24,18 @@ class SheetChecks:
         held = tuple(c for e in line for c in e.get("conditions", []) if isinstance(c, dict))
         earlier = [c for e in line[:-1] if not e.get("isOrBlock") for c in e.get("conditions", []) if isinstance(c, dict)]
         self.event_where[id(ev)] = where
-        if isinstance(ev.get("actions"), list):
-            self.action_lists.append((ev["actions"], where))
+        # What never runs is still read as the editor opens the project, so it gets the checks of that and no
+        # other: an event or group the editor disabled, or a condition or action of its own.
+        held = tuple(c for c in held if not c.get("disabled"))
+        earlier = [c for c in earlier if not c.get("disabled")]
+        if isinstance(ev.get("actions"), list) and not self.off:
+            self.action_lists.append((self.running(ev["actions"]), where))
+        was = self.off
         for i, c in enumerate(ev.get("conditions", []), 1):
+            self.off = was or isinstance(c, dict) and bool(c.get("disabled"))
             self.check_ace("conditions", c, scope, f"{where} condition {i}")
+            if self.off:
+                continue
             self.note_signal(c, f"{where} condition {i}")
             if isinstance(c, dict):
                 self.check_none_left(c, f"{where} condition {i}", gone, earlier)
@@ -41,6 +49,10 @@ class SheetChecks:
         found: dict[str, str] = {}
         for i, a in enumerate(ev.get("actions", []), 1):
             w = f"{where} action {i}"
+            self.off = was or isinstance(a, dict) and bool(a.get("disabled"))
+            self.check_loaded_action(a, scope, w)
+            if self.off:
+                continue
             self.note_signal(a, w)
             self.check_gesture(a, by_input, w)
             self.check_pathfinding(a, w, found, paced)
@@ -59,31 +71,41 @@ class SheetChecks:
                                       or not all(self.not_leaving(c) for c in held)))
             if a.get("type") == "script":
                 self.check_script(a.get("script"), scope, w)
-            if a.get("type") in ("comment", "script"):
-                continue
-            if "callFunction" in a or "customAction" in a:
-                params = a.get("parameters", [])
-                if not isinstance(params, list):
-                    self.err(f"{w}: the call writes \"parameters\": {json.dumps(params, ensure_ascii=False)}, and the "
-                             f"editor stops with \"TypeError: expected array\" before the project opens. Write the "
-                             f"arguments as a list in order, \"parameters\": [\"1\"], or leave the key out when the "
-                             f"call passes none")
-                    params = []
-                if "callFunction" in a:
-                    self.pending_calls.append(("function", a["callFunction"], None, len(params), w))
-                else:
-                    owner = a.get("customActionObjectClass", a["objectClass"])
-                    self.pending_calls.append(("custom", a["customAction"], owner, len(params), w))
-                callee = self.called(a)
-                kinds = [q.get("type") for q in callee[1]["functionParameters"]] if callee else []
-                for i, param in enumerate(params, 1):
-                    if kinds[i - 1:i] != ["boolean"]:
-                        self.check_expr(w, param, scope)
-                    elif not isinstance(param, bool):
-                        self.err(f"{w}: parameter {i} of {callee[0]} is a boolean and gets {json.dumps(param)}, "
-                                 f"which reads as true, \"0\" and \"false\" too; write the JSON true or false")
-                continue
-            self.check_ace("actions", a, scope, w)
+        self.off = was
+
+    def running(self, actions: list) -> list:
+        """The actions of a list that are not disabled, the same list each time, since a check knows an event's
+        own actions by the list's id."""
+        return self.ran.setdefault(id(actions), [a for a in actions if not (isinstance(a, dict) and a.get("disabled"))])
+
+    def check_loaded_action(self, a: dict, scope: dict, w: str) -> None:
+        """What the editor reads of an action as it opens the project, a disabled one too: its object, id and
+        parameters, or the function or custom action it calls."""
+        if a.get("type") in ("comment", "script"):
+            return
+        if "callFunction" in a or "customAction" in a:
+            params = a.get("parameters", [])
+            if not isinstance(params, list):
+                self.err(f"{w}: the call writes \"parameters\": {json.dumps(params, ensure_ascii=False)}, and the "
+                         f"editor stops with \"TypeError: expected array\" before the project opens. Write the "
+                         f"arguments as a list in order, \"parameters\": [\"1\"], or leave the key out when the "
+                         f"call passes none")
+                params = []
+            if "callFunction" in a:
+                self.pending_calls.append(("function", a["callFunction"], None, len(params), w))
+            else:
+                owner = a.get("customActionObjectClass", a["objectClass"])
+                self.pending_calls.append(("custom", a["customAction"], owner, len(params), w))
+            callee = self.called(a)
+            kinds = [q.get("type") for q in callee[1]["functionParameters"]] if callee else []
+            for i, param in enumerate(params, 1):
+                if kinds[i - 1:i] != ["boolean"]:
+                    self.check_expr(w, param, scope)
+                elif not isinstance(param, bool) and not self.off:
+                    self.err(f"{w}: parameter {i} of {callee[0]} is a boolean and gets {json.dumps(param)}, "
+                             f"which reads as true, \"0\" and \"false\" too; write the JSON true or false")
+            return
+        self.check_ace("actions", a, scope, w)
 
     def check_event_lists(self, ev: dict, et, where: str) -> None:
         """What the editor walks as it reads an event. A block and its two
@@ -140,21 +162,23 @@ class SheetChecks:
         for ev in events:
             if ev.get("eventType") == "variable" and id(ev) not in self.global_ids:
                 self.enter(scope, ev, outer, f"{where} variable {ev['name']}", holder)
-        ladders = self.ladders(events) if self.style else {}
+        ladders = self.ladders([ev for ev in events if not ev.get("disabled")]) if self.style and not self.off else {}
         numbered: dict[int, list[tuple[int, str]]] = {}
         find_tests: dict[str, list[tuple[int, str, str]]] = {}
         previous = None
+        was = self.off
         for i, ev in enumerate(events):
             et = ev.get("eventType")
+            self.off = was or bool(ev.get("disabled"))
             if et in NUMBERED:
                 counter[0] += 1
             w = f"{where} event {counter[0] + (et not in NUMBERED)} (sid {ev.get('sid', '?')})"
             self.check_event_lists(ev, et, w)
-            if self.style and et in ("block", "function-block", "custom-ace-block"):
+            if self.style and not self.off and et in ("block", "function-block", "custom-ace-block"):
                 self.check_style(ev, w, events, i, depth, group, counter[0])
-            if et == "block":
-                self.check_undone(events[:i], ev, w)
-            if self.style and et == "block":
+            if et == "block" and not self.off:
+                self.check_undone([e for e in events[:i] if not e.get("disabled")], ev, w)
+            if self.style and not self.off and et == "block":
                 for subject, code in self.find_tests(ev):
                     find_tests.setdefault(subject, []).append((counter[0], w, code))
             if id(ev) in ladders:
@@ -216,13 +240,14 @@ class SheetChecks:
                           depth + 1, by_input=here, paced=timed, line=line + (ev,),
                           gone=None if any(self.waits(a) for a in ev.get("actions", [])) else mine,
                           holder=f"event {counter[0]}")
-            elif et == "script":
+            elif et == "script" and not self.off:
                 self.check_script(ev.get("script"), scope, w)
             else:
                 self.err(f"{w}: unknown eventType {et!r}; the editor knows block, group, variable, comment, include, "
                          f"function-block, custom-ace-block and script")
             if et != "comment":
                 previous = ev
+        self.off = was
         self.check_find_dispatch(find_tests)
 
     @staticmethod

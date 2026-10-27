@@ -61,6 +61,8 @@ class Checker(FileChecks, ExpressionChecks, EventChecks, SheetChecks):
         self.limit = limit
         self.unsaved = sheets or {}  # edit_sheet.py checks a sheet before it writes it
         self.style = style  # the warnings of check_style, off unless asked
+        self.ran: dict[int, list] = {}  # id of an event's actions -> those not disabled (running)
+        self.off = False  # inside a disabled event or group, or in a disabled condition or action: it never runs
         self.err, self.warn = p.err, p.warn
         self.layouts: dict[str, dict] = {}
         self.global_layers: set[str] | None = None  # layer names some layout marks global

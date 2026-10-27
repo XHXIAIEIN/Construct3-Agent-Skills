@@ -31,6 +31,13 @@ in a lossy format and not edited since keeps that format, which the entry's
 `fileType` names. Its size is not compared with the entry's `width` and
 `height`: the editor takes the size from the file.
 
+An event or group that is disabled, and a disabled condition or action, never
+run, but the editor still reads them as it opens the project. So they get the
+rules of opening (the table below) and the checks of their objects, ACEs,
+parameters and expressions, and none of what the rest of this page says a
+running event does: an animation, layer or group named in a literal that the
+project lacks passes there, and so do the traps and the style findings.
+
 Two object types or families with one sid are an error: the editor stops
 with `object class sid already in use`. Any other repeated sid is a warning:
 a project whose events, instances, layers or animations repeat one opens and
