@@ -338,8 +338,9 @@ def pace(beats: list) -> list[str]:
     - a beat of 2 or more is followed by a rest that holds a pickup or a checkpoint, the climax
       by the exit
     - a mechanic gets a teach of its own before a beat combines it
-    - one climax, in the last third
-    - the last third averages above the first"""
+    - with two beats or more, one climax, in the last third
+    - with two beats or more, the last third averages above the first
+    A toy with no rounds, levels or waves is one beat, [beat("intro", 0, ["point"])]."""
     if not beats:
         sys.exit("BEATS is empty: give the game at least an intro, beat(\"intro\", 0)")
     names = [f"beat {i + 1} {b['type']}" for i, b in enumerate(beats)]
@@ -367,19 +368,23 @@ def pace(beats: list) -> list[str]:
                 sys.exit(f"BEATS: {name} at {b['intensity']} is followed by {after or 'nothing'}; a beat of 2 or "
                          f"more is followed by a rest that holds a pickup or a checkpoint, the climax by a rest or "
                          f"the exit, so the player breathes before the next ask")
+    lines = [f"{name:<18} {b['intensity']} |{'#' * b['intensity']:<3}| {', '.join(b['mechanics'])}"
+             + (f"; holds a {b['holds']}" if b["holds"] else "") for name, b in zip(names, beats)]
+    if len(beats) == 1:
+        return lines
     k = max(1, round(len(beats) / 3))
     climaxes = [i for i, b in enumerate(beats) if b["type"] == "climax"]
     if len(climaxes) != 1 or climaxes[0] < len(beats) - k:
         where = ", ".join(names[i] for i in climaxes) or "none"
         sys.exit(f"BEATS: the climax is {where}; a game has one climax, in its last third, beats "
-                 f"{len(beats) - k + 1} to {len(beats)} here")
+                 f"{len(beats) - k + 1} to {len(beats)} here"
+                 + ("" if climaxes else ". A toy with no rounds, levels or waves is one beat, beat(\"intro\", 0)"))
     first = sum(b["intensity"] for b in beats[:k]) / k
     last = sum(b["intensity"] for b in beats[-k:]) / k
     if last <= first:
         sys.exit(f"BEATS: the last third averages {last:g} and the first {first:g}; the game rises towards its end, "
                  f"so raise a late beat or lower an early one")
-    return [f"{name:<18} {b['intensity']} |{'#' * b['intensity']:<3}| {', '.join(b['mechanics'])}"
-            + (f"; holds a {b['holds']}" if b["holds"] else "") for name, b in zip(names, beats)]
+    return lines
 
 
 def jump_reach(rise: float = 0, platform: dict | None = None) -> float:
@@ -1700,6 +1705,14 @@ def image_type(name: str, plugin_id: str, w: int, h: int, ox: float = 0.5, oy: f
             "behaviorTypes": list(behaviors), "effectTypes": [], "image": image}
 
 
+def drawing_canvas_type(name: str, ivars: list = (), behaviors: list = ()) -> dict:
+    """A Drawing Canvas type, which has no image: the events draw on it at runtime. Place it with
+    canvas_inst()."""
+    return {"name": name, "plugin-id": "DrawingCanvas", "sid": sid(), "isGlobal": False,
+            "editorNewInstanceIsReplica": True, "instanceVariables": list(ivars), "behaviorTypes": list(behaviors),
+            "effectTypes": []}
+
+
 def bar_types(frame_name: str, fill_name: str, caps: bool = False, tween: bool = True) -> dict:
     """The frame and fill types of a hud_bar(): Tiled Backgrounds, whose Set width reveals the fill
     without stretching it, or with `caps` 9-patches, whose corners keep their size. Each has a 16x16
@@ -1801,6 +1814,31 @@ def sprite_inst(otype: str, x: float, y: float, w: float, h: float, anim: str = 
     return instance(otype, {"initially-visible": True, "initial-animation": anim, "initial-frame": 0,
                             "enable-collisions": collisions, "live-preview": False},
                     world(x, y, w, h), ivars, behaviors)
+
+
+# The Drawing Canvas properties' values, and the origin each places in the box
+CANVAS_ORIGINS = {"top-left": (0, 0), "top": (0.5, 0), "top-right": (1, 0), "left": (0, 0.5), "center": (0.5, 0.5),
+                  "right": (1, 0.5), "bottom-left": (0, 1), "bottom": (0.5, 1), "bottom-right": (1, 1)}
+CANVAS_ANTIALIASING = ("off", "2x-msaa", "4x-msaa", "8x-msaa")
+CANVAS_RESOLUTION = ("auto", "fixed")
+
+
+def canvas_inst(otype: str, x: float = 0, y: float = 0, w: float | None = None, h: float | None = None,
+                origin: str = "top-left", antialiasing: str = "off", resolution: str = "auto", ivars=None,
+                behaviors=None) -> dict:
+    """A Drawing Canvas of drawing_canvas_type() at (x, y), w x h px, the viewport by default; at
+    (0, 0) from the origin top-left its drawing co-ordinates are the layout's. `resolution` "auto"
+    matches the screen's pixels, "fixed" keeps w x h.
+    Draw all shapes of a layer on one canvas, because each canvas costs all its pixels every tick.
+    Keep antialiasing off on a large canvas, because MSAA works on every pixel every frame."""
+    for prop, value, values in (("origin", origin, CANVAS_ORIGINS), ("antialiasing", antialiasing, CANVAS_ANTIALIASING),
+                                ("resolution", resolution, CANVAS_RESOLUTION)):
+        if value not in values:
+            sys.exit(f"canvas_inst({otype!r}): {prop} {value!r}; one of {', '.join(values)}")
+    ox, oy = CANVAS_ORIGINS[origin]
+    return instance(otype, {"resolution-mode": resolution, "initially-visible": True, "origin": origin,
+                            "antialiasing": antialiasing},
+                    world(x, y, VIEW_W if w is None else w, VIEW_H if h is None else h, ox, oy), ivars, behaviors)
 
 
 def shape_inst(otype: str, rel: str, col: int, row: int, ivars=None, behaviors=None,
@@ -3095,6 +3133,8 @@ def skill_file(rel: str) -> Path | None:
 PLATFORM_FACES = ("system-ui", "sans-serif", "serif", "monospace", "Arial", "Courier New", "Georgia", "Impact",
                   "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana")
 FONT_TYPES = {".woff": "application/font-woff", ".ttf": "application/font-sfnt", ".otf": "application/font-sfnt"}
+# Plugins that draw text in a face of FONT: Text and Text input
+FONT_PLUGINS = ("Text", "TextBox")
 _font_files: list[str] = []
 
 
@@ -3213,15 +3253,18 @@ def write_all(c3proj: Path) -> None:
     check_palette()
     for line in pace(BEATS):
         print(line)
-    copy_fonts()
-    if PIXEL_ART and not pixel_font():
-        print(f"warning: PIXEL_FONT names {PIXEL_FONT!r}, and {font_cache()} holds no {PIXEL_FONT}.bdf, so the "
-              f"text draws in Texts, off the pixel grid. To bake Sprite Fonts, put the {PIXEL_FONT}.bdf of Fusion "
-              f"Pixel Font's 8px proportional BDF release there: https://github.com/TakWolf/fusion-pixel-font/releases")
     build_images()
     write_wanted()
     build_files()
     types, families, containers = build_object_types()
+    # Only a project with a text type gets font files
+    if any(t.get("plugin-id") in FONT_PLUGINS for t in types.values()):
+        copy_fonts()
+        if PIXEL_ART and not pixel_font():
+            print(f"warning: PIXEL_FONT names {PIXEL_FONT!r}, and {font_cache()} holds no {PIXEL_FONT}.bdf, so the "
+                  f"text draws in Texts, off the pixel grid. To bake Sprite Fonts, put the {PIXEL_FONT}.bdf of "
+                  f"Fusion Pixel Font's 8px proportional BDF release there: "
+                  f"https://github.com/TakWolf/fusion-pixel-font/releases")
     layouts = build_layouts()
     anchor_types(types, layouts)
     for lay in layouts.values():
@@ -3287,7 +3330,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp c9f6f1a0f53b ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp 8fe592b49eb0 ================
 
 
 # --- the game ---------------------------------------------------------------------------

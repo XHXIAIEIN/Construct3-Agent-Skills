@@ -255,6 +255,11 @@ parameters are in the template.
   object (`Angle`, `Width`, `Count`).
 - Every runtime-created type has a template instance in a layout that never
   runs (`Objects` in the stand-in).
+- Lines and shapes that the events draw at runtime go on a Drawing Canvas,
+  a `drawing_canvas_type()` placed with `canvas_inst()`, which covers the
+  viewport by default. Draw every shape of a layer on one canvas, with
+  antialiasing off, because each canvas and its MSAA cost every pixel on
+  every frame.
 - Before placing, sizing or colouring anything on the screen, read
   `Construct3-Cookbook/guides/project-files/new-project.md`, "Viewport, look and
   HUD": the layout, and the paper-and-ink look that the helpers below draw
@@ -452,15 +457,17 @@ parameters are in the template.
   neighbouring pieces meet without a seam. With `USER_LOOK` set,
   `backdrop()` and `area()` take any Tiled Background of the user's look,
   such as `image_type(name, "TiledBg", w, h, 0, 0)` of its tile.
-- `BEATS` paces the game: one beat per camera zone of a level, or per
-  round, wave or window of time in a one-screen game, as the stand-in's
-  rounds are. A beat is `beat(type, intensity, mechanics, holds=...)` plus
-  the game's own fields. `pace()` stops the run on a curve that breaks a
-  rule and prints it, one line a beat, above `generated; checking`; read it
-  before the checker's lines. In a platformer, measure each gap and step up
-  with `jump(gap, rise)` in units: it says easy, medium or hard against the
-  reach `jump_reach()` computes from `PLATFORM`, and stops past nine tenths
-  of it. The reach is an approximation; confirm it in a preview.
+- `BEATS` paces the game: one beat per camera zone of a level, or per round,
+  wave or window of time in a one-screen game, as the stand-in's rounds are.
+  A beat is `beat(type, intensity, mechanics, holds=...)` plus the game's
+  own fields. `pace()` stops the run on a curve that breaks a rule and
+  prints it, one line a beat, above `generated; checking`; read it before
+  the checker's lines. A toy with no rounds, levels or waves is one beat,
+  `[beat("intro", 0, ["point"])]`, which has no curve to check. In a
+  platformer, measure each gap and step up with `jump(gap, rise)` in units:
+  it says easy, medium or hard against the reach `jump_reach()` computes
+  from `PLATFORM`, and stops past nine tenths of it. The reach is an
+  approximation; confirm it in a preview.
 - Family variables and behaviors are declared on the family and set on every
   member instance; the checker reports the instance that lacks one. A family
   is `family(name, plugin_id, members, ...)` in `build_object_types()` and

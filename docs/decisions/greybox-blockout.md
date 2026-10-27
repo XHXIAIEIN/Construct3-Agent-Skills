@@ -337,9 +337,12 @@ stops the run when the first beat is above 0; a beat of 2 or more is not
 followed by a rest holding a pickup or a checkpoint, or the climax by the
 exit; a mechanic is combined before a `teach` of its own; the climax is
 missing or outside the last third; or the last third is not more intense on
-average than the first. It prints the curve, one line a beat, above
-`generated; checking`. The stand-in plays its beats as rounds:
-`ROUND_COINS` holds each round's coins and a global `beat` counts them.
+average than the first. A toy with no rounds, levels or waves, such as an
+effect that follows the pointer, is one beat at 0, and `pace()` checks no
+climax or rise for it, because the climax rule would stop every such toy.
+`pace()` prints the curve, one line a beat, above `generated; checking`. The
+stand-in plays its beats as rounds: `ROUND_COINS` holds each round's coins
+and a global `beat` counts them.
 
 ### The manifest
 

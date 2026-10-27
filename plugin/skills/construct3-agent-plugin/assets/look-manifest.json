@@ -421,7 +421,7 @@
       "status": "enforced",
       "scope": "every-look",
       "strict": true,
-      "says": "BEATS gives each camera zone, or each round, wave or window of a one-screen game, a type and an intensity from 0 to 3. The first beat at 0; a beat of 2 or more followed by a rest that holds a pickup or a checkpoint, the climax by a rest or the exit; a mechanic taught alone before a beat combines it; one climax, in the last third; the last third more intense than the first. The generator prints the curve, one line a beat.",
+      "says": "BEATS gives each camera zone, or each round, wave or window of a one-screen game, a type and an intensity from 0 to 3. The first beat at 0; a beat of 2 or more followed by a rest that holds a pickup or a checkpoint, the climax by a rest or the exit; a mechanic taught alone before a beat combines it; with two beats or more, one climax, in the last third, and the last third more intense than the first; a toy with no rounds, levels or waves is one beat at 0. The generator prints the curve, one line a beat.",
       "template": "BEAT_TYPES",
       "value": "('intro', 'teach', 'practice', 'twist', 'rest', 'climax', 'exit')",
       "helpers": "beat(), pace()"
