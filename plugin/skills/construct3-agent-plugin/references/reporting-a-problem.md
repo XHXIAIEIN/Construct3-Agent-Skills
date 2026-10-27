@@ -102,7 +102,10 @@ that says what the thing does, such as `Player`, `Enemy` or `Score`:
 
 - Give a name the same role wherever it appears, and two different names
   two different roles, so that the events still read. If `Hero` becomes
-  `Player`, every `Hero` in the report is `Player`.
+  `Player`, every `Hero` in the report is `Player`. Number the names that
+  would get one role, in the order they first appear: if `Goblin` and
+  `Orc` are both enemies, they become `Enemy` and `Enemy2`. The instances
+  of one object type share its name, so they are all `Enemy`.
 - Give things that share a name the same role, because the error may come
   from the clash. If an object and a global variable are both named
   `Coins`, both become `Score`, and the report still shows the clash.
