@@ -17,7 +17,9 @@ the object type, the instance's UID and what to change:
   stacked   two or more visible instances of one object type on the same box,
             showing the same frame: instances created at runtime and never
             moved apart. Instances that show different frames or animations
-            there, a fill under its rim, are layered on purpose and left out
+            there, a fill under its rim, are layered on purpose and left out,
+            and so are Drawing Canvases, each drawing its own picture at
+            runtime over the canvas under it
   overlap   two visible instances on a layer of parallax 0 (the HUD), or two
             texts on any layer, one covering half of the other. A Text counts
             by the part its text covers. Left out: an instance inside a larger
@@ -208,6 +210,7 @@ LOOK_JS = r"""(async () => {
       r.frames = i.animation ? i.animation.frameCount : 1;
       r.playing = before.get(i.uid) !== after.get(i.uid);
     }
+    if (typeof i.pasteInstances === 'function') r.canvas = true;     // a Drawing Canvas
     if (i.instVars) r.instVars = Object.fromEntries(Object.keys(i.instVars).map(k => [k, i.instVars[k]]));
     instances.push(r);
   } catch (e) {}        // destroyed while it was read
@@ -279,10 +282,11 @@ def text_findings(instances: list[dict]) -> list[dict]:
 
 def stacked_findings(instances: list[dict]) -> list[dict]:
     """Instances of one type on one box that show the same frame: two that show different
-    frames or animations, a fill under its rim, are layered on purpose."""
+    frames or animations, a fill under its rim, are layered on purpose, and so are Drawing
+    Canvases, each drawing its own picture at runtime."""
     groups: dict[tuple, list[dict]] = {}
     for i in instances:
-        if sized(i):
+        if sized(i) and not i.get("canvas"):
             box = tuple(round(v) for v in i["box"])
             groups.setdefault((i["type"], i["layer"], box, i.get("animation"), i.get("frame")), []).append(i)
     found = []
