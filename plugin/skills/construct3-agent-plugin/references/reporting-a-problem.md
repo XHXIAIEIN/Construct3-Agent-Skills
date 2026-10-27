@@ -46,10 +46,8 @@ everything that was said and read in it. The transcripts are kept here:
   on Linux. Copilot CLI: `~/.copilot/session-state/<id>/`, whose
   `workspace.yaml` names the folder as `cwd`.
 - WorkBuddy: `~/.workbuddy-ai/projects/<folder>/<session id>.jsonl`.
-- Grok Bot and CodeBuddy keep no transcript file to search. For them and
-  for an agent not listed here, ask the user to export the conversation or
-  paste its errors. `~/.agents` holds skills, not conversations, and Ollama's
-  `~/.ollama/history` holds only the prompts typed into `ollama run`.
+- For an agent not listed here, ask the user to export the conversation or
+  paste its errors.
 
 A transcript runs to megabytes, so search it for the errors, such as
 `error`, `Failed`, `exception` or the addon's id, and read the lines around
