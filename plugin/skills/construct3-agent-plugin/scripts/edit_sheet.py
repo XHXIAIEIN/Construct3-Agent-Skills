@@ -1163,14 +1163,24 @@ def main() -> int:
         print(f"note: {path.name} started with a byte order mark, which the editor does not write; it no longer does, "
               f"so its first line shows in the diff")
     if not args.dry_run:
-        print("note: if the project is open in the Construct 3 editor, close it there without saving, then open it "
-              "again. The editor keeps the sheet as it loaded it, so a save after an edit to that sheet there writes "
-              "the editor's copy over this change")
+        # Closing without saving would lose what the user changed there since their last save, so the note
+        # does not say to
+        print("note: if the project is open in the Construct 3 editor, a save there writes the editor's copy of "
+              "this sheet over this change. Ask the user to close the project there, saving it first if they have "
+              "unsaved work. Then run this plan again on the sheet as they saved it. The user opens the project "
+              "again after that")
     if (project.root / c3.GENERATOR).is_file():
-        # A generated project's sheets are the generator's output: an edit here lasts until its next run.
-        print(f"note: {c3.GENERATOR} generates this project, and its next run writes "
-              f"{path.relative_to(project.root).as_posix()} over {'what this plan would write' if args.dry_run else 'this change'}: "
-              f"make the change in the generator, then run python {c3.GENERATOR}")
+        # A generated project's sheets are the generator's output: an edit here lasts until its next run,
+        # which stops first when its record lists the sheet.
+        rel = path.relative_to(project.root).as_posix()
+        record = project.root / c3.GENERATED
+        over = 'what this plan would write' if args.dry_run else 'this change'
+        if record.is_file() and rel in json.loads(record.read_text(encoding="utf-8"))["files"]:
+            print(f"note: {c3.GENERATOR} generates this project, and its next run stops rather than write {rel} "
+                  f"over {over}: make the change in the generator, then run python {c3.GENERATOR} --replace-edited")
+        else:
+            print(f"note: {c3.GENERATOR} generates this project, and its next run writes {rel} over {over}: make "
+                  f"the change in the generator, then run python {c3.GENERATOR}")
     # A plan is one step of the work, not its end: the line names the check of the change as a whole
     then = "" if args.dry_run else f"; next, run {c3.script_command(project.root, 'verify_change.py')}"
     if found_after.errors:

@@ -2,12 +2,15 @@
 layouts, event sheets and the parts of project.c3proj that list them.
 
     python tools/build_project.py
+    python tools/build_project.py --replace-edited
 
 Copy this template to tools/ of a project that the editor saved as a folder,
 then rewrite it for the game. A run replaces the files it generates and keeps
-the editor's own: uistate, icons, scripts. It ends with the skill's
-check_project.py and exits with its code; a last line that starts with `ok:`
-means the editor can open the project.
+the editor's own: uistate, icons, scripts. A run writes nothing when a file
+that the last run wrote, as tools/generated.json records, has changed since;
+--replace-edited writes over such files. A run that writes ends with the
+skill's check_project.py and exits with its code; a last line that starts
+with `ok:` means the editor can open the project.
 
 The file has three parts:
 1. The game's settings: name, viewport, grid, look.
@@ -161,6 +164,7 @@ ART_STYLE = ""
 # To change a helper for this game, define it again below the end marker: the definition there
 # wins, and a refresh keeps it.
 import difflib
+import hashlib
 import json
 import math
 import os
@@ -439,6 +443,7 @@ def write_json(rel: str, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(shortest(obj), indent="\t", ensure_ascii=False))
+    wrote(path)
 
 
 def shortest(obj):
@@ -450,6 +455,53 @@ def shortest(obj):
     if isinstance(obj, list):
         return [shortest(v) for v in obj]
     return obj
+
+
+# --- what the last run wrote ------------------------------------------------------------------
+# tools/generated.json: the digest of each file the last run wrote.
+# A file whose digest differs was changed after that run, so build_all() stops before it writes over the change.
+GENERATED = ROOT / "tools" / "generated.json"
+_written: set[str] = set()
+
+
+def wrote(path: Path) -> None:
+    """Records a file this run wrote. project.c3proj, tools/ and art/ are not recorded: a run keeps
+    the editor's keys in the first, and the editor never writes the others."""
+    rel = path.relative_to(ROOT).as_posix()
+    if rel != "project.c3proj" and not rel.startswith(("tools/", "art/")):
+        _written.add(rel)
+
+
+def digest(path: Path) -> str:
+    """A file's digest; a JSON file's is of its content, so a save that changes only its layout keeps it."""
+    data = path.read_bytes()
+    if path.suffix == ".json":
+        try:
+            data = json.dumps(json.loads(data.decode("utf-8-sig")), sort_keys=True).encode("utf-8")
+        except ValueError:
+            pass
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def edited_since_last_run() -> list[str]:
+    """The files the last run wrote that changed since. A removed one is no change: writing it again
+    loses nothing."""
+    if not GENERATED.is_file():
+        return []
+    last = json.loads(GENERATED.read_text(encoding="utf-8"))["files"]
+    return [rel for rel, was in sorted(last.items()) if (ROOT / rel).is_file() and digest(ROOT / rel) != was]
+
+
+def record_written(complete: bool) -> None:
+    """Writes tools/generated.json from the files this run wrote, as they are on disk at its end. A
+    run that stopped part way keeps the entries of the files it did not reach."""
+    files = {}
+    if not complete and GENERATED.is_file():
+        files = json.loads(GENERATED.read_text(encoding="utf-8"))["files"]
+    files.update({rel: digest(ROOT / rel) for rel in _written if (ROOT / rel).is_file()})
+    GENERATED.parent.mkdir(exist_ok=True)
+    with GENERATED.open("w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps({"files": dict(sorted(files.items()))}, indent="\t"))
 
 
 # --- project files ----------------------------------------------------------------------
@@ -470,6 +522,7 @@ def general_file(name: str, text: str) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(text)
+    wrote(path)
     kind = GENERAL_TYPES.get(Path(name).suffix.lower(), "application/octet-stream")
     global _general_files
     _general_files = [e for e in _general_files if e["name"] != name]
@@ -657,6 +710,7 @@ def write_png(rel: str, w: int, h: int, pixel, painted: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
                      + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
+    wrote(path)
 
 
 def bar_images(frame_name: str, fill_name: str, frame_role: str = "solid", fill_role: str = "ink",
@@ -787,6 +841,7 @@ def hit_frame(rel: str) -> dict:
             sys.exit(f"art/{source.name} is missing: run the skill's scripts/prepare_art.py, which writes each "
                      f"picture's hit frame beside it")
         (ROOT / "images" / hit).write_bytes(source.read_bytes())
+        wrote(ROOT / "images" / hit)
         FRAMES[hit] = {**FRAMES[rel], "imageSpriteId": image_id(), "tag": "hit"}
         return FRAMES[hit]
     kind, w, h, ox, oy, outline, shadow, inset = DRAWN_AS[rel]
@@ -916,6 +971,7 @@ def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float 
     target = ROOT / "images" / rel
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
+    wrote(target)
     poly = [round(v, 4) for point in corners("rect" if scene else kind) for v in point]
     FRAMES[rel] = frame(w, h, ox, oy, poly)
     PADS[rel] = (0, 0)
@@ -3066,6 +3122,7 @@ def copy_fonts() -> None:
         if source != held:
             (ROOT / "fonts").mkdir(exist_ok=True)
             held.write_bytes(source.read_bytes())
+            wrote(held)
         if held.name not in _font_files:
             _font_files.append(held.name)
 
@@ -3126,6 +3183,25 @@ def build_all() -> None:
                      f"game project and run the copy there")
         sys.exit(
             f"{c3proj} not found: create the project in the editor and save it as a folder first")
+    edited = [] if "--replace-edited" in sys.argv[1:] else edited_since_last_run()
+    if edited:
+        script = Path(__file__).relative_to(ROOT).as_posix()
+        sys.exit(f"nothing was written: these files changed since the last run wrote them, in the editor or by "
+                 f"hand, and this run would write over each change:\n  " + "\n  ".join(edited)
+                 + f"\n1. Read each change with git diff, or git log -p once it is committed. For a sheet, the "
+                   f"skill's scripts/print_sheet.py --since <commit> shows the events that changed.\n2. Write the "
+                   f"change into {script}. Ask the user before you leave one out.\n3. Run python {script} "
+                   f"--replace-edited")
+    complete = False
+    try:
+        write_all(c3proj)
+        complete = True
+    finally:
+        record_written(complete)
+
+
+def write_all(c3proj: Path) -> None:
+    """Every file of the project that this script generates, then project.c3proj."""
     check_palette()
     for line in pace(BEATS):
         print(line)
@@ -3203,7 +3279,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-26, stamp 485fa93691bb ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp 0f822b59ece6 ================
 
 
 # --- the game ---------------------------------------------------------------------------

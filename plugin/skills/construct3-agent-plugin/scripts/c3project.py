@@ -1057,6 +1057,8 @@ def hosts_in(strings) -> dict[str, str]:
 # refreshed, as long as its lines still match the stamp on its end marker: then nothing in
 # the part was edited there, and the replacement loses nothing of the game's.
 GENERATOR = "tools/build_project.py"
+# The digest of each file the generator's last run wrote
+GENERATED = "tools/generated.json"
 TEMPLATE = SKILL_DIR / "assets" / "build_project.py"
 HELPERS_BEGIN = re.compile(r"# =+ construct3-agent-plugin helpers: begin\b")
 HELPERS_END = re.compile(r"# =+ construct3-agent-plugin helpers: end\b")

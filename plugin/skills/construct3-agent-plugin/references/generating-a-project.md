@@ -18,8 +18,9 @@ Generate when the agent owns the project and the user reviews it in the
 editor: a prototype, a game built from a design conversation, a rewrite. Edit
 JSON by hand (`Construct3-Cookbook/guides/project-files/hand-editing.md`)
 when the change is small and the project is the user's, made in the editor.
-Do not generate over a project the user edits in parallel: the generator
-overwrites the files it produces.
+When the user also edits a generated project in the editor, each of their
+changes has to be brought into the generator, and a run that would write
+over one stops first ("Keeping the editor's changes" below).
 
 ## Set up
 
@@ -185,7 +186,8 @@ above. Then:
 
 The project's README explains the objects, the groups, the constants and how
 to regenerate. It is the second copy of the design, for the user, and it says
-that running the generator discards edits made in the editor.
+that a change made in the editor is moved into the generator before the next
+run, and that the run stops until then.
 
 When another model writes the generator, give it the `deliver` steps of
 `assets/look-manifest.json`, then run its `confirm` steps on the result,
@@ -506,11 +508,29 @@ parameters are in the template.
 
 ## Keeping the editor's changes
 
-The generator overwrites what it produces, so a change made in the editor is
-either moved into the generator or lost. Before regenerating over files the
-editor has touched, copy them to `.trash/<date>/<relative path>` (untracked
-projects) or commit (tracked projects). `json.dumps(obj, indent="\t",
-ensure_ascii=False)` written with `newline="\n"` and no trailing newline is
-the editor's own file layout, so what the editor saves over a generated
-project differs only where it changed something (roundtrip checked with
-the r502 editor).
+Each run writes every file it produces again, so a change made in the editor
+is either moved into the generator or lost. A run keeps the digest of each
+file it wrote in `tools/generated.json`, which is committed with the
+generator. The next run compares the files with it first. When one changed
+since, in the editor or through `scripts/edit_sheet.py`, the run writes
+nothing and lists them. Then:
+
+1. Read each change: `git diff -- <file>`, or `git log -p` once it is
+   committed. For a sheet, `scripts/print_sheet.py --since <commit>` gives
+   the events that changed as the editor words them.
+2. Write the change into the generator. Ask the user before you leave one
+   out.
+3. Run `python tools/build_project.py --replace-edited`, which writes the
+   listed files again, and read the diff to see that the user's change is
+   still there.
+
+The digest of a JSON file is of its content, so a save that changes only
+the file's layout is no change, and a removed file is written again, which
+loses nothing. `project.c3proj` is not in the record, because a run changes
+only its own keys there. A generator that has no record yet writes over a
+changed file on its first run, then writes the record.
+
+`json.dumps(obj, indent="\t", ensure_ascii=False)` written with
+`newline="\n"` and no trailing newline is the editor's own file layout, so
+what the editor saves over a generated project differs only where it changed
+something (roundtrip checked with the r502 editor).
