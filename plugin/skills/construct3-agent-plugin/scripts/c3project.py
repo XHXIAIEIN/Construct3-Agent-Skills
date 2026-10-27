@@ -590,6 +590,33 @@ def guides_folder(rag: Path | None, root: Path | None = None, override: str | No
     return cookbook / GUIDES if cookbook else None
 
 
+# A user's own pitfall pages beside the official ones, in a folder laid out as the Cookbook's guides/, so
+# that what a user learns needs no fork of the Cookbook (docs/decisions/own-pitfalls-folder.md).
+OWN_PITFALLS = "Construct3-Cookbook-extra"
+
+
+def own_pitfalls(root: Path | None = None, override: str | None = None) -> tuple[Path | None, str | None]:
+    """The user's own folder of pitfall pages or None, and a note when one is named and is not a folder.
+    In order: --cookbook-extra, CONSTRUCT3_COOKBOOK_EXTRA, the `Construct3-Cookbook-extra:` line of an
+    instruction file, whose relative path starts at the file's folder."""
+    candidates = [("--cookbook-extra", override, Path.cwd()),
+                  ("CONSTRUCT3_COOKBOOK_EXTRA", os.environ.get("CONSTRUCT3_COOKBOOK_EXTRA"), Path.cwd())]
+    candidates += [(file, c, Path(file).parent) for file, c in instruction_lines(root, OWN_PITFALLS)]
+    for source, c, base in candidates:
+        if c:
+            folder = base / c
+            if folder.is_dir():
+                return folder, None
+            return None, (f"your own pitfalls not searched: {source} names {c}, which is not a folder; it holds "
+                          f"pages laid out as {COOKBOOK_CLONE}/{GUIDES}/, such as plugins/sprite.md")
+    return None, None
+
+
+def pitfall_pages(guides: Path | None) -> list[Path]:
+    """The pitfall pages of a guides/ folder, the Cookbook's or the user's own."""
+    return sorted(p for folder in PITFALL_FOLDERS for p in (guides / folder).rglob("*.md")) if guides else []
+
+
 def cookbook_clone_command(rag: Path | None) -> str:
     """The git clone that puts the Cookbook where the scripts look for it."""
     places = cookbook_places(rag)

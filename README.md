@@ -74,6 +74,8 @@ If the marketplace install or the linked clone is present, Claude Code loads tha
 
 The plugin holds no event sheet guides. Clone [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) once and keep it current with `git pull`; until then, the scripts print the `git clone` command, and the agent designs without the pitfalls. The scripts find the clone beside Construct3-RAG or this repository, through the `CONSTRUCT3_COOKBOOK` environment variable, or through a `Construct3-Cookbook: <folder>` line in the game project's `AGENTS.md`.
 
+You can keep pitfalls of your own beside the Cookbook's, without forking it. Put them in a folder laid out like the Cookbook's `guides/`, one bullet per pitfall in a page such as `plugins/sprite.md` or `behaviors/tween.md`. Name the folder with a `Construct3-Cookbook-extra: <folder>` line in the game project's `AGENTS.md`, where a relative path starts at that file's folder, or with the `CONSTRUCT3_COOKBOOK_EXTRA` environment variable. `search_guides.py` then searches your entries too, and puts them first among entries that hold as many of the words. `lookup_ace.py` lists your page of an addon first after an entry. The design guides and the checker's references stay the Cookbook's.
+
 ## Privacy and safety
 
 - Local runs: the scripts run on the machine with Python, on the files of the project and of this repository. To cut pictures out of an image tool's output, the scripts need Pillow.

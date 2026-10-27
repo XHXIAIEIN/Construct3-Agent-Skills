@@ -4,7 +4,9 @@
                                     [--limit CHARS] [--project FOLDER] [--rag FOLDER] [--cookbook FOLDER]
 
 Prints the pitfall entries of `Construct3-Cookbook/guides/` that hold the
-words, each in full with its file and line. Then it prints the official
+words, each in full with its file and line, and those of the user's own
+folder laid out the same way, which come first among entries that hold as
+many of the words (`--cookbook-extra`). Then it prints the official
 examples whose id, name, description, tags or addons hold them, each with the
 command that prints its events. Entries with more of the words come first. A
 word matches inside longer words too: `tap` finds "taps". The pitfalls are
@@ -39,10 +41,10 @@ def without_source(text: str) -> str:
     return text
 
 
-def pitfalls(guides: Path) -> list[tuple[str, int, str]]:
+def pitfalls(guides: Path | None) -> list[tuple[str, int, str]]:
     """Every bullet of the pitfall pages as (file, line, text), the text on one line without its source."""
     out = []
-    for path in sorted(p for folder in c3.PITFALL_FOLDERS for p in (guides / folder).rglob("*.md")):
+    for path in c3.pitfall_pages(guides):
         text = path.read_text(encoding="utf-8")
         starts = [m.start() for m in ENTRY.finditer(text)]
         for i, start in enumerate(starts):
@@ -66,9 +68,10 @@ def example_text(e: dict) -> str:
     return " ".join(parts)
 
 
-def ranked(items: list, text_of: Callable[[object], str], words: list[str]) -> list:
-    """The items that hold at least one word: the ones with the most of the words first, then the ones that
-    repeat them most, so the entry about the words outranks one that names them in passing."""
+def ranked(items: list, text_of: Callable[[object], str], words: list[str], first: int = 0) -> list:
+    """The items that hold at least one word: the ones with the most of the words first, then the first
+    `first` items, the user's own, then the ones that repeat the words most, so the entry about the words
+    outranks one that names them in passing."""
     lowered = [w.lower() for w in words]
     scored = []     # (words held, times they occur, position, item)
     for n, item in enumerate(items):
@@ -76,7 +79,7 @@ def ranked(items: list, text_of: Callable[[object], str], words: list[str]) -> l
         held = sum(w in text for w in lowered)
         if held:
             scored.append((held, sum(text.count(w) for w in lowered), n, item))
-    scored.sort(key=lambda s: (-s[0], -s[1], s[2]))
+    scored.sort(key=lambda s: (-s[0], s[2] >= first, -s[1], s[2]))
     best = scored[0][0] if scored else 0
     return [item for held, _, _, item in scored if held == best or held >= 2]
 
@@ -98,6 +101,9 @@ def main() -> int:
                     help="the Construct3-Cookbook clone that holds the pitfalls (default: CONSTRUCT3_COOKBOOK, else the "
                          "'Construct3-Cookbook:' line of the project's AGENTS.md or CLAUDE.md, else a Construct3-Cookbook "
                          "folder beside the clones)")
+    ap.add_argument("--cookbook-extra", metavar="FOLDER",
+                    help="your own pitfall pages, laid out as the Cookbook's guides/ (default: CONSTRUCT3_COOKBOOK_EXTRA, "
+                         "else the 'Construct3-Cookbook-extra:' line of the project's AGENTS.md or CLAUDE.md)")
     args = ap.parse_args()
     c3.utf8_output()
     root = c3.find_project(args.project)
@@ -106,9 +112,13 @@ def main() -> int:
 
     lines: list[str] = []
     guides = c3.guides_folder(rag, root, args.cookbook) if args.pitfalls else None
+    own, note = c3.own_pitfalls(root, args.cookbook_extra) if args.pitfalls else (None, None)
+    if note:
+        print(f"note: {note}")
     if args.pitfalls and not guides:
-        print(f"note: pitfalls not searched: {c3.missing_cookbook(rag)}")
-    found_pitfalls = ranked(pitfalls(guides), lambda p: p[2], args.words)[: args.pitfalls] if guides else []
+        print(f"note: {'the Cookbook ' if own else ''}pitfalls not searched: {c3.missing_cookbook(rag)}")
+    mine = pitfalls(own)
+    found_pitfalls = ranked(mine + pitfalls(guides), lambda p: p[2], args.words, len(mine))[: args.pitfalls]
     if found_pitfalls:
         lines.append("pitfalls:")
         for file, line, text in found_pitfalls:
