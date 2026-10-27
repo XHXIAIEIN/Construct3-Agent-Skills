@@ -72,6 +72,12 @@ def test_review_look_leaves_out_one_box_that_shows_different_frames():
     assert rules(rl, frame(1, "Default", 0), frame(2, "Default", 1), frame(3, "Default", 1)) == [("stacked", [2, 3])]
 
 
+def test_review_look_leaves_out_drawing_canvases_on_one_box():
+    """Full-screen Drawing Canvases of one type, each drawing its own line over the one under it,
+    are layered on purpose, though they have no frames to tell them apart."""
+    assert rules(rl, *[inst(n, "Line", [0, 0, 1280, 720], layer="Game", canvas=True) for n in range(1, 6)]) == []
+
+
 def test_review_look_finds_overlaps_on_the_hud_but_not_a_label_on_its_button():
     assert rules(rl,
                  inst(1, "Button", [100, 600, 260, 660]),
