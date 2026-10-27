@@ -53,6 +53,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
+# python -I leaves this script's folder off sys.path, and the modules beside it are imported from there
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import c3project as c3
 import print_sheet
 from c3project import NUMBERED, STRING_LITERAL

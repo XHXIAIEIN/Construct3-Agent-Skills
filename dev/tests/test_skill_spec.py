@@ -156,6 +156,20 @@ def test_every_flag_the_skill_names_is_one_its_script_takes(tmp_path):
                     assert m.group(2) in takes.get(script, any_script), f"{name}: {script or 'no script'} takes no {m.group(2)}: {line.strip()}"
 
 
+def test_every_script_runs_in_isolated_mode(tmp_path):
+    """An agent that reads downloaded files runs Python with -I, which leaves the script's own folder off
+    sys.path, so a script puts it back before it imports the modules beside it. Run from elsewhere, as an
+    agent in a game project does."""
+    failed = []
+    for script in sorted((SKILL / "scripts").glob("*.py")):
+        if "__main__" in script.read_text(encoding="utf-8"):
+            p = subprocess.run([sys.executable, "-I", str(script), "--help"], cwd=tmp_path,
+                               capture_output=True, text=True, encoding="utf-8", timeout=60)
+            if p.returncode:
+                failed.append(f"{script.name}: {(p.stderr or p.stdout).strip().splitlines()[-1:]}")
+    assert not failed, "python -I SCRIPT --help failed:\n" + "\n".join(failed)
+
+
 # --- the trigger evaluation of the description, against a stand-in for the client -------------
 FAKE_CLIENT = '''
 import json, pathlib, sys, time
