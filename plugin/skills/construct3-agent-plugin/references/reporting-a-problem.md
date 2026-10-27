@@ -12,8 +12,8 @@ that ran, and what each fix changed. A
 maintainer reads it without the project, so it carries the text itself, not
 a pointer to it. Give the report to the user in the reply; the user files it
 at https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues. Do not file
-it yourself. An issue is public, so before handing the report over, take
-out what "What stays out of the report" below lists.
+it yourself. An issue is public, so before handing the report over,
+replace what "Private details to replace" below lists.
 
 ## When the problems are in other sessions
 
@@ -59,7 +59,7 @@ What the transcripts do not show is [unknown]. Take from a transcript only
 the lines about the errors, their causes and their fixes, never the rest of
 what the user said in that session.
 
-## What stays out of the report
+## Private details to replace
 
 Go through the whole report once it is written, the verbatim errors
 included, and replace each of these:
