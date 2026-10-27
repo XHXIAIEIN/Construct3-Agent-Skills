@@ -39,6 +39,10 @@ import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 
+# python -I leaves this script's folder off sys.path, and the modules beside it are imported from there
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import c3project as c3
 
 # Scratch inside the project, where check_project.py does not look and the editor does not write.

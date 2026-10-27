@@ -46,6 +46,10 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 
+# python -I leaves this script's folder off sys.path, and the modules beside it are imported from there
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import c3project as c3
 import check_design as cd
 import game_model as gm

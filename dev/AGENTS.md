@@ -189,6 +189,10 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 - Scripts find the project from the current directory upward, and the data
   folder through the project's `Construct3-RAG:` line. The code that they
   share is in `scripts/c3project.py`.
+- A script that imports a module beside it puts its own folder on
+  `sys.path` before that import, because `python -I`, which an agent uses
+  when it reads downloaded files, leaves the folder off.
+  `test_skill_spec.py` runs every script's `--help` that way.
 - Write a script's own text and the skill's text in English. `--locale`
   switches the schema wording that a script prints, not the script's own
   wording.
