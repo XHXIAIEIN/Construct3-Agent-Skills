@@ -2224,3 +2224,41 @@ def test_a_short_text_alone_in_the_middle_of_the_screen_is_drawn_at_title_size(p
     out = screen_text(project, change)
     lines = [w for w in warnings(out) if "banner size" in w]
     assert (len(lines) == 1 and said in lines[0] and 'Set its "size" to 64' in lines[0] if said else not lines), out
+
+
+# --- disabled events ------------------------------------------------------------------------------
+GONE = {"id": "set-animation", "objectClass": "Coin", "sid": 61, "parameters": {"animation": '"Gone"', "from": "beginning"}}
+
+
+@pytest.mark.parametrize("change, whole", [
+    (lambda s: events(s)["input"].update(disabled=True), True),
+    (lambda s: events(s)["input_group"].update(disabled=True), True),
+    (lambda s: events(s)["input"]["actions"][-1].update(disabled=True), False),
+])
+def test_what_never_runs_is_not_checked_for_what_it_would_do(project, change, whole):
+    """A user's disabled event that set a missing animation failed the run (2026-10-27). The editor
+    opens a project whose events name an animation or a layer it does not have, so in an event, a group,
+    a condition or an action that is disabled only the rules of opening apply."""
+    def broken(s):
+        events(s)["input"]["actions"].append(dict(GONE))
+        events(s)["input"].update(children=[block([cond("trigger-once-while-true")])])
+    edit(project, SHEET, broken)
+    assert "Coin has no animation 'Gone'" in check(project)[1]
+    edit(project, SHEET, change)
+    code, out = check(project)
+    assert code == 0 and "Gone" not in out, out
+    assert ("trigger-once-while-true is in a branch" in out) is not whole, out
+
+
+@pytest.mark.parametrize("change, said", [
+    (lambda s: events(s)["input"]["actions"].append(dict(GONE, objectClass="Ghost")), "unknown object Ghost"),
+    (lambda s: events(s)["input"]["conditions"].append(cond("on-start-of-layout")), "are two triggers in one event"),
+])
+def test_a_disabled_event_still_opens_with_the_editor(project, change, said):
+    """The editor reads a disabled event as it opens the project, so what stops the open is still an error."""
+    def broken(s):
+        change(s)
+        events(s)["input"].update(disabled=True)
+    edit(project, SHEET, broken)
+    code, out = check(project)
+    assert code == 1 and said in out, out
