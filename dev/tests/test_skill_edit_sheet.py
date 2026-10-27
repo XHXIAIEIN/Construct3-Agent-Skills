@@ -11,7 +11,7 @@ import pytest
 
 from tests.skill_helpers import (
     EVALS,    PLUGIN,    REPO, SKILL, INSTALLED, SHEET, EXAMPLES, NEEDS_EXAMPLES, run, streams, tool, check, edit, events, every_event,
-    collect_tween, plan, script_module,
+    collect_tween, game_rows, plan, script_module,
 )
 
 NUMBERED = script_module("c3project").NUMBERED
@@ -65,20 +65,18 @@ def test_plan_puts_events_in_by_the_numbers_the_sheet_has_now(project):
     """Four operations read off one print: the second still means event 2 after the first has put a row above it."""
     code, out = plan(project,
                      {"before": 1, "events": [{"eventType": "variable", "name": "timeLeft", "initialValue": 30}]},
-                     {"event": 2, "add-actions": [SET_TIME]},
-                     {"into": 3, "events": [{"eventType": "block", "conditions": [], "actions": [
+                     {"event": 3, "add-actions": [SET_TIME]},
+                     {"into": 4, "events": [{"eventType": "block", "conditions": [], "actions": [
                          {"id": "set-scale", "objectClass": "Coin", "parameters": {"scale": "1.5"}}]}]},
-                     {"after": 8, "events": [{"eventType": "comment", "text": "Countdown."}, TIMER]})
+                     {"after": 9, "events": [{"eventType": "comment", "text": "Countdown."}, TIMER]})
     assert code == 0, out
-    assert out.splitlines()[0] == "Game: 4 operations, 12 events before and 15 now, 8 new sids"
+    assert out.splitlines()[0] == "Game: 4 operations, 13 events before and 16 now, 8 new sids"
     assert out.splitlines()[-1].startswith("ok:") and "open_in_editor" not in out     # check_project.py prints it
     sheet = printed(project)
-    assert ("     global number beat = 0\n         // The round being played, from 0; a global keeps it across the "
-            "restart\n     global number deal = 0\n         // The grid cell this round's first coin lands on; "
-            "the others step from it\n     global number timeLeft = 30\n   1 group Setup") in sheet
-    assert '-> System: Set deal to floor(random(15))\n           -> ScoreText: Set text to "Time: " & timeLeft' in sheet
-    assert "   4       (runs with its parent)\n               -> Coin: Set scale to 1.5" in sheet
-    assert "     // Countdown.\n  11 group Timer\n       // Count down.\n  12   System: Every 1 seconds" in sheet
+    assert "== Game\n     global number timeLeft = 30\n     // Coins. Tap a coin" in sheet
+    assert '-> System: Set deal to floor(random(15))\n             -> ScoreText: Set text to "Time: " & timeLeft' in sheet
+    assert "   5         (runs with its parent)\n                 -> Coin: Set scale to 1.5" in sheet
+    assert "       // Countdown.\n  12   group Timer\n         // Count down.\n  13     System: Every 1 seconds" in sheet
     assert check(project)[0] == 0
 
 
@@ -104,7 +102,7 @@ def test_files_with_a_byte_order_mark_are_read_and_a_sheet_is_written_without_it
     for name in ("project.c3proj", SHEET):
         (project / name).write_bytes(codecs.BOM_UTF8 + (project / name).read_bytes())
     assert check(project)[0] == 0
-    assert "   1 group Setup" in printed(project)
+    assert "   2   group Setup" in printed(project)
     code, out = plan(project, {"before": 1, "events": [{"eventType": "variable", "name": "timeLeft"}]})
     assert code == 0 and "Traceback" not in out, out
     assert "started with a byte order mark" in out
@@ -123,7 +121,7 @@ def test_a_sheet_keeps_the_name_it_has_on_disk(project):
 
 def test_a_loop_written_as_an_action_says_where_it_goes(project):
     """Told only that For is a condition, a small model rewrote its loops away instead of moving them (2026-10-04)."""
-    code, out = plan(project, {"event": 2, "add-actions": [{"id": "for", "objectClass": "System", "parameters": {
+    code, out = plan(project, {"event": 3, "add-actions": [{"id": "for", "objectClass": "System", "parameters": {
         "name": '"i"', "start-index": "0", "end-index": "3"}}]})
     assert code == 1
     assert 'for is one of its conditions, not its actions: move it into the "conditions" of this event' in out
@@ -132,11 +130,11 @@ def test_a_loop_written_as_an_action_says_where_it_goes(project):
 
 def test_plan_that_adds_a_problem_changes_nothing(project):
     before = (project / SHEET).read_bytes()
-    code, out = plan(project, {"after": 8, "events": [TIMER]},
-                     {"event": 7, "add-actions": [{"id": "set-txt", "objectClass": "ScoreText", "parameters": {"text": '"x"'}}]})
+    code, out = plan(project, {"after": 9, "events": [TIMER]},
+                     {"event": 8, "add-actions": [{"id": "set-txt", "objectClass": "ScoreText", "parameters": {"text": '"x"'}}]})
     assert code == 1 and (project / SHEET).read_bytes() == before
     assert "operation 1: sheet Game event" in out and "timeLeft" in out
-    assert "operation 2: sheet Game event 7" in out and "closest: set-text" in out
+    assert "operation 2: sheet Game event 8" in out and "closest: set-text" in out
     assert out.splitlines()[-1] == "the plan adds 2 problem(s) to the project; nothing was written"
 
 
@@ -190,62 +188,62 @@ def test_a_finding_names_the_place_a_plan_changes(project):
     """The five mistakes of the eval's broken sheet, repaired by the places the checker gives for them."""
     script_module("make_fixtures", EVALS).seed_load_errors(project)
     code, out = check(project)
-    assert code == 1 and re.search(r"event 2 \(sid \d+\) condition 1: System:on-start-of-layout is inverted", out)
-    assert re.search(r"event 5 \(sid \d+\) condition 1 Touch:on-touched-object", out)
+    assert code == 1 and re.search(r"event 3 \(sid \d+\) condition 1: System:on-start-of-layout is inverted", out)
+    assert re.search(r"event 6 \(sid \d+\) condition 1 Touch:on-touched-object", out)
     code, out = plan(project,
-                     {"event": 2, "condition": 1, "set": {"isInverted": False}},
-                     {"event": 5, "condition": 1, "set": {"parameters": {"type": "start"}}},
-                     {"event": 6, "action": 10, "set": {"behaviorType": "Tween"}},
-                     {"event": 8, "action": 2, "set": {"id": "set-text"}},
-                     {"move": 7, "after": 6})
+                     {"event": 3, "condition": 1, "set": {"isInverted": False}},
+                     {"event": 6, "condition": 1, "set": {"parameters": {"type": "start"}}},
+                     {"event": 7, "action": 10, "set": {"behaviorType": "Tween"}},
+                     {"event": 9, "action": 2, "set": {"id": "set-text"}},
+                     {"move": 8, "after": 7})
     assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
     raw = sheet_on_disk(project)
     sheet = events(raw)
     assert "isInverted" not in sheet["setup"]["conditions"][0], "the editor writes isInverted only when it is true"
     assert list(collect_tween(raw))[:4] == ["id", "objectClass", "sid", "behaviorType"]
-    assert "Coin: On Tween \"collect\" finished\n         -> Functions: Call AddScore(Coin.value)" in printed(project)
+    assert "Coin: On Tween \"collect\" finished\n           -> Functions: Call AddScore(Coin.value)" in printed(project)
 
 
 def test_plan_sets_the_values_of_an_event_and_removes_an_action(project):
-    code, out = plan(project, {"event": 8, "set": {"title": "Over", "isActiveOnStart": False}},
-                     {"event": 9, "action": 2, "remove": True})
+    code, out = plan(project, {"event": 9, "set": {"title": "Over", "isActiveOnStart": False}},
+                     {"event": 10, "action": 2, "remove": True})
     assert code == 0, out
     sheet = printed(project)
-    assert "   8 group Over (inactive on start)" in sheet and "Wait 1 seconds" not in sheet
-    code, out = plan(project, {"event": 9, "set": {"actions": []}})
+    assert "   9   group Over (inactive on start)" in sheet and "Wait 1 seconds" not in sheet
+    code, out = plan(project, {"event": 10, "set": {"actions": []}})
     assert code == 1 and "\"set\" changes values, not 'actions'" in out
 
 
 def test_plan_shows_a_condition_or_action_it_disables_as_disabled(project):
-    code, out = plan(project, {"event": 5, "condition": 2, "set": {"disabled": True}},
-                     {"event": 7, "action": 1, "set": {"disabled": True}})
+    code, out = plan(project, {"event": 6, "condition": 2, "set": {"disabled": True}},
+                     {"event": 8, "action": 1, "set": {"disabled": True}})
     assert code == 0, out
-    assert "       Coin: NOT Is any Tween playing [condition disabled]\n" in out
-    assert "         -> System: Add points to score [action disabled]\n" in out
+    assert "         Coin: NOT Is any Tween playing [condition disabled]\n" in out
+    assert "           -> System: Add points to score [action disabled]\n" in out
     assert events(sheet_on_disk(project))["input"]["conditions"][1]["disabled"] is True
 
 
 def test_plan_names_an_older_form_of_a_text_it_left_alone(project):
-    """Eval runs changed the score text at the start and left the one in AddScore, event 7, as it was."""
-    code, out = plan(project, {"event": 2, "action": 2, "set": {"parameters": {"text": '"Score: 0"'}}},
-                     {"event": 7, "action": 2, "set": {"parameters": {"text": '"Score: " & score'}}})
+    """Eval runs changed the score text at the start and left the one in AddScore, event 8, as it was."""
+    code, out = plan(project, {"event": 3, "action": 2, "set": {"parameters": {"text": '"Score: 0"'}}},
+                     {"event": 8, "action": 2, "set": {"parameters": {"text": '"Score: " & score'}}})
     assert code == 0, out                               # the labelled score those runs started from
     both = '"Score: " & score & "  Time: " & round(time)'
-    code, out = plan(project, {"event": 2, "action": 2, "set": {"parameters": {"text": both}}}, flags=("--dry-run",))
+    code, out = plan(project, {"event": 3, "action": 2, "set": {"parameters": {"text": both}}}, flags=("--dry-run",))
     assert code == 0, out
     note = [line for line in out.splitlines() if line.startswith("note: event")]
-    assert note == ['note: event 7 action 2 (ScoreText set-text) still has text "Score: " & score, which this plan '
+    assert note == ['note: event 8 action 2 (ScoreText set-text) still has text "Score: " & score, which this plan '
                     f'writes elsewhere as {both}; if both show the same thing, change it too: '
-                    + json.dumps({"event": 7, "line": "function AddScore(points: number)", "action": 2,
+                    + json.dumps({"event": 8, "line": "function AddScore(points: number)", "action": 2,
                                   "set": {"parameters": {"text": both}}})], out
-    code, out = plan(project, {"event": 2, "action": 2, "set": {"parameters": {"text": both}}},
-                     {"event": 7, "action": 2, "set": {"parameters": {"text": both}}}, flags=("--dry-run",))
+    code, out = plan(project, {"event": 3, "action": 2, "set": {"parameters": {"text": both}}},
+                     {"event": 8, "action": 2, "set": {"parameters": {"text": both}}}, flags=("--dry-run",))
     assert code == 0 and "note: event" not in out, out
-    code, out = plan(project, {"event": 2, "action": 2, "set": {"parameters": {"text": '"Tap the coins"'}}},
+    code, out = plan(project, {"event": 3, "action": 2, "set": {"parameters": {"text": '"Tap the coins"'}}},
                      flags=("--dry-run",))
     assert code == 0 and "note: event" not in out, out     # another text, not an older form of it
-    code, out = plan(project, {"event": 2, "action": 2, "set": {"parameters": {"text": '"Score: 0  Time: 30"'}}},
-                     {"event": 5, "add-actions": [{"id": "set-text", "objectClass": "ScoreText", "parameters": {"text": both}}]},
+    code, out = plan(project, {"event": 3, "action": 2, "set": {"parameters": {"text": '"Score: 0  Time: 30"'}}},
+                     {"event": 6, "add-actions": [{"id": "set-text", "objectClass": "ScoreText", "parameters": {"text": both}}]},
                      flags=("--dry-run",))
     assert code == 0 and [line for line in out.splitlines() if line.startswith("note: event")] == note, out
 
@@ -253,10 +251,10 @@ def test_plan_names_an_older_form_of_a_text_it_left_alone(project):
 def test_set_takes_no_key_of_the_plans_own_making(project):
     """Two eval runs wrote {"event": 2, "set": {"inverted": false}}: the key stayed in the sheet and changed nothing."""
     before = (project / SHEET).read_bytes()
-    code, out = plan(project, {"event": 2, "set": {"inverted": False}})
+    code, out = plan(project, {"event": 3, "set": {"inverted": False}})
     assert code == 1 and "'inverted' is not a value of a block, which has: bookmark, disabled, isOrBlock" in out
     assert '{"event": N, "condition": 1, "set": {"isInverted": null}}' in out
-    code, out = plan(project, {"event": 2, "condition": 1, "set": {"inverted": False}})
+    code, out = plan(project, {"event": 3, "condition": 1, "set": {"inverted": False}})
     assert code == 1 and "is not a value of a condition or action" in out and "closest: isInverted" in out
     code, out = plan(project, {"event": 1, "add-events": [TIMER]})
     assert code == 1 and 'sub-events go into an event with {"into": 1, "events": [...]}' in out
@@ -264,16 +262,16 @@ def test_set_takes_no_key_of_the_plans_own_making(project):
 
 
 def test_plan_moves_replaces_and_removes(project):
-    code, out = tool(project, "print_sheet", "Game", "--show", "9")
+    code, out = tool(project, "print_sheet", "Game", "--show", "10")
     restart = json.loads(out)
     assert code == 0 and [c["id"] for c in restart["conditions"]] == ["compare-two-values", "trigger-once-while-true"]
     restart["actions"] = [a for a in restart["actions"] if a["id"] != "wait"]   # no wait before the restart
     sids = {c["sid"] for c in restart["conditions"]}
-    code, out = plan(project, {"replace": 9, "events": [restart]}, {"move": 7, "before": 6}, {"remove": 4})
+    code, out = plan(project, {"replace": 10, "events": [restart]}, {"move": 8, "before": 7}, {"remove": 5})
     assert code == 0, out
     sheet = printed(project)
     assert sheet.index("function AddScore") < sheet.index("custom action Coin.Collect") and "group Input" not in sheet
-    assert '% tokencount(ROUND_COINS, ",")\n           -> System: Restart layout' in sheet
+    assert '% tokencount(ROUND_COINS, ",")\n             -> System: Restart layout' in sheet
     assert sids <= {c.get("sid") for ev in all_events(project) for c in ev.get("conditions", [])}, "a replaced event keeps the sids it is given"
 
 
@@ -321,14 +319,14 @@ def test_an_event_of_an_official_example_put_back_leaves_its_sheet_byte_for_byte
 
 def test_removing_an_event_names_the_sub_events_that_go_with_it(project):
     """A model removed a trigger with no actions as empty; the summary's event count alone did not stop it."""
-    code, out = plan(project, {"remove": 4})
+    code, out = plan(project, {"remove": 5})
     assert code == 0, out
-    assert re.search(r"-- event 4 removed with its sub-events? 5(-\d+)?, \d+ actions? in all", out), out
+    assert re.search(r"-- event 5 removed with its sub-events? 6(-\d+)?, \d+ actions? in all", out), out
 
 
 def test_an_event_replaced_by_one_without_a_sid_keeps_its_own(project):
     was = events(sheet_on_disk(project))["restart_block"]["sid"]
-    code, out = plan(project, {"replace": 9, "events": [{"eventType": "block", "conditions": [], "actions": [
+    code, out = plan(project, {"replace": 10, "events": [{"eventType": "block", "conditions": [], "actions": [
         {"id": "restart-layout", "objectClass": "System"}]}]})
     assert code == 0, out
     assert events(sheet_on_disk(project))["restart_block"]["sid"] == was
@@ -336,18 +334,18 @@ def test_an_event_replaced_by_one_without_a_sid_keeps_its_own(project):
 
 def test_an_event_replaced_by_one_keeps_its_number_for_the_operations_below(project):
     wait = {"eventType": "block", "conditions": [{"id": "every-tick", "objectClass": "System"}], "actions": []}
-    code, out = plan(project, {"replace": 9, "events": [wait]},
-                     {"event": 9, "add-actions": [{"id": "restart-layout", "objectClass": "System"}]},
-                     {"after": 9, "events": [{"eventType": "comment", "text": "Below the restart."}]})
+    code, out = plan(project, {"replace": 10, "events": [wait]},
+                     {"event": 10, "add-actions": [{"id": "restart-layout", "objectClass": "System"}]},
+                     {"after": 10, "events": [{"eventType": "comment", "text": "Below the restart."}]})
     assert code == 0, out
-    assert "   9   System: Every tick\n           -> System: Restart layout\n       // Below the restart." in printed(project)
+    assert "  10     System: Every tick\n             -> System: Restart layout\n         // Below the restart." in printed(project)
 
 
 @pytest.mark.parametrize("operations, said", [
-    (({"replace": 8, "events": [{"eventType": "group", "title": "Restart"}]}, {"event": 9, "set": {"disabled": True}}),
-     "operation 2 (event 9): event 9 is gone, operation 1 replaced event 8, which held it"),
-    (({"remove": 7}, {"after": 7, "events": [{"eventType": "comment", "text": "Score."}]}),
-     "operation 2 (after 7): event 7 is gone, operation 1 removed it"),
+    (({"replace": 9, "events": [{"eventType": "group", "title": "Restart"}]}, {"event": 10, "set": {"disabled": True}}),
+     "operation 2 (event 10): event 10 is gone, operation 1 replaced event 9, which held it"),
+    (({"remove": 8}, {"after": 8, "events": [{"eventType": "comment", "text": "Score."}]}),
+     "operation 2 (after 8): event 8 is gone, operation 1 removed it"),
 ])
 def test_an_event_that_is_gone_names_the_operation_that_took_it(project, operations, said):
     before = (project / SHEET).read_bytes()
@@ -357,11 +355,11 @@ def test_an_event_that_is_gone_names_the_operation_that_took_it(project, operati
 
 
 def test_before_an_event_is_above_the_comments_about_it(project):
-    assert plan(project, {"before": 9, "events": [{"eventType": "comment", "text": "All coins gone"}]})[0] == 0
-    code, out = plan(project, {"before": 9, "events": [{"eventType": "block", "conditions": [], "actions": []}]})
+    assert plan(project, {"before": 10, "events": [{"eventType": "comment", "text": "All coins gone"}]})[0] == 0
+    code, out = plan(project, {"before": 10, "events": [{"eventType": "block", "conditions": [], "actions": []}]})
     assert code == 0, out
-    assert ("   9   (every tick)\n       // All coins gone\n       // Start the next round when the last coin is gone\n"
-            "  10   System: Coin.Count = 0") in printed(project)
+    assert ("  10     (every tick)\n         // All coins gone\n         // Start the next round when the last coin is gone\n"
+            "  11     System: Coin.Count = 0") in printed(project)
 
 
 def test_a_sid_the_project_uses_is_replaced(project):
@@ -381,7 +379,7 @@ def test_dry_run_checks_and_shows_and_writes_nothing(project):
 
 
 @pytest.mark.parametrize("operation, said", [
-    ({"after": 40, "events": [TIMER]}, "40 is not an event of the sheet, which has 12"),
+    ({"after": 40, "events": [TIMER]}, "40 is not an event of the sheet, which has 13"),
     ({"after": 8}, 'needs "events"'),
     ({"after": 8, "before": 2, "events": [TIMER]}, "an operation is one of"),
     ({"after": 8, "event": [TIMER]}, "an operation is one of"),
@@ -389,16 +387,16 @@ def test_dry_run_checks_and_shows_and_writes_nothing(project):
     ({"after": 8, "events": [{"conditions": [], "actions": []}]}, "An event with conditions and actions is a 'block'"),
     ({"after": 8, "events": [{**TIMER, "subEvents": [TIMER]}]}, "'subEvents' is not a key of a group"),
     ({"after": 8, "events": [{**TIMER, "sub-events": [TIMER]}]}, "sub-events are its 'children'"),
-    ({"event": 2, "add-actions": [{"objectClass": "Coin"}]}, "has no 'id'"),
-    ({"event": 2, "add-actions": [{**SET_TIME, "params": SET_TIME["parameters"]}]},
+    ({"event": 3, "add-actions": [{"objectClass": "Coin"}]}, "has no 'id'"),
+    ({"event": 3, "add-actions": [{**SET_TIME, "params": SET_TIME["parameters"]}]},
      "'params' is not a key of a condition or action"),
-    ({"event": 2, "add-actions": [{"id": "set-text", "objectClass": "ScoreText", "params": {"text": '""'}}]},
+    ({"event": 3, "add-actions": [{"id": "set-text", "objectClass": "ScoreText", "params": {"text": '""'}}]},
      "closest: parameters; the editor would drop it with its value"),
-    ({"event": 2, "add-conditions": [{"id": "is-playing", "objectClass": "Coin", "behavior-type": "Tween",
+    ({"event": 3, "add-conditions": [{"id": "is-playing", "objectClass": "Coin", "behavior-type": "Tween",
                                       "parameters": {"tag": '"t"'}}]}, "closest: behaviorType"),
-    ({"event": 2, "add-actions": [{"type": "comment", "txt": "Score."}]}, "'txt' is not a key of a comment row"),
+    ({"event": 3, "add-actions": [{"type": "comment", "txt": "Score."}]}, "'txt' is not a key of a comment row"),
     ({"event": 1, "add-actions": [SET_TIME]}, "event 1 is a group, which has no actions"),
-    ({"event": 2, "add-actions": [SET_TIME], "position": 7}, "position is 1 to 5"),
+    ({"event": 3, "add-actions": [SET_TIME], "position": 7}, "position is 1 to 5"),
     ({"into": 5, "events": [{"eventType": "variable", "name": "n", "type": "int"}]}, "'number', 'string' or 'boolean'"),
     ({"move": 1, "into": 3}, "event 3 is event 1 or inside it"),
 ])
@@ -430,7 +428,7 @@ def test_the_plan_skill_md_shows_is_one_the_script_takes(project):
 
 
 def test_new_sid_left_in_a_plan_is_named(project):
-    (project / "plan.json").write_text('[{"event": 2, "add-actions": [{"id": "x", "objectClass": "Coin", "sid": <new sid>}]}]',
+    (project / "plan.json").write_text('[{"event": 3, "add-actions": [{"id": "x", "objectClass": "Coin", "sid": <new sid>}]}]',
                                        encoding="utf-8")
     code, out = tool(project, "edit_sheet", "Game", "plan.json")
     assert code == 1 and 'leave "sid" out' in out
@@ -439,11 +437,11 @@ def test_new_sid_left_in_a_plan_is_named(project):
 def test_plan_takes_the_children_key_off_an_event_it_empties(project):
     """The editor saves an event without sub-events with no "children": a [] left behind
     comes back changed in the diff of the sheet's next save."""
-    code, out = plan(project, {"after": 8, "events": [{"eventType": "group", "title": "Timer", "children": [
+    code, out = plan(project, {"after": 9, "events": [{"eventType": "group", "title": "Timer", "children": [
         {"eventType": "comment", "text": "Show the clock."},
         {"eventType": "block", "conditions": [], "actions": [{**SET_TIME, "parameters": {"text": '"Go"'}}]}]}]})
     assert code == 0, out
-    n = int(re.search(r"^\s*(\d+) group Timer", printed(project), re.M).group(1))
+    n = int(re.search(r"^\s*(\d+)\s+group Timer", printed(project), re.M).group(1))
     code, out = plan(project, {"remove": n + 1})
     assert code == 0, out
     timer = next(ev for ev in all_events(project) if ev.get("title") == "Timer")
@@ -453,12 +451,12 @@ def test_plan_takes_the_children_key_off_an_event_it_empties(project):
 def local_n_in_two_groups(project: Path) -> None:
     """A local n in group Setup and another in group Restart: one name, two variables."""
     def change(sheet):
-        groups = {ev.get("title"): ev for ev in sheet["events"]}
+        groups = {ev.get("title"): ev for ev in game_rows(sheet)}
         for group, sid in ((groups["Setup"], 811111111111111), (groups["Restart"], 822222222222222)):
             group["children"].insert(0, {"eventType": "variable", "name": "n", "type": "number", "initialValue": "0",
                                          "comment": "", "isStatic": False, "isConstant": False, "sid": sid})
     edit(project, SHEET, change)
-    assert "   1 group Setup\n       local number n = 0" in printed(project)
+    assert "   2   group Setup\n         local number n = 0" in printed(project)
 
 
 def test_plan_sets_a_variable_by_its_name(project):
@@ -466,7 +464,7 @@ def test_plan_sets_a_variable_by_its_name(project):
     code, out = plan(project, {"variable": "ROUND_COINS", "set": {"initialValue": "2,4"}},
                      {"variable": "score", "set": {"initialValue": 5, "comment": "Points this round"}})
     assert code == 0, out
-    assert "-- variable ROUND_COINS changed: global constant string ROUND_COINS = 2,4" in out
+    assert "-- variable ROUND_COINS changed: local constant string ROUND_COINS = 2,4 in event 1 (group Coins)" in out
     score = next(ev for ev in all_events(project) if ev.get("name") == "score")
     assert (score["initialValue"], score["comment"]) == ("5", "Points this round")
     assert list(score) == ["eventType", "name", "type", "initialValue", "comment", "isStatic", "isConstant", "sid"]
@@ -488,11 +486,11 @@ def test_a_variable_set_keeps_the_checkers_guarantees(project, values, said):
 
 def test_plan_removes_a_variable_and_a_comment(project):
     code, out = plan(project, {"before": 1, "events": [{"eventType": "variable", "name": "unused"}]},
-                     {"variable": "unused", "remove": True}, {"comment": "Settings", "remove": True})
+                     {"variable": "unused", "remove": True}, {"comment": "Add points", "remove": True})
     assert code == 0, out
-    assert "-- variable unused removed" in out and "-- comment // Settings removed" in out
+    assert "-- variable unused removed" in out and "-- comment // Add points and show the score removed" in out
     sheet = printed(project)
-    assert "unused" not in sheet and "// Settings" not in sheet and "global constant string ROUND_COINS" in sheet
+    assert "unused" not in sheet and "// Add points" not in sheet and "local constant string ROUND_COINS" in sheet
     code, out = plan(project, {"variable": "beat", "remove": True})
     assert code == 1 and "variable 'beat' is not in scope" in out and "the events above still use it" in out
 
@@ -500,15 +498,16 @@ def test_plan_removes_a_variable_and_a_comment(project):
 def test_plan_changes_a_comment_by_words_of_its_text(project):
     code, out = plan(project, {"comment": "Start the next round", "set": {"text": "Next round once the coins are gone"}})
     assert code == 0, out
-    assert "  8 group Restart\n       // Next round once the coins are gone\n   9" in printed(project)
+    assert "   9   group Restart\n         // Next round once the coins are gone\n  10" in printed(project)
     code, out = plan(project, {"comment": "coin", "set": {"text": "x"}})
-    assert code == 1 and "comments hold 'coin'" in out and '"in": 1' in out
+    assert code == 1 and "comments hold 'coin'" in out and '"in": 2' in out
 
 
 def test_an_unknown_variable_is_refused_with_the_variables_of_the_sheet(project):
     code, out = plan(project, {"variable": "Score", "set": {"initialValue": "1"}})
     assert code == 1 and "the sheet has no variable named 'Score'; closest: score" in out, out
-    assert "Its variables: global constant string ROUND_COINS = 1,3,6,2,10,1, global number score = 0" in out
+    assert ("Its variables: local constant string ROUND_COINS = 1,3,6,2,10,1 in event 1 (group Coins), local static "
+            "number score = 0 in event 1 (group Coins)") in out
     code, out = plan(project, {"event": 2, "set": {"initialValue": "1"}})
     assert code == 1 and '{"variable": "NAME", "set": {"initialValue": "0.5"}}' in out, out
     code, out = plan(project, {"variable": 3, "set": {"initialValue": "1"}})
@@ -519,20 +518,20 @@ def test_a_local_name_in_two_events_is_named_with_in(project):
     local_n_in_two_groups(project)
     code, out = plan(project, {"variable": "n", "set": {"initialValue": "3"}})
     assert code == 1, out
-    assert ("2 variables are named 'n': in event 1 (group Setup); in event 8 (group Restart). "
+    assert ("2 variables are named 'n': in event 2 (group Setup); in event 9 (group Restart). "
             'Name the event that holds the one to change with "in"') in out
-    assert '{"variable": "n", "in": 1, "set": {"initialValue": "3"}}' in out
-    code, out = plan(project, {"variable": "n", "in": 8, "set": {"initialValue": "3"}})
-    assert code == 0 and "local number n = 3 in event 8 (group Restart)" in out, out
+    assert '{"variable": "n", "in": 2, "set": {"initialValue": "3"}}' in out
+    code, out = plan(project, {"variable": "n", "in": 9, "set": {"initialValue": "3"}})
+    assert code == 0 and "local number n = 3 in event 9 (group Restart)" in out, out
     assert "local number n = 0" in printed(project)
     code, out = plan(project, {"variable": "n", "in": 0, "remove": True})
-    assert code == 1 and "no variable named 'n' at the top level" in out and "local number n = 0 in event 1" in out
+    assert code == 1 and "no variable named 'n' at the top level" in out and "local number n = 0 in event 2" in out
 
 
 def test_a_variable_change_in_a_dry_run_writes_nothing(project):
     before = (project / SHEET).read_bytes()
     code, out = plan(project, {"variable": "ROUND_COINS", "set": {"initialValue": "2,4"}}, flags=("--dry-run",))
-    assert code == 0 and "global constant string ROUND_COINS = 2,4" in out
+    assert code == 0 and "local constant string ROUND_COINS = 2,4" in out
     assert out.splitlines()[-1] == "dry run: nothing was written" and (project / SHEET).read_bytes() == before
 
 
@@ -693,45 +692,45 @@ END_COMMENT = {"into": 0, "events": [{"eventType": "comment", "text": "End."}]}
 def test_a_plan_from_an_older_print_is_refused_with_where_its_line_is_now(project):
     """A second plan that uses the numbers of an earlier print names another event once an earlier plan has
     moved it. The line refuses it."""
-    code, out = plan(project, {"before": 7, "line": "AddScore", "events": [
+    code, out = plan(project, {"before": 8, "line": "AddScore", "events": [
         {"eventType": "comment", "text": "Points."},
         {"eventType": "function-block", "functionName": "Bonus", "actions": []}]})
     assert code == 0 and "named an event by number alone" not in out, out
     before = (project / SHEET).read_bytes()
-    code, out = plan(project, {**STALE, "event": 7})      # AddScore prints as event 7 before the first plan, 8 after
+    code, out = plan(project, {**STALE, "event": 8})      # AddScore prints as event 8 before the first plan, 9 after
     assert code == 1 and out.splitlines()[0] == (
-        'operation 1 (event 7): "function AddScore(points: number)" is event 8 now. Event 7 prints "function Bonus()". '
-        "The plan's numbers may come from an older print of the sheet, or 7 may be miscounted. Take each number and "
+        'operation 1 (event 8): "function AddScore(points: number)" is event 9 now. Event 8 prints "function Bonus()". '
+        "The plan's numbers may come from an older print of the sheet, or 8 may be miscounted. Take each number and "
         "its line from print_sheet.py as it prints the sheet now"), out
     assert (project / SHEET).read_bytes() == before
-    code, out = plan(project, {**STALE, "event": 8}, flags=("--dry-run",))
+    code, out = plan(project, {**STALE, "event": 9}, flags=("--dry-run",))
     assert code == 0, out
 
 
-@pytest.mark.parametrize("line", ["   7 function AddScore(points: number)", "AddScore(points",
+@pytest.mark.parametrize("line", ["   8   function AddScore(points: number)", "AddScore(points",
                                   "function AddScore(points: number)  [event disabled]"])
 def test_a_line_is_found_as_print_sheet_prints_it_or_in_part(project, line):
     """The line with its number or a mark print_sheet.py adds, or a part of it."""
-    code, out = plan(project, {**STALE, "event": 7, "line": line}, flags=("--dry-run",))
+    code, out = plan(project, {**STALE, "event": 8, "line": line}, flags=("--dry-run",))
     assert code == 0, out
 
 
 def test_a_line_copied_from_a_print_in_another_locale_names_the_event(project):
     """A print with --locale zh-CN words the line in Chinese; the plan runs without --locale."""
-    in_chinese = tool(project, "print_sheet", "Game", "--events", "5", "--locale", "zh-CN")[1]
-    line = next(row for row in in_chinese.splitlines() if row.startswith("   5 "))[5:].strip()
+    in_chinese = tool(project, "print_sheet", "Game", "--events", "6", "--locale", "zh-CN")[1]
+    line = next(row for row in in_chinese.splitlines() if row.startswith("   6 "))[5:].strip()
     assert line != "Touch: On touched Coin (start)", in_chinese
-    code, out = plan(project, {"event": 5, "line": line, "action": 1, "set": {"disabled": True}}, flags=("--dry-run",))
+    code, out = plan(project, {"event": 6, "line": line, "action": 1, "set": {"disabled": True}}, flags=("--dry-run",))
     assert code == 0, out
 
 
 def test_a_plan_without_lines_is_carried_out_and_noted(project):
     """A plan without lines, such as one made from a finding's place, which names no line, is carried out with a
     note."""
-    code, out = plan(project, {"event": 7, "add-actions": STALE["add-actions"]}, {"remove": 5}, END_COMMENT,
+    code, out = plan(project, {"event": 8, "add-actions": STALE["add-actions"]}, {"remove": 6}, END_COMMENT,
                      flags=("--dry-run",))
     assert code == 0 and ('note: operations 1 and 2 named events by number alone. Add "line" to each: the line '
-                          'print_sheet.py prints for its event, as in {"event": 7, "line": "function AddScore(points: '
+                          'print_sheet.py prints for its event, as in {"event": 8, "line": "function AddScore(points: '
                           'number)", ...}. A number from an older print is then refused instead of changing another '
                           'event') in out, out
     code, out = plan(project, {"into": 0, "line": "x", "events": [{"eventType": "comment", "text": "End."}]})

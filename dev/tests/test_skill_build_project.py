@@ -12,7 +12,7 @@ import pytest
 
 from tests.skill_helpers import (
     DATA,
-    REPO, SKILL, INSTALLED, EXAMPLES, NEEDS_EXAMPLES, run, tool, check, edit, every_event, warnings, findings,
+    REPO, SKILL, INSTALLED, EXAMPLES, NEEDS_EXAMPLES, run, tool, check, edit, every_event, game_rows, warnings, findings,
     template_module, png_pixels, script_module,
 )
 from tests.conftest import FONT_CACHE
@@ -317,7 +317,7 @@ def test_template_pace_stops_a_curve_that_breaks_a_rule(change, said):
 def test_template_deals_the_coins_of_each_beat_round_after_round(built):
     t = template_module()
     sheet = json.loads((built / "eventSheets" / "Game.json").read_text(encoding="utf-8"))
-    rounds = next(v for v in sheet["events"] if v.get("name") == "ROUND_COINS")
+    rounds = next(v for v in game_rows(sheet) if v.get("name") == "ROUND_COINS")
     assert rounds["initialValue"] == ",".join(str(b["coins"]) for b in t.BEATS) == "1,3,6,2,10,1"
     code, out = tool(built, "print_sheet", "Game")
     assert 'For "i" from 0 to int(tokenat(ROUND_COINS, beat, ",")) - 1' in out

@@ -134,12 +134,19 @@ def stand_in(root: Path, skill: Path = SKILL) -> Path:
     return root
 
 
+def game_rows(sheet: dict) -> list:
+    """The rows of the stand-in's outer group Coins, which hold its groups and procedures; the sheet's own
+    rows in a template of before that group (--pin)."""
+    outer = next((e for e in sheet["events"] if e.get("eventType") == "group" and e.get("title") == "Coins"), None)
+    return outer["children"] if outer else sheet["events"]
+
+
 def seed_load_errors(root: Path) -> None:
     """Five mistakes the editor refuses, each one a small model has made
     (docs/decisions/checker-editor-load-rules.md)."""
     path = root / "eventSheets" / "Game.json"
     sheet = read_json(path)
-    rows = sheet["events"]
+    rows = game_rows(sheet)
     groups = {e.get("title"): e for e in rows if e["eventType"] == "group"}
     collect = next(e for e in rows if e["eventType"] == "custom-ace-block")
     add_score = next(e for e in rows if e["eventType"] == "function-block")
@@ -195,7 +202,7 @@ def seed_timer_restart(root: Path) -> None:
                                                 "author": "Scirra", "bundled": False}))
 
     def round_end(sheet: dict) -> None:
-        restart = next(e for e in sheet["events"] if e.get("eventType") == "group" and e.get("title") == "Restart")
+        restart = next(e for e in game_rows(sheet) if e.get("eventType") == "group" and e.get("title") == "Restart")
         old = next(e for e in restart["children"] if e["eventType"] == "block")
         timer = {"objectClass": "ScoreText", "behaviorType": "Timer"}
         restart["children"] = [
@@ -218,10 +225,10 @@ def seed_turn_flip(root: Path) -> None:
     flips every tick (docs/decisions/event-sheet-design-guidance.md)."""
     path = root / "eventSheets" / "Game.json"
     sheet = read_json(path)
-    rows = sheet["events"]
+    rows = game_rows(sheet)
     at = next(i for i, e in enumerate(rows) if e.get("eventType") == "variable" and e.get("name") == "beat") + 1
     rows.insert(at, {"eventType": "variable", "name": "side", "type": "number", "initialValue": "1",
-                     "comment": "Whose turn it is, 1 or 2", "isStatic": False, "isConstant": False,
+                     "comment": "Whose turn it is, 1 or 2", "isStatic": rows is not sheet["events"], "isConstant": False,
                      "sid": 655555555555501})
     text = {"id": "set-text", "objectClass": "ScoreText"}
     rows.append({"eventType": "group", "disabled": False, "title": "Turns", "description": "",
@@ -318,7 +325,7 @@ def seed_name_collision(root: Path) -> None:
     write_json(root / "objectTypes" / "Spark.json", spark)
     shutil.copy(root / "images" / "coin-default-000.png", root / "images" / "spark-default-000.png")
     edit_json(root / "project.c3proj", lambda p: p["objectTypes"]["items"].append("Spark"))
-    collect = next(e for e in sheet["events"] if e.get("eventType") == "custom-ace-block")
+    collect = next(e for e in game_rows(sheet) if e.get("eventType") == "custom-ace-block")
     at = next(n for n, a in enumerate(collect["actions"]) if a.get("callFunction") == "AddScore") + 1
     collect["actions"][at:at] = [
         {"id": "create-object", "objectClass": "System", "sid": 677777777777705,
@@ -336,7 +343,7 @@ def seed_name_collision(root: Path) -> None:
 
 
 def seed_two_enemies(root: Path, join: str = "&") -> None:
-    """Goblin and Orc, two Sprites copied from Coin's JSON, each of which an event 13 on start of layout gives a
+    """Goblin and Orc, two Sprites copied from Coin's JSON, each of which an event 14 on start of layout gives a
     label of its name and IID, as another session left them after the editor refused the project. That session
     had joined the text with +, which the checker passed and the editor refused as a type mismatch: the prompt
     of report-two-enemies quotes the editor's dialog and the sheet lines of join="+"."""
@@ -381,7 +388,7 @@ def seed_loop_flag(root: Path) -> None:
                                "ping-pong": "yes", "repeat-count": "1"}}
 
     def change(sheet: dict) -> None:
-        rows = sheet["events"]
+        rows = game_rows(sheet)
         add_score = next(e for e in rows if e.get("eventType") == "function-block")
         add_score["actions"].append({"callFunction": "Pulse", "sid": next(sid), "parameters": ["0"]})
         restart = next(e for e in rows if e.get("eventType") == "group" and e.get("title") == "Restart")

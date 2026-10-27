@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import INSTALLED, SHEET, edit, events, run, script_module
+from tests.skill_helpers import INSTALLED, SHEET, edit, events, game_rows, run, script_module
 
 SCRIPT = f"{INSTALLED}/scripts/export_project.py"
 
@@ -381,16 +381,16 @@ def test_export_stops_on_a_key_it_would_ship_and_names_the_hosts(project):
     edit(project, SHEET, put)
     code, out = run(project, SCRIPT, "--dry-run")
     assert code == 1 and out.startswith("not exported: the export ships every string of the project"), out
-    assert "  sheet Game event 7 action 2: an OpenAI API key (sk-pro…); to keep it, write allow-secret in the " \
+    assert "  sheet Game event 8 action 2: an OpenAI API key (sk-pro…); to keep it, write allow-secret in the " \
            "comment above the event" in out and key not in out and "would export" not in out, out
 
     def mark(sheet):
-        rows = sheet["events"]
+        rows = game_rows(sheet)
         rows[rows.index(events(sheet)["add_score"]) - 1]["text"] += " allow-secret"
     edit(project, SHEET, mark)
     code, out = run(project, SCRIPT, "--dry-run")
     assert code == 0, out
-    assert out.startswith("the game holds addresses of api.example.com (sheet Game event 7 action 2): tell the user "
+    assert out.startswith("the game holds addresses of api.example.com (sheet Game event 8 action 2): tell the user "
                           "which hosts the game contacts\nwould export"), out
 
 

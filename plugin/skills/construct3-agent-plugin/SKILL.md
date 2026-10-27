@@ -224,8 +224,8 @@ gives every operation with its JSON: read it before the first plan.
 
 ```json
 [
-  {"before": 1, "line": "group Setup", "events": [{"eventType": "variable", "name": "best", "initialValue": "0"}]},
-  {"event": 9, "line": "Coin.Count = 0", "position": 1, "add-actions": [
+  {"before": 2, "line": "group Setup", "events": [{"eventType": "variable", "name": "best", "initialValue": "0", "isStatic": true}]},
+  {"event": 10, "line": "Coin.Count = 0", "position": 1, "add-actions": [
     {"id": "set-eventvar-value", "objectClass": "System", "parameters": {"variable": "best", "value": "max(best, score)"}}]}
 ]
 ```

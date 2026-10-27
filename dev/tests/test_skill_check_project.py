@@ -12,7 +12,8 @@ import pytest
 
 from tests.skill_helpers import (
     PLUGIN,    DATA,
-    REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, every_event, collect_tween, warnings,
+    REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, every_event, game_rows, collect_tween,
+    warnings,
     findings, plan, add_addon, add_global_object, add_keyboard, coin_copy, pathfinding_coin, solid_board, EXAMPLES,
     NEEDS_EXAMPLES,
 )
@@ -245,7 +246,7 @@ def test_an_instance_behavior_without_properties_is_named(project, block):
 # --- triggers ------------------------------------------------------------------------------
 def test_two_triggers_in_one_event(project):
     out = findings(project, lambda s: events(s)["input"]["conditions"].append(cond("on-start-of-layout")))
-    assert "are two triggers in one event" in out and "event 5" in out
+    assert "are two triggers in one event" in out and "event 6" in out
 
 
 def test_trigger_below_a_trigger(project):
@@ -525,7 +526,7 @@ def test_a_variable_inside_the_scope_of_another_of_its_name_is_refused(project, 
                 number_variable("Points", False, 900000000000044),
                 block([], [set_var("score", "score + Points", 900000000000045)])]
         else:
-            setup = next(e for e in sheet["events"] if e.get("title") == "Setup")
+            setup = next(e for e in game_rows(sheet) if e.get("title") == "Setup")
             setup["children"].insert(0, {**number_variable("level", False, 900000000000046), "isStatic": True})
             events(sheet)["setup"]["children"].insert(0, number_variable("Level", False, 900000000000047))
     out = findings(project, change)
@@ -545,10 +546,10 @@ def test_two_functions_whose_names_differ_by_case_are_refused(project):
              "functionIsAsync": False, "functionParameters": [], "eventType": "custom-ace-block",
              "conditions": [], "actions": [], "sid": 900000000000052}]
     out = findings(project, change)
-    assert "function addScore has the name of the function AddScore at sheet Game event 7" in out, out
+    assert "function addScore has the name of the function AddScore at sheet Game event 8" in out, out
     assert ("once case is ignored. The editor renames it to addScore2 when it opens the project, and a call to "
             "addScore runs AddScore, so this function never runs") in out, out
-    assert "custom action Coin.collect has the name of the custom action Coin.Collect at sheet Game event 6" in out
+    assert "custom action Coin.collect has the name of the custom action Coin.Collect at sheet Game event 7" in out
     assert "The editor renames it to collect2 when it opens the project" in out, out
 
 
@@ -587,7 +588,7 @@ def test_self_in_an_objects_own_parameter_passes(project):
 def test_event_text_keys_return_type_and_ace_type_are_the_editors(project):
     """Opened in the editor, each of these stops the project; the checker passed them before."""
     def change(s):
-        rows = s["events"]
+        rows = game_rows(s)
         next(e for e in rows if e["eventType"] == "variable").pop("comment")
         events(s)["restart"].pop("description")
         next(e for e in events(s)["restart"]["children"] if e["eventType"] == "comment").pop("text")
@@ -837,23 +838,25 @@ def test_a_local_that_hides_a_global_by_case_is_named(project):
     """A local string count hid the global constant COUNT, and COUNT - 1 below it stopped the editor
     with "Type mismatch: - does not work with 'string' and 'number'". A local or parameter of the
     same type hides the global too, and the project opens, so the global's spelling reads it
-    there: a warning. One whose name differs by more than case passes."""
+    there: a warning. One whose name differs by more than case passes. The stand-in has no globals, so the
+    test declares one."""
     def change(sheet):
+        sheet["events"].insert(0, number_variable("lives", False, 900000000000004))
         children = events(sheet)["setup"].setdefault("children", [])
-        children.insert(0, {"eventType": "variable", "name": "SCORE", "type": "string", "initialValue": "",
+        children.insert(0, {"eventType": "variable", "name": "LIVES", "type": "string", "initialValue": "",
                             "comment": "", "isStatic": False, "isConstant": False, "sid": 900000000000005})
-        events(sheet)["add_score"]["functionParameters"].append(number_param("Score", 900000000000006))
-        children.insert(0, {"eventType": "variable", "name": "scoreText", "type": "string", "initialValue": "",
+        events(sheet)["add_score"]["functionParameters"].append(number_param("Lives", 900000000000006))
+        children.insert(0, {"eventType": "variable", "name": "livesText", "type": "string", "initialValue": "",
                             "comment": "", "isStatic": False, "isConstant": False, "sid": 900000000000007})
     out = findings(project, change)
-    assert "variable SCORE: string SCORE has the name of the number variable score once case is ignored" in out
-    assert "rename it, for example SCOREText" in out
-    line = next(x for x in out.splitlines() if "parameter Score:" in x)
+    assert "variable LIVES: string LIVES has the name of the number variable lives once case is ignored" in out, out
+    assert "rename it, for example LIVESText" in out
+    line = next(x for x in out.splitlines() if "parameter Lives:" in x)
     assert line.startswith("warning: ") and line.endswith(
-        "parameter Score: Score has the name of the global score once case is ignored, and hides it in function "
-        "AddScore. There, an expression or action that names score refers to Score, which the editor accepts. If "
-        "they are two values, rename Score and its uses, for example ScoreValue"), out
-    assert "scoreText" not in out
+        "parameter Lives: Lives has the name of the global lives once case is ignored, and hides it in function "
+        "AddScore. There, an expression or action that names lives refers to Lives, which the editor accepts. If "
+        "they are two values, rename Lives and its uses, for example LivesValue"), out
+    assert "livesText" not in out
 
 
 def test_unknown_parameter_lists_the_real_ones(project):
@@ -900,7 +903,7 @@ def test_names_outside_ascii_are_checked_like_the_others(project):
     assert "Coin.高度 is neither an expression nor an instance variable of Coin" in out
     edit(project, SHEET, lambda s: events(s)["setup"]["actions"][1]["parameters"].update(text='"Score: 0"'))
     code, out = plan(project, {"before": 1, "events": [{"eventType": "variable", "name": "目标y坐标", "initialValue": 30}]},
-                     {"event": 2, "add-actions": [{"id": "set-text", "objectClass": "ScoreText",
+                     {"event": 3, "add-actions": [{"id": "set-text", "objectClass": "ScoreText",
                                                    "parameters": {"text": "目标y坐标 + 1"}}]})
     assert code == 0, out
 
@@ -1178,7 +1181,7 @@ def test_images_sharing_an_image_sprite_id_stop_the_editor(project):
 def test_another_repeated_sid_is_a_warning(project):
     """The editor opens a project whose events, instances, layers or animations repeat a sid."""
     def repeat(sheet):
-        rows = [ev for ev in sheet["events"] if "sid" in ev]
+        rows = [ev for ev in game_rows(sheet) if "sid" in ev]
         rows[1]["sid"] = rows[0]["sid"]
     out = findings(project, repeat)
     assert out.splitlines()[-1].startswith("ok:"), out
@@ -1654,7 +1657,7 @@ def test_text_a_sprite_font_cannot_draw_is_named(project, layout_text, bbcode, a
     text is a template where a Set text replaces part of it, as in replace(Self.Text, "###", ProjectVersion):
     that part is never drawn, and the rest still is."""
     sprite_font_label(project, layout_text, bbcode)
-    out = findings(project, lambda s: action and s["events"].append(block([START], [action])))
+    out = findings(project, lambda s: action and game_rows(s).append(block([START], [action])))
     assert_one_warning(out, "plugin-reference/sprite-font.md", said)
 
 
@@ -1823,7 +1826,7 @@ def test_a_boolean_variable_holds_the_text_true_or_false(project):
 def test_a_number_variable_holds_text_and_a_parameter_may_hold_a_number(project):
     def change(sheet):
         events(sheet)["add_score"]["functionParameters"][0]["initialValue"] = 5
-        for ev in sheet["events"]:
+        for ev in game_rows(sheet):
             if ev.get("eventType") == "variable" and ev["name"] == "score":
                 ev["initialValue"] = 0
     out = findings(project, change)
@@ -2116,14 +2119,14 @@ def test_a_key_the_export_would_ship_is_named_with_its_place_unless_marked_publi
         events(sheet)["add_score"]["actions"][1]["parameters"]["text"] = f'"{key}"'
     out = findings(project, put)
     said = [w for w in warnings(out) if "shaped like" in w]
-    assert said == ["warning: sheet Game event 7 action 2: a string shaped like an OpenAI API key (sk-pro…), and a "
+    assert said == ["warning: sheet Game event 8 action 2: a string shaped like an OpenAI API key (sk-pro…), and a "
                     "web export ships every string to the players, who can read it. Move the key to a server that "
                     "the game calls. If it is meant to be public, write allow-secret in the comment above the "
                     "event"], out
     assert key not in out and out.splitlines()[-1].startswith("ok:"), out
 
     def mark(sheet):
-        rows = sheet["events"]
+        rows = game_rows(sheet)
         at = rows.index(events(sheet)["add_score"])
         rows[at - 1]["text"] += " (allow-secret: the service issues this key for web pages)"
     assert "shaped like" not in findings(project, mark)

@@ -3407,8 +3407,10 @@ def build_layouts() -> dict[str, dict]:
 # --- the event sheet -------------------------------------------------------------------
 # One function per group, in play order
 def module_setup() -> dict:
-    return module("Setup", triggers=[
-        # Restart layout keeps globals, so the round's values are reset here, before any text shows them
+    return module("Setup", variables=[
+        var("deal", "number", 0, "The grid cell this round's first coin lands on; the others step from it"),
+    ], triggers=[
+        # Restart layout keeps static variables, so the round's values are reset here, before any text shows them
         event("Empty the score and deal this round's coins",
               [on_start()], [set_var("score", "0"), set_text("ScoreText", q("0")),
                              set_text("RoundTag", tracked_expr(f'{q("Round · ")} & zeropad(beat + 1, 2) & '
@@ -3461,25 +3463,27 @@ def module_restart() -> dict:
 
 
 def build_event_sheet() -> dict:
-    """The sheet: what it covers, the constants under Settings, the shared state, then the groups.
-    A variable that one group owns is declared in its module."""
+    """The sheet: what it covers, then one outer group named for the game. Its static variables
+    hold what several groups share, so the sheet has no globals; a variable that one group owns is
+    declared in its module."""
     events = [
         comment("Coins. Tap a coin to collect it; when the last one is gone the next round starts.\n"
                 "The touched coin is the trigger's pick: Collect runs on it and nothing else"),
-        comment("Settings"),
-        var("ROUND_COINS", "string", ",".join(str(b["coins"]) for b in BEATS),
-            "Coins dealt in each round, one round a beat of the generator's BEATS", const=True),
-        comment("Gameplay variables"),
-        var("score", "number", 0, "Points collected this round"),
-        var("beat", "number", 0, "The round being played, from 0; a global keeps it across the restart"),
-        var("deal", "number", 0, "The grid cell this round's first coin lands on; the others step from it"),
-        module_setup(),
-        module_input(),
-        *scoring(),
-        module_restart(),
-        # A touch collects the coin and its hit shows the pressed colour, so the group leaves the press to it
-        *pointer_module("Coin", pressed=False),
-        hints("KeyBox"),
+        module("Coins", variables=[
+            var("ROUND_COINS", "string", ",".join(str(b["coins"]) for b in BEATS),
+                "Coins dealt in each round, one round a beat of the generator's BEATS", const=True),
+            var("score", "number", 0, "Points collected this round", static=True),
+            var("beat", "number", 0, "The round being played, from 0; a static keeps it across the restart",
+                static=True),
+        ], events=[
+            module_setup(),
+            module_input(),
+            *scoring(),
+            module_restart(),
+            # A touch collects the coin and its hit shows the pressed colour, so the group leaves the press to it
+            *pointer_module("Coin", pressed=False),
+            hints("KeyBox"),
+        ]),
     ]
     return {"name": "Game", "events": events, "sid": sid()}
 

@@ -2,7 +2,7 @@
 
 ## 答案
 
-**事件编号**: **事件 8**（在 Construct 编辑器的事件表边栏中显示为 **8**）
+**事件编号**: **事件 9**（在 Construct 编辑器的事件表边栏中显示为 **9**）
 
 **所属组**: Restart（重启组）
 
@@ -52,5 +52,5 @@ python <run>/project/.agents/skills/construct3-agent-plugin/scripts/print_sheet.
 ```
 
 ```bash
-python <run>/project/.agents/skills/construct3-agent-plugin/scripts/print_sheet.py Game --show 8 --project <run>/project
+python <run>/project/.agents/skills/construct3-agent-plugin/scripts/print_sheet.py Game --show 9 --project <run>/project
 ```
