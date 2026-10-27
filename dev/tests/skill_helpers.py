@@ -210,9 +210,15 @@ def every_event(rows: list) -> Iterator[dict]:
         yield from every_event(ev.get("children", []))
 
 
+def game_rows(sheet: dict) -> list:
+    """The rows of the stand-in sheet's outer group, which hold its variables, groups and procedures."""
+    return next(e for e in sheet["events"] if e.get("title") == "Coins")["children"]
+
+
 def events(sheet: dict) -> dict:
-    """The stand-in sheet by role, so a test reads as what it breaks."""
-    rows = sheet["events"]
+    """The stand-in sheet by role, so a test reads as what it breaks. Its groups sit in the outer
+    group Coins."""
+    rows = game_rows(sheet)
     groups = {e["title"]: e for e in rows if e["eventType"] == "group"}
 
     def first_block(group):    # the comment above it is the group's first child

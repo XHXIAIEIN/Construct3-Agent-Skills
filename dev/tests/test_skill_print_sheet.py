@@ -10,7 +10,7 @@ import pytest
 
 from tests.skill_helpers import (
     EVALS,    PLUGIN,    REPO, INSTALLED, SHEET, SKILL, EXAMPLES, NEEDS_EXAMPLES, git, run, tool, streams, check, edit, block, events,
-    script_module,
+    game_rows, script_module,
 )
 
 
@@ -28,8 +28,8 @@ def test_a_miss_of_print_sheet_prints_on_stdout(project):
     committed(project)
     for args, said in ((("Gmae",), "no event sheet named 'Gmae'; sheets: Game"),
                        (("Gmae", "--since", "HEAD"), "no event sheet named 'Gmae' on disk or in HEAD ("),
-                       (("Game", "--show", "40"), "sheet Game has 12 events; --show 40 is not one of them"),
-                       (("Game", "--events", "40"), "sheet Game has 12 events; --events 40 starts past its end"),
+                       (("Game", "--show", "40"), "sheet Game has 13 events; --show 40 is not one of them"),
+                       (("Game", "--events", "40"), "sheet Game has 13 events; --events 40 starts past its end"),
                        (("Game", "--show", "1", "--limit", "20"), "characters of JSON, over the limit of 20 (--limit)")):
         p = streams(project, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(PLUGIN), *args)
         assert p.returncode == 1 and p.stderr == "" and said in p.stdout, (args, p.stdout, p.stderr)
@@ -42,30 +42,30 @@ def test_outline_numbers_events_as_the_editor_does(built):
     rows = [line.split("[sid")[0].rstrip() for line in out.splitlines()]
     assert code == 0
     assert rows[:4] == ["== Game", "   (1) // Coins. Tap a coin to collect i…",
-                        "   (1) // Settings", "   (1) string ROUND_COINS = 1,3,6,2,10,1"]
-    assert "   1 group Setup" in rows and "   2   System:on-start-of-layout" in rows
+                        "   1 group Coins", "   (2)   string ROUND_COINS = 1,3,6,2,10,1"]
+    assert "   2   group Setup" in rows and "   3     System:on-start-of-layout" in rows
 
 
 def test_print_words_the_sheet_as_the_editor_does(built):
     code, out = tool(built, "print_sheet", "Game")
     assert code == 0
-    assert "   5   Touch: On touched Coin (start)\n       Coin: NOT Is any Tween playing\n           -> Coin: Collect()" in out
-    assert "     global constant string ROUND_COINS = 1,3,6,2,10,1" in out
-    assert "   7 function AddScore(points: number)\n         -> System: Add points to score" in out
-    assert "   9   System: Coin.Count = 0\n       System: Trigger once" in out
+    assert "   6     Touch: On touched Coin (start)\n         Coin: NOT Is any Tween playing\n             -> Coin: Collect()" in out
+    assert "       local constant string ROUND_COINS = 1,3,6,2,10,1" in out
+    assert "   8   function AddScore(points: number)\n           -> System: Add points to score" in out
+    assert "  10     System: Coin.Count = 0\n         System: Trigger once" in out
 
 
 def test_print_shows_a_group_description_and_a_variable_comment(project):
     """Each under its row, in the column of the actions, where no comment event of the sheet prints."""
     def describe(sheet):
-        top = sheet["events"]
+        top = game_rows(sheet)
         next(ev for ev in top if ev.get("eventType") == "group")["description"] = "Round set-up\nand the first coins"
         next(ev for ev in top if ev.get("name") == "ROUND_COINS")["comment"] = "Coins per round"
     edit(project, SHEET, describe)
     code, out = tool(project, "print_sheet", "Game")
     assert code == 0, out
-    assert "   1 group Setup\n         // Round set-up\n         // and the first coins\n" in out
-    assert "     global constant string ROUND_COINS = 1,3,6,2,10,1\n         // Coins per round\n" in out
+    assert "   2   group Setup\n           // Round set-up\n           // and the first coins\n" in out
+    assert "       local constant string ROUND_COINS = 1,3,6,2,10,1\n           // Coins per round\n" in out
 
 
 def test_print_says_every_tick_only_where_an_event_without_conditions_runs_every_tick(project):
@@ -82,12 +82,12 @@ def test_print_says_every_tick_only_where_an_event_without_conditions_runs_every
     edit(project, SHEET, add)
     code, out = tool(project, "print_sheet", "Game")
     assert code == 0, out
-    assert "   5   Touch: On touched Coin (start)\n" in out
-    assert "   6     (runs with its parent)\n             -> Coin: Set scale to 1.5" in out
-    assert "   8 function AddScore(points: number)\n" in out
-    assert "   9   (runs with its parent)\n           -> Coin: Set scale to 1.5" in out
-    assert "  15 (every tick)\n         -> Coin: Set scale to 1.5" in out
-    assert "  16 group Idle\n  17   (every tick)\n           -> Coin: Set scale to 1.5" in out
+    assert "   6     Touch: On touched Coin (start)\n" in out
+    assert "   7       (runs with its parent)\n               -> Coin: Set scale to 1.5" in out
+    assert "   9   function AddScore(points: number)\n" in out
+    assert "  10     (runs with its parent)\n             -> Coin: Set scale to 1.5" in out
+    assert "  16 (every tick)\n         -> Coin: Set scale to 1.5" in out
+    assert "  17 group Idle\n  18   (every tick)\n           -> Coin: Set scale to 1.5" in out
     assert out.count("(every tick)") == 2 and out.count("(runs with its parent)") == 2, out
 
 
@@ -131,15 +131,16 @@ def test_print_stops_at_the_limit_and_names_the_part_that_continues(built):
 
 
 def test_print_of_a_part_starts_with_the_events_it_sits_in(built):
-    code, out = tool(built, "print_sheet", "Game", "--events", "9")
+    code, out = tool(built, "print_sheet", "Game", "--events", "10")
     assert code == 0
-    assert out.splitlines()[:4] == ["== Game: events 9-9 of 12; a [context] row is an event these sit in, without its actions",
-                                    "   8 group Restart  [context]", "       // Start the next round when the last coin is gone",
-                                    "   9   System: Coin.Count = 0"]
+    assert out.splitlines()[:5] == ["== Game: events 10-10 of 13; a [context] row is an event these sit in, without its actions",
+                                    "   1 group Coins  [context]", "   9   group Restart  [context]",
+                                    "         // Start the next round when the last coin is gone",
+                                    "  10     System: Coin.Count = 0"]
     assert "Touch: On touched" not in out
 
 
-@pytest.mark.parametrize("span, said", [("40-", "has 12 events"), ("x", "40-80, 40- or 40"), ("5-2", "ends before it starts")])
+@pytest.mark.parametrize("span, said", [("40-", "has 13 events"), ("x", "40-80, 40- or 40"), ("5-2", "ends before it starts")])
 def test_print_refuses_a_range_it_cannot_read(built, span, said):
     code, out = tool(built, "print_sheet", "Game", "--events", span)
     assert code == 1 and said in out
@@ -163,8 +164,8 @@ def test_print_without_a_name_prints_the_map_when_the_sheets_do_not_fit(project)
     with_menu_sheet(project)
     code, out = tool(project, "print_sheet", "--limit", "900")
     assert code == 0
-    assert out.startswith("== Coins: 2 sheets, 24 events, 2 layouts.") and "-> " not in out
-    assert re.search(r"\n  Game +12 events +\d+ chars; layouts Game; ", out)
+    assert out.startswith("== Coins: 2 sheets, 26 events, 2 layouts.") and "-> " not in out
+    assert re.search(r"\n  Game +13 events +\d+ chars; layouts Game; ", out)
     code, out = tool(project, "print_sheet")
     assert code == 0 and "== Game\n" in out and "== Menu\n" in out
 
@@ -228,11 +229,11 @@ def test_print_marks_what_the_editor_has_disabled(project):
         assert rows.count(" [event disabled]") == 2, out
     assert "disabled" not in tool(project, "print_sheet", "Game", "--events", "1-4")[1]
     _, out = printed["en-US"]
-    assert "   5   Touch: On touched Coin (start)\n       Coin: NOT Is any Tween playing [condition disabled]\n" \
-           "           -> Coin: Collect() [action disabled]" in out
-    assert "   7 function AddScore(points: number)\n         -> System: Add points to score [action disabled]" in out
-    assert "   8 group Restart [event disabled]\n" in out
-    assert "   9   System: Coin.Count = 0 [condition disabled] [event disabled]\n       System: Trigger once\n" in out
+    assert "   6     Touch: On touched Coin (start)\n         Coin: NOT Is any Tween playing [condition disabled]\n" \
+           "             -> Coin: Collect() [action disabled]" in out
+    assert "   8   function AddScore(points: number)\n           -> System: Add points to score [action disabled]" in out
+    assert "   9   group Restart [event disabled]\n" in out
+    assert "  10     System: Coin.Count = 0 [condition disabled] [event disabled]\n         System: Trigger once\n" in out
 
 
 def test_a_comparison_prints_as_its_sign_with_a_schema_or_without(project):
@@ -297,7 +298,8 @@ def test_since_lists_what_changed_as_events(project):
         rows["add_score"]["actions"][1]["parameters"]["text"] = '"Score: " & score'
         rows["restart_block"]["conditions"].pop(1)     # Trigger once
         rows["input_group"]["children"].append(block([{"id": "on-start-of-layout", "objectClass": "System", "sid": 5}]))
-        sheet["events"] = [e for e in sheet["events"] if e.get("name") != "deal"]
+        setup = next(e for e in game_rows(sheet) if e.get("title") == "Setup")
+        setup["children"] = [e for e in setup["children"] if e.get("name") != "deal"]
         rows["restart"]["children"].remove(rows["restart_block"])
         rows["input_group"]["children"].append(rows["restart_block"])
     edit(project, SHEET, change)
@@ -306,13 +308,13 @@ def test_since_lists_what_changed_as_events(project):
     lines = out.splitlines()
     assert re.fullmatch(r"== Game since HEAD \(\w+\): 1 added, 2 changed, 1 removed; event numbers as the sheet is on disk",
                         lines[0]), out
-    assert "-     global number deal = 0  [removed]" in lines, out
-    assert "    4 group Input  [context]" in lines and "+   6   System: On start of layout  [added]" in lines, out
-    at = lines.index("    9 function AddScore(points: number)  [changed]")    # 8 before the move into Input
-    assert lines[at + 2:at + 4] == ["-         -> ScoreText: Set text to score",
-                                    '+         -> ScoreText: Set text to "Score: " & score'], out
-    assert "    7   System: Coin.Count = 0  [changed, moved from event 9 in HEAD]" in lines, out
-    assert "-       System: Trigger once" in lines, out
+    assert "-         local number deal = 0  [removed]" in lines, out
+    assert "    5   group Input  [context]" in lines and "+   7     System: On start of layout  [added]" in lines, out
+    at = lines.index("   10   function AddScore(points: number)  [changed]")    # 8 before the move into Input
+    assert lines[at + 2:at + 4] == ["-           -> ScoreText: Set text to score",
+                                    '+           -> ScoreText: Set text to "Score: " & score'], out
+    assert "    8     System: Coin.Count = 0  [changed, moved from event 10 in HEAD]" in lines, out
+    assert "-         System: Trigger once" in lines, out
 
 
 def test_since_knows_an_event_whose_sid_a_generator_gave_anew(project):
@@ -334,7 +336,7 @@ def test_since_knows_an_event_whose_sid_a_generator_gave_anew(project):
 
     edit(project, SHEET, lambda sheet: events(sheet)["add_score"]["actions"][1]["parameters"].update(text='"Score"'))
     code, out = tool(project, "print_sheet", "Game", "--since", "HEAD")
-    assert code == 0 and ": 1 changed;" in out.splitlines()[0] and out.count("[") == 1, out
+    assert code == 0 and ": 1 changed;" in out.splitlines()[0] and out.count("[") == 2, out     # and Coins as context
 
 
 def test_since_names_what_it_cannot_compare(project):
@@ -358,7 +360,7 @@ def test_since_stops_at_the_limit_and_names_the_part_that_continues(project):
     code, out = tool(project, "print_sheet", "--since", "HEAD", "--limit", "1500")
     assert code == 0 and len(out) < 1500, out
     last = out.splitlines()[-1]
-    assert re.search(r"before event (\d+) of 52\. The rest: python \S+print_sheet.py Game --since HEAD --events \1- "
+    assert re.search(r"before event (\d+) of 53\. The rest: python \S+print_sheet.py Game --since HEAD --events \1- "
                      r".*--limit 1500$", last), last
     start = re.search(r"--events (\d+)-", last).group(1)
     code, rest = tool(project, "print_sheet", "Game", "--since", "HEAD", "--events", f"{start}-", "--limit", "0")
@@ -410,9 +412,9 @@ def test_find_prints_the_events_that_use_a_name_under_the_events_they_sit_in(bui
     code, out = tool(built, "print_sheet", "Game", "--find", "SCORE")
     lines = out.splitlines()
     assert code == 0 and lines[0].startswith("== Game: 3 events use SCORE, each under the events it sits in")
-    assert lines[1:4] == ["     global number score = 0", "         // Points collected this round",
-                          "   1 group Setup  [context]"]
-    assert "           -> System: Set score to 0" in lines and "   7 function AddScore(points: number)" in lines
+    assert lines[1:5] == ["   1 group Coins  [context]", "       local static number score = 0",
+                          "           // Points collected this round", "   2   group Setup  [context]"]
+    assert "             -> System: Set score to 0" in lines and "   8   function AddScore(points: number)" in lines
     assert not any("Collect" in line for line in lines)       # its description and comment say "Score"
     code, out = tool(built, "print_sheet", "--find", "squash")   # only a quoted tag holds it
     assert code == 1 and out.startswith("no event uses squash in Game")

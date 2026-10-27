@@ -573,7 +573,7 @@ def refused(project: Path, dialog: str, **more) -> dict:
 def test_a_refusal_the_checker_passed_is_offered_as_a_report_without_the_projects_names(project):
     """The checker lacks a rule the editor applies: the user decides whether the repository hears of it."""
     home = str(Path.home())
-    result = refused(project, 'Invalid expressions: Game, event 5, condition 1: Type mismatch in Coin.value & "Bonus"',
+    result = refused(project, 'Invalid expressions: Game, event 6, condition 1: Type mismatch in Coin.value & "Bonus"',
                      exception=f"Error: ScoreText at {home}\\editor.js:1\n    at stack")
     offer = oe.failure_report(result)
     assert offer[0].startswith("report: check_project.py passes this project and the editor refused it"), offer
@@ -583,9 +583,9 @@ def test_a_refusal_the_checker_passed_is_offered_as_a_report_without_the_project
     assert f'--body-file "{body_file}"' in command and "Send nothing unless the user says yes" in offer[0]
     body = body_file.read_text(encoding="utf-8")
     assert "\n".join(offer[1:-1]) + "\n" == body
-    assert "<sheet 1>, event 5, condition 1: Type mismatch in <object 1>.<variable 1> & \"…\"" in body, body
+    assert "<sheet 1>, event 6, condition 1: Type mismatch in <object 1>.<variable 1> & \"…\"" in body, body
     assert "Error: <object 5> at ~\\editor.js:1\n" in body and "at stack" not in body, body
-    assert "   5   <object 9>: On touched <object 1> (start)" in body, body
+    assert "   6     <object 9>: On touched <object 1> (start)" in body, body
     assert "- Construct: the editor r495.2" in body and "schemas r" in body, body
     for name in ("Game", "Coin", "ScoreText", "Bonus", "Collect", home):
         assert name not in body, name

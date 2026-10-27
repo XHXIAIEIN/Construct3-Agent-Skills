@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, install, new_project, run
+from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, game_rows, install, new_project, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -30,7 +30,7 @@ tracer = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_l
 spec.loader.exec_module(tracer)
 
 ANSWERS = Path(__file__).parent / "fixtures" / "restart_event_answers"
-CHINESE_ALL_THREE = "**事件 9**（Restart 组）：Coin.Count = 0，仅触发一次。触发后等待 1 秒，再重载场景。\n"
+CHINESE_ALL_THREE = "**事件 10**（Restart 组）：Coin.Count = 0，仅触发一次。触发后等待 1 秒，再重载场景。\n"
 CASES = {c["name"]: c for c in json.loads((EVALS / "evals.json").read_text(encoding="utf-8"))["evals"]}
 
 
@@ -85,8 +85,8 @@ def test_chinese_answer_with_all_three(tmp_path: Path) -> None:
 
 
 def test_group_number_first_fails(tmp_path: Path) -> None:
-    assert grade(tmp_path, "Event 8 restarts it: Coin.Count = 0, Trigger once, then a 1 second wait. "
-                           "Event 9 is inside it.\n")[0] is False
+    assert grade(tmp_path, "Event 9 restarts it: Coin.Count = 0, Trigger once, then a 1 second wait. "
+                           "Event 10 is inside it.\n")[0] is False
 
 
 def add_countdown(project: Path, first_on_start: dict, setup_events: list[dict]) -> None:
@@ -96,7 +96,7 @@ def add_countdown(project: Path, first_on_start: dict, setup_events: list[dict])
     sheet = read_json(path)
     sheet["events"].insert(0, {"eventType": "variable", "name": "Countdown", "type": "number", "initialValue": "30",
                                "comment": "", "isStatic": False, "isConstant": False, "sid": 767136845493875})
-    setup = next(g for g in sheet["events"] if g.get("title") == "Setup")
+    setup = next(g for g in game_rows(sheet) if g.get("title") == "Setup")
     start = next(ev for ev in setup["children"] if any(c["id"] == "on-start-of-layout" for c in ev.get("conditions", [])))
     start["actions"].insert(0, first_on_start)
     setup["children"] += setup_events

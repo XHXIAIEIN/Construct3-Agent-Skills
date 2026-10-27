@@ -42,7 +42,7 @@
       "name": "name-the-restart-event",
       "fixture": "coins",
       "prompt": "In the project at <project> , which event restarts the game, and what exactly has to be true for it to fire? Give me the event number as the Construct editor shows it in the event sheet margin, so I can find it.",
-      "expected_output": "Event 9, the number in the editor's margin: Coin.Count = 0 with Trigger once, then a 1 second wait and Restart layout. The project is left unchanged.",
+      "expected_output": "Event 10, the number in the editor's margin: Coin.Count = 0 with Trigger once, then a 1 second wait and Restart layout. The project is left unchanged.",
       "files": [],
       "assertions": [
         "The answer gives 9 first, as the event that restarts the layout, and 8 only as the group it sits in",
@@ -524,7 +524,7 @@
       "id": 34,
       "name": "report-two-enemies",
       "fixture": "coins-two-enemies",
-      "prompt": "my coins game is at <project> . yesterday another ai session added two enemy sprites, Goblin and Orc, and at the start of the layout each gets a label with its name and IID. check_project.py said ok, but construct 3 refused to open the project with this:\n\nInvalid expressions\nIn some circumstances, previous versions of Construct allow invalid expressions to be used. These expressions must be corrected the prior version before using the project in this version of Construct 3. A list of the invalid expressions is provided below.\nGame, event 13, action 1: Type mismatch: + does not work with 'string' and 'number'\nGame, event 13, action 2: Type mismatch: + does not work with 'string' and 'number'\n\nprint_sheet.py showed event 13 as:\n\n  13 System: On start of layout\n         -> Goblin: Set label to \"goblin \" + Goblin.IID\n         -> Orc: Set label to \"orc \" + Orc.IID\n\nit changed both + to & and now the project opens. the checker should have caught this, so can you write it up as a report for the skill's maintainers? i'll file it on github myself.",
+      "prompt": "my coins game is at <project> . yesterday another ai session added two enemy sprites, Goblin and Orc, and at the start of the layout each gets a label with its name and IID. check_project.py said ok, but construct 3 refused to open the project with this:\n\nInvalid expressions\nIn some circumstances, previous versions of Construct allow invalid expressions to be used. These expressions must be corrected the prior version before using the project in this version of Construct 3. A list of the invalid expressions is provided below.\nGame, event 14, action 1: Type mismatch: + does not work with 'string' and 'number'\nGame, event 14, action 2: Type mismatch: + does not work with 'string' and 'number'\n\nprint_sheet.py showed event 14 as:\n\n  14 System: On start of layout\n         -> Goblin: Set label to \"goblin \" + Goblin.IID\n         -> Orc: Set label to \"orc \" + Orc.IID\n\nit changed both + to & and now the project opens. the checker should have caught this, so can you write it up as a report for the skill's maintainers? i'll file it on github myself.",
       "expected_output": "A report for the maintainers in a code block, which the user files: the editor's two Type mismatch lines word for word, and the actions they name with the project's names as roles. Goblin and Orc are two different roles, such as Enemy and Enemy2, so the report still tells the two actions apart, and the words of the labels are generic. The project is left unchanged.",
       "files": [],
       "assertions": [

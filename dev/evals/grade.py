@@ -361,7 +361,7 @@ def system_text(locale: str, kind: str, ace: str) -> str:
     return re.sub(r"\[/?[bi]\]", "", next(a["display-text"] for a in aces if a["id"] == ace))
 
 
-# A run that answers in Chinese uses the zh-CN editor's wording: "事件 9", "仅触发一次", "等待 1 秒".
+# A run that answers in Chinese uses the zh-CN editor's wording: "事件 10", "仅触发一次", "等待 1 秒".
 ZH_TRIGGER_ONCE = system_text("zh-CN", "conditions", "trigger-once-while-true")
 ZH_SECONDS = system_text("zh-CN", "actions", "wait").split("{0}")[1].split()[0]
 EVENT_NUMBER = re.compile(r"(?:\bevent(?:\s+number)?|事件(?:编号)?)[\s:：*#`]*(\d+)", re.I)
@@ -370,12 +370,12 @@ EVENT_NUMBER = re.compile(r"(?:\bevent(?:\s+number)?|事件(?:编号)?)[\s:：*#
 def grade_name_the_restart_event(run: Path) -> list[tuple[bool, str]]:
     answer = answer_of(run)
     numbers = [int(n) for n in EVENT_NUMBER.findall(answer)]
-    # 9 restarts and 8 is the group it sits in. The first number is the answer; a later one may name another
-    # event as context ("Setup (event 2) runs again"), and 8 may stand on a line that calls it the group.
+    # 10 restarts and 9 is the group it sits in. The first number is the answer; a later one may name another
+    # event as context ("Setup (event 3) runs again"), and 9 may stand on a line that calls it the group.
     as_event = {int(n) for line in answer.splitlines() if not re.search(r"\bgroup\b|组", line, re.I)
                 for n in EVENT_NUMBER.findall(line)}
-    results = [(numbers[:1] == [9] and 8 not in as_event, f"event numbers the answer gives, in order: {numbers or 'none'}"
-                + ("; 8 as the event, not as its group" if 8 in as_event else ""))]
+    results = [(numbers[:1] == [10] and 9 not in as_event, f"event numbers the answer gives, in order: {numbers or 'none'}"
+                + ("; 9 as the event, not as its group" if 9 in as_event else ""))]
     # "仅" is "only"; answers drop it.
     trigger_once = rf"trigger\s+once|{re.escape(ZH_TRIGGER_ONCE).replace('仅', '仅?')}"
     parts = {"Coin.Count = 0": re.search(r"coin\.count`?\s*=+\s*`?0", answer, re.I),

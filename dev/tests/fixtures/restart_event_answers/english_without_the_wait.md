@@ -1,5 +1,5 @@
 # Game restart event
-Event number in Construct editor margin: **event 9**
+Event number in Construct editor margin: **event 10**
 
 
 ## Conditions required for it to fire:
