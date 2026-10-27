@@ -120,7 +120,9 @@ What is left is the structure: the events, conditions, actions and
 expressions by their ids, the parameters and their types, the files, and
 the punctuation of each value. Then tell the user, in one sentence, what
 was replaced and which values were left as they were, and that they
-should read the report before filing it.
+should read the report before filing it. That sentence goes after the
+report's code block, never inside it: a list such as `Goblin -> Enemy`
+in the report would publish every name the report replaced.
 
 ## The report
 
