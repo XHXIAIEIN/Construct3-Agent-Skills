@@ -1,21 +1,20 @@
-Here is the report. I replaced Goblin and Orc with Enemy, and the misspelt name with `<no such name>`. Please read it before you file it at https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues.
+Here is the report. I replaced Goblin and Orc with Enemy, and the words of the labels with generic ones. Please read it before you file it at https://github.com/XHXIAIEIN/Construct3-Agent-Skills/issues.
 
 ```
-env:   [unknown] | [unknown] | [unknown] | [unknown] | [unknown]
-task:  two enemy sprites that turn toward the coin every tick
-ran:   check_project.py: 3 problems, then ok after the fixes
+env:   r506 stable | [unknown] | [unknown] | [unknown] | [unknown]
+task:  two enemy sprites that each get a label of their name and IID at the start of the layout
+ran:   check_project.py ok; open_in_editor.py: the editor refused the project
 
-[R1][check] Enemy: instance variable z collides with the expression Enemy.z; rename it
-  cause: every Sprite has the expression Z
-  fix:   objectTypes/Enemy.json: z renamed to Rise
-  catch: check_project.py
-
-[R1][check] sheet Game event 13 (sid 699999999999901) action 1 Enemy:set-angle-toward-position x: unknown object <no such name> in expression; closest: Coin, Functions
-  cause: a typo of Coin
-  fix:   eventSheets/Game.json: event 13 action 1 now reads Coin.X and Coin.Y
-  catch: check_project.py
+[R1][open] Game, event 13, action 1: Type mismatch: + does not work with 'string' and 'number'
+           Game, event 13, action 2: Type mismatch: + does not work with 'string' and 'number'
+  use:   13 System: On start of layout
+           -> Enemy: Set label to "text " + Enemy.IID
+           -> Enemy: Set label to "text " + Enemy.IID
+  cause: + joins text to a number; Construct joins text with &
+  fix:   eventSheets/Game.json: event 13, both + changed to &
+  catch: none (check_project.py passed it)
 
 state: works
 ```
 
-It covers every error you pasted.
+It covers the one refusal you pasted.

@@ -1778,19 +1778,16 @@ def report_of(answer: str) -> str:
 
 
 def grade_report_two_enemies(run: Path) -> list[tuple[bool, str]]:
-    """The report of the checker's lines that the prompt quotes: Goblin's action, which read the misspelt Cion,
-    and Orc's instance variable z. Each object is found by the line its error is on, not by the role given it,
-    and the two lines differ in nothing else, so one role for both would merge them."""
+    """The report of the editor's refusal that the prompt quotes: two Type mismatch lines that name only their
+    place, and the two actions there, Goblin's and Orc's, each joining a label to its own IID. The objects are
+    found by the IID each action reads, not by the role given them: one role for both merges the two actions."""
     report = report_of(answer_of(run))
-    goblin = set(re.findall(r"action \d+ (\S+?):set-angle-toward-position", report))
-    orc = set(re.findall(r"(\S+): instance variable \S+ collides with the expression", report))
+    roles = sorted(set(re.findall(r"([\w<>]+)\.IID\b", report)))
     named = sorted({m.lower() for m in re.findall(r"\b(goblin|orc)s?\b", report, re.I)})
-    results = [(bool(goblin) and bool(orc) and not goblin & orc and not named,
-                f"roles on Goblin's lines: {sorted(goblin) or 'none'}; on Orc's: {sorted(orc) or 'none'}; "
-                f"names left in the report: {named or 'none'}")]
-    cion = len(re.findall(r"\bcion\b", report, re.I))
-    results.append(("<no such name>" in report and not cion,
-                    f"<no such name> {'in' if '<no such name>' in report else 'not in'} the report; Cion {cion} times"))
+    results = [(len(roles) >= 2 and not named,
+                f"roles whose IID the report quotes: {roles or 'none'}; names left in the report: {named or 'none'}")]
+    quoted = len(re.findall(r"Type mismatch: \+ does not work with 'string' and 'number'", report))
+    results.append((quoted >= 2, f"the editor's Type mismatch line {quoted} times in the report"))
     return results + [unchanged(run)]
 
 
