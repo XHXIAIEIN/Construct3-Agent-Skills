@@ -335,19 +335,20 @@ def seed_name_collision(root: Path) -> None:
     write_json(path, sheet)
 
 
-def seed_two_enemies(root: Path) -> None:
-    """Goblin and Orc, two Sprites copied from Coin's JSON, which an event 13 turns toward the coin every tick,
-    as another session left them once the checker passed. Before that, Goblin's action read the misspelt Cion
-    and Orc's instance variable lift was z, which the prompt of report-two-enemies quotes as the checker printed."""
+def seed_two_enemies(root: Path, join: str = "&") -> None:
+    """Goblin and Orc, two Sprites copied from Coin's JSON, each of which an event 13 on start of layout gives a
+    label of its name and IID, as another session left them after the editor refused the project. That session
+    had joined the text with +, which the checker passed and the editor refused as a type mismatch: the prompt
+    of report-two-enemies quotes the editor's dialog and the sheet lines of join="+"."""
     types = [read_json(p) for p in (root / "objectTypes").glob("*.json")]
     sprite_ids = [f["imageSpriteId"] for t in types for a in t.get("animations", {}).get("items", []) for f in a["frames"]]
     coin = read_json(root / "objectTypes" / "Coin.json")
     first = coin["animations"]["items"][0]
     for n, name in enumerate(("Goblin", "Orc")):
-        ivars = [{"name": "lift", "type": "number", "desc": "How far it rises, in px.", "show": True,
-                  "sid": 699999999999930}] if name == "Orc" else []
         write_json(root / "objectTypes" / f"{name}.json", {
-            **coin, "name": name, "sid": 699999999999910 + n, "instanceVariables": ivars, "behaviorTypes": [],
+            **coin, "name": name, "sid": 699999999999910 + n, "behaviorTypes": [],
+            "instanceVariables": [{"name": "label", "type": "string", "desc": "Its name and IID, for debugging.",
+                                   "show": True, "sid": 699999999999930 + n}],
             "animations": {"items": [{**first, "sid": 699999999999920 + n,
                                       "frames": [{**first["frames"][0], "imageSpriteId": max(sprite_ids) + 1 + n}]}],
                            "subfolders": []}})
@@ -355,9 +356,10 @@ def seed_two_enemies(root: Path) -> None:
         edit_json(root / "project.c3proj", lambda p: p["objectTypes"]["items"].append(name))
     edit_json(root / "eventSheets" / "Game.json", lambda sheet: sheet["events"].append({
         "eventType": "block", "sid": 699999999999901,
-        "conditions": [{"id": "every-tick", "objectClass": "System", "sid": 699999999999902}],
-        "actions": [{"id": "set-angle-toward-position", "objectClass": name, "sid": 699999999999903 + n,
-                     "parameters": {"x": "Coin.X", "y": "Coin.Y"}} for n, name in enumerate(("Goblin", "Orc"))]}))
+        "conditions": [{"id": "on-start-of-layout", "objectClass": "System", "sid": 699999999999902}],
+        "actions": [{"id": "set-instvar-value", "objectClass": name, "sid": 699999999999903 + n,
+                     "parameters": {"instance-variable": "label", "value": f'"{name.lower()} " {join} {name}.IID'}}
+                    for n, name in enumerate(("Goblin", "Orc"))]}))
 
 
 def seed_loop_flag(root: Path) -> None:

@@ -524,12 +524,12 @@
       "id": 34,
       "name": "report-two-enemies",
       "fixture": "coins-two-enemies",
-      "prompt": "my coins game is at <project> . yesterday another ai session added two enemy sprites, Goblin and Orc, that turn toward the coin every tick. before it worked, check_project.py printed this:\n\nOrc: instance variable z collides with the expression Orc.z; rename it\nsheet Game event 13 (sid 699999999999901) action 1 Goblin:set-angle-toward-position x: unknown object Cion in expression; closest: Coin, Functions\nsheet Game event 13 (sid 699999999999901) action 1 Goblin:set-angle-toward-position y: unknown object Cion in expression; closest: Coin, Functions\n3 problem(s)\n\nit fixed the typo (Cion for Coin) and renamed the orc's variable z to lift, and now the checker passes. can you write this up as a report for the skill's maintainers? i'll file it on github myself.",
-      "expected_output": "A report for the maintainers in a code block, which the user files: the checker's lines kept word for word but for the project's names. Goblin and Orc are two different roles, such as Enemy and Enemy2, so the report still tells the two errors' objects apart, and the misspelt Cion, which matches nothing in the project, is <no such name>. The project is left unchanged.",
+      "prompt": "my coins game is at <project> . yesterday another ai session added two enemy sprites, Goblin and Orc, and at the start of the layout each gets a label with its name and IID. check_project.py said ok, but construct 3 refused to open the project with this:\n\nInvalid expressions\nIn some circumstances, previous versions of Construct allow invalid expressions to be used. These expressions must be corrected the prior version before using the project in this version of Construct 3. A list of the invalid expressions is provided below.\nGame, event 13, action 1: Type mismatch: + does not work with 'string' and 'number'\nGame, event 13, action 2: Type mismatch: + does not work with 'string' and 'number'\n\nprint_sheet.py showed event 13 as:\n\n  13 System: On start of layout\n         -> Goblin: Set label to \"goblin \" + Goblin.IID\n         -> Orc: Set label to \"orc \" + Orc.IID\n\nit changed both + to & and now the project opens. the checker should have caught this, so can you write it up as a report for the skill's maintainers? i'll file it on github myself.",
+      "expected_output": "A report for the maintainers in a code block, which the user files: the editor's two Type mismatch lines word for word, and the actions they name with the project's names as roles. Goblin and Orc are two different roles, such as Enemy and Enemy2, so the report still tells the two actions apart, and the words of the labels are generic. The project is left unchanged.",
       "files": [],
       "assertions": [
-        "The report gives Goblin and Orc two different roles in their error lines, and names neither",
-        "The report writes the misspelt Cion as <no such name> and never as Cion",
+        "The report gives Goblin and Orc two different roles in their actions, and names neither, the labels' words included",
+        "The report quotes both of the editor's Type mismatch lines word for word",
         "No project file differs from the fixture"
       ]
     }
