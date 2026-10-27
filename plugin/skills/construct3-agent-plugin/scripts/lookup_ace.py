@@ -50,7 +50,10 @@ entry that no example uses prints no count.
 After them, an entry ends with `pitfalls:` and the pages to read before
 writing it, from the Construct3-Cookbook clone: the page its addon's id names
 (`Construct3-Cookbook/guides/behaviors/tween.md`), and a category or
-primitives page whose `addons:` line names the addon or the ACE. An entry of
+primitives page whose `addons:` line names the addon or the ACE. The pages
+of the user's own folder laid out the same way, which the
+`Construct3-Cookbook-extra:` line or CONSTRUCT3_COOKBOOK_EXTRA names, come
+first. An entry of
 an addon that `Construct3-Cookbook/guides/design/native-first.json` lists
 ends with `prefer:`, the built-in a new project uses in its place and the
 Native first row that says so; the editor still offers the addon, and an
@@ -309,14 +312,14 @@ class Pointers:
     """What to read before writing an entry, from the Cookbook clone's guides/: the page an addon's id
     names (plugins/{id}.md, behaviors/{id}.md), the category and primitives pages whose `addons:` line
     names the addon or the ACE itself, and the Native first row that replaces the addon
-    (design/native-first.json). Without a clone neither line prints. The deprecation list is the
-    editor's and stays apart (c3.DEPRECATED)."""
+    (design/native-first.json). The user's own pages (c3.own_pitfalls) come first in the pitfalls line;
+    Native first is the Cookbook's alone. Without either folder neither line prints. The deprecation list
+    is the editor's and stays apart (c3.DEPRECATED)."""
 
     def __init__(self, rag: Path, root: Path | None = None) -> None:
         self.guides = c3.guides_folder(rag, root)
         self.topics: dict[str, list[Path]] = {}      # addon id, or addon/ace id -> the pages
-        pages = sorted(p for folder in c3.PITFALL_FOLDERS for p in (self.guides / folder).rglob("*.md"))             if self.guides else []
-        for path in pages:
+        for path in c3.pitfall_pages(c3.own_pitfalls(root)[0]) + c3.pitfall_pages(self.guides):
             if path.parent.name in ("plugins", "behaviors", "effects"):
                 self.topics.setdefault(path.stem.lower(), []).append(path)
             for key in front_matter(path).get("addons", "").split(","):

@@ -20,6 +20,30 @@ def test_the_entry_with_most_of_the_words_comes_first_in_full(built):
     assert "[manual:" not in out
 
 
+def own_page(project: Path, text: str) -> None:
+    """A page of the user's own pitfalls in the game project, which its AGENTS.md names."""
+    page = project / "my-pitfalls" / "plugins" / "sprite.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(f"# Sprite\n\n- {text}\n", encoding="utf-8")
+    with (project / "AGENTS.md").open("a", encoding="utf-8") as f:
+        f.write("\n- Construct3-Cookbook-extra: my-pitfalls\n")
+
+
+def test_your_own_pitfalls_come_first_among_entries_that_hold_as_many_words(project):
+    """Before a Cookbook entry that holds as many of the words, even one that repeats them more."""
+    own_page(project, "Click button behind: our menu buttons stack, so test the top one first. [ours]")
+    code, out = tool(project, "search_guides", "click", "button", "behind", "--examples", "0")
+    lines = out.splitlines()
+    assert code == 0 and lines[lines.index("pitfalls:") + 1].startswith(
+        (project / "my-pitfalls" / "plugins" / "sprite.md").as_posix() + ":3"), out
+    assert "our menu buttons stack, so test the top one first." in out and "[ours]" not in out, out
+
+
+def test_a_named_folder_that_is_not_there_is_a_note(project):
+    code, out = tool(project, "search_guides", "snake", "--cookbook-extra", "gone")
+    assert code == 0 and "note: your own pitfalls not searched: --cookbook-extra names gone" in out, out
+
+
 def test_examples_print_the_command_that_reads_their_events(built):
     code, out = tool(built, "search_guides", "snake", "--pitfalls", "0")
     assert code == 0 and out.startswith("examples:\ntemplate-snake: ") or "\ntemplate-snake: " in out

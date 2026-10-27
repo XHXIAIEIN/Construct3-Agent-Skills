@@ -75,6 +75,25 @@ def test_the_cookbook_is_found_by_flag_variable_line_then_beside_the_clones(tmp_
     assert c3.locate_cookbook(rag, game, str(flag))[0] == flag
 
 
+def test_your_own_pitfalls_are_found_by_flag_variable_then_line(tmp_path, monkeypatch):
+    """A line's relative path starts at its file's folder, so a folder kept in the game project travels with it."""
+    game = tmp_path / "game"
+    (game / "notes" / "plugins").mkdir(parents=True)
+    monkeypatch.setattr(c3, "SKILL_DIR", game / ".agents" / "skills" / "construct3-agent-plugin")
+    monkeypatch.delenv("CONSTRUCT3_COOKBOOK_EXTRA", raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert c3.own_pitfalls(game) == (None, None)
+    (game / "AGENTS.md").write_text("- Construct3-Cookbook: ../Construct3-Cookbook\n"
+                                    "- Construct3-Cookbook-extra: notes\n", encoding="utf-8")
+    assert c3.own_pitfalls(game) == (game / "notes", None)
+    variable = tmp_path / "variable"
+    variable.mkdir()
+    monkeypatch.setenv("CONSTRUCT3_COOKBOOK_EXTRA", str(variable))
+    assert c3.own_pitfalls(game) == (variable, None)
+    folder, note = c3.own_pitfalls(game, "missing")
+    assert folder is None and "--cookbook-extra names missing, which is not a folder" in note
+
+
 def test_a_guide_is_cited_by_its_cookbook_path_without_a_clone(tmp_path, monkeypatch):
     monkeypatch.setattr(c3, "SKILL_DIR", tmp_path / "game" / ".agents" / "skills" / "construct3-agent-plugin")
     monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)

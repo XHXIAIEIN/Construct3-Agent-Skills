@@ -74,6 +74,8 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 插件里不带事件表指引。先 clone 一次 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook)，之后用 `git pull` 保持最新；没 clone 之前，脚本会打印 `git clone` 命令，agent 设计时就读不到陷阱条目。脚本在 Construct3-RAG 或本仓库旁边找这个 clone，也认环境变量 `CONSTRUCT3_COOKBOOK` 和游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook: <文件夹>` 行。
 
+你可以在 Cookbook 之外放一份自己的坑点，不用 fork 它。把它们放进一个和 Cookbook 的 `guides/` 结构相同的文件夹，每条坑点是 `plugins/sprite.md`、`behaviors/tween.md` 这类页面里的一个列表项。用游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook-extra: <文件夹>` 行指明这个文件夹，相对路径从这个文件所在的文件夹算起；也可以用环境变量 `CONSTRUCT3_COOKBOOK_EXTRA`。之后 `search_guides.py` 也搜你的条目，命中的词一样多时排在前面；`lookup_ace.py` 在条目后列出插件页面时，先列你的。设计指引和检查器引用的页面仍然只用 Cookbook 的。
+
 ## 隐私和安全性
 
 - 本机运行：脚本用 Python 在本机运行，处理项目和本仓库的文件。要从图像工具的输出里裁图，脚本需要 Pillow。

@@ -455,6 +455,16 @@ def test_an_entry_of_a_superseded_addon_points_at_the_built_in_preferred_to_it(s
     assert "<deprecated>" in out and "the current action of the same name is pin-to-object-properties" in out, out
 
 
+def test_your_own_page_of_an_addon_comes_first_in_its_pitfalls_line(skill_only, monkeypatch):
+    """Rotate has no Cookbook page; a page of the user's own folder gives its entries the line."""
+    page = skill_only / "mine" / "behaviors" / "rotate.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# Rotate\n\n- Our spinner speed is in degrees per second.\n", encoding="utf-8")
+    monkeypatch.setenv("CONSTRUCT3_COOKBOOK_EXTRA", str(skill_only / "mine"))
+    code, out = tool(skill_only, "lookup_ace", "Rotate")
+    assert code == 0 and out.rstrip().endswith("\n  pitfalls: mine/behaviors/rotate.md"), out
+
+
 def test_an_entry_with_no_pointer_prints_no_extra_line(skill_only):
     """An addon with no page of its own and on no addons: line prints neither line, with a clone or without."""
     code, out = tool(skill_only, "lookup_ace", "Rotate")
