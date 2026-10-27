@@ -41,6 +41,8 @@ class SheetChecks:
                 self.check_none_left(c, f"{where} condition {i}", gone, earlier)
                 self.note_solid_overlap(c, f"{where} condition {i}", ev)
                 self.note_drop(c, f"{where} condition {i}")
+                if self.style:
+                    self.check_stale_pointer(c, f"{where} condition {i}", line)
                 if c.get("id") in HITS:
                     self.hit_pairs.append((c.get("objectClass"), params_of(c).get("object")))
                 if not ev.get("isOrBlock"):
@@ -63,6 +65,8 @@ class SheetChecks:
             self.check_flip(a, w, line, paced)
             if isinstance(a, dict):
                 self.note_drop(a, w)
+                if self.style:
+                    self.check_stale_pointer(a, w, line)
             if gone is not None and a.get("id") == "destroy" and a.get("objectClass") in self.p.plugin_of:
                 gone.setdefault(a["objectClass"], w)
             if a.get("id") == "destroy":

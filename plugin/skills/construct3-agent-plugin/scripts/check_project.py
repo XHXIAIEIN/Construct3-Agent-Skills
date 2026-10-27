@@ -454,8 +454,9 @@ def main() -> int:
                          f"{STYLE_LADDER} or more sibling events of the same conditions and actions with other "
                          "values, Every N seconds taking N off a variable, a countdown the Timer "
                          "behavior keeps, chooseindex on a condition, sibling events dispatching on find of one "
-                         "text, and mid through two text literals. For a project the agent wrote; edit_sheet.py "
-                         "refuses a plan whose new events raise the first four and warns on the other six")
+                         "text, mid through two text literals, and Mouse.X or Touch.X read under Mouse On "
+                         "movement. For a project the agent wrote; edit_sheet.py refuses a plan whose new events "
+                         "raise the first four or the last and warns on the other six")
     ap.add_argument("--review", action="store_true",
                     help="for a project someone else wrote and asked about: leave out the parameters the editor "
                          "fills, end without the next steps of writing a project, and say above the last line "

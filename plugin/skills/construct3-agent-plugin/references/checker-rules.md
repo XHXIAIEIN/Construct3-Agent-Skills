@@ -370,11 +370,11 @@ search the JSON for, unnumbered rows in parentheses.
 
 ## Style, with `--style`
 
-Ten warnings the editor never raises, for a project the agent wrote: the
+Eleven warnings the editor never raises, for a project the agent wrote: the
 generator template passes `--style`. `edit_sheet.py` holds the events a plan
 creates to them, never the sheet's older events: the first four, whose fix
-is one comment or one deleted condition, refuse the plan like a problem; the
-other six, and any
+is one comment or one deleted condition, and the last, a position that is a
+move behind, refuse the plan like a problem; the other six, and any
 finding on an event the plan moved or extended, are warnings under its
 output. Each names the event and says what to write.
 
@@ -390,12 +390,13 @@ output. Each names the event and says what to write.
 | chooseindex(c, a, b) is a two-way choice on a condition (the first argument a comparison, `&`, `\|` or a boolean variable, two choices after it); the finding writes `c ? b : a` | any | none: no example calls chooseindex, and 77 sheets use `?:`. A generated card game got 36, and reversed the branches twice while fixing bugs |
 | with events ..., picks a branch by testing X for the codes ... with find (sibling events or Else branches whose conditions call `find(X, "<literal>")` or `findcase` on the same X); `find` matches any part and ignores case, so the finding names a code that matches another | 2 or more events | none; the one example that tests outputs with find, quest-flowcharts, does it inside one event or in separate functions. A generated card game dispatched its enemy moves and card effects this way, 3 times |
 | mid("<letters>", ...find("<letters>", X)..., ...) looks X up through the letters, a table written as text; the finding writes the cycle as `(X + 1) % N` | any | none: no example calls find with a literal first. A generated card game wrote its element cycle so, 3 times |
+| Mouse.X, Mouse.Y, Touch.X or Touch.Y read under Mouse On movement, in its event or a sub-event: the runtime fires the trigger before it stores the new position, so they hold the previous pointer event's, (0, 0) when none came before [`Construct3-Cookbook/guides/plugins/mouse.md`]; the finding writes System Every tick and names `Mouse.MovementX` | any | 9 in 4 projects, each a move behind: a selection box in arcane-express, the aim in marble-spiral-clash, a joint dragged in match-the-pose, a seek bar in music-player. C3-Polylines, which an agent ported, drew its ribbons towards (0, 0) at the first move of a drag |
 
 Why these thresholds: `Construct3-Agent-Skills/docs/decisions/event-sheet-design-guidance.md`.
-A style warning is never an error: the editor accepts all ten, and an
+A style warning is never an error: the editor accepts all eleven, and an
 official example may carry one. What the shape should be instead is
-`Construct3-Cookbook/guides/design/style.md`, and for the last three the
-Native first table of `Construct3-Cookbook/guides/design/thinking.md`.
+`Construct3-Cookbook/guides/design/style.md`, and for chooseindex, find and
+mid the Native first table of `Construct3-Cookbook/guides/design/thinking.md`.
 
 ## What a web export ships
 

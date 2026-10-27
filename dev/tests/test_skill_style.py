@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 from tests.skill_helpers import (
-    SHEET, check, edit, cond, block, events, findings, warnings, plan, add_addon, add_keyboard, coin_copy,
-    pathfinding_coin,
+    SHEET, check, edit, cond, block, events, findings, warnings, plan, add_addon, add_global_object, add_keyboard,
+    coin_copy, pathfinding_coin,
 )
 
 
@@ -569,3 +569,56 @@ def test_a_dragged_object_drawn_under_its_target_is_refused(project):
     edit(project, "layouts/Game.json", coin_last)
     code, out = plan(project, ops, flags=("--dry-run",))
     assert code == 0 and "drops Coin on Board" not in out, out
+
+
+ON_MOVEMENT = {"id": "on-movement", "objectClass": "Mouse"}
+
+
+def follow(x: str, y: str) -> dict:
+    """Coin: Set position to (x, y)."""
+    return {"id": "set-position", "objectClass": "Coin", "parameters": {"x": x, "y": y}}
+
+
+def test_style_names_the_pointer_read_under_on_movement(project):
+    """C3-Polylines set its pointer from Mouse.X in On movement, which the runtime fires before it stores the new
+    position, and its ribbons shot towards (0, 0) at the first move. A read in the trigger's actions or in a
+    sub-event's condition is named with the trigger's event; a read every tick, MovementX in the trigger and
+    the words in a text are left alone."""
+    add_global_object(project, "Mouse")
+    swipe = cond("compare-two-values", params={"first-value": "Touch.X", "comparison": 4, "second-value": "100"})
+    rows = [block([ON_MOVEMENT], [follow("Mouse.X", "Mouse.Y(\"HUD\")")], [block([swipe], [SAY_DONE])])]
+    edit(project, SHEET, lambda s: s["events"].append(with_own_sids(rows[0], 950_000_000_000_000)))
+    code, out = check(project)
+    assert code == 0 and "On movement" not in out, out
+    code, out = check(project, "--style")
+    named = [w for w in warnings(out) if "On movement" in w]
+    assert code == 0 and len(named) == 2, out
+    trigger = re.match(r"warning: (sheet Game event (\d+) \(sid \d+\)) action 1: Mouse.X and Mouse.Y under Mouse On "
+                       r"movement hold the previous pointer event's position", named[0])
+    assert trigger, out
+    assert named[1].startswith(f"warning: sheet Game event {int(trigger[2]) + 1} (sid 950000000000002) condition 1: "
+                               f"Touch.X under Mouse On movement of {trigger[1]} holds"), out
+    assert '{"id": "every-tick", "objectClass": "System"}' in named[0] and "Mouse.MovementX" in named[0], out
+    assert "plugins/mouse.md" in named[0], out
+    quiet = [block([ON_MOVEMENT], [follow("Coin.X + Mouse.MovementX", "Coin.Y + Mouse.MovementY"),
+                                   {"id": "set-text", "objectClass": "ScoreText", "parameters": {"text": '"Mouse.X"'}}]),
+             block([cond("every-tick")], [follow("Mouse.X", "Mouse.Y")])]
+
+    def in_place_of_the_reads(sheet):
+        sheet["events"][-1:] = [with_own_sids(ev, 960_000_000_000_000 + 10_000 * i) for i, ev in enumerate(quiet)]
+    edit(project, SHEET, in_place_of_the_reads)
+    assert "On movement" not in check(project, "--style")[1]
+
+
+def test_plan_refuses_a_new_pointer_read_under_on_movement(project):
+    add_global_object(project, "Mouse")
+    before = (project / SHEET).read_bytes()
+    ev = {"eventType": "block", "conditions": [ON_MOVEMENT], "actions": [follow("Mouse.X", "Mouse.Y")]}
+    code, out = plan(project, {"into": 0, "events": [comment("Follow the pointer."), ev]})
+    assert code == 1 and (project / SHEET).read_bytes() == before, out
+    assert re.match(r"operation 1: sheet Game event \d+ \(sid \d+\) action 1: Mouse.X and Mouse.Y under Mouse On "
+                    r"movement", out), out
+    ev = {"eventType": "block", "conditions": [{"id": "every-tick", "objectClass": "System"}],
+          "actions": [follow("Mouse.X", "Mouse.Y")]}
+    code, out = plan(project, {"into": 0, "events": [comment("Follow the pointer."), ev]}, flags=("--dry-run",))
+    assert code == 0 and warnings(out) == [], out

@@ -11,6 +11,7 @@ from checker_common import (
     INPUTS, PLAIN_PICKS, REMOVERS, PLACINGS, USED_DESTROY, DROP_TESTS, DROP_SNAPS, RESTACKS, PATH_NODES,
     TRIGGER_ONCE, PACING, HELD_CONTROLS, HOLDING, VALUE_TESTS, INSTANCE_VALUE_TESTS, OBJECT_EXPRESSION, SETS,
     LEAVES, TOGGLES, FLIPS, LITERAL, COMPARISONS, NONE_LEFT, script_text, bare_name_in, layer_instances,
+    outside_literals,
 )
 
 
@@ -172,6 +173,40 @@ class EventChecks:
             self.warn(f"{where}: {describe(action)} runs with no touch, click or key in its event or above it, "
                       f"and the browser refuses it there; move it into an event with a trigger such as Touch On "
                       f"tap, Mouse On click or Keyboard On key pressed (manual: plugin-reference/{page}.md)")
+
+    def check_stale_pointer(self, ace: dict, where: str, line: tuple) -> None:
+        """Mouse or Touch X and Y read under Mouse On movement, in the trigger's event or below it. The runtime
+        fires the trigger before it stores the pointer's new position, so these hold the previous pointer
+        event's, (0, 0) when none came before (Construct3-Cookbook/guides/plugins/mouse.md). line: the event and
+        those above it."""
+        p = self.p
+        trigger = next((e for e in reversed(line) for c in e.get("conditions", []) if isinstance(c, dict)
+                        and not c.get("disabled") and c.get("id") == "on-movement"
+                        and p.plugin_of.get(c.get("objectClass"), "").lower() == "mouse"), None)
+        if trigger is None or not isinstance(ace, dict):
+            return
+        reads = []
+        for value in params_of(ace).values():
+            if not isinstance(value, str):
+                continue
+            for m in outside_literals(value, OBJECT_EXPRESSION.finditer(value)):
+                obj = p.objects_lower.get(LOWER(m.group(1)))
+                if p.plugin_of.get(obj, "").lower() in ("mouse", "touch") and m.group(2).lower() in ("x", "y") \
+                        and f"{obj}.{m.group(2).upper()}" not in reads:
+                    reads.append(f"{obj}.{m.group(2).upper()}")
+        if not reads:
+            return
+        mouse = next(c["objectClass"] for c in trigger["conditions"] if c.get("id") == "on-movement")
+        above = "" if trigger is line[-1] else f" of {self.event_where[id(trigger)]}"
+        tick = json.dumps({"id": "every-tick", "objectClass": "System"})
+        p.findings.style_finding(
+            "movement", f"{where}: {' and '.join(reads)} under {mouse} On movement{above} "
+                        f"{'hold' if len(reads) > 1 else 'holds'} the previous pointer event's position, (0, 0) when "
+                        f"none came before: the trigger fires before {mouse} stores the new one, so what follows "
+                        f"the pointer stays a move behind. Set the position or angle in an event whose one "
+                        f"condition is System Every tick, {tick}, reading {mouse}.X and {mouse}.Y (for a finger, "
+                        f"Touch Is in touch and Touch.X), or use {mouse}.MovementX and {mouse}.MovementY in the "
+                        f"trigger for the amount of this move ({c3.guide_path(p.rag, 'plugins/mouse.md', p.root)})")
 
     def pacing(self, ev: dict) -> set[str]:
         """What keeps the event from running every tick: "trigger", "every" for Every X seconds, "once" for
