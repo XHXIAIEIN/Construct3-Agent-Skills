@@ -486,8 +486,14 @@ parameters are in the template.
   custom action `procedure("What it does", func(...))`, both with the
   comment the examples put above every event; the description of a
   procedure is the same sentence. A variable one group reads, a constant
-  too, is declared in its module, not at the top of the sheet: only what
-  several groups or sheets read is global.
+  too, is declared in its module, not at the top of the sheet. The
+  modules sit in one outer module named for the game, and what several of
+  them share is a static variable of that module, which every inner group
+  sees: `module("Coins", variables=[var("score", "number", 0, "Points
+  this round", static=True)], events=[module_setup(), module_input(),
+  module_update()])`. A group that writes shared state, such as the input
+  that stores the pointer, stays a module of its own. Only what another
+  sheet reads is a global.
 - A long block is `steps(("Reset the score", [...]), ("Clear the board",
   [...]))`: a comment action, then three to five actions, per batch. A
   decision is `cases(gate, [("Case one", conds, acts), ("Otherwise",
