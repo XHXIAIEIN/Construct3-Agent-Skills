@@ -1342,6 +1342,15 @@ REPORT_ANSWERS = Path(__file__).parent / "fixtures" / "report_answers"
     ("one_role.md", [False, True, True]),
     ("keeps_a_name.md", [False, True, True]),
     ("drops_a_line.md", [True, False, True]),
+    # The answers of the runs of iteration 78. One block quotes "text " + Enemy.IID and Enemy2.IID
+    ("recorded_two_roles.md", [True, True, True]),
+    # It names the replacement Enemy2 in its prose, but its report quotes one action, so Orc's is not in it
+    ("recorded_one_action.md", [False, True, True]),
+    # No code block: the whole answer is the report, and it quotes the sheet lines with Goblin and Orc
+    ("recorded_no_block.md", [False, False, True]),
+    # The issue body is prose that quotes Goblin.IID; its blocks are the editor's dialog and the editor
+    # script's own report, neither in the template
+    ("recorded_body_outside_the_block.md", [False, True, True]),
 ])
 def test_the_report_numbers_two_enemies_and_quotes_the_editor(tmp_path: Path, project: Path, answer: str,
                                                              passed: list) -> None:

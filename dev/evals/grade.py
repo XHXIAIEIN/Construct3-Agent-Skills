@@ -1772,8 +1772,11 @@ def grade_kept(run: Path, own_warnings: bool = True) -> list[tuple[bool, str]]:
 
 
 def report_of(answer: str) -> str:
-    """The report in the answer: its code blocks, or the whole answer when it has none."""
-    blocks = re.findall(r"^\s*```[^\n]*\n(.*?)^\s*```", answer, re.M | re.S)
+    """The report in the answer: the code blocks of the template of references/reporting-a-problem.md, which
+    opens with an env: line, or the whole answer when it has none. The prose around the block is said to the
+    user and may name what it replaced; an issue body written as prose is the report, and so is graded whole."""
+    blocks = [b for b in re.findall(r"^\s*```[^\n]*\n(.*?)^\s*```", answer, re.M | re.S)
+              if re.search(r"^\s*env:", b, re.M)]
     return "\n".join(blocks) if blocks else answer
 
 
