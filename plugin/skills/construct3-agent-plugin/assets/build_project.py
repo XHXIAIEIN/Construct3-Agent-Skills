@@ -1222,12 +1222,16 @@ def procedure(text: str, proc: dict) -> list:
     return [comment(text), proc]
 
 
-def module(title: str, events: list, variables: list | None = None, procedures: list | None = None,
-           active: bool = True) -> dict:
+def module(title: str, events: list | None = None, variables: list | None = None, procedures: list | None = None,
+           triggers: list | None = None, active: bool = True) -> dict:
     """A group: the variables only it reads (a constant with the group's prefix, a static local
-    for state that outlives the tick), then its functions and custom actions, then its events.
-    Entries may be rows or the row pairs of event() and procedure()."""
-    return group(title, list(variables or []) + flat(procedures or []) + flat(events), active=active)
+    for state that outlives the tick), then its lifecycle triggers (On start of layout, On end of
+    layout, On loader layout complete), then its functions and custom actions, then its other
+    events. What runs every tick goes in a module of its own, "Update" unless a better name says
+    what it does. A variable only this group reads, a constant too, is one of its
+    variables, not a global. Entries may be rows or the row pairs of event() and procedure()."""
+    return group(title, list(variables or []) + flat(triggers or []) + flat(procedures or []) + flat(events or []),
+                 active=active)
 
 
 def steps(*batches: tuple) -> list:
@@ -3279,7 +3283,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp 0f822b59ece6 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp 96c53d9afae7 ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3399,7 +3403,7 @@ def build_layouts() -> dict[str, dict]:
 # --- the event sheet -------------------------------------------------------------------
 # One function per group, in play order
 def module_setup() -> dict:
-    return module("Setup", events=[
+    return module("Setup", triggers=[
         # Restart layout keeps globals, so the round's values are reset here, before any text shows them
         event("Empty the score and deal this round's coins",
               [on_start()], [set_var("score", "0"), set_text("ScoreText", q("0")),

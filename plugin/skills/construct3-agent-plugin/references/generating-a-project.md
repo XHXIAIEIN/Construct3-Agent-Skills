@@ -474,13 +474,20 @@ parameters are in the template.
 - Locals declared as children of a function block are not in scope for the
   block's own actions; put the actions that read them in a child block.
 - A group is a `module(title, events=[...], variables=[...],
-  procedures=[...])`: it lays the group out as the official examples do,
-  variables first, then functions and custom actions, then events. A
+  triggers=[...], procedures=[...])`: variables first, then the lifecycle
+  triggers (*On start of layout*, *On end of layout*, *On loader layout
+  complete*), then functions and custom actions, then the other events.
+  The official examples put the functions before every event; this
+  project's convention puts a lifecycle trigger first, so the group reads
+  in the order it runs. What runs every tick, an *Every tick* event and
+  what it calls, is a module of its own, named for what it does, `Update`
+  by default, not the last event of a feature group. A
   top-level event is `event("What it does", conds, acts)`, a function or
   custom action `procedure("What it does", func(...))`, both with the
   comment the examples put above every event; the description of a
-  procedure is the same sentence. A variable one group reads is declared in
-  its module, not at the top of the sheet.
+  procedure is the same sentence. A variable one group reads, a constant
+  too, is declared in its module, not at the top of the sheet: only what
+  several groups or sheets read is global.
 - A long block is `steps(("Reset the score", [...]), ("Clear the board",
   [...]))`: a comment action, then three to five actions, per batch. A
   decision is `cases(gate, [("Case one", conds, acts), ("Otherwise",
