@@ -4,6 +4,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
 - [Art Drawn in Code and Rendered in the Browser: The Route to Try Next](art-drawn-in-code.md) — 2026-10-28
+- [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
 - [A User's Own Pitfalls Sit Beside the Cookbook's](own-pitfalls-folder.md) — 2026-10-27
 - [A Problem Report the Agent Writes from Its Own Session](problem-report.md) — 2026-10-26
 - [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24

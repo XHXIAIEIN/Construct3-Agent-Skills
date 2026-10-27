@@ -303,6 +303,9 @@ def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_re
                                            "its last third, beats 5 to 6"),
     (lambda b: b[4].update(intensity=1), "the last third averages 0.5 and the first 0.5; the game rises"),
     (lambda b: b[5].update(type="finale"), "beat 6 finale at 0; a beat is one of intro, teach"),
+    (lambda b: b[4].update(type="practice", intensity=1), "the climax is none; a game has one climax, in its last third, "
+                                                           "beats 5 to 6 here. A toy with no rounds, levels or waves "
+                                                           "is one beat"),
 ])
 def test_template_pace_stops_a_curve_that_breaks_a_rule(change, said):
     t = template_module()
@@ -312,6 +315,15 @@ def test_template_pace_stops_a_curve_that_breaks_a_rule(change, said):
     with pytest.raises(SystemExit) as stop:
         t.pace(beats)
     assert said in str(stop.value)
+
+
+def test_template_pace_takes_a_toy_of_one_beat():
+    """A toy with no rounds, levels or waves is one beat: it has no climax or rise to check, and the
+    first-beat and type rules still hold."""
+    t = template_module()
+    assert t.pace([t.beat("intro", 0, ["point"])]) == ["beat 1 intro       0 |   | point"]
+    with pytest.raises(SystemExit, match="beat 1 intro is at 1; the first beat is at 0"):
+        t.pace([t.beat("intro", 1, ["point"])])
 
 
 def test_template_deals_the_coins_of_each_beat_round_after_round(built):
@@ -1018,6 +1030,92 @@ def test_template_controls_generate_a_project_the_checker_passes(project):
     assert warnings(out) == [], out
     written = json.loads((project / "project.c3proj").read_text(encoding="utf-8"))
     assert {"TextBox", "DragnDrop", "TiledBg", "Tween"} <= {a["id"] for a in written["usedAddons"]}
+
+
+CANVAS_GAME = '''
+
+BEATS = [beat("intro", 0, ["point"])]
+
+
+def build_files() -> None:
+    pass
+
+
+def build_images() -> None:
+    pass
+
+
+def build_object_types() -> tuple[dict, dict, list]:
+    return {"Canvas": drawing_canvas_type("Canvas")}, {}, []
+
+
+def build_layouts() -> dict[str, dict]:
+    lay = layout("Game", [layer("Lines", transparent=False, parallax=0)], sheet="Game")
+    lay["layers"][0]["instances"].append(canvas_inst("Canvas"))
+    return {"Game": lay}
+
+
+def build_event_sheet() -> dict:
+    corner = [act("add-poly-point", "Canvas", {"x": x, "y": y})
+              for x, y in (("0", "0"), ("LayoutWidth", "0"), ("0", "LayoutHeight"))]
+    return {"name": "Game", "events": [
+        comment("A triangle drawn on the canvas every tick"),
+        module("Draw", events=event("Clear the canvas, then fill one triangle", [every_tick()], [
+            act("clear-canvas", "Canvas", {"color": "rgba(0, 0, 0, 0)"}),
+            act("reset-poly", "Canvas"), *corner,
+            act("fill-poly", "Canvas", {"color": "rgba(100, 0, 0, 100)", "convex": True})])),
+    ], "sid": sid()}
+
+
+if __name__ == "__main__":
+    build_and_check()
+'''
+
+
+def test_template_builds_a_canvas_toy_with_one_beat_and_no_text(project, tmp_path, monkeypatch):
+    """A toy with no rounds and no text, a Drawing Canvas that the events draw on, generates a
+    project the checker passes without a warning: its one beat has no curve to check, and with no
+    text type the run copies no font and warns of none. The canvas covers the viewport from its
+    top-left origin, with no antialiasing, as the official examples place theirs."""
+    source = project / "tools" / "build_project.py"
+    text = source.read_text(encoding="utf-8")
+    end = text.index("\n", text.index("# ==== construct3-agent-plugin helpers: end")) + 1
+    source.write_text(text[:end] + CANVAS_GAME, encoding="utf-8")
+    for folder in ("layouts", "eventSheets", "objectTypes", "fonts", "images"):     # the stand-in's files
+        shutil.rmtree(project / folder)
+    proj = json.loads((project / "project.c3proj").read_text(encoding="utf-8"))
+    proj["rootFileFolders"]["font"]["items"] = []
+    (project / "project.c3proj").write_text(json.dumps(proj), encoding="utf-8")
+    monkeypatch.setenv("CONSTRUCT3_RAG_FONT_CACHE", str(tmp_path / "no-fonts"))
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
+    assert out.splitlines()[0] == "beat 1 intro       0 |   | point"
+    assert warnings(out) == [] and "warning" not in out, out
+    assert not (project / "fonts").exists()
+    canvas = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))["layers"][0]["instances"][0]
+    t = template_module()
+    assert canvas["properties"] == {"resolution-mode": "auto", "initially-visible": True, "origin": "top-left",
+                                    "antialiasing": "off"}
+    assert [canvas["world"][k] for k in ("x", "y", "width", "height", "originX", "originY")] == [
+        0, 0, t.VIEW_W, t.VIEW_H, 0, 0]
+
+
+def test_template_canvas_takes_the_values_of_the_schema():
+    """canvas_inst() takes each Drawing Canvas property's values as the schema lists them, places the
+    origin it names, and stops the run on any other value."""
+    schema = json.loads((DATA / "c3-schemas" / "en-US" / "plugins" / "drawingcanvas.json").read_text(encoding="utf-8"))
+    props = schema["properties"]
+    t = template_module()
+    assert list(t.CANVAS_ORIGINS) == list(props["origin"]["items"])
+    assert list(t.CANVAS_ANTIALIASING) == list(props["antialiasing"]["items"])
+    assert list(t.CANVAS_RESOLUTION) == list(props["resolution-mode"]["items"])
+    assert set(t.canvas_inst("Canvas")["properties"]) == set(props)
+    centre = t.canvas_inst("Canvas", 100, 50, 200, 80, origin="center", antialiasing="4x-msaa", resolution="fixed")
+    assert [centre["world"][k] for k in ("x", "y", "width", "height", "originX", "originY")] == [
+        100, 50, 200, 80, 0.5, 0.5]
+    assert (centre["properties"]["antialiasing"], centre["properties"]["resolution-mode"]) == ("4x-msaa", "fixed")
+    with pytest.raises(SystemExit, match=r"canvas_inst\('Canvas'\): antialiasing '4x'; one of off, 2x-msaa"):
+        t.canvas_inst("Canvas", antialiasing="4x")
 
 
 BUTTONS_GAME = '''

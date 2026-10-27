@@ -189,13 +189,16 @@ the minus, and keeps the copyright and license entries of the name table:
 python -m fontTools.subset extras/ttf/Inter-Regular.ttf --unicodes="U+0020-007E,U+00A0-00FF,U+0152-0153,U+2002-200A,U+2013-2014,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2030,U+2039-203A,U+20AC,U+2122,U+2190-2193,U+2212" --name-IDs="*" --flavor=woff --output-file=Inter-Regular.woff
 ```
 
-The template copies each file that `FONT` names from the font cache into
-the project's `fonts/`, unless `fonts/` holds it already, and lists it in
+When the game has a Text or a Text input, the template copies each file
+that `FONT` names from the font cache into the project's `fonts/`, unless
+`fonts/` holds it already, and lists it in
 `project.c3proj`. A weight whose file is in neither place draws in
 `system-ui`, and the run prints a warning that names the file, because a
 Text whose font the project lacks draws its Latin text in a serif face. So
 on a machine whose font cache lacks the files, a game takes the look in the
-platform's face until its `fonts/` holds the three files.
+platform's face until its `fonts/` holds the three files. A game with no
+text type gets no font file and no warning, because the files would sit
+unused in the project and the warning would ask for files it never draws.
 
 Pixel art draws its labels in Sprite Fonts baked from a pixel font
 (`pixel-art-sprite-font.md`).
