@@ -142,6 +142,9 @@ def test_every_flag_the_skill_names_is_one_its_script_takes(tmp_path):
                 over.append(f"{script.name} ({len(out)} characters)")
             takes[script.name] = set(re.findall(r"^\s+(?:-\w(?: \S+)?, )?(--[a-z][\w-]*)", out, re.M))
     assert not over, f"--help over the {LIMIT} characters the scripts cut their own output at: {', '.join(over)}"
+    # The generator template has no --help: it reads its flags from sys.argv
+    template = (SKILL / "assets" / "build_project.py").read_text(encoding="utf-8")
+    takes["build_project.py"] = set(re.findall(r'"(--[a-z][\w-]*)" in sys\.argv', template))
     any_script = set().union(*takes.values())
     for name, text in skill_docs():
         for line in text.splitlines():

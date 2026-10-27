@@ -469,6 +469,27 @@ def test_generator_without_the_skill_says_so(project):
     assert code != 0 and "generated, not checked" in out and "install.py" in out
 
 
+def test_generator_writes_nothing_over_a_file_changed_since_its_last_run(project):
+    """A sheet saved in the editor after a run: the next run writes no file and names it, until
+    --replace-edited. A file saved again with only its layout changed is no change, and a removed one
+    is written again, which loses nothing."""
+    sheet, layout = project / "eventSheets" / "Game.json", project / "layouts" / "Game.json"
+    edit(project, "eventSheets/Game.json", lambda s: s["events"].append({"eventType": "comment", "text": "mine"}))
+    layout_text = layout.read_text(encoding="utf-8")
+    layout.unlink()
+    types = project / "objectTypes" / "Coin.json"
+    types.write_text(json.dumps(json.loads(types.read_text(encoding="utf-8")), indent=2), encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 1 and "nothing was written: these files changed since the last run wrote them" in out, out
+    assert "change:\n  eventSheets/Game.json\n1. " in out and "--replace-edited" in out, out
+    assert '"mine"' in sheet.read_text(encoding="utf-8") and not layout.exists()
+    code, out = run(project, "tools/build_project.py", "--replace-edited")
+    assert code == 0, out
+    assert '"mine"' not in sheet.read_text(encoding="utf-8") and layout.read_text(encoding="utf-8") == layout_text
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0, out
+
+
 def test_template_run_where_it_sits_says_to_copy_it(project):
     """Run from the skill's assets/, the template would look for project.c3proj in the skill."""
     code, out = run(project, f"{INSTALLED}/assets/build_project.py")

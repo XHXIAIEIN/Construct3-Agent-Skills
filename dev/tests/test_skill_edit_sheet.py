@@ -666,14 +666,20 @@ def test_a_new_sheet_beside_others_says_no_layout_runs_it(project):
 
 
 def test_a_generated_project_is_told_the_change_belongs_in_the_generator(project):
-    """The generator's next run writes the sheet over an edit: the note says so after a write and in a dry run."""
+    """The generator's next run stops on a sheet that changed since it wrote it, and a generator from
+    before its record writes the sheet over an edit: the note says which, after a write and in a dry run."""
     timer = {"before": 1, "events": [{"eventType": "variable", "name": "timeLeft"}]}
     code, out = plan(project, timer, flags=("--dry-run",))
-    assert code == 0 and ("note: tools/build_project.py generates this project, and its next run writes "
-                          "eventSheets/Game.json over what this plan would write") in out, out
+    assert code == 0 and ("note: tools/build_project.py generates this project, and its next run stops rather "
+                          "than write eventSheets/Game.json over what this plan would write") in out, out
     code, out = plan(project, timer)
-    assert code == 0 and "writes eventSheets/Game.json over this change: make the change in the generator" in out, out
+    assert code == 0 and ("over this change: make the change in the generator, then run python "
+                          "tools/build_project.py --replace-edited") in out, out
     assert out.splitlines()[-1].startswith("ok:")
+    (project / "tools" / "generated.json").unlink()
+    code, out = plan(project, {"remove": 1}, flags=("--dry-run",))
+    assert code == 0 and ("its next run writes eventSheets/Game.json over what this plan would write: make the "
+                          "change in the generator, then run python tools/build_project.py\n") in out, out
     shutil.rmtree(project / "tools")
     code, out = plan(project, {"remove": 1}, flags=("--dry-run",))
     assert code == 0 and "build_project" not in out, out
