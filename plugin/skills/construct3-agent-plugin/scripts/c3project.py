@@ -773,50 +773,79 @@ def commit_url(remote_url: str, branch: str) -> str | None:
     return f"https://api.github.com/repos/{m[1]}/{m[2]}/commits/{branch}" if m else None
 
 
-def read_commit(url: str) -> str | None:
-    """The commit id at url, read anonymously, which the sha media type gives as the bare id; None when the read fails."""
+def read_upstream(url: str, etag: str = "", accept: str = "") -> tuple[bytes | None, str] | None:
+    """The body and the ETag of url, read anonymously. Given the ETag of the last read, the
+    request is conditional: an upstream that has not changed answers 304 with no body, and
+    the body is None. None when the read fails."""
+    import urllib.error
     import urllib.request
+    headers = {"Accept": accept} if accept else {}
+    if etag:
+        headers["If-None-Match"] = etag
     try:
-        request = urllib.request.Request(url, headers={"Accept": "application/vnd.github.sha"})
-        with urllib.request.urlopen(request, timeout=VERSION_WAIT) as r:
-            sha = r.read().decode("ascii").strip()
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=VERSION_WAIT) as r:
+            return r.read(), r.headers.get("ETag", "")
+    except urllib.error.HTTPError as e:
+        return (None, e.headers.get("ETag") or etag) if e.code == 304 else None
     except (OSError, ValueError):
         return None
-    return sha if re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", sha) else None
 
 
-def read_version(url: str) -> str | None:
-    """The version in the manifest at url, read anonymously; None when the read fails."""
-    import urllib.request
+def read_commit(url: str, etag: str = "") -> tuple[str | None, str] | None:
+    """The commit id at url, which the sha media type gives as the bare id, and its ETag; the id
+    is None when it has not changed since the read of etag. None when the read fails."""
+    got = read_upstream(url, etag, "application/vnd.github.sha")
+    if got is None or got[0] is None:
+        return got
     try:
-        with urllib.request.urlopen(url, timeout=VERSION_WAIT) as r:
-            return json.loads(r.read().decode("utf-8-sig")).get("version")
-    except (OSError, ValueError, AttributeError):
+        sha = got[0].decode("ascii").strip()
+    except ValueError:
         return None
+    return (sha, got[1]) if re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", sha) else None
+
+
+def read_version(url: str, etag: str = "") -> tuple[str | None, str] | None:
+    """The version in the manifest at url and its ETag; the version is None when it has not
+    changed since the read of etag. None when the read fails."""
+    got = read_upstream(url, etag)
+    if got is None or got[0] is None:
+        return got
+    try:
+        version = json.loads(got[0].decode("utf-8-sig")).get("version")
+    except (ValueError, AttributeError):
+        return None
+    return (version, got[1]) if version else None
 
 
 def upstream_value(clone: Path, url: str, read) -> tuple[str | None, bool]:
     """What read gives for url, the upstream's version or commit, and whether it was read in this run.
-    It is read at most every VERSION_EVERY seconds per clone; in between, the last read's value is used."""
+    It is read at most every VERSION_EVERY seconds per clone; in between, the last read's value is used.
+    The file keeps the value and, on its second line, the ETag of the read, so that the next read asks
+    only whether the upstream changed: on a slow link to GitHub that answer carries no body."""
     stamp_file = VERSION_STAMPS / path_key(clone)
     try:
+        last, _, etag = stamp_file.read_text(encoding="utf-8").partition("\n")
+        last, etag = last.strip(), etag.strip()
         if time.time() - stamp_file.stat().st_mtime <= VERSION_EVERY:
-            return stamp_file.read_text(encoding="utf-8").strip() or None, False
+            return last or None, False
     except OSError:
-        pass
+        last = etag = ""
     # Stamped before the read, so that an offline machine waits once per period, not on every check
     try:
         VERSION_STAMPS.mkdir(exist_ok=True)
         stamp_file.write_text("", encoding="utf-8")
     except OSError:
         pass
-    value = read(url)
-    if value:
-        try:
-            stamp_file.write_text(value, encoding="utf-8")
-        except OSError:
-            pass
-    return value, True
+    # Without the last value an answer of "not changed" says nothing, so the read is then a plain one
+    got = read(url, etag if last else "")
+    if got is None:
+        return None, True
+    value, etag = got[0] or last, got[1]
+    try:
+        stamp_file.write_text(f"{value}\n{etag}", encoding="utf-8")
+    except OSError:
+        pass
+    return value or None, True
 
 
 def tracked_branch(clone: Path) -> tuple[str, str, str] | None:
