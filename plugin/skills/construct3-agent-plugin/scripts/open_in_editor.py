@@ -1393,7 +1393,7 @@ def checker_version(rag: Path) -> str:
     commit = c3.git_out(c3.clone_root(rag), "rev-parse", "--short", "HEAD") or "of an unknown commit"
     copy = "" if c3.refresh_command(rag) is None else \
         ", run from a copy that differs from it" if c3.skill_drift(rag) else ", run from a copy"
-    return f"Construct3-RAG {commit}{copy}"
+    return f"Construct3-Agent-Skills {commit}{copy}"
 
 
 def release_name(release: int) -> str:
