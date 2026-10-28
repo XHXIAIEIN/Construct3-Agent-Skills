@@ -958,9 +958,11 @@ def test_an_expression_is_given_the_arguments_its_schema_lists(project, text, sa
     # A Dictionary.Get(number) the checker let through, refused by the editor (2026-10-28);
     # the official examples write DictRewards.Get(str(9)).
     ('tokenat(5, 0, ",")', "tokenat takes text as its parameter text and is given the number 5; the editor "
-                           "stops with \"parameter 0 does not take 'number'\". Write str(5) there"),
-    ('tokenat("a,b", "1", ",")', "tokenat takes a number as its parameter index and is given a text literal; the editor "
-                                 "stops with \"parameter 1 does not take 'string'\". Write the number without quotes"),
+                           "stops with \"Invalid parameter: 'tokenat' parameter 0 does not take 'number'\". "
+                           "Write str(5) there"),
+    ('tokenat("a,b", "1", ",")', "tokenat takes a number as its parameter index and is given a text literal; the "
+                                 "editor stops with \"Invalid parameter: 'tokenat' parameter 1 does not take "
+                                 "'string'\". Write the number without quotes"),
     ('tokenat(LEVEL, 0, ",")', "tokenat takes text as its parameter text and is given the number LEVEL"),
     ('tokenat(Coin.AnimationName, 0, ",")', None),
     # A conversion, an expression or a parameter of type any has no type known here.
@@ -1000,7 +1002,8 @@ def test_a_call_in_an_argument_has_its_return_type(project, returns, text, said)
 @pytest.mark.parametrize("ace, said", [
     # The editor's dialog for each (2026-10-28): "Type mismatch: This parameter does not take a 'string'".
     ({"id": "object-uid-exists", "parameters": {"uid": '"1"'}},
-     "uid takes a number and is given a text literal; the editor stops with \"Type mismatch: This parameter "
+     "uid takes a number and is given a text literal; the project opens, but the editor's parameter dialog "
+     "refuses it with \"Type mismatch: This parameter "
      "does not take a 'string'\". Write the number without quotes"),
     ({"id": "is-between-values", "parameters": {"value": '"123"', "lower-bound": "0", "upper-bound": "9"}},
      "value takes a number and is given a text literal"),
@@ -1021,14 +1024,16 @@ def test_a_condition_parameter_has_the_type_it_takes(project, ace, said):
 
 
 @pytest.mark.parametrize("text, said", [
-    ('tokenat(LEVEL + 1, 0, ",")', "is given the number LEVEL + 1; the editor stops with \"parameter 0 does "
-                                   "not take 'number'\". Write str(LEVEL + 1) there"),
+    ('tokenat(LEVEL + 1, 0, ",")', "is given the number LEVEL + 1; the editor stops with \"Invalid parameter: "
+                                   "'tokenat' parameter 0 does not take 'number'\". Write str(LEVEL + 1) there"),
     ('tokenat((LEVEL > 1) * 2, 0, ",")', "is given the number (LEVEL > 1) * 2"),
     ('tokenat(LEVEL > 1 ? 1 : 2, 0, ",")', "is given the number LEVEL > 1 ? 1 : 2"),
     ('tokenat("a", "1" & LEVEL, ",")', "takes a number as its parameter index and is given text; the editor "
-                                       "stops with \"parameter 1 does not take 'string'\". Convert it with int()"),
-    ('tokenat(Coin.Tween.Progress("t"), 0, ",")', "tokenat takes text as its parameter text and is given a number; the editor stops with "
-                                                   "\"parameter 0 does not take 'number'\". Convert it with str()"),
+                                       "stops with \"Invalid parameter: 'tokenat' parameter 1 does not take "
+                                       "'string'\". Convert it with int()"),
+    ('tokenat(Coin.Tween.Progress("t"), 0, ",")', "tokenat takes text as its parameter text and is given a number; "
+                                                   "the editor stops with \"Invalid parameter: 'tokenat' parameter 0 "
+                                                   "does not take 'number'\". Convert it with str()"),
     # & beside a comparison binds as in JavaScript: "a" & (LEVEL = 1), text.
     ('tokenat("a", "a" & LEVEL = 1, ",")', "takes a number as its parameter index and is given text"),
     ('tokenat("a", (LEVEL & 1) = 1, ",") & tokenat("a" & LEVEL = 1, 0, ",")', None),
@@ -1050,10 +1055,14 @@ def test_an_operation_in_an_argument_has_the_type_the_manual_gives(project, text
 
 
 @pytest.mark.parametrize("call, said", [
-    ({"text": 'Functions.Level("a")'}, "Functions.Level takes a number as its parameter n and is given a text literal"),
+    # r504 opened neither: "Invalid parameter: 'Level' parameter 0 does not take 'string'" (2026-10-28).
+    ({"text": 'Functions.Level("a")'}, "Functions.Level takes a number as its parameter n and is given a text "
+                                       "literal; the editor stops with \"Invalid parameter: 'Level' parameter 0 "
+                                       "does not take 'string'\""),
     ({"text": "Functions.Level(2)"}, None),
     ({"action": {"callFunction": "Level", "sid": 900000000000072, "parameters": ['"a"']}},
-     "parameter 1 of Level takes a number and is given a text literal; the editor stops with \"Type mismatch"),
+     "parameter 1 of Level takes a number and is given a text literal; the project opens, but the editor's "
+     "parameter dialog refuses it with \"Type mismatch"),
 ])
 def test_a_call_passes_the_types_the_function_declares(project, call, said):
     def change(sheet):

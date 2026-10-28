@@ -276,16 +276,17 @@ class ExpressionChecks:
                          f"\"Incorrect parameters: '{written}' does not accept {given} parameters\". Write {usage}")
                 return
             if given:
-                self.check_argument_types(where, written, entry.get("params") or {}, text,
+                self.check_argument_types(where, written, name, entry.get("params") or {}, text,
                                           text.index("(", end) + 1, scope, owner)
             return
 
-    def check_argument_types(self, where: str, written: str, params: dict, text: str, start: int,
+    def check_argument_types(self, where: str, written: str, name: str, params: dict, text: str, start: int,
                              scope: dict, owner: str | None) -> None:
         """A number where the parameter takes text, or text where it takes a number: the editor
-        types each argument and stops with "parameter 0 does not take 'number'". The official
-        examples convert first, even a literal: DictRewards.Get(str(9)),
-        DictProfile.Get(str(Self.slotID))."""
+        types each argument as it opens the project and stops with "Invalid parameter: 'tokenat'
+        parameter 0 does not take 'number'", for a function of the project too, named without
+        Functions (2026-10-28). The official examples convert first, even a literal:
+        DictRewards.Get(str(9)), DictProfile.Get(str(Self.slotID))."""
         for i, (arg, (key, param)) in enumerate(zip(arguments_from(text, start), params.items())):
             wanted = param.get("type")
             given = self.expression_type(arg, scope, owner) if wanted in ("string", "number") else None
@@ -293,7 +294,7 @@ class ExpressionChecks:
                 continue
             takes, what, fix = self.type_mismatch(arg, wanted)
             self.err(f"{where}: {written} takes {takes} as its parameter {key} and is given {what}; the editor "
-                     f"stops with \"parameter {i} does not take '{given}'\". {fix}")
+                     f"stops with \"Invalid parameter: '{name}' parameter {i} does not take '{given}'\". {fix}")
 
     def check_function_arguments(self, where: str, written: str, name: str, text: str, end: int,
                                  scope: dict, owner: str | None) -> None:
@@ -303,7 +304,7 @@ class ExpressionChecks:
         if block is None or not call_arguments(text, end):
             return
         params = {q.get("name"): q for q in block.get("functionParameters") or []}
-        self.check_argument_types(where, written, params, text, text.index("(", end) + 1, scope, owner)
+        self.check_argument_types(where, written, name, params, text, text.index("(", end) + 1, scope, owner)
 
     @staticmethod
     def type_mismatch(arg: str, wanted: str) -> tuple[str, str, str]:
@@ -633,17 +634,20 @@ class ExpressionChecks:
 
     def check_param_type(self, where: str, key: str, value: str, ptype: str, scope: dict,
                          owner: str | None) -> None:
-        """A text where the parameter takes a number, or a number where it takes text: the
-        editor's dialog says "Type mismatch: This parameter does not take a 'string'" for
-        "1" in Is number NaN (2026-10-28). None of the 23698 string and number parameters
-        of the official examples is written so."""
+        """A text where the parameter takes a number, or a number where it takes text, in a
+        condition or action, or an argument of Call function. The r504 editor opens and
+        previews such a project, unlike an expression's argument, but the parameter dialog
+        says "Type mismatch: This parameter does not take a 'string'" for "1" in Is number
+        NaN, Is between values and Object UID exists, and keeps the edit until it is fixed
+        (2026-10-28); Call function's dialog was not tried. None of the 23698 string and
+        number parameters of the official examples is written so."""
         arg = STRING_LITERAL.sub('""', value).strip()
         given = self.expression_type(arg, scope, owner)
         if given is None or given == ptype:
             return
         takes, what, fix = self.type_mismatch(arg, ptype)
-        self.err(f"{where}: {key} takes {takes} and is given {what}; the editor stops with \"Type mismatch: This "
-                 f"parameter does not take a '{given}'\". {fix}")
+        self.err(f"{where}: {key} takes {takes} and is given {what}; the project opens, but the editor's parameter "
+                 f"dialog refuses it with \"Type mismatch: This parameter does not take a '{given}'\". {fix}")
 
     # --- event sheets: conditions and actions -------------------------------------------------
     def ace_hint(self, kind: str, ace: dict) -> str:
