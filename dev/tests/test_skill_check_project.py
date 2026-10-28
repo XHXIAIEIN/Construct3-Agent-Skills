@@ -954,6 +954,29 @@ def test_an_expression_is_given_the_arguments_its_schema_lists(project, text, sa
         assert out.rstrip().splitlines()[-1].startswith("ok:"), out
 
 
+@pytest.mark.parametrize("text, said", [
+    # A Dictionary.Get(number) the checker let through, refused by the editor (2026-10-28);
+    # the official examples write DictRewards.Get(str(9)).
+    ('tokenat(5, 0, ",")', "tokenat takes text as its parameter text and is given the number 5; the editor "
+                           "stops with \"parameter 0 does not take 'number'\". Write str(5) there"),
+    ('tokenat("a,b", "1", ",")', "tokenat takes a number as its parameter index and is given a text literal; the editor "
+                                 "stops with \"parameter 1 does not take 'string'\". Write the number without quotes"),
+    ('tokenat(LEVEL, 0, ",")', "tokenat takes text as its parameter text and is given the number LEVEL"),
+    ('tokenat(Coin.AnimationName, 0, ",")', None),
+    # A conversion, an expression or a parameter of type any has no type known here.
+    ('tokenat(str(LEVEL), LEVEL + 1, ",") & tokenat(Coin.X & "", int("1"), ",")', None),
+])
+def test_an_expression_argument_has_the_type_its_parameter_takes(project, text, said):
+    def change(sheet):
+        sheet["events"][0:0] = [number_variable("LEVEL", False, 900000000000050)]
+        events(sheet)["setup"]["actions"][1]["parameters"].update(text=text)
+    out = findings(project, change)
+    if said:
+        assert said in out
+    else:
+        assert out.rstrip().splitlines()[-1].startswith("ok:"), out
+
+
 def test_functions_call_mapped_is_an_expression_not_a_function(project):
     ok = findings(project, lambda s: events(s)["setup"]["actions"][1]["parameters"].update(
         text='Functions.CallMapped("map", "key")'))

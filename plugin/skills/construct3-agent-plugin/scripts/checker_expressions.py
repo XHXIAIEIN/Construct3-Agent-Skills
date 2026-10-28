@@ -87,7 +87,7 @@ class ExpressionChecks:
                 if mapped and not defined:
                     # Functions.CallMapped is an expression of the Functions object, not a function of the project
                     self.check_arguments(where, f"{obj}.{member}", [(p.system, {"expressions": mapped})], member,
-                                         text, m.end(2))
+                                         text, m.end(2), scope)
                 elif not defined:
                     self.err(f"{where}: {obj}.{member} is not a defined function")
                 elif self.returns.get(LOWER(member)) == "none":
@@ -120,7 +120,7 @@ class ExpressionChecks:
                     self.err(f"{where}: {obj}.{member}.{sub or ''} is not an expression of behavior "
                              f"{behs[LOWER(member)]}")
                 else:
-                    self.check_arguments(where, f"{m.group(1)}.{member}.{sub}", [(bs, None)], sub, text, m.end(3))
+                    self.check_arguments(where, f"{m.group(1)}.{member}.{sub}", [(bs, None)], sub, text, m.end(3), scope)
                 continue
             plugin = p.schema("plugins", p.plugin_of[obj])
             if plugin is None:
@@ -142,7 +142,7 @@ class ExpressionChecks:
                 self.err(f"{where}: {obj}.{member} is neither an expression nor an instance variable of {obj}{hint}")
             elif LOWER(member) not in ivars and sub is None:
                 self.check_arguments(where, f"{m.group(1)}.{member}", [(plugin, None), (p.common, p.common_of(plugin))],
-                                     member, text, m.end(2))
+                                     member, text, m.end(2), scope)
         for m in IDENT.finditer(text):
             name = m.group(0)
             if NUMBER.fullmatch(name):
@@ -156,7 +156,7 @@ class ExpressionChecks:
                 self.deprecated_use(where, self.deprecated_expression(name, "System", retired))
                 continue
             if LOWER(name) in p.system_expressions:
-                self.check_arguments(where, name, [(p.system, None)], name, text, m.end())
+                self.check_arguments(where, name, [(p.system, None)], name, text, m.end(), scope)
                 continue
             if LOWER(name) in p.objects_lower and text[m.end():].lstrip().startswith("("):
                 continue
@@ -251,7 +251,7 @@ class ExpressionChecks:
                             f"such as amount and times in number fields")
 
     def check_arguments(self, where: str, written: str, sources: list[tuple[dict, dict | None]], name: str,
-                        text: str, end: int) -> None:
+                        text: str, end: int, scope: dict) -> None:
         """The arguments of an expression call against the parameters its schema lists.
         sources: (schema, the part of it that applies) in order; the first that has an
         expression of this name decides. The editor stops with "Incorrect parameters:
@@ -273,7 +273,52 @@ class ExpressionChecks:
                 self.err(f"{where}: {written} takes {'at least ' if more else ''}{len(params)} "
                          f"parameter{'' if len(params) == 1 else 's'} and is given {given}; the editor stops with "
                          f"\"Incorrect parameters: '{written}' does not accept {given} parameters\". Write {usage}")
+                return
+            if given:
+                self.check_argument_types(where, written, entry.get("params") or {}, text,
+                                          text.index("(", end) + 1, scope)
             return
+
+    def check_argument_types(self, where: str, written: str, params: dict, text: str, start: int,
+                             scope: dict) -> None:
+        """A number where the parameter takes text, or text where it takes a number: the editor
+        types each argument and stops with "parameter 0 does not take 'number'". Only a literal
+        or a variable has a type known here. The official examples convert first, even a
+        literal: DictRewards.Get(str(9)), DictProfile.Get(str(Self.slotID))."""
+        for i, (arg, (key, param)) in enumerate(zip(arguments_from(text, start), params.items())):
+            wanted = param.get("type")
+            if wanted not in ("string", "number"):
+                continue
+            given = self.argument_type(arg, scope)
+            if given is None or given == wanted:
+                continue
+            if wanted == "string":
+                takes, what, fix = "text", f"the number {arg}", f"Write str({arg}) there"
+            elif arg == '""':
+                takes, what, fix = "a number", "a text literal", "Write the number without quotes"
+            else:
+                takes, what, fix = "a number", f"the text {arg}", f"Write int({arg}) there"
+            self.err(f"{where}: {written} takes {takes} as its parameter {key} and is given {what}; the editor "
+                     f"stops with \"parameter {i} does not take '{given}'\". {fix}")
+
+    def argument_type(self, arg: str, scope: dict) -> str | None:
+        """string or number for a literal, a variable or an object's instance variable; None
+        for anything else. Text literals are blanked to "" in the text checked."""
+        if arg == '""':
+            return "string"
+        if NUMBER.fullmatch(arg.lstrip("-").strip()):
+            return "number"
+        m = re.fullmatch(r"(?:(\w+)\s*\.\s*)?(\w+)", arg)
+        if not m:
+            return None
+        if m.group(1) is None:
+            vtype = (self.variable_named(m.group(2), scope) or {}).get("type")
+        else:
+            obj = self.p.objects_lower.get(LOWER(m.group(1)))
+            if obj is None or obj == "System":
+                return None
+            vtype = {LOWER(k): v for k, v in self.p.ivar_types_of(obj).items()}.get(LOWER(m.group(2)))
+        return vtype if vtype in ("string", "number") else None
 
     @staticmethod
     def deprecated_expression(written: str, owner: str, retired: tuple[str, dict]) -> str:
