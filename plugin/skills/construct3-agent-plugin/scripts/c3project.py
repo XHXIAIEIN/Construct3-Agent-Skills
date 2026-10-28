@@ -1530,6 +1530,12 @@ class Project:
         self._schema_cache: dict[tuple[str, str], dict | None] = {}
         self._addon_names: dict[str, dict[str, str]] = {}
         self._expression_names: dict[tuple[str, str], dict[str, str]] = {}
+        # Indexes built once per schema, as a big sheet looks the same names up thousands of times
+        self._expressions_of: dict[tuple[str, str], frozenset[str]] = {}
+        self._common_expressions_of: dict[str, frozenset[str]] = {}
+        self._deprecated_expressions: dict[tuple[str, str, str], dict[str, tuple[str, dict]]] = {}
+        # id of a list -> (the list, kept so that its id is not reused, and its index)
+        self._entry_index: dict[tuple[str, int, int], tuple[list, dict | None, dict]] = {}
         self._common_of: dict[str, dict] = {}
         self._deprecated: dict[str, dict] = {}
         self._bundled: dict[tuple[str, str], tuple[int, str]] | None = None
@@ -1741,8 +1747,33 @@ class Project:
             self._expression_names[key] = names
         return self._expression_names[key]
 
-    def expressions_of(self, schema: dict | None) -> set[str]:
-        return {LOWER(name) for name in self.expression_names(schema).values()}
+    def expressions_of(self, schema: dict | None) -> frozenset[str]:
+        if not schema:
+            return frozenset()
+        key = (schema["type"], schema["id"])
+        if key not in self._expressions_of:
+            self._expressions_of[key] = frozenset(LOWER(name) for name in self.expression_names(schema).values())
+        return self._expressions_of[key]
+
+    def indexed(self, entries: list, by: str, key, schema: dict | None = None) -> dict:
+        """key(entry) -> the first entry of the list with that key, `by` naming the key. The
+        index is kept with the list, so a list built for one call (Functions' mapped
+        expressions) gets its own."""
+        if not entries:
+            return {}
+        held = self._entry_index.get((by, id(entries), id(schema)))
+        if held is None:
+            index: dict = {}
+            for e in entries:
+                index.setdefault(key(e), e)
+            held = self._entry_index[(by, id(entries), id(schema))] = (entries, schema, index)
+        return held[2]
+
+    def expression_entry(self, schema: dict | None, part: dict | None, name: str) -> dict | None:
+        """The first expression of `part` (else of the schema) written as name, without case."""
+        names = self.expression_names(schema)
+        entries = (part or schema or {}).get("expressions", [])
+        return self.indexed(entries, "name", lambda e: LOWER(names.get(e["id"], "")), schema).get(LOWER(name))
 
     def common_of(self, plugin: dict) -> dict:
         """The part of plugins/_common.json the editor gives this plugin: the ids
@@ -1759,12 +1790,15 @@ class Project:
                    for kind in ("conditions", "actions", "expressions")}}
         return self._common_of[plugin["id"]]
 
-    def common_expressions_of(self, plugin: dict | None) -> set[str]:
+    def common_expressions_of(self, plugin: dict | None) -> frozenset[str]:
         """The shared expressions a plugin has, as they are written, lower case."""
         if plugin is None:
             return self.common_expressions
-        ids = {it["id"] for it in self.common_of(plugin).get("expressions", [])}
-        return {LOWER(name) for ace, name in self.expression_names(self.common).items() if ace in ids}
+        if plugin["id"] not in self._common_expressions_of:
+            ids = {it["id"] for it in self.common_of(plugin).get("expressions", [])}
+            self._common_expressions_of[plugin["id"]] = frozenset(
+                LOWER(name) for ace, name in self.expression_names(self.common).items() if ace in ids)
+        return self._common_expressions_of[plugin["id"]]
 
     # --- what the editor has deprecated -----------------------------------------------
     def deprecated(self, locale: str | None = None) -> dict:
@@ -1798,9 +1832,13 @@ class Project:
     def deprecated_expressions(self, addon_kind: str, addon_id: str) -> dict[str, tuple[str, dict]]:
         """Written name, lower case -> (ACE id, entry) of the addon's deprecated
         expressions. The written name is the English one in every locale."""
-        english = self.deprecated_aces(addon_kind, addon_id, "expressions", "en-US")
-        entries = self.deprecated_aces(addon_kind, addon_id, "expressions")
-        return {LOWER(e.get("translated-name", ace)): (ace, entries.get(ace, e)) for ace, e in english.items()}
+        key = (addon_kind, addon_id, self.locale)
+        if key not in self._deprecated_expressions:
+            english = self.deprecated_aces(addon_kind, addon_id, "expressions", "en-US")
+            entries = self.deprecated_aces(addon_kind, addon_id, "expressions")
+            self._deprecated_expressions[key] = {LOWER(e.get("translated-name", ace)): (ace, entries.get(ace, e))
+                                                 for ace, e in english.items()}
+        return self._deprecated_expressions[key]
 
     def deprecated_entry(self, kind: str, ace: dict) -> tuple[str, dict] | None:
         """(addon id, entry) when a condition or action is one the editor has
@@ -1876,4 +1914,6 @@ class Project:
         return [own] if obj == "System" else [own, self.common_of(own)]
 
     def ace_entry(self, kind: str, ace: dict) -> dict | None:
-        return next((it for s in self.ace_sources(ace) for it in s.get(kind, []) if it["id"] == ace.get("id")), None)
+        return next((found for s in self.ace_sources(ace)
+                     if (found := self.indexed(s.get(kind, []), "id", lambda e: e["id"]).get(ace.get("id"))) is not None),
+                    None)
