@@ -723,7 +723,7 @@ def note_drift(rag: Path) -> None:
 
 
 VERSION_STAMPS = Path(tempfile.gettempdir()) / "construct3-rag-version"
-VERSION_EVERY = 6 * 3600    # seconds between two reads of one clone's upstream version or commit
+VERSION_EVERY = 2 * 3600    # seconds between two reads of one clone's upstream version or commit
 VERSION_WAIT = 8            # seconds a read may take before the check goes on without it
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
 GITHUB_REMOTE = re.compile(r"github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")

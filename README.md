@@ -84,7 +84,7 @@ You can keep pitfalls of your own beside the Cookbook's, without forking it. Put
 
 ## Update checks
 
-If the skill runs from a Git clone of GitHub, the checker reads the plugin version on the clone's upstream branch. It reads the version over HTTPS, at most once every six hours, and without the user's Git credentials. If that version is newer, the checker gives the agent the `git pull --ff-only` that updates the clone. If the clone holds work of its own, the checker tells the agent to ask the user instead. The checker does the same for the Construct3-Cookbook clone, which holds the pitfalls: it reads the newest commit of the clone's upstream branch from GitHub's API in the same way, and if the clone lacks it, gives the agent the `git pull --ff-only`. To turn the checks off, set `CONSTRUCT3_RAG_OFFLINE=1`.
+If the skill runs from a Git clone of GitHub, the checker reads the plugin version on the clone's upstream branch. It reads the version over HTTPS, at most once every two hours, and without the user's Git credentials. If that version is newer, the checker gives the agent the `git pull --ff-only` that updates the clone. If the clone holds work of its own, the checker tells the agent to ask the user instead. The checker does the same for the Construct3-Cookbook clone, which holds the pitfalls: it reads the newest commit of the clone's upstream branch from GitHub's API in the same way, and if the clone lacks it, gives the agent the `git pull --ff-only`. To turn the checks off, set `CONSTRUCT3_RAG_OFFLINE=1`.
 
 ## Reporting a problem
 
