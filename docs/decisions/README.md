@@ -5,6 +5,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 
 - [Art Drawn in Code and Rendered in the Browser: The Route to Try Next](art-drawn-in-code.md) — 2026-10-28
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
+- [A game project's scratch goes in `.tmp/` by use, its products in `.build/`](scratch-and-build-folders.md) — 2026-10-28
 - [A User's Own Pitfalls Sit Beside the Cookbook's](own-pitfalls-folder.md) — 2026-10-27
 - [A Problem Report the Agent Writes from Its Own Session](problem-report.md) — 2026-10-26
 - [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24
@@ -52,7 +53,6 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [Layout by Name: Components, Bands and Computed Checks](layout-by-name.md) — 2026-10-06
 - [The Plugin Folder Holds Its Sources; Only Its Data Is Built](plugin-folder.md) — 2026-10-05
 - [The Plugin's Version and Why a Project Needs No Copy](plugin-tracks-commits.md) — 2026-10-05
-- [The products of a game project go in `.build/`](build-folder.md) — 2026-10-04
 - [A Clone Behind Its Upstream Fails the Check](clone-update-check.md) — 2026-10-04
 - [A New Game Is a Checked Design, Played as a Prototype Before It Is Built](game-design-prototype.md) — 2026-10-04
 - [The Game's Look: What Design Skills Do, and What the Generator Takes](game-look-from-design-skills.md) — 2026-10-04

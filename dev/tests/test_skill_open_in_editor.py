@@ -52,7 +52,7 @@ def test_open_in_editor_hands_the_editor_the_project_the_current_directory_is_in
     assert code == 2 and "could not be driven" in out and "--steps" in out, out
 
     code, out = run(project, SCRIPT, "--steps")
-    c3p = project / ".tmp" / "open-in-editor.c3p"
+    c3p = project / ".tmp" / "scripts" / "open-in-editor" / f"{project.name}.c3p"
     assert code == 3 and str(c3p) in out and 'the input "Project to open"' in out, out
     assert (project / ".tmp" / ".gitignore").read_text(encoding="utf-8") == "*\n"
     assert "\nSETUP:\nasync () => {\n" in out and "\nRESULT:\nasync (install = false) => {\n" in out
@@ -70,6 +70,18 @@ def test_open_in_editor_hands_the_editor_the_project_the_current_directory_is_in
     assert "project.c3proj" in names and SHEET in names
     # only the files the editor reads: the skill's copy and the worktrees under .claude stay out
     assert not any(n.startswith((".git/", ".tmp/", ".claude/", ".agents/")) for n in names), names
+
+
+def test_a_c3p_in_the_build_folder_keeps_its_scratch_in_the_project(tmp_path):
+    """A pack in .build/ opened in the editor writes its result, screenshots and browser profile into the
+    project's .tmp/, by use, and nothing into .build/."""
+    root = tmp_path.resolve()
+    (root / ".build").mkdir()
+    scripts = root / ".tmp" / "scripts" / "open-in-editor"
+    assert oe.kept(None, None, root / ".build") == (scripts / "result.json", scripts / "shots")
+    assert oe.profile_folder(None, root / ".build", "C:/Edge/msedge.exe") == root / ".tmp" / "browsers" / "editor-msedge"
+    assert (root / ".tmp" / ".gitignore").read_text(encoding="utf-8") == "*\n"
+    assert not (root / ".build" / ".tmp").exists()
 
 
 def test_open_in_editor_refuses_the_profile_another_run_holds(project, tmp_path):
@@ -262,7 +274,8 @@ def test_open_in_editor_keeps_the_results_and_screenshots_in_the_project_by_defa
     """A run piped through tail or head loses the lines it cut, and a run without --shots shows
     nothing: sessions ran the same preview again only to see them (game projects' transcripts,
     2026-09-27 to 10-02). Both are kept whatever the flags."""
-    assert oe.kept(None, None, tmp_path) == (tmp_path / ".tmp" / "open-in-editor.json", tmp_path / ".tmp" / "shots")
+    kept = tmp_path.resolve() / ".tmp" / "scripts" / "open-in-editor"
+    assert oe.kept(None, None, tmp_path) == (kept / "result.json", kept / "shots")
     assert (tmp_path / ".tmp" / ".gitignore").read_text(encoding="utf-8") == "*\n"
     assert oe.kept(tmp_path / "a.json", tmp_path / "s", tmp_path) == (tmp_path / "a.json", tmp_path / "s")
 
@@ -578,7 +591,7 @@ def test_a_refusal_the_checker_passed_is_offered_as_a_report_without_the_project
     offer = oe.failure_report(result)
     assert offer[0].startswith("report: check_project.py passes this project and the editor refused it"), offer
     command = offer[-1]
-    body_file = project / ".tmp" / re.search(r"editor-report-\w{12}\.md", command).group(0)
+    body_file = project / ".tmp" / "scripts" / "open-in-editor" / "reports" / re.search(r"editor-report-\w{12}\.md", command).group(0)
     assert f'gh issue create --repo {oe.REPOSITORY} --title "Editor refused a project the checker passed' in command
     assert f'--body-file "{body_file}"' in command and "Send nothing unless the user says yes" in offer[0]
     body = body_file.read_text(encoding="utf-8")
@@ -602,7 +615,7 @@ def test_no_report_when_the_checker_finds_the_problem_or_the_editor_lacks_an_add
         {"eventType": "block", "conditions": [{"id": "no-such-condition", "objectClass": "System", "sid": 9}],
          "actions": [], "sid": 10}))
     assert oe.failure_report(refused(project, "missing condition id")) == []
-    assert not (project / ".tmp" / oe.OFFERED).exists()
+    assert not (project / ".tmp" / "scripts" / "open-in-editor" / "reports" / oe.OFFERED).exists()
 
 
 def test_a_crash_report_while_building_the_preview_is_a_refusal_too(project):

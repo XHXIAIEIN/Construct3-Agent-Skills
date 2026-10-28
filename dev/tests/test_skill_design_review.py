@@ -297,9 +297,9 @@ def test_check_without_packets_runs_full_checker_and_stops_on_failure(project):
     args = ("--rag", str(PLUGIN), "--check", "--limit", "0")
     code, said = run(project, SCRIPT, *args)
     assert code == 0 and "design:" in said, said
-    assert not (project / ".tmp/design-review/current.json").exists()
+    assert not (project / ".tmp/scripts/review-design/current.json").exists()
     edit(project, "project.c3proj", lambda s: s.update(viewportWidth=-1))
     code, said = run(project, SCRIPT, *args)
     assert code == 1 and "stopped before design questions" in said, said
-    log = read_json(project / ".tmp/design-review/check.json")
+    log = read_json(project / ".tmp/scripts/review-design/check.json")
     assert log["exit"] == 1 and log["stdout"]

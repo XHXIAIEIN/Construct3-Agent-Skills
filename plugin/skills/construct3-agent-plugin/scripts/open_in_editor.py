@@ -17,10 +17,10 @@ the exception the editor logged. The file is handed to the page in the
 browser, not uploaded to a server.
 
 It starts the Microsoft Edge, Google Chrome or Chromium the machine has, headless,
-with a profile of its own in .tmp/editor-<browser>, and drives it over the DevTools
+with a profile of its own in .tmp/browsers/, and drives it over the DevTools
 protocol with Python's standard library; the profile keeps the editor cached, so
 the first run takes 7 to 40 seconds and each later one 4 to 7. With no such
-browser, or with --steps, it writes .tmp/open-in-editor.c3p and prints the same
+browser, or with --steps, it writes the project as a .c3p and prints the same
 check as steps for a browser tool of the agent.
 
 --preview runs a preview, F5 in the editor, for some seconds and prints the layout
@@ -30,9 +30,9 @@ the named types' instances with their inspector values, named in --locale. On
 Windows the preview needs the profile within about 190 characters; a deeper
 project is refused with how to pass --profile.
 
-Every result goes to .tmp/open-in-editor.json and a screenshot of the editor per
-project to .tmp/shots/; the last line names both, so read a cut-off result there
-instead of running the project again.
+Every result goes to .tmp/scripts/open-in-editor/result.json, a screenshot of
+the editor per project to shots/ there; the last line names both, so read a
+cut-off result there instead of running the project again.
 
 --typescript has the editor write the project's TypeScript definitions into
 scripts/ts-defs/, and scripts/tsconfig.json when there is none, as Set up
@@ -46,8 +46,8 @@ editor refuses stops the run with its message.
 
 When the editor refuses the one folder project it opened and check_project.py
 finds no problem in it, the checker lacks a rule: the run ends with a report for
-the user to send to the skill's repository, .tmp/editor-report-<fingerprint>.md,
-and the gh command that files it; the script sends nothing
+the user to send to the skill's repository, in reports/ beside result.json, and
+the gh command that files it; the script sends nothing
 (docs/decisions/editor-refusal-report.md).
 
 Without a PATH it opens the project the current directory is in. A PATH is a
@@ -391,18 +391,25 @@ def pack(project: Path) -> bytes:
     return pp.zipped(pp.editor_files(pp.from_folder(project), ())[0])
 
 
-def scratch(folder: Path) -> Path:
-    """.tmp/ of a project folder, with a .gitignore of * so that nothing in it is committed."""
-    return pp.ignored_folder(folder / pp.SCRATCH)
+def scratch(folder: Path, script: str = "open-in-editor") -> Path:
+    """.tmp/scripts/<script>/ of the project that holds the folder, with a .gitignore of * in .tmp/
+    so that nothing in it is committed. A folder inside the project's .build/ or .tmp/ keeps its
+    scratch in the project's .tmp/, not in a .tmp/ of its own."""
+    return pp.script_folder(c3.project_folder(folder.resolve()), script)
 
 
-def kept(out: Path | None, shots: Path | None, first: Path,
-         result: str = "open-in-editor.json", folder: str = "shots") -> tuple[Path, Path]:
-    """Where the results and the screenshots go, .tmp/ of the first project unless named: a run
-    whose printed lines a pipe cut is read again from the file instead of run again."""
+def staged(project: Path, script: str = "open-in-editor") -> Path:
+    """Where the script puts the copy of a folder project that it hands the editor."""
+    return scratch(project, script) / f"{project.name}.c3p"
+
+
+def kept(out: Path | None, shots: Path | None, first: Path, script: str = "open-in-editor",
+         result: str = "result.json", folder: str = "shots") -> tuple[Path, Path]:
+    """Where the result and the screenshots go, .tmp/scripts/<script>/ of the first project unless
+    named: a run whose printed lines a pipe cut is read again from the file instead of run again."""
     if out and shots:
         return out, shots
-    tmp = scratch(first)
+    tmp = scratch(first, script)
     return out or tmp / result, shots or tmp / folder
 
 
@@ -410,7 +417,7 @@ def write_c3p(project: Path) -> Path:
     """The project as a file a browser tool can put on the page."""
     if project.is_file():
         return project
-    c3p = scratch(project) / "open-in-editor.c3p"
+    c3p = staged(project)
     c3p.write_bytes(pack(project))
     return c3p
 
@@ -1272,7 +1279,8 @@ def summary(results: list[dict], previewed: bool, out: Path, shots: Path) -> str
 # --- a refusal the checker passed: a report for the user to send --------------------------------
 # The skill's repository, where a rule the checker lacks is reported: SKILL.md's metadata source.
 REPOSITORY = "XHXIAIEIN/Construct3-Agent-Skills"      # where the skill lives, and where its issues go
-OFFERED = "editor-reports.json"     # in .tmp/: the fingerprint of each refusal already offered to the user
+# In reports/ of the scratch: the fingerprint of each refusal already offered to the user.
+OFFERED = "editor-reports.json"
 PLACE = re.compile(r", event (\d+)")
 
 
@@ -1403,7 +1411,7 @@ def release_name(release: int) -> str:
 
 def failure_report(result: dict) -> list[str]:
     """When the checker passes a project the editor refused, the lines that offer the user a report of it
-    without the project's names, written to .tmp/, once for each fingerprint; [] otherwise."""
+    without the project's names, written to reports/ of the scratch, once for each fingerprint; [] otherwise."""
     said = refusal(result)
     project = Path(result["project"])
     if not said or not project.is_dir():
@@ -1426,7 +1434,8 @@ def failure_report(result: dict) -> list[str]:
     exception = redact(result["exception"].splitlines()[0]) if result["exception"] else ""
     shown = [redact(text) for text in said]
     fingerprint = hashlib.sha1(re.sub(r"\d+", "N", "\n".join([*shown, exception])).encode("utf-8")).hexdigest()[:12]
-    folder = scratch(project)
+    folder = scratch(project) / "reports"
+    folder.mkdir(exist_ok=True)
     body_file = folder / f"editor-report-{fingerprint}.md"
     record = folder / OFFERED
     try:
@@ -1474,9 +1483,12 @@ def release_url(release: str | None) -> str:
 
 
 def profile_folder(profile: Path | None, project: Path, exe: str) -> Path:
-    """The browser profile, in --profile or else the project's .tmp/. One per browser: Chrome does not load
-    a profile Edge has written. A relative --profile stays relative; the caller resolves it."""
-    return (profile or scratch(project)) / f"editor-{Path(exe).stem.lower()}"
+    """The browser profile, in --profile or else the project's .tmp/browsers/. One per browser:
+    Chrome does not load a profile Edge has written. A relative --profile stays relative; the caller
+    resolves it."""
+    if profile:
+        return profile / f"editor-{Path(exe).stem.lower()}"
+    return pp.browser_profile(c3.project_folder(project.resolve()), "editor", exe)
 
 
 def drive(exe: str, profile: Path, headed: bool, work: Callable[[Browser], T],
@@ -1540,7 +1552,7 @@ def run(projects: list[Path], editor: str, exe: str, args, label: Callable[[str]
             return preview(b, (t, p), args.preview, args.state) if args.preview is not None else None
 
         try:
-            result = open_one(browser, editor, project, browser.profile / f"project-{i}.c3p", shot,
+            result = open_one(browser, editor, project, scratch(first) / f"project-{i}.c3p", shot,
                               bool(args.release), then if args.typescript or args.preview is not None else None,
                               args.install_bundled_addons)
             if wrote:
@@ -1601,12 +1613,12 @@ def main() -> int:
     ap.add_argument("--install-bundled-addons", action="store_true",
                     help="install a bundled addon when asked (runs its code), on the user's word")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
-                    help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/, for a "
+                    help="keep the browser profile in FOLDER/editor-<browser> instead of .tmp/browsers/, for a "
                          "project too deep for the preview's IndexedDB, which it then names")
     ap.add_argument("--out", type=Path, help="write every result, dialogs and exceptions included, as JSON "
-                                             "(default: .tmp/open-in-editor.json in the project)")
+                                             "(default: .tmp/scripts/open-in-editor/result.json)")
     ap.add_argument("--shots", type=Path, help="save a screenshot of the editor per project into this folder "
-                                               "(default: .tmp/shots in the project)")
+                                               "(default: shots/ beside the result)")
     ap.add_argument("--jobs", type=int, default=2, help="projects open at once (default 2)")
     ap.add_argument("--headed", action="store_true", help="show the browser window")
     ap.add_argument("--limit", type=int, default=c3.LIMIT, metavar="CHARS",

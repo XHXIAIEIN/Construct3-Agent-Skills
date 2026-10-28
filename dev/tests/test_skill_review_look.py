@@ -236,8 +236,8 @@ def test_review_look_checks_a_saved_reply_without_a_browser(project):
     (project / "reply.md").write_text("Map 1: no\n", encoding="utf-8")
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
     assert code == 2 and "run review_look.py first" in out, out
-    (project / ".tmp").mkdir(exist_ok=True)
-    (project / ".tmp" / "review-look.json").write_text(json.dumps(REVIEWED), encoding="utf-8")
+    (project / ".tmp" / "scripts" / "review-look").mkdir(parents=True, exist_ok=True)
+    (project / ".tmp" / "scripts" / "review-look" / "result.json").write_text(json.dumps(REVIEWED), encoding="utf-8")
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
     assert code == 1 and "  missing: Map 2-" in out and out.rstrip().splitlines()[-2].startswith("answers: 1 of "), out
 
@@ -246,16 +246,17 @@ def test_a_checked_reply_is_kept_on_the_run_it_answers(project):
     """--reply writes its verdict into the result of the run whose brief it answers, where verify_change.py passes
     its look step on it; while that step waits, the last line names verify_change.py, and a review run on its own
     ends with the review done."""
-    (project / ".tmp").mkdir(exist_ok=True)
-    (project / ".tmp" / "review-look.json").write_text(json.dumps({**REVIEWED, "run": "r1"}), encoding="utf-8")
+    (project / ".tmp" / "scripts" / "review-look").mkdir(parents=True, exist_ok=True)
+    (project / ".tmp" / "scripts" / "review-look" / "result.json").write_text(json.dumps({**REVIEWED, "run": "r1"}), encoding="utf-8")
     asked = len(rl.questions(True, []))
     (project / "reply.md").write_text("\n".join(f"{shot} {q}: no" for shot in ("Map", "Big map")
                                                 for q in range(1, asked + 1)), encoding="utf-8")
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
     assert code == 0 and out.rstrip().splitlines()[-1] == rl.DONE, out
-    result = json.loads((project / ".tmp" / "review-look.json").read_text(encoding="utf-8"))
+    result = json.loads((project / ".tmp" / "scripts" / "review-look" / "result.json").read_text(encoding="utf-8"))
     assert result["run"] == "r1" and result["reply"] == {"file": "reply.md", "complete": True, "yes": 0}, result
-    record = project / ".tmp" / "verify-change.json"
+    record = project / ".tmp" / "scripts" / "verify-change" / "result.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
     record.write_text(json.dumps({"steps": {"looked": {"state": "passed"}}}), encoding="utf-8")
     code, out = run(project, SKILL / "scripts" / "review_look.py", "--reply", "reply.md")
     assert code == 0 and out.rstrip().splitlines()[-1] == rl.DONE, out

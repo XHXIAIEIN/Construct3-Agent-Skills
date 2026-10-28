@@ -147,8 +147,8 @@ about the editor or the preview goes to `editor-and-preview.md`.
 
 `scripts/review_look.py` checks what every layout shows, once the preview
 passes. It goes to each layout with the runtime's `goToLayout`, takes a
-screenshot into `.tmp/look/`, and reads the layout's instances from the
-runtime. Its finding lines are measured, each naming the layout, the object
+screenshot into `.tmp/scripts/review-look/shots/`, and reads the layout's
+instances from the runtime. Its finding lines are measured, each naming the layout, the object
 type and the UID: a text its box cuts (`text`), instances of one type on one
 box (`stacked`), overlaps on the HUD and texts over texts (`overlap`), a HUD
 instance the screen's edge cuts (`edge`), a type whose kinds show one
@@ -168,15 +168,15 @@ no mistake. The agent that wrote the events reads its own screenshots by
 what it meant them to show, so the script also writes the screenshots and
 the questions into `brief.md` beside them, for a reviewer that has not seen
 the project. Where you can start a sub-agent, give it the brief as its
-whole task, save its reply to `.tmp/look/reply.md`, and run
-`scripts/review_look.py --reply .tmp/look/reply.md`. It names each answer
-the reply lacks and each yes that does not say where, so a reply that
+whole task, save its reply to `.tmp/scripts/review-look/reply.md`, and
+run `scripts/review_look.py --reply .tmp/scripts/review-look/reply.md`. It
+names each answer the reply lacks and each yes that does not say where, so a reply that
 skipped a question is not taken for a pass, and it prints every yes. For
 each yes, name the layout and the object type at the place it describes.
 Otherwise open each screenshot with the
 image tool, answer each question from the picture, and name the same for
-each yes. Save these answers to `.tmp/look/reply.md` in the form the brief
-gives and check them with `--reply` as well, because `verify_change.py`
+each yes. Save these answers to `.tmp/scripts/review-look/reply.md` in the
+form the brief gives and check them with `--reply` as well, because `verify_change.py`
 passes its look step only on a reply that `--reply` checked: one that
 answers every question, each yes saying where. A question answered from
 memory of the events, not from the picture, is not answered.

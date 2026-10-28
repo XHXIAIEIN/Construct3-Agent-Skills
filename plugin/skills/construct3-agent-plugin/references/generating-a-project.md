@@ -46,11 +46,16 @@ saves for **Menu** > **Project** > **New**, in place of step 1.
    is refreshed, unless they were edited there, and keeps every line above
    and below them. `check_project.py` says when they are older than the
    skill's and how to refresh them.
-3. Ignore what the editor and the scripts leave behind: `.tmp/` holds
-   screenshots, recordings and browser profiles, `.build/` the products,
-   the packed `.c3p` and the export, so none is written to the project
-   root. `art/raw/` holds the large pictures of an image tool; their
-   fitted copies in `art/` are committed:
+3. Ignore what the editor and the scripts leave behind, so none is written
+   to the project root. `.tmp/` holds the scratch by use:
+   `.tmp/scripts/<script>/` what one script writes, its `result.json`,
+   screenshots, recordings and the copy it hands the editor;
+   `.tmp/browsers/` the browser profiles; and `.tmp/drafts/` the plans and
+   notes you write yourself. `.build/` holds what is handed to people: the
+   packed `<folder>.c3p`, the export in `web/`, the sheet pictures in
+   `sheets/`, and in `media/` a recording or a picture you copy out of
+   `.tmp/` for the user. `art/raw/` holds the large pictures of an image
+   tool; their fitted copies in `art/` are committed:
 
    ```gitignore
    *.uistate.json

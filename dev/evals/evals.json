@@ -294,7 +294,7 @@
       "expected_output": "open_in_editor.py --preview --state Player --locale zh-CN prints the Platform behavior's inspector values under the zh-CN editor's names. The player is on the floor: 向量 Y is 0 and the player is at y 768. 最大移动速度 is 330, 跳跃高度 is 650 and 重力 is 1500. The answer gives them under those names. The project is left unchanged but for the .tmp folder the preview writes.",
       "files": [],
       "assertions": [
-        "The run previewed the project and read Player's state: .tmp/open-in-editor.json holds the Platform values of Player",
+        "The run previewed the project and read Player's state: .tmp/scripts/open-in-editor/result.json holds the Platform values of Player",
         "The answer says that the player stands on the floor",
         "The answer gives 330, 650 and 1500",
         "The answer names the three values as the zh-CN editor does: 最大移动速度, 跳跃高度, 重力",

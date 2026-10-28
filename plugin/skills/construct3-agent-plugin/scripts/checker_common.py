@@ -38,7 +38,7 @@ GENERAL_TYPES = {".css": ("text/css",), ".csv": ("text/csv",), ".glb": ("applica
                  ".ts": ("application/typescript",), ".txt": ("text/plain",), ".wasm": ("application/wasm",),
                  ".xml": ("text/xml",)}
 # The fix loop stops after CAP changes that left one finding standing. The findings of the last run
-# are c3.RECORD in the project's .tmp/ (docs/decisions/fix-loop-cap.md).
+# are c3.RECORD below the project (docs/decisions/fix-loop-cap.md).
 # CONSTRUCT3_RAG_NO_RECORD=1 keeps no record, for the evals that run the checker over many projects at once.
 CAP = 2
 PLACES = {"sheet": "eventSheets", "layout": "layouts", "object type": "objectTypes", "family": "families"}

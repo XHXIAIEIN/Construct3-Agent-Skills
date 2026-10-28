@@ -6,7 +6,7 @@
 The Free edition does not export a project over its limits, so the editor needs an
 account with a subscription. The editor keeps its login in the open page only: it is
 gone when the browser closes or the page reloads. The script therefore drives a
-headed browser on a profile of its own, .tmp/export-<browser> of the main clone,
+headed browser on a profile of its own, .tmp/browsers/export-<browser> of the main clone,
 and waits there for the user to log in when the editor shows Guest or Free edition;
 a GitHub or Google login stays in that profile, so logging in again is a click or
 two. It restores the window and keeps the page active while it drives it, so the
@@ -120,17 +120,17 @@ def pause(seconds: float) -> None:
 
 
 # --- the browser ----------------------------------------------------------------------
-def scratch(project: Path) -> Path:
-    """.tmp of the main clone, so that every worktree of a project uses the same window."""
+def main_clone(project: Path) -> Path:
+    """The main clone of the project, so that every worktree of it uses the same window."""
     common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=project,
                             capture_output=True, text=True).stdout.strip()
-    return oe.scratch(Path(common).parent if common else project)
+    return Path(common).parent if common else project
 
 
 def own_browser(project: Path, exe: str) -> oe.Browser:
-    """A headed browser on a profile of this script's own. One still running on it is the window
-    a run before left, logged in: it is taken over, not restarted."""
-    return oe.Browser(exe, scratch(project) / f"export-{Path(exe).stem.lower()}", headed=True)
+    """A headed browser on a profile of this script's own, in .tmp/browsers/ of the main clone. One still
+    running on it is the window a run before left, logged in: it is taken over, not restarted."""
+    return oe.Browser(exe, pp.browser_profile(main_clone(project), "export", exe), headed=True)
 
 
 def editor_url(project: Path) -> str:
@@ -725,7 +725,7 @@ def unpack(data: bytes, folder: Path, version: str) -> None:
 # --- the run --------------------------------------------------------------------------
 def run(project: Path, folder: Path, version: str, spec: str | None, exe: str | None) -> bool | None:
     """Exports; whether the export runs in a worker, as its main.js says."""
-    staged = scratch(project) / "export-project.c3p"
+    staged = pp.script_folder(project, "export-project") / f"{project.name}.c3p"
     clear_beside(folder)
     staged.write_bytes(pack(project, version, folder if folder.is_relative_to(project) else None))
     devtools, opened = None, False

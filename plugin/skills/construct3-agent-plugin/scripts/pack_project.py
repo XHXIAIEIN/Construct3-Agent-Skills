@@ -23,8 +23,8 @@ AGENTS.md, a tools/ generator, an export, is left out and named in the
 output; --keep NAME puts one back.
 
 A folder project is packed only after check_project.py passed its files as
-they are. The record of its last run, .tmp/check-project.json, must hold the
-digest that the files have at present and a problem count of 0. Otherwise
+they are. The record of its last run, .tmp/scripts/check-project/result.json,
+must hold the digest that the files have at present and a problem count of 0. Otherwise
 nothing is written, and the line says what to run. --unchecked packs the
 files anyway and says so. An archive is repacked or unpacked without a record.
 """
@@ -45,10 +45,9 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 
 import c3project as c3
 
-# Scratch inside the project, where check_project.py does not look and the editor does not write.
-SCRATCH = ".tmp"
-# Where a pack goes by default: the products of the skill's scripts, kept apart from the scratch of .tmp/.
-BUILD = ".build"
+# Scratch inside the project, where check_project.py does not look and the editor does not write, and
+# the products of the skill's scripts, a pack among them, kept apart from it (c3project.py).
+SCRATCH, BUILD = c3.SCRATCH, c3.BUILD
 # The top-level folders the editor saves a project in, as Scirra's guide "Construct's project format"
 # lists them, and the one file beside project.c3proj it writes into every project. addons/ is where a
 # project saved with Bundle addons keeps addons/<type>/<id>.c3addon (r504 save, 2026-10-03).
@@ -166,12 +165,27 @@ def ignored_folder(path: Path) -> Path:
     return path
 
 
+def script_folder(project: Path, script: str) -> Path:
+    """c3project.script_folder of the project, made when missing, with the .gitignore of its .tmp/."""
+    ignored_folder(project / SCRATCH)
+    folder = c3.script_folder(project, script)
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def browser_profile(project: Path, use: str, exe: str) -> Path:
+    """.tmp/browsers/<use>-<browser>/ of the project: the profile of one browser for one use, editor
+    or export, which keeps its sign-in and its window size between runs."""
+    ignored_folder(project / SCRATCH)
+    return c3.browsers_folder(project) / f"{use}-{Path(exe).stem.lower()}"
+
+
 def unchecked(project: Path) -> str | None:
     """Why check_project.py has not passed the project's files as they are, or None when the record of
     its last run holds the digest the files have at present and a problem count of 0. The checker owns
     the record, and c3project.py the digest."""
     try:
-        last = json.loads((project / SCRATCH / c3.RECORD).read_text(encoding="utf-8"))
+        last = json.loads((project / c3.RECORD).read_text(encoding="utf-8"))
         digest, problems = last["project"], last["problems"]
     except (OSError, ValueError, TypeError, KeyError):
         return "check_project.py has not run on this project"

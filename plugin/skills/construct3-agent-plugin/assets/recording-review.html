@@ -665,8 +665,8 @@ document.addEventListener("keydown", e => {
 });
 
 // Without a recording in it, the page opens one from a folder the user chooses: the game
-// project, its .tmp/preview, or one recording's folder, which holds timeline.json and the
-// frames. A folder with several recordings lists them. Edge and Chrome remember the folder
+// project, its .tmp/scripts/preview-project/shots, or one recording's folder, which holds
+// timeline.json and the frames. A folder with several recordings lists them. Edge and Chrome remember the folder
 // under the picker's id and start there the next time; the files stay in the browser.
 $("choose").onclick = async () => {
   $("pick-error").textContent = "";
@@ -704,7 +704,11 @@ async function recordingsIn(folder) {
   const found = await under(folder);
   if (found.length) return found;
   try {
-    return await under(await (await folder.getDirectoryHandle(".tmp")).getDirectoryHandle("preview"));
+    let shots = folder;
+    for (const name of [".tmp", "scripts", "preview-project", "shots"]) {
+      shots = await shots.getDirectoryHandle(name);
+    }
+    return await under(shots);
   } catch (e) {     // not a game project with recordings
     return [];
   }
@@ -726,8 +730,8 @@ $("pick").onchange = () => {
 async function offer(found) {
   $("recordings").innerHTML = "";
   if (!found.length) {
-    $("pick-error").textContent = "No recording there: choose the game project, its .tmp/preview, or one recording's "
-      + "folder, the one that holds timeline.json.";
+    $("pick-error").textContent = "No recording there: choose the game project, "
+      + "its .tmp/scripts/preview-project/shots, or one recording's folder, the one that holds timeline.json.";
     return;
   }
   if (found.length == 1) return openRecording(found[0]);

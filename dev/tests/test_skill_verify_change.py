@@ -130,11 +130,12 @@ ASKS = (0, "questions: answer every question yes or no for each screenshot\n  1.
 
 class Look(Editor):
     """An editor whose review_look.py asks its questions and writes a result named for the run, as the script
-    does in the project's .tmp/."""
+    does in the project's .tmp/scripts/."""
 
     def __init__(self, project: Path) -> None:
         super().__init__(**{"review_look.py": ASKS})
-        self.result = project / ".tmp" / "review-look.json"
+        self.result = project / ".tmp" / "scripts" / "review-look" / "result.json"
+        self.result.parent.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, name: str, *extra: str) -> tuple[int, str]:
         if name == "review_look.py":
@@ -165,7 +166,7 @@ def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatc
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 3, out
     assert "looked    passed: look: reply.md answers every question; name its 1 yes in the hand-over" in out
-    record = json.loads((project / ".tmp" / verify_change.RECORD).read_text(encoding="utf-8"))
+    record = json.loads((project / verify_change.RECORD).read_text(encoding="utf-8"))
     assert record["steps"]["looked"]["state"] == "passed"
 
 
@@ -173,7 +174,7 @@ def test_a_look_whose_preview_did_not_run_is_skipped(project: Path, monkeypatch:
     """review_look.py exits 3 when its preview did not run: the look step is skipped, never passed."""
     code, out = drive(project, monkeypatch, Editor(**{"review_look.py": (3, (
         "opened   coins  (coins, r506)\n  preview did not run: the preview stopped answering\nlook: no layout was "
-        "looked at, as the preview of coins did not run; full result in .tmp/review-look.json\nnext: the preview did "
+        "looked at, as the preview of coins did not run; full result in .tmp/scripts/review-look/result.json\nnext: the preview did "
         "not run, so no layout was looked at and nothing passed; run this again"))}))
     assert code == 3 and steps(out)["looked"] == "skipped", out
     assert out.splitlines()[-1].startswith("skipped: looked did not run"), out.splitlines()[-1]

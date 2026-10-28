@@ -63,11 +63,11 @@ Select changed sheets with `review_design.py --sheets NAME` when the task
 supplies them. Read every design question and its required evidence with
 `print_sheet.py`.
 
-Use optional `--prepare .tmp/design-review --resume` for shared dependency
-evidence or saved judgements. Prepare relations from current project files
-on each invocation. Preserve each complete question, its citations, input
-version and stable suggestion targets. Batch constraints are shared under
-`review`; compact whitespace changes presentation only.
+Use optional `--prepare .tmp/scripts/review-design --resume` for shared
+dependency evidence or saved judgements. Prepare relations from current
+project files on each invocation. Preserve each complete question, its
+citations, input version and stable suggestion targets. Batch constraints are
+shared under `review`; compact whitespace changes presentation only.
 
 Calls and shared state extend scope to definitions and other uses.
 Explicit includes follow their referenced sheets. Family and container

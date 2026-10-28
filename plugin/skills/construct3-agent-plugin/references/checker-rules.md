@@ -338,17 +338,17 @@ open.
 ## What a finding says
 
 A finding says what to write where it can: the nearest id, the behavior that
-owns an ACE written without `behaviorType`, the editor's id for a display
-name (`Array` is `Arr`), the project's object behind a plugin name in an
-expression (`JSON.Get` is `Levels.Get`), a combo value written with inner
-quotes, a text value written without them. A file that lacks a key the editor
-always writes stops the run with the key and the place, exit code 2. An
-exception that no project file causes also stops the run with exit code 2,
-and the line says that the error is the script's: leave the project as it is
-and give the line to the user. Each run keeps its findings in
-`.tmp/check-project.json`, with a digest of the files it checked and the
-number of problems; when two changes to a finding's place leave it
-standing, the last line starts with `stop:`
+owns an ACE written without `behaviorType`, the editor's id for a display name
+(`Array` is `Arr`), the project's object behind a plugin name in an expression
+(`JSON.Get` is `Levels.Get`), a combo value written with inner quotes, a text
+value written without them. A file that lacks a key the editor always writes
+stops the run with the key and the place, exit code 2. An exception that no
+project file causes also stops the run with exit code 2, and the line says
+that the error is the script's: leave the project as it is and give the line
+to the user. Each run keeps its findings in
+`.tmp/scripts/check-project/result.json`, with a digest of the files it
+checked and the number of problems; when two changes to a finding's place
+leave it standing, the last line starts with `stop:`
 (`Construct3-Agent-Skills/docs/decisions/fix-loop-cap.md`).
 
 `pack_project.py` reads the same record. It packs a folder project only

@@ -63,8 +63,9 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   `wait`. They are the way out for what the step kinds do not cover, such as
   calling a function of the project to set a scene up.
 - The output is one line per step, then the runtime errors logged during it.
-  The result file, `.tmp/preview-project.json` or the one `--out` names,
-  keeps every value read, and a failed step leaves a screenshot.
+  The result file, `.tmp/scripts/preview-project/result.json` or the one
+  `--out` names, keeps every value read, and a failed step leaves a
+  screenshot.
 - `record` keeps screenshots of the window, taken one after another on a
   connection of its own, and joins them into an .mp4 with ffmpeg or a .gif
   with Pillow where one is installed; the frames stay for the agent to read.
@@ -95,11 +96,12 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   the steps and watched values of that part, how to investigate and what to
   report. The timeline holds the project's and the frames' paths, so a page
   opened without its recording, from a folder the user chooses, writes the
-  same task. A page cannot start the browser's folder chooser at a path,
-  only at a folder the user chose before, so the script writes `index.html`
-  beside the recordings, the same page listing every one with a link to its
-  review page, and the page without a recording takes the game project or
-  its `.tmp/preview/` and lists the recordings it finds there.
+  same task. A page cannot start the browser's folder chooser at a path, only
+  at a folder the user chose before, so the script writes `index.html` beside
+  the recordings, the same page listing every one with a link to its review
+  page, and the page without a recording takes the game project or its
+  `.tmp/scripts/preview-project/shots/` and lists the recordings it finds
+  there.
 - A bug is played before it is fixed. The agent writes the report as given,
   doing, produces and instead of, and plays the plan on the unchanged
   project until it fails at the step that reads the produces, for the
@@ -111,15 +113,15 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   target in the same measure from `prompts/references/feel.md` or the user.
   The change ends when the measure meets the target; a motion judged only
   by eye is changed again on every review.
-- A plan that passed is kept as a check of its change. `--keep NAME` copies
-  it into the project as `tools/plans/NAME.json`, where the generator and the
+- A plan that passed is kept as a check of its change. `--keep NAME` copies it
+  into the project as `tools/plans/NAME.json`, where the generator and the
   design live and the editor reads nothing it is not told to, and the plan is
   committed with the change. `--all` replays every kept plan in one editor
   session, each from a first launch, and names each one that fails, since a
-  later change broke what it checks. Each run overwrites `.tmp/preview/` and
-  its result, so a plan that is not kept is played once. A passing run says
-  how to keep it and how many plans are kept, and a refused kept plan fails
-  the replay like a failed step.
+  later change broke what it checks. Each run overwrites
+  `.tmp/scripts/preview-project/shots/` and its result, so a plan that is not
+  kept is played once. A passing run says how to keep it and how many plans
+  are kept, and a refused kept plan fails the replay like a failed step.
 - The run's output tells the agent what the page does for the user, so the
   agent points the user to it: a part that looks wrong comes back as a task.
 - The review page follows the design language of the host UI kits (the

@@ -2170,7 +2170,7 @@ def test_two_changes_that_leave_a_finding_stop_the_fix_loop(project):
     assert ": sheet Game event " in last and "add-to-z" in last
     assert "git diff eventSheets/Game.json tools/build_project.py shows the changes" in last
     assert "the changes stay in the project" in last
-    record = json.loads((project / ".tmp" / "check-project.json").read_text(encoding="utf-8"))
+    record = json.loads((project / ".tmp" / "scripts" / "check-project" / "result.json").read_text(encoding="utf-8"))
     assert [e["changes"] for e in record["findings"]] == [2]
     assert (project / ".tmp" / ".gitignore").read_text(encoding="utf-8") == "*\n"
 
@@ -2184,7 +2184,7 @@ def test_a_rerun_with_nothing_changed_counts_no_change(project):
         assert note.startswith("nothing changed in project.c3proj or the editor's JSON files since the last run"), out
         assert note.endswith("tools/build_project.py writes the files: run python tools/build_project.py after a "
                              "change to it."), out
-    record = json.loads((project / ".tmp" / "check-project.json").read_text(encoding="utf-8"))
+    record = json.loads((project / ".tmp" / "scripts" / "check-project" / "result.json").read_text(encoding="utf-8"))
     assert [e["changes"] for e in record["findings"]] == [0]
 
 
@@ -2197,21 +2197,21 @@ def test_a_change_elsewhere_and_a_new_finding_count_apart(project):
     def collect_too(sheet):
         collect_tween(sheet)["id"] = "tween-x"
     findings(project, collect_too)
-    record = json.loads((project / ".tmp" / "check-project.json").read_text(encoding="utf-8"))
+    record = json.loads((project / ".tmp" / "scripts" / "check-project" / "result.json").read_text(encoding="utf-8"))
     assert sorted(e["changes"] for e in record["findings"]) == [0, 0], record
     findings(project, misspell("add-to-y"))
-    record = json.loads((project / ".tmp" / "check-project.json").read_text(encoding="utf-8"))
+    record = json.loads((project / ".tmp" / "scripts" / "check-project" / "result.json").read_text(encoding="utf-8"))
     assert sorted(e["changes"] for e in record["findings"]) == [0, 1], record
     (project / SHEET).write_text(original, encoding="utf-8")
     code, out = check(project)
     assert code == 0, out
-    assert json.loads((project / ".tmp" / "check-project.json").read_text(encoding="utf-8"))["findings"] == []
+    assert json.loads((project / ".tmp" / "scripts" / "check-project" / "result.json").read_text(encoding="utf-8"))["findings"] == []
 
 
 def test_a_passing_run_keeps_a_record_the_pack_reads(project):
     """A run with no problem writes the record: the digest of the files and a problem count of 0.
     pack_project.py reads it (dev/tests/test_skill_pack_project.py)."""
-    record = project / ".tmp" / "check-project.json"
+    record = project / ".tmp" / "scripts" / "check-project" / "result.json"
     record.unlink()
     code, out = check(project)
     assert code == 0, out
@@ -2224,7 +2224,7 @@ def test_a_passing_run_keeps_a_record_the_pack_reads(project):
 
 def test_review_and_the_evals_leave_the_record_as_it_was(project, monkeypatch):
     """A --review run, and a run under CONSTRUCT3_RAG_NO_RECORD, leave the fixture's record unchanged."""
-    record = project / ".tmp" / "check-project.json"
+    record = project / ".tmp" / "scripts" / "check-project" / "result.json"
     before = record.read_bytes()
     edit(project, SHEET, misspell("add-to-x"))
     check(project, "--review")
