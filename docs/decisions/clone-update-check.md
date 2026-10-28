@@ -1,6 +1,6 @@
 # A Clone Behind Its Upstream Fails the Check
 
-Date: 2026-10-04, revised 2026-10-16 and 2026-10-21
+Date: 2026-10-04, revised 2026-10-16, 2026-10-21 and 2026-10-28
 
 ## Problem
 
@@ -61,12 +61,16 @@ Construct3-Cookbook at <cookbook> lacks the newer guides of origin/main, so the 
   every commit that changes `plugin/`, the folder whose scripts, data and
   prompts the user's agent reads. A commit that changes only the sources'
   tests or records leaves it, and the clone is not called behind for it.
-- The check reads each upstream at most once an hour per clone, with an
+- The check reads each upstream at most once every six hours per clone, with an
   eight-second limit. The last read's version is a file in
   `construct3-rag-version/` of the system's temporary folder, one per clone, written
-  empty before the read, so that an offline machine waits once per hour
+  empty before the read, so that an offline machine waits once per period
   and not on every check. In between, the check compares with that
-  version, which costs a file read.
+  version, which costs a file read. The period is six hours, not one: a
+  read takes about a second where a check that reuses the last one adds
+  about 0.1 s for its local git commands, and an agent that checks after
+  every edit met that read each hour, while a newer version is still
+  noticed the same working day.
 - A line is an error only when its upstream was read in this run. From an
   earlier read it is a warning, so that a pull that failed offline, after
   a read that succeeded, does not fail every check of the hour; the next
@@ -105,7 +109,7 @@ user turns on the marketplace's auto-update. The user can also run
 
 ## Trade-offs
 
-- The checker is not fully offline: it makes one HTTPS request an hour per
+- The checker is not fully offline: it makes one HTTPS request every six hours per
   clone, and `CONSTRUCT3_RAG_OFFLINE=1` turns it off.
 - The checker reads but does not move the clone's branch: the clone
   belongs to the user, and the line hands the pull to the agent only for a
