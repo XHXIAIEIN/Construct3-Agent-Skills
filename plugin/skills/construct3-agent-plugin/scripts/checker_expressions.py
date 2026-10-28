@@ -258,9 +258,7 @@ class ExpressionChecks:
         'LocalStorage.ItemValue' does not accept 1 parameters"; LocalStorage.ItemValue
         reads the item the last Get item fetched and takes none."""
         for schema, part in sources:
-            names = self.p.expression_names(schema)
-            entry = next((e for e in (part or schema or {}).get("expressions", [])
-                          if LOWER(names.get(e["id"], "")) == LOWER(name)), None)
+            entry = self.p.expression_entry(schema, part, name)
             if entry is None:
                 continue
             params = list(entry.get("params") or {})
