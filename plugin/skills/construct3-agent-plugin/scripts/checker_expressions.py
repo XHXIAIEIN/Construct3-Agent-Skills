@@ -323,7 +323,8 @@ class ExpressionChecks:
         None where it is not known here: a type any, an unknown name, a mixed operation.
         Operators follow the manual: a comparison gives 1 or 0, | a number, & text when either
         side is text and a number when both are numbers, and arithmetic a number from numbers.
-        & beside a comparison without parentheses is None: the manual gives no order for them."""
+        The manual gives no order for & beside a comparison, so they bind as in JavaScript:
+        "Lv" & n = 1 is "Lv" & (n = 1), text."""
         tokens = TYPE_TOKEN.findall(text)
         if "".join(tokens) != re.sub(r"\s+", "", text):
             return None
@@ -342,7 +343,7 @@ class ExpressionChecks:
         def numbers(a, b):
             return "number" if a == b == "number" else None
 
-        # Each level returns (type, the operator of its top node).
+        # From the loosest level to the tightest, each returning the type of what it read.
         def ternary():
             test = either()
             if peek() != "?":
@@ -350,14 +351,13 @@ class ExpressionChecks:
             take()
             a = ternary()
             take(":")
-            b = ternary()
-            return (a[0] if a[0] == b[0] else None, "?")
+            return a if a == ternary() else None
 
         def either():
             left = join()
             while peek() == "|":
                 take()
-                left = (numbers(left[0], join()[0]), "|")
+                left = numbers(left, join())
             return left
 
         def join():
@@ -365,10 +365,7 @@ class ExpressionChecks:
             while peek() == "&":
                 take()
                 right = compare()
-                if "cmp" in (left[1], right[1]):
-                    left = (None, "&")
-                else:
-                    left = ("string" if "string" in (left[0], right[0]) else numbers(left[0], right[0]), "&")
+                left = "string" if "string" in (left, right) else numbers(left, right)
             return left
 
         def compare():
@@ -376,7 +373,7 @@ class ExpressionChecks:
             while peek() in ("=", "<>", "<", "<=", ">", ">="):
                 take()
                 add()
-                left = ("number", "cmp")
+                left = "number"
             return left
 
         def arithmetic(operand, ops):
@@ -384,14 +381,14 @@ class ExpressionChecks:
                 left = operand()
                 while peek() in ops:
                     take()
-                    left = (numbers(left[0], operand()[0]), "math")
+                    left = numbers(left, operand())
                 return left
             return level
 
         def unary():
             if peek() in ("-", "+"):
                 take()
-                return (numbers(unary()[0], "number"), "math")
+                return numbers(unary(), "number")
             return atom()
 
         power = arithmetic(unary, ("^",))
@@ -416,11 +413,11 @@ class ExpressionChecks:
             if t == "(":
                 inner = ternary()
                 take(")")
-                return (inner[0], None)
+                return inner
             if t == '""':
-                return ("string", None)
+                return "string"
             if NUMBER.fullmatch(t):
-                return ("number", None)
+                return "number"
             if not IDENT.fullmatch(t):
                 raise ValueError
             parts, called = [t], [call()]
@@ -428,10 +425,10 @@ class ExpressionChecks:
                 take()
                 parts.append(take())
                 called.append(call())
-            return (self.member_type(parts, called, scope, owner), None)
+            return self.member_type(parts, called, scope, owner)
 
         try:
-            kind = ternary()[0]
+            kind = ternary()
         except ValueError:
             return None
         return kind if pos == len(tokens) else None
