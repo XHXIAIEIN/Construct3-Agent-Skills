@@ -71,9 +71,17 @@ Construct3-Cookbook at <cookbook> lacks the newer guides of origin/main, so the 
   about 0.1 s for its local git commands, and an agent that checks after
   every edit met that read each hour, while a newer version is still
   noticed the same working day.
+- The file keeps the ETag of the read beside the value, and the next read
+  sends it as `If-None-Match`. An upstream that has not changed answers
+  304 with no body, and the check keeps the value it has. Users with a
+  slow or filtered link to GitHub, as in mainland China, then move only
+  headers, while the connection itself still costs its round trips. An
+  anonymous API read that gets 304 still counts against the 60 an hour
+  (measured 2026-10-28). Without a value, after a read that failed, the
+  read is a plain one, because "not changed" would say nothing.
 - A line is an error only when its upstream was read in this run. From an
   earlier read it is a warning, so that a pull that failed offline, after
-  a read that succeeded, does not fail every check of the hour; the next
+  a read that succeeded, does not fail every check of the period; the next
   read makes it an error again.
 - A clone that holds commits or uncommitted changes of its own gets a
   warning instead, which names them and asks the agent to tell the user. A

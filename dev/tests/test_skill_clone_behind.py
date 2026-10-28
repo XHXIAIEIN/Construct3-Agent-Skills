@@ -15,6 +15,16 @@ pytestmark = NEEDS_GIT
 
 MANIFEST = "plugin/.claude-plugin/plugin.json"
 READS: list[str] = []      # the upstream reads of the current test
+SENT: list[str] = []       # the ETag each of them sent, "" for a plain read
+
+
+def answer(value: str | None, etag: str) -> tuple[str | None, str] | None:
+    """What a read of the stand-in upstream gives: its ETag is the value's, and a read that sends
+    the ETag of the value now gets 304, no value."""
+    SENT.append(etag)
+    if not value:
+        return None
+    return (None if etag == f'"{value}"' else value), f'"{value}"'
 
 
 def set_version(clone: Path, version: str) -> None:
@@ -38,13 +48,14 @@ def clones(tmp_path, monkeypatch) -> tuple[Path, Path]:
     git(tmp_path, "clone", "-q", str(upstream), str(other))
     monkeypatch.setattr(c3, "manifest_url", lambda remote_url, branch, rel: f"{remote_url}|{branch}|{rel}")
 
-    def read_version(url):
+    def read_version(url, etag=""):
         READS.append(url)
         remote, branch, rel = url.split("|")
         p = subprocess.run(["git", "-C", remote, "show", f"{branch}:{rel}"], capture_output=True, text=True)
-        return c3.json.loads(p.stdout).get("version") if p.returncode == 0 else None
+        return answer(c3.json.loads(p.stdout).get("version") if p.returncode == 0 else None, etag)
     monkeypatch.setattr(c3, "read_version", read_version)
     READS.clear()
+    SENT.clear()
     return mine, other
 
 
@@ -123,11 +134,38 @@ def test_read_once_a_period_and_a_later_check_warns(clones, tmp_path):
     assert len(READS) == 2
 
 
+def test_a_later_read_asks_only_whether_the_upstream_changed(clones, tmp_path):
+    """The read after a period sends the ETag of the last one. A 304 keeps the last version, and
+    the line is an error again, since the upstream was asked in this run."""
+    mine, other = clones
+    release(other)
+    line, error = c3.clone_behind(mine / "plugin")
+    expire(tmp_path)
+    assert c3.clone_behind(mine / "plugin") == (line, True)
+    assert SENT == ["", '"1.0.1"']
+    release(other, "1.0.2")
+    expire(tmp_path)
+    assert "holds 1.0.2" in c3.clone_behind(mine / "plugin")[0]
+    assert SENT[-1] == '"1.0.1"'
+
+
+def test_a_stamp_without_an_etag_is_read_plainly(clones, tmp_path):
+    """A stamp written before the ETag was kept holds the value alone; its next read is a plain one."""
+    mine, other = clones
+    release(other)
+    (tmp_path / "stamps").mkdir()
+    (tmp_path / "stamps" / c3.path_key(mine)).write_text("1.0.1", encoding="utf-8")
+    assert c3.clone_behind(mine / "plugin")[1] is False
+    expire(tmp_path)
+    assert c3.clone_behind(mine / "plugin")[1] is True
+    assert SENT == [""]
+
+
 def test_a_failed_read_says_nothing_and_waits_a_period(clones, monkeypatch):
     mine, other = clones
     release(other)
     reads = []
-    monkeypatch.setattr(c3, "read_version", lambda url: reads.append(url))
+    monkeypatch.setattr(c3, "read_version", lambda url, etag="": reads.append(url))
     assert c3.clone_behind(mine / "plugin") is None
     assert c3.clone_behind(mine / "plugin") is None
     assert len(reads) == 1
@@ -183,13 +221,14 @@ def cookbooks(tmp_path, monkeypatch) -> tuple[Path, Path, Path]:
     git(tmp_path, "clone", "-q", str(upstream), str(other))
     monkeypatch.setattr(c3, "commit_url", lambda remote_url, branch: f"{upstream}|{branch}")  # any spelling of the remote
 
-    def read_commit(url):
+    def read_commit(url, etag=""):
         READS.append(url)
         remote, branch = url.split("|")
         p = subprocess.run(["git", "-C", remote, "rev-parse", branch], capture_output=True, text=True)
-        return p.stdout.strip() if p.returncode == 0 else None
+        return answer(p.stdout.strip() if p.returncode == 0 else None, etag)
     monkeypatch.setattr(c3, "read_commit", read_commit)
     READS.clear()
+    SENT.clear()
     return mine, other, upstream
 
 
@@ -263,7 +302,7 @@ def test_a_failed_cookbook_read_says_nothing_and_waits_a_period(cookbooks, monke
     mine, other, _ = cookbooks
     add_pitfall(other)
     reads = []
-    monkeypatch.setattr(c3, "read_commit", lambda url: reads.append(url))
+    monkeypatch.setattr(c3, "read_commit", lambda url, etag="": reads.append(url))
     assert c3.cookbook_behind(mine) is None
     assert c3.cookbook_behind(mine) is None
     assert len(reads) == 1
@@ -286,3 +325,65 @@ def test_no_cookbook_offline_or_untracked_says_nothing(cookbooks, monkeypatch):
 def test_the_commit_url_is_the_public_api():
     assert c3.commit_url("git@github.com:XHXIAIEIN/Construct3-Cookbook.git", "main") ==         "https://api.github.com/repos/XHXIAIEIN/Construct3-Cookbook/commits/main"
     assert c3.commit_url("https://gitlab.com/someone/repo.git", "main") is None
+
+
+@pytest.fixture
+def server():
+    """A local HTTP server that answers like GitHub: the body with its ETag, or 304 when the request
+    sends that ETag. Its body is set per test."""
+    import http.server
+    import threading
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        body = b""
+        accepts: list[str] = []
+
+        def do_GET(self):
+            etag = f'W/"{len(self.body)}-{hash(self.body) & 0xffff:x}"'
+            Handler.accepts.append(self.headers.get("Accept", ""))
+            if self.headers.get("If-None-Match") == etag:
+                self.send_response(304)
+                self.send_header("ETag", etag)
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("ETag", etag)
+            self.send_header("Content-Length", str(len(self.body)))
+            self.end_headers()
+            self.wfile.write(self.body)
+
+        def log_message(self, *args):
+            pass
+
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield Handler, f"http://127.0.0.1:{httpd.server_address[1]}/x"
+    httpd.shutdown()
+
+
+def test_the_version_read_is_conditional_over_http(server):
+    handler, url = server
+    handler.body = b'{\n\t"name": "construct3",\n\t"version": "1.0.1"\n}\n'
+    version, etag = c3.read_version(url)
+    assert version == "1.0.1" and etag
+    assert c3.read_version(url, etag) == (None, etag)
+    handler.body = b'{"version": "1.0.2"}'
+    assert c3.read_version(url, etag)[0] == "1.0.2"
+
+
+def test_the_commit_read_is_conditional_over_http(server):
+    handler, url = server
+    handler.body = b"a" * 40
+    sha, etag = c3.read_commit(url)
+    assert sha == "a" * 40 and handler.accepts[-1] == "application/vnd.github.sha"
+    assert c3.read_commit(url, etag) == (None, etag)
+    handler.body = b"not a commit"
+    assert c3.read_commit(url) is None
+
+
+def test_a_refused_read_fails():
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    assert c3.read_upstream(f"http://127.0.0.1:{port}/x") is None
