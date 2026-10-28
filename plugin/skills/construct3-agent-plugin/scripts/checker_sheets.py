@@ -105,6 +105,8 @@ class SheetChecks:
             for i, param in enumerate(params, 1):
                 if kinds[i - 1:i] != ["boolean"]:
                     self.check_expr(w, param, scope)
+                    if kinds[i - 1:i] in (["number"], ["string"]) and isinstance(param, str):
+                        self.check_param_type(w, f"parameter {i} of {callee[0]}", param, kinds[i - 1], scope, None)
                 elif not isinstance(param, bool) and not self.off:
                     self.err(f"{w}: parameter {i} of {callee[0]} is a boolean and gets {json.dumps(param)}, "
                              f"which reads as true, \"0\" and \"false\" too; write the JSON true or false")

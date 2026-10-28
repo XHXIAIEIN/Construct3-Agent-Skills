@@ -9,8 +9,8 @@ from pathlib import Path
 import c3project as c3
 from c3project import LOWER, STRING_LITERAL, closest, describe, folder_items, squash
 from checker_common import (
-    VARIABLE_TYPES, IDENT, NUMBER, EMPTY_CALL, MEMBER, C_OPERATORS, C_OPERATOR, SHADOW_SUFFIX, is_literal,
-    unquote, SPRITE_FONT_TEXT, EFFECT_ACTIONS, call_arguments, FIND_CALL, argument_at, arguments_from,
+    VARIABLE_TYPES, IDENT, NUMBER, TYPE_TOKEN, EMPTY_CALL, MEMBER, C_OPERATORS, C_OPERATOR, SHADOW_SUFFIX, is_literal,
+    unquote, SPRITE_FONT_TEXT, EFFECT_ACTIONS, call_arguments, arguments_end, FIND_CALL, argument_at, arguments_from,
     outside_literals, top_level_operator, CHOOSEINDEX_CALL, MID_OF_LITERAL, member_types, joined_literals,
     bare, first_few, effect_names, Holder,
 )
@@ -87,7 +87,7 @@ class ExpressionChecks:
                 if mapped and not defined:
                     # Functions.CallMapped is an expression of the Functions object, not a function of the project
                     self.check_arguments(where, f"{obj}.{member}", [(p.system, {"expressions": mapped})], member,
-                                         text, m.end(2), scope)
+                                         text, m.end(2), scope, owner)
                 elif not defined:
                     self.err(f"{where}: {obj}.{member} is not a defined function")
                 elif self.returns.get(LOWER(member)) == "none":
@@ -99,6 +99,8 @@ class ExpressionChecks:
                     self.err(f"{where}: {obj}.{member}() has an empty pair of parentheses; the editor stops with "
                              f"\"Syntax error: ')' can't go here\". A function without parameters is called "
                              f"without them: {obj}.{member}")
+                else:
+                    self.check_function_arguments(where, f"{obj}.{member}", member, text, m.end(2), scope, owner)
                 continue
             obj = p.objects_lower.get(LOWER(obj))
             if obj is None or obj == "System":
@@ -120,7 +122,8 @@ class ExpressionChecks:
                     self.err(f"{where}: {obj}.{member}.{sub or ''} is not an expression of behavior "
                              f"{behs[LOWER(member)]}")
                 else:
-                    self.check_arguments(where, f"{m.group(1)}.{member}.{sub}", [(bs, None)], sub, text, m.end(3), scope)
+                    self.check_arguments(where, f"{m.group(1)}.{member}.{sub}", [(bs, None)], sub, text, m.end(3),
+                                         scope, owner)
                 continue
             plugin = p.schema("plugins", p.plugin_of[obj])
             if plugin is None:
@@ -142,7 +145,7 @@ class ExpressionChecks:
                 self.err(f"{where}: {obj}.{member} is neither an expression nor an instance variable of {obj}{hint}")
             elif LOWER(member) not in ivars and sub is None:
                 self.check_arguments(where, f"{m.group(1)}.{member}", [(plugin, None), (p.common, p.common_of(plugin))],
-                                     member, text, m.end(2), scope)
+                                     member, text, m.end(2), scope, owner)
         for m in IDENT.finditer(text):
             name = m.group(0)
             if NUMBER.fullmatch(name):
@@ -156,7 +159,7 @@ class ExpressionChecks:
                 self.deprecated_use(where, self.deprecated_expression(name, "System", retired))
                 continue
             if LOWER(name) in p.system_expressions:
-                self.check_arguments(where, name, [(p.system, None)], name, text, m.end(), scope)
+                self.check_arguments(where, name, [(p.system, None)], name, text, m.end(), scope, owner)
                 continue
             if LOWER(name) in p.objects_lower and text[m.end():].lstrip().startswith("("):
                 continue
@@ -251,7 +254,7 @@ class ExpressionChecks:
                             f"such as amount and times in number fields")
 
     def check_arguments(self, where: str, written: str, sources: list[tuple[dict, dict | None]], name: str,
-                        text: str, end: int, scope: dict) -> None:
+                        text: str, end: int, scope: dict, owner: str | None = None) -> None:
         """The arguments of an expression call against the parameters its schema lists.
         sources: (schema, the part of it that applies) in order; the first that has an
         expression of this name decides. The editor stops with "Incorrect parameters:
@@ -276,49 +279,201 @@ class ExpressionChecks:
                 return
             if given:
                 self.check_argument_types(where, written, entry.get("params") or {}, text,
-                                          text.index("(", end) + 1, scope)
+                                          text.index("(", end) + 1, scope, owner)
             return
 
     def check_argument_types(self, where: str, written: str, params: dict, text: str, start: int,
-                             scope: dict) -> None:
+                             scope: dict, owner: str | None) -> None:
         """A number where the parameter takes text, or text where it takes a number: the editor
-        types each argument and stops with "parameter 0 does not take 'number'". Only a literal
-        or a variable has a type known here. The official examples convert first, even a
-        literal: DictRewards.Get(str(9)), DictProfile.Get(str(Self.slotID))."""
+        types each argument and stops with "parameter 0 does not take 'number'". The official
+        examples convert first, even a literal: DictRewards.Get(str(9)),
+        DictProfile.Get(str(Self.slotID))."""
         for i, (arg, (key, param)) in enumerate(zip(arguments_from(text, start), params.items())):
             wanted = param.get("type")
-            if wanted not in ("string", "number"):
-                continue
-            given = self.argument_type(arg, scope)
+            given = self.expression_type(arg, scope, owner) if wanted in ("string", "number") else None
             if given is None or given == wanted:
                 continue
-            if wanted == "string":
-                takes, what, fix = "text", f"the number {arg}", f"Write str({arg}) there"
-            elif arg == '""':
-                takes, what, fix = "a number", "a text literal", "Write the number without quotes"
-            else:
-                takes, what, fix = "a number", f"the text {arg}", f"Write int({arg}) there"
+            takes, what, fix = self.type_mismatch(arg, wanted)
             self.err(f"{where}: {written} takes {takes} as its parameter {key} and is given {what}; the editor "
                      f"stops with \"parameter {i} does not take '{given}'\". {fix}")
 
-    def argument_type(self, arg: str, scope: dict) -> str | None:
-        """string or number for a literal, a variable or an object's instance variable; None
-        for anything else. Text literals are blanked to "" in the text checked."""
+    def check_function_arguments(self, where: str, written: str, name: str, text: str, end: int,
+                                 scope: dict, owner: str | None) -> None:
+        """The arguments of a call to a function of the project against the types its
+        parameters declare, as check_argument_types does for an expression's."""
+        block = next((b for n, b in self.function_blocks.items() if LOWER(n) == LOWER(name)), None)
+        if block is None or not call_arguments(text, end):
+            return
+        params = {q.get("name"): q for q in block.get("functionParameters") or []}
+        self.check_argument_types(where, written, params, text, text.index("(", end) + 1, scope, owner)
+
+    @staticmethod
+    def type_mismatch(arg: str, wanted: str) -> tuple[str, str, str]:
+        """What a parameter takes, what it is given and the conversion that fixes it. arg has
+        its text literals blanked to "", so one that holds a literal is not quoted back."""
+        shown = arg if '"' not in arg else None
+        if wanted == "string":
+            return ("text", f"the number {shown}" if shown else "a number",
+                    f"Write str({shown}) there" if shown else "Convert it with str()")
         if arg == '""':
-            return "string"
-        if NUMBER.fullmatch(arg.lstrip("-").strip()):
-            return "number"
-        m = re.fullmatch(r"(?:(\w+)\s*\.\s*)?(\w+)", arg)
-        if not m:
+            return "a number", "a text literal", "Write the number without quotes"
+        return ("a number", f"the text {shown}" if shown else "text",
+                f"Write int({shown}) there" if shown else "Convert it with int()")
+
+    def expression_type(self, text: str, scope: dict, owner: str | None = None) -> str | None:
+        """string or number, the type of an expression whose text literals are blanked to "";
+        None where it is not known here: a type any, an unknown name, a mixed operation.
+        Operators follow the manual: a comparison gives 1 or 0, | a number, & text when either
+        side is text and a number when both are numbers, and arithmetic a number from numbers.
+        & beside a comparison without parentheses is None: the manual gives no order for them."""
+        tokens = TYPE_TOKEN.findall(text)
+        if "".join(tokens) != re.sub(r"\s+", "", text):
             return None
-        if m.group(1) is None:
-            vtype = (self.variable_named(m.group(2), scope) or {}).get("type")
+        pos = 0
+
+        def peek():
+            return tokens[pos] if pos < len(tokens) else None
+
+        def take(expected: str | None = None) -> str:
+            nonlocal pos
+            if pos >= len(tokens) or expected and tokens[pos] != expected:
+                raise ValueError
+            pos += 1
+            return tokens[pos - 1]
+
+        def numbers(a, b):
+            return "number" if a == b == "number" else None
+
+        # Each level returns (type, the operator of its top node).
+        def ternary():
+            test = either()
+            if peek() != "?":
+                return test
+            take()
+            a = ternary()
+            take(":")
+            b = ternary()
+            return (a[0] if a[0] == b[0] else None, "?")
+
+        def either():
+            left = join()
+            while peek() == "|":
+                take()
+                left = (numbers(left[0], join()[0]), "|")
+            return left
+
+        def join():
+            left = compare()
+            while peek() == "&":
+                take()
+                right = compare()
+                if "cmp" in (left[1], right[1]):
+                    left = (None, "&")
+                else:
+                    left = ("string" if "string" in (left[0], right[0]) else numbers(left[0], right[0]), "&")
+            return left
+
+        def compare():
+            left = add()
+            while peek() in ("=", "<>", "<", "<=", ">", ">="):
+                take()
+                add()
+                left = ("number", "cmp")
+            return left
+
+        def arithmetic(operand, ops):
+            def level():
+                left = operand()
+                while peek() in ops:
+                    take()
+                    left = (numbers(left[0], operand()[0]), "math")
+                return left
+            return level
+
+        def unary():
+            if peek() in ("-", "+"):
+                take()
+                return (numbers(unary()[0], "number"), "math")
+            return atom()
+
+        power = arithmetic(unary, ("^",))
+        multiply = arithmetic(power, ("*", "/", "%"))
+        add = arithmetic(multiply, ("+", "-"))
+
+        def call() -> bool:
+            if peek() != "(":
+                return False
+            take()
+            while peek() != ")":
+                ternary()
+                if peek() == ",":
+                    take()
+                elif peek() != ")":
+                    raise ValueError
+            take(")")
+            return True
+
+        def atom():
+            t = take()
+            if t == "(":
+                inner = ternary()
+                take(")")
+                return (inner[0], None)
+            if t == '""':
+                return ("string", None)
+            if NUMBER.fullmatch(t):
+                return ("number", None)
+            if not IDENT.fullmatch(t):
+                raise ValueError
+            parts, called = [t], [call()]
+            while peek() == ".":
+                take()
+                parts.append(take())
+                called.append(call())
+            return (self.member_type(parts, called, scope, owner), None)
+
+        try:
+            kind = ternary()[0]
+        except ValueError:
+            return None
+        return kind if pos == len(tokens) else None
+
+    def member_type(self, parts: list[str], called: list[bool], scope: dict, owner: str | None) -> str | None:
+        """The type of a name, a call or a member chain: a variable, a system expression, a
+        function of the project, an instance variable or expression of an object, or an
+        expression of one of its behaviors. Self is the object of the condition or action."""
+        p = self.p
+        names = [LOWER(n) for n in parts]
+        if len(parts) == 1:
+            variable = None if called[0] else self.variable_named(parts[0], scope)
+            kind = variable.get("type") if variable else self.return_type([(p.system, None)], names[0])
+        elif names[0] == LOWER(p.functions_object):
+            defined = names[1] in {LOWER(f) for f in self.functions}
+            kind = self.returns.get(names[1]) if len(parts) == 2 and defined else None
         else:
-            obj = self.p.objects_lower.get(LOWER(m.group(1)))
-            if obj is None or obj == "System":
+            obj = owner if names[0] == "self" else p.objects_lower.get(names[0])
+            if obj is None or obj == "System" or obj not in p.plugin_of or len(parts) > 3:
                 return None
-            vtype = {LOWER(k): v for k, v in self.p.ivar_types_of(obj).items()}.get(LOWER(m.group(2)))
-        return vtype if vtype in ("string", "number") else None
+            if len(parts) == 2:
+                ivars = {LOWER(k): v for k, v in p.ivar_types_of(obj).items()}
+                plugin = p.schema("plugins", p.plugin_of[obj])
+                kind = ivars.get(names[1]) if names[1] in ivars and not called[1] else self.return_type(
+                    [(plugin, None), (p.common, p.common_of(plugin) if plugin else None)], names[1])
+            else:
+                behaviors = {LOWER(k): v for k, v in p.behaviors_of(obj).items()}
+                kind = self.return_type([(p.schema("behaviors", behaviors[names[1]]), None)], names[2]) \
+                    if names[1] in behaviors else None
+        return kind if kind in ("string", "number") else None
+
+    def return_type(self, sources: list[tuple[dict | None, dict | None]], name: str) -> str | None:
+        """The returnType of the expression of this name in the first source that has one."""
+        for schema, part in sources:
+            names = self.p.expression_names(schema)
+            entry = next((e for e in (part or schema or {}).get("expressions", [])
+                          if LOWER(names.get(e["id"], "")) == name), None)
+            if entry is not None:
+                return entry.get("returnType")
+        return None
 
     @staticmethod
     def deprecated_expression(written: str, owner: str, retired: tuple[str, dict]) -> str:
@@ -478,6 +633,22 @@ class ExpressionChecks:
                 self.err(f"{where}: {key} should be an expression string, not {value!r}")
             else:
                 self.check_expr(f"{where} {key}", value, scope, obj, stand_in)
+                if ptype in ("string", "number"):
+                    self.check_param_type(where, key, value, ptype, scope, obj)
+
+    def check_param_type(self, where: str, key: str, value: str, ptype: str, scope: dict,
+                         owner: str | None) -> None:
+        """A text where the parameter takes a number, or a number where it takes text: the
+        editor's dialog says "Type mismatch: This parameter does not take a 'string'" for
+        "1" in Is number NaN (2026-10-28). None of the 23698 string and number parameters
+        of the official examples is written so."""
+        arg = STRING_LITERAL.sub('""', value).strip()
+        given = self.expression_type(arg, scope, owner)
+        if given is None or given == ptype:
+            return
+        takes, what, fix = self.type_mismatch(arg, ptype)
+        self.err(f"{where}: {key} takes {takes} and is given {what}; the editor stops with \"Type mismatch: This "
+                 f"parameter does not take a '{given}'\". {fix}")
 
     # --- event sheets: conditions and actions -------------------------------------------------
     def ace_hint(self, kind: str, ace: dict) -> str:

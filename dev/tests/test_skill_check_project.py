@@ -977,6 +977,107 @@ def test_an_expression_argument_has_the_type_its_parameter_takes(project, text, 
         assert out.rstrip().splitlines()[-1].startswith("ok:"), out
 
 
+@pytest.mark.parametrize("returns, text, said", [
+    ("number", 'tokenat(Functions.Level(1), 0, ",")', "is given the number Functions.Level(1)"),
+    ("string", 'tokenat("a", Functions.Level, ",")', "is given the text Functions.Level"),
+    ("number", 'tokenat(Coin.X, 0, ",") & tokenat(int("1"), 0, ",")', "is given the number Coin.X"),
+    ("number", 'tokenat("a", int(Coin.AnimationName), ",")', None),
+    ("any", 'tokenat(Functions.Level(1), Functions.Level(1), ",") & tokenat(Coin.X & "", 0, ",")', None),
+])
+def test_a_call_in_an_argument_has_its_return_type(project, returns, text, said):
+    """A call's type is the function's return type or the expression's returnType."""
+    def change(sheet):
+        sheet["events"].append({**function_block("Level", [number_param("n", 900000000000061)], [],
+                                                 900000000000060), "functionReturnType": returns})
+        events(sheet)["setup"]["actions"][1]["parameters"].update(text=text)
+    out = findings(project, change)
+    if said:
+        assert said in out
+    else:
+        assert out.rstrip().splitlines()[-1].startswith("ok:"), out
+
+
+@pytest.mark.parametrize("ace, said", [
+    # The editor's dialog for each (2026-10-28): "Type mismatch: This parameter does not take a 'string'".
+    ({"id": "object-uid-exists", "parameters": {"uid": '"1"'}},
+     "uid takes a number and is given a text literal; the editor stops with \"Type mismatch: This parameter "
+     "does not take a 'string'\". Write the number without quotes"),
+    ({"id": "is-between-values", "parameters": {"value": '"123"', "lower-bound": "0", "upper-bound": "9"}},
+     "value takes a number and is given a text literal"),
+    ({"id": "is-between-values", "parameters": {"value": "Coin.AnimationName", "lower-bound": "0",
+                                                "upper-bound": "9"}},
+     "value takes a number and is given the text Coin.AnimationName"),
+    ({"id": "compare-two-values", "parameters": {"first-value": '"1"', "comparison": 0, "second-value": "1"}}, None),
+    ({"id": "object-uid-exists", "parameters": {"uid": 'int("1")'}}, None),
+])
+def test_a_condition_parameter_has_the_type_it_takes(project, ace, said):
+    def change(sheet):
+        events(sheet)["setup"]["conditions"].append({"objectClass": "System", "sid": 900000000000070, **ace})
+    out = findings(project, change)
+    if said:
+        assert said in out
+    else:
+        assert out.rstrip().splitlines()[-1].startswith("ok:"), out
+
+
+@pytest.mark.parametrize("text, said", [
+    ('tokenat(LEVEL + 1, 0, ",")', "is given the number LEVEL + 1; the editor stops with \"parameter 0 does "
+                                   "not take 'number'\". Write str(LEVEL + 1) there"),
+    ('tokenat((LEVEL > 1) * 2, 0, ",")', "is given the number (LEVEL > 1) * 2"),
+    ('tokenat(LEVEL > 1 ? 1 : 2, 0, ",")', "is given the number LEVEL > 1 ? 1 : 2"),
+    ('tokenat("a", "1" & LEVEL, ",")', "takes a number as its parameter index and is given text; the editor "
+                                       "stops with \"parameter 1 does not take 'string'\". Convert it with int()"),
+    ('tokenat(Coin.Tween.Progress("t"), 0, ",")', "tokenat takes text as its parameter text and is given a number; the editor stops with "
+                                                   "\"parameter 0 does not take 'number'\". Convert it with str()"),
+    # & is text beside text, and unknown beside a comparison; a branch of each type is unknown.
+    ('tokenat("Lv" & LEVEL, -LEVEL, ",") & tokenat(LEVEL & "", (LEVEL), ",")', None),
+    ('tokenat("a" & LEVEL = 1, 0, ",") & tokenat(LEVEL ? 1 : "a", 0, ",")', None),
+])
+def test_an_operation_in_an_argument_has_the_type_the_manual_gives(project, text, said):
+    """The manual's operator table: a comparison gives 1 or 0, & joins text when either side
+    is text, arithmetic gives a number."""
+    def change(sheet):
+        sheet["events"][0:0] = [number_variable("LEVEL", False, 900000000000050)]
+        events(sheet)["setup"]["actions"][1]["parameters"].update(text=text)
+    out = findings(project, change)
+    if said:
+        assert said in out
+    else:
+        assert out.rstrip().splitlines()[-1].startswith("ok:"), out
+
+
+@pytest.mark.parametrize("call, said", [
+    ({"text": 'Functions.Level("a")'}, "Functions.Level takes a number as its parameter n and is given a text literal"),
+    ({"text": "Functions.Level(2)"}, None),
+    ({"action": {"callFunction": "Level", "sid": 900000000000072, "parameters": ['"a"']}},
+     "parameter 1 of Level takes a number and is given a text literal; the editor stops with \"Type mismatch"),
+])
+def test_a_call_passes_the_types_the_function_declares(project, call, said):
+    def change(sheet):
+        sheet["events"].append({**function_block("Level", [number_param("n", 900000000000071)], [],
+                                                 900000000000070), "functionReturnType": "number"})
+        setup = events(sheet)["setup"]
+        if "action" in call:
+            setup["actions"].append(call["action"])
+        else:
+            setup["actions"][1]["parameters"].update(text=f'str({call["text"]})')
+    out = findings(project, change)
+    if said:
+        assert said in out
+    else:
+        assert out.rstrip().splitlines()[-1].startswith("ok:"), out
+
+
+def test_a_renamed_functions_object_types_its_calls(project):
+    """Construct lets the project rename Functions; functionsName holds the name."""
+    edit(project, "project.c3proj", lambda p: p.update(functionsName="F"))
+    def change(sheet):
+        sheet["events"].append({**function_block("Level", [], [], 900000000000062), "functionReturnType": "number"})
+        events(sheet)["setup"]["actions"][1]["parameters"].update(text='tokenat(F.Level, 0, ",")')
+    out = findings(project, change)
+    assert "tokenat takes text as its parameter text and is given the number F.Level" in out
+
+
 def test_functions_call_mapped_is_an_expression_not_a_function(project):
     ok = findings(project, lambda s: events(s)["setup"]["actions"][1]["parameters"].update(
         text='Functions.CallMapped("map", "key")'))
