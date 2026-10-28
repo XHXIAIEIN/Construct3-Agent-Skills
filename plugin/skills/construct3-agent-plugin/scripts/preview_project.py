@@ -68,13 +68,15 @@ its page goes on in the new page: the step the reload broke off runs again, exce
 a js step whose code had started, which fails.
 
 The browser runs headless and silent; --headed shows it. A step that fails leaves
-NN-failed.png. Screenshots and recordings go to --shots, by default .tmp/preview/ in
-the project, and the whole result to --out, by default .tmp/preview-project.json; the
-last line names both, so read a cut-off result there instead of playing the plan again.
+NN-failed.png. Screenshots and recordings go to --shots, by default
+.tmp/scripts/preview-project/shots/ in the project, and the whole result to --out,
+by default result.json beside that folder; the last line names both, so read a
+cut-off result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
 committed with the change it checks. --all replays every kept plan from a first
-launch and names each one that fails; its result goes to .tmp/preview-plans.json.
+launch and names each one that fails; its result goes to plans.json in
+.tmp/scripts/preview-project/.
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
 "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
@@ -104,9 +106,9 @@ import c3project as c3
 import open_in_editor as oe
 
 EPILOG = """examples:
-  python scripts/preview_project.py .tmp/merge-plan.json
+  python scripts/preview_project.py .tmp/drafts/merge-plan.json
   python scripts/preview_project.py plan.json --project "D:/Games/Merge" --headed
-  python scripts/preview_project.py .tmp/merge-plan.json --keep merge-two-pieces
+  python scripts/preview_project.py .tmp/drafts/merge-plan.json --keep merge-two-pieces
   python scripts/preview_project.py --all
 
 output:
@@ -118,16 +120,16 @@ output:
       runtime: <an error the game logged during the step, with its event, and (N times) when it came more than once>
     3 key ShiftLeft+ArrowRight: held 0.5 s
     4 state Piece: <as open_in_editor.py --state prints it>
-    5 shot after-merge: .tmp/preview/05-after-merge.png
-    recorded merge: 95 frames in 3.4 s, .tmp/preview/02-merge.mp4
-      sheet .tmp/preview/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
+    5 shot after-merge: shots/05-after-merge.png
+    recorded merge: 95 frames in 3.4 s, shots/02-merge.mp4
+      sheet shots/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
       2 at 35 ms (largest change), ..., 10 at 3380 ms (end)
         judge the motion from the sheet, not from what the events meant to do: open it with the image tool,
         name the three worst defects, each with its time, what the frame shows and the event to change, fix
         only those, and record that part again
-      review .tmp/preview/02-merge.html: the user plays it there, selects the part that looks wrong and
-      copies it to you as a task; .tmp/preview/index.html lists every recording
-      frames and timeline.json in .tmp/preview/02-merge
+      review shots/02-merge.html: the user plays it there, selects the part that looks wrong and
+      copies it to you as a task; shots/index.html lists every recording
+      frames and timeline.json in shots/02-merge
       watch coins: 40 at 0 ms, 30 at 900 ms
     ran: 5 of 5 steps in 9.6 s, 1 runtime error
 
@@ -1060,7 +1062,7 @@ def report(result: dict, label: Callable[[str], str] = oe.key_name) -> list[str]
 
 
 def kept(out: Path | None, shots: Path | None, project: Path) -> tuple[Path, Path]:
-    return oe.kept(out, shots, project, "preview-project.json", "preview")
+    return oe.kept(out, shots, project, "preview-project")
 
 
 def where(out: Path, shots: Path) -> str:
@@ -1155,12 +1157,12 @@ def replay(args: argparse.Namespace, project: Path, exe: str, editor: str) -> in
         print(f"no kept plan in {project / KEPT}: when a plan passes, run it again with --keep NAME to keep it there",
               file=sys.stderr)
         return 2
-    out, shots = oe.kept(args.out, args.shots, project, "preview-plans.json", "preview-plans")
+    out, shots = oe.kept(args.out, args.shots, project, "preview-project", "plans.json", "plans")
     shots.mkdir(parents=True, exist_ok=True)
     if plans:
         try:
             result = oe.drive(exe, oe.profile_folder(args.profile, project, exe), args.headed,
-                              lambda b: oe.open_one(b, editor, project, b.profile / "project-play.c3p", None,
+                              lambda b: oe.open_one(b, editor, project, oe.staged(project, "preview-project"), None,
                                                     bool(args.release), play_all(plans, shots, project)))
         except oe.ProfileBusy as e:
             print(e, file=sys.stderr)
@@ -1198,12 +1200,13 @@ def main() -> int:
     ap.add_argument("--release", metavar="rNNN", help="open in this release of the editor, as open_in_editor.py does")
     ap.add_argument("--browser", metavar="EXE",
                     help="the Chromium-based browser to start (default: Edge, Chrome or Chromium where installed)")
-    ap.add_argument("--shots", type=Path, help="the folder for the screenshots (default: .tmp/preview in the project)")
+    ap.add_argument("--shots", type=Path, help="the folder for the screenshots "
+                                               "(default: shots/ beside the result)")
     ap.add_argument("--out", type=Path, help="write the result, every value and state included, as JSON "
-                                             "(default: .tmp/preview-project.json in the project)")
+                                             "(default: result.json in .tmp/scripts/preview-project/)")
     ap.add_argument("--headed", action="store_true", help="show the browser window")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
-                    help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/")
+                    help="keep the browser profile in FOLDER/editor-<browser> instead of .tmp/browsers/")
     ap.add_argument("--locale", default="en-US",
                     help="the language pack in data/c3-lang of Construct3-RAG or the plugin that names the inspector "
                          "values; a key the pack lacks keeps its last word (default: en-US)")
@@ -1260,7 +1263,7 @@ def main() -> int:
     shots.mkdir(parents=True, exist_ok=True)
     try:
         result = oe.drive(exe, oe.profile_folder(args.profile, project, exe), args.headed,
-                          lambda b: oe.open_one(b, editor, project, b.profile / "project-play.c3p", None,
+                          lambda b: oe.open_one(b, editor, project, oe.staged(project, "preview-project"), None,
                                                 bool(args.release), play(plan, shots, project)))
     except oe.ProfileBusy as e:
         print(e, file=sys.stderr)

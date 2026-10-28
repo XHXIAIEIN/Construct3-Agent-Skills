@@ -15,11 +15,11 @@ SCRIPT = f"{INSTALLED}/scripts/preview_project.py"
 
 def test_preview_project_keeps_the_result_in_the_project_by_default(tmp_path):
     """A plan whose printed lines a pipe cut is read again from the file, not played again."""
-    tmp = tmp_path / ".tmp"
-    assert pp.kept(None, None, tmp_path) == (tmp / "preview-project.json", tmp / "preview")
+    tmp = tmp_path.resolve() / ".tmp" / "scripts" / "preview-project"
+    assert pp.kept(None, None, tmp_path) == (tmp / "result.json", tmp / "shots")
     assert pp.kept(tmp_path / "r.json", tmp_path / "s", tmp_path) == (tmp_path / "r.json", tmp_path / "s")
-    assert pp.where(tmp / "preview-project.json", tmp / "preview") == \
-        f"full result in {tmp / 'preview-project.json'}, screenshots in {tmp / 'preview'}"
+    assert pp.where(tmp / "result.json", tmp / "shots") == \
+        f"full result in {tmp / 'result.json'}, screenshots in {tmp / 'shots'}"
 
 
 def test_preview_project_refuses_a_wrong_plan_before_opening_anything(project):
@@ -50,7 +50,7 @@ def test_preview_project_refuses_a_wrong_plan_before_opening_anything(project):
     # valid: steps 9 and 13 stop a recording, step 17 holds two keys
     assert "step 9" not in out and "step 13" not in out and "step 17" not in out, out
     assert "has 'keep_saves'" not in out and "has 'pixel_ratio'" not in out, out
-    assert not (project / ".tmp" / "preview").exists()
+    assert not (project / ".tmp" / "scripts" / "preview-project" / "shots").exists()
 
     code, out = run(project, SCRIPT, "--help")
     assert code == 0 and "TARGET is where to press" in out and "exit codes:" in out, out

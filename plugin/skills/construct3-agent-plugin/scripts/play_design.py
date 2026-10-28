@@ -67,7 +67,7 @@ FIX_THE_GAME = ("next: fix the game where each line says: its events, or its lay
 
 EPILOG = """examples:
   python scripts/play_design.py tools/design.json
-  python scripts/play_design.py design.json --project "D:/Games/Gomoku" --plan-only .tmp/design-plans.json
+  python scripts/play_design.py design.json --project "D:/Games/Gomoku" --plan-only .tmp/drafts/design-plans.json
 
 output:
   opened   <project>  (<window title>, <the editor it opened in>)
@@ -635,7 +635,7 @@ def same(game_value, design_value) -> bool:
 # --- running -----------------------------------------------------------------------------------
 def run_all(project: Path, plans: list[dict], exe: str, profile: Path | None, shots: Path) -> dict:
     """One editor session; each plan previews the game afresh."""
-    browser = oe.Browser(exe, (profile or oe.scratch(project)) / f"editor-{Path(exe).stem.lower()}", False)
+    browser = oe.Browser(exe, oe.profile_folder(profile, project, exe), False)
 
     def then(browser_, target, page):
         ran = []
@@ -645,7 +645,7 @@ def run_all(project: Path, plans: list[dict], exe: str, profile: Path | None, sh
     try:
         for n in range(len(plans)):
             (shots / f"plan-{n}").mkdir(parents=True, exist_ok=True)
-        return oe.open_one(browser, oe.EDITOR, project, browser.profile / "project-design.c3p", None, False, then)
+        return oe.open_one(browser, oe.EDITOR, project, oe.staged(project, "play-design"), None, False, then)
     finally:
         browser.close()
 
@@ -758,8 +758,8 @@ def main() -> int:
                          "write the project's value into the design, play the prototype again, and go on if it passes")
     ap.add_argument("--browser", metavar="EXE", help="the Chromium-based browser to start (default: Edge, Chrome or Chromium)")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
-                    help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/")
-    ap.add_argument("--out", type=Path, help="the whole result as JSON (default: .tmp/play-design.json in the project)")
+                    help="keep the browser profile in FOLDER/editor-<browser> instead of .tmp/browsers/")
+    ap.add_argument("--out", type=Path, help="the whole result as JSON (default: .tmp/scripts/play-design/result.json)")
     args = ap.parse_args()
     try:
         data = gm.read_design(args.design)
@@ -815,7 +815,7 @@ def main() -> int:
         print("no Edge, Chrome or Chromium found here: write the plans with --plan-only and play each with the "
               "browser tool of this session, as references/reading-the-runtime.md says.")
         return 3
-    out, shots = oe.kept(args.out, None, project, "play-design.json", "design")
+    out, shots = oe.kept(args.out, None, project, "play-design")
     shots.mkdir(parents=True, exist_ok=True)
     began = time.monotonic()
     try:

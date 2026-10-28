@@ -26,7 +26,7 @@ reads the roles from. project.c3proj lists each new file.
 
 A file it wrote carries the COMMENT tag c3-sound, so a later run replaces
 it. A file without the tag is someone's, and the run refuses it unless
---replace is given. The intermediate WAVs stay in .tmp/make-sounds/.
+--replace is given. The intermediate WAVs stay in .tmp/scripts/make-sounds/.
 Needs ffmpeg and ffprobe on PATH.
 
 Exit 0: every file written passed check_sounds.py, the last line starts
@@ -50,7 +50,7 @@ import c3project as c3
 import check_sounds as cs
 
 RATE = 48000
-WORK = Path(".tmp") / "make-sounds"
+WORK = c3.script_folder(Path(), "make-sounds")
 SECONDS = {"key": 0.9, "action": 0.5, "repeat": 0.25}        # an effect's length by tier
 DECAY = {"key": 0.35, "action": 0.18, "repeat": 0.08}         # the body's time constant, s
 ROOM_DB = {"key": 14.0, "action": 20.0, "repeat": 28.0, "music": 12.0}   # dry over wet, sound.md

@@ -385,8 +385,8 @@ def run(p: c3.Project, d: Design, found: list[dict], sheets: list[str], question
         args: argparse.Namespace) -> int:
     """--prepare: the checker when --check asks for it, then the questions in the folder."""
     folder = (p.root / args.prepare).resolve()
-    if not folder.is_relative_to((p.root / ".tmp").resolve()) or not folder.is_relative_to(p.root.resolve()):
-        raise ValueError("--prepare must name a folder under the game's .tmp/, such as .tmp/design-review")
+    if not folder.is_relative_to((p.root / c3.SCRATCH).resolve()) or not folder.is_relative_to(p.root.resolve()):
+        raise ValueError("--prepare must name a folder under the game's .tmp/, such as .tmp/scripts/review-design")
     if args.check:
         code = run_check(p, args, folder)
         if code:

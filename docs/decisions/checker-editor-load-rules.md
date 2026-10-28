@@ -454,8 +454,9 @@ global variables, instance counts and the instances of the types named.
   `.local/docs/evidence/skill-evals/construct3-agent-plugin/opened-2026-10-02/`.
 - A project saved by a newer release than the stable editor opens in
   `editor.construct.net/beta`; `--release` pins one.
-- The browser profile lives in `.tmp/editor-<browser>` of the project, such
-  as `.tmp/editor-msedge`, and `.tmp/` holds a `.gitignore` of `*`.
+- The browser profile lives in `.tmp/browsers/editor-<browser>` of the
+  project, such as `.tmp/browsers/editor-msedge`, and `.tmp/` holds a
+  `.gitignore` of `*`.
   With the editor's scripts cached a run takes about 4
   seconds; cold, 10 to 40. Background features are switched off, so the
   profile holds the editor's cache alone. Past about 177 characters the

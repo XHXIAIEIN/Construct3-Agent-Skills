@@ -24,7 +24,7 @@ event sheet, and packs with `--unchecked`
 - Run the checker inside the pack: a second run of the whole checker in
   every pack, and two places that decide what passes.
 - Read the checker's own record: `check_project.py` writes
-  `.tmp/check-project.json` for the fix loop, with a digest of
+  `.tmp/scripts/check-project/result.json` for the fix loop, with a digest of
   `project.c3proj` and the editor's JSON files. The pack compares that
   digest with the files at present and reads the number of problems.
 

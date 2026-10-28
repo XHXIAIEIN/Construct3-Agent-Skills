@@ -117,7 +117,7 @@ def test_a_folder_project_is_packed_only_after_the_checker_passed_its_files(proj
     Nothing is written, and the line says what to run, in three cases: no record, a change to a
     checked file after the run, and a run that found a problem. --unchecked packs anyway and says
     so. An archive needs no record."""
-    record = project / ".tmp" / "check-project.json"
+    record = project / ".tmp" / "scripts" / "check-project" / "result.json"
     kept = json.loads(record.read_text(encoding="utf-8"))
     assert kept["problems"] == 0 and kept["project"], kept
     c3p = default_pack(project)

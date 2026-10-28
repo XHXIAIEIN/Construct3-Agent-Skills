@@ -28,12 +28,13 @@ project, the editor refused it, and `check_project.py` finds no problem in
 it. A refusal is the dialog that stopped the open, or the crash report the
 editor showed while it built the preview.
 
-The run then ends with a `report:` line, the report, and the
-`gh issue create` command that files it, or the repository's new-issue page
-to paste it into. The report is also written to
-`.tmp/editor-report-<fingerprint>.md`. The script sends nothing. Its line
-tells the agent to show the report and to send nothing unless the user says
-yes, because the report comes from the user's project.
+The run then ends with a `report:` line, the report, and the `gh issue create`
+command that files it, or the repository's new-issue page to paste it into.
+The report is also written to
+`.tmp/scripts/open-in-editor/reports/editor-report-<fingerprint>.md`. The
+script sends nothing. Its line tells the agent to show the report and to send
+nothing unless the user says yes, because the report comes from the user's
+project.
 
 The report holds these fields and no others:
 
@@ -65,9 +66,9 @@ sending it, and can edit a name that remains or write a name back.
 
 The fingerprint is a hash of the redacted message and exception with every
 number written as `N`: the same refusal at another event is the same report.
-`.tmp/editor-reports.json` keeps each fingerprint with the date of its offer,
-and a later run with the same fingerprint prints one line that says it was
-offered and not to offer it again.
+`editor-reports.json` beside it keeps each fingerprint with the date of its
+offer, and a later run with the same fingerprint prints one line that says it
+was offered and not to offer it again.
 
 There is no report in four cases:
 

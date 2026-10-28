@@ -15,9 +15,9 @@ number the editor prints in the margin; print_sheet.py prints that numbering.
 Under --limit the findings that fit are printed and the rest counted; the
 last line, `ok:` or the number of problems, always prints.
 
-Each run keeps its findings in .tmp/check-project.json, with a digest of the
-files it checked and the number of problems, so that the next run counts the
-changes to each finding: a change to the event, layer or file that a finding
+Each run keeps its findings in .tmp/scripts/check-project/result.json, with a
+digest of the files it checked and the number of problems, so that the next run
+counts the changes to each finding: a change to the event, layer or file that a finding
 names, after which the finding is still there. After two changes, the last
 line starts with `stop:`. The agent does not change that place a third time,
 and the finding goes to the user. A run with nothing changed counts no change
@@ -61,7 +61,7 @@ class Checker(FileChecks, ExpressionChecks, EventChecks, SheetChecks):
                  style: bool = False, review: bool = False, record: bool = False) -> None:
         self.p = p
         self.review = review  # someone else's project: no omitted parameters, no next steps
-        self.record = record  # keep the findings in .tmp/ and stop the fix loop at CAP
+        self.record = record  # keep the findings in .tmp/scripts/ and stop the fix loop at CAP
         self.limit = limit
         self.unsaved = sheets or {}  # edit_sheet.py checks a sheet before it writes it
         self.style = style  # the warnings of check_style, off unless asked
@@ -291,7 +291,7 @@ def fix_loop(p: c3.Project, errors: list[str]) -> tuple[list[str], list[str]]:
     with nothing changed counts none and says so; a finding fixed, or a new one, starts from none.
     Returns the notes, and a stop line for each finding that CAP changes left standing. Nothing in
     the project is undone: which change to keep is the user's call."""
-    record = p.root / pp.SCRATCH / RECORD
+    record = p.root / RECORD
     try:
         last = json.loads(record.read_text(encoding="utf-8"))
         before = last["findings"] if isinstance(last.get("findings"), list) else []
@@ -311,7 +311,7 @@ def fix_loop(p: c3.Project, errors: list[str]) -> tuple[list[str], list[str]]:
         was = was or earlier.get(key(place, "event"))
         changes = was.get("changes", 0) + (was.get("digest") != place["digest"]) if was else 0
         entries.append({**place, "finding": finding, "changes": changes})
-    pp.ignored_folder(record.parent)
+    pp.script_folder(p.root, "check-project")
     record.write_text(json.dumps({"project": now, "problems": len(errors), "findings": entries},
                                  ensure_ascii=False, indent=1), encoding="utf-8")
     generated = (p.root / c3.GENERATOR).is_file()

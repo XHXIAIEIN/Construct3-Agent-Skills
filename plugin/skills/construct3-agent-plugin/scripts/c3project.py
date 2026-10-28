@@ -385,16 +385,46 @@ def find_project(given: str | None) -> Path | None:
     return above(Path.cwd(), "project.c3proj") or above(SKILL_DIR, "project.c3proj")
 
 
+# --- the project's .tmp/ and .build/ -------------------------------------------------------
+# .tmp/ holds the scratch of the skill, by use: scripts/<script>/, what one script writes (its
+# result.json, screenshots, recordings and the files it hands on); browsers/, the browser profiles
+# the scripts share; and drafts/, the plans and notes an agent writes itself. .build/ holds the
+# products handed to people (docs/decisions/scratch-and-build-folders.md).
+SCRATCH = ".tmp"
+BUILD = ".build"
+
+
+def script_folder(root: Path, script: str) -> Path:
+    """.tmp/scripts/<script>/ of the project, where the script of that name (check-project for
+    check_project.py) keeps what it writes."""
+    return root / SCRATCH / "scripts" / script
+
+
+def browsers_folder(root: Path) -> Path:
+    """.tmp/browsers/ of the project, the browser profiles that the scripts share."""
+    return root / SCRATCH / "browsers"
+
+
+def project_folder(folder: Path) -> Path:
+    """The project a folder belongs to: the folder above its .tmp/ or .build/, so that a .c3p packed
+    into .build/ keeps its scratch in the project's .tmp/ and not in .build/.tmp/."""
+    parts = folder.parts
+    for i, part in enumerate(parts):
+        if part in (SCRATCH, BUILD) and i:
+            return Path(*parts[:i])
+    return folder
+
+
 # --- the checker's record ------------------------------------------------------------------
-# The checker's last run, in the project's .tmp/: its findings and a digest of the files it checked.
+# The checker's last run, below the project: its findings and a digest of the files it checked.
 # check_project.py counts changes against it (docs/decisions/fix-loop-cap.md), and pack_project.py
 # packs a folder project only against a passing one (docs/decisions/pack-after-check.md).
-RECORD = "check-project.json"
+RECORD = Path(SCRATCH, "scripts", "check-project", "result.json")
 # Set by verify_change.py for the scripts it runs: the checker's ok: line then names no next step.
 IN_VERIFY = "CONSTRUCT3_RAG_IN_VERIFY"
-# verify_change.py's record, in the project's .tmp/: each step's outcome and the questions that wait for
+# verify_change.py's record, below the project: each step's outcome and the questions that wait for
 # --answered. review_look.py --reply reads it to name the run that records the answers.
-VERIFY_RECORD = "verify-change.json"
+VERIFY_RECORD = Path(SCRATCH, "scripts", "verify-change", "result.json")
 # The folders whose files project.c3proj lists by name, one JSON file each. The editor reads only
 # what the project lists and ignores any other file there. scripts/ is left out of the digest and
 # of the unlisted-file check, since the editor keeps unlisted TypeScript copies and definitions in

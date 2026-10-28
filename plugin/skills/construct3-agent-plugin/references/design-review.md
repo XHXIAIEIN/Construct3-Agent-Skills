@@ -3,13 +3,13 @@
 `review_design.py --check` runs the full checker and prints design questions.
 Read the changed sheets with `print_sheet.py`, then follow their calls and
 shared state to judge every question. The complete checker log is saved in
-`.tmp/design-review/check.json`.
+`.tmp/scripts/review-design/check.json`.
 
 Use optional `--prepare` for complete evidence batches and saved judgements.
 It reads the listed project files directly.
 
 ```bash
-python scripts/review_design.py --check --prepare .tmp/design-review --resume --sheets Game --limit 0
+python scripts/review_design.py --check --prepare .tmp/scripts/review-design --resume --sheets Game --limit 0
 ```
 
 Use the sheets changed by the task. Shared variables and calls can bring
@@ -37,7 +37,7 @@ For `needs_change`, suggest a change within the question's scope.
 If intent, picking or timing needs runtime evidence, say `insufficient_evidence`.
 
 ```bash
-python scripts/review_design.py --prepare .tmp/design-review --resume --sheets Game --answers answers.json --limit 0
+python scripts/review_design.py --prepare .tmp/scripts/review-design --resume --sheets Game --answers answers.json --limit 0
 ```
 
 `--batch N` validates only pending batch N. After accepting a batch, prepare

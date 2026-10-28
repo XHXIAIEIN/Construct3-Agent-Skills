@@ -56,8 +56,8 @@ play, or log errors that play does not: those are printed as `runtime:`
 lines. Check such a scene by playing to it with preview_project.py and a
 shot step.
 
-Screenshots go to --shots, by default .tmp/look/ in the project, as
-<layout>.png; the whole result to --out, by default .tmp/review-look.json.
+Screenshots go to --shots, by default .tmp/scripts/review-look/shots/ in the project,
+as <layout>.png; the whole result to --out, by default result.json beside that folder.
 Beside the screenshots it writes brief.md: the screenshots, the questions and
 the form of the answer, for a reviewer that has not seen the project. The
 agent that built the game reads its own pictures by what it meant to build.
@@ -95,11 +95,11 @@ EPILOG = """examples:
   python scripts/review_look.py
   python scripts/review_look.py --layouts Menu Map --settle 2
   python scripts/review_look.py --viewport 430 932
-  python scripts/review_look.py --reply .tmp/look/reply.md
+  python scripts/review_look.py --reply .tmp/scripts/review-look/reply.md
 
 output:
   opened   <project>  (<window title>, <the editor it opened in>)
-  layout 'Map' (2 of 3): screenshot .tmp/look/Map.png
+  layout 'Map' (2 of 3): screenshot .tmp/scripts/review-look/shots/Map.png
     text: Text Title uid 12 "Choose your path": the text needs 212x40 px and its box is 160x40 ...
     stacked: Text CardName: 5 instances on one box at (300, 420) 120x30, uids 41, 42, 43 ...
     runtime: <an error the layout logged, with its event, and (N times) when it came more than once>
@@ -108,12 +108,13 @@ output:
     1. Is any text cut off, broken onto a line of its own, too small or too faint to read, or partly hidden ...
     ...
     7. Does the same decoration, not the HUD, appear on every screenshot?
-  look: 2 findings on 3 layouts, 0 runtime errors; full result in .tmp/review-look.json, screenshots in .tmp/look
+  look: 2 findings on 3 layouts, 0 runtime errors; full result in .tmp/scripts/review-look/result.json,
+    screenshots in .tmp/scripts/review-look/shots
   next: <what to do>
-  brief: if you can start a sub-agent, give it .tmp/look/brief.md as its whole task ...
+  brief: if you can start a sub-agent, give it .tmp/scripts/review-look/shots/brief.md as its whole task ...
 
 output of --reply:
-  reply: .tmp/look/reply.md, against the brief of 2 screenshots and 8 questions: 16 answers asked
+  reply: .tmp/scripts/review-look/reply.md, against the brief of 2 screenshots and 8 questions: 16 answers asked
     missing: Map 3, 4; Combat 1-8
     yes without where: Map 5
     not in the brief: Shop 1: no
@@ -696,7 +697,7 @@ DONE = "next: every question is answered no; the look review is done"
 def verify_command(root: Path) -> str | None:
     """verify_change.py for the project when its look step waits for these answers, else None."""
     try:
-        record = json.loads((root / ".tmp" / c3.VERIFY_RECORD).read_text(encoding="utf-8"))
+        record = json.loads((root / c3.VERIFY_RECORD).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     if ((record.get("steps") or {}).get("looked") or {}).get("state") != "asked":
@@ -841,15 +842,15 @@ def main() -> int:
     ap.add_argument("--release", metavar="rNNN", help="open in this release of the editor, as open_in_editor.py does")
     ap.add_argument("--browser", metavar="EXE",
                     help="the Chromium-based browser to start (default: Edge, Chrome or Chromium where installed)")
-    ap.add_argument("--shots", type=Path, help="the folder for the screenshots (default: .tmp/look in the project)")
+    ap.add_argument("--shots", type=Path, help="the folder for the screenshots (default: shots/ beside the result)")
     ap.add_argument("--out", type=Path, help="write the result, every instance read included, as JSON "
-                                             "(default: .tmp/review-look.json in the project)")
+                                             "(default: result.json in .tmp/scripts/review-look/)")
     ap.add_argument("--design", type=Path, metavar="DESIGN.json",
                     help="the game's design; a screen entry that play_design.py does not measure becomes a question "
                          "(default: tools/design.json in the project, when there is one)")
     ap.add_argument("--headed", action="store_true", help="show the browser window")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
-                    help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/")
+                    help="keep the browser profile in FOLDER/editor-<browser> instead of .tmp/browsers/")
     ap.add_argument("--reply", type=Path, metavar="REPLY",
                     help="a reviewer's reply to brief.md, saved to a file: check it against the last run's brief "
                          "instead of previewing, and print every yes to fix")
@@ -868,7 +869,7 @@ def main() -> int:
               f"this in the project folder or pass --project <folder>", file=sys.stderr)
         return 2
     if args.reply:
-        return reply_main(args.reply, oe.kept(args.out, args.shots, projects[0], "review-look.json", "look")[0],
+        return reply_main(args.reply, oe.kept(args.out, args.shots, projects[0], "review-look")[0],
                           args.limit, projects[0])
     exe = args.browser or oe.browser_path()
     if not exe:
@@ -877,7 +878,7 @@ def main() -> int:
               "of this session.")
         return 3
     editor = oe.release_url(args.release)
-    out, base = oe.kept(args.out, args.shots, projects[0], "review-look.json", "look")
+    out, base = oe.kept(args.out, args.shots, projects[0], "review-look")
 
     def visit(browser: oe.Browser) -> list[dict]:
         """Review each project in turn. Its result is written and printed as it ends, so the results stay
@@ -889,7 +890,7 @@ def main() -> int:
             data = c3.load(project / "project.c3proj")
             view = args.viewport or [data.get("viewportWidth"), data.get("viewportHeight")]
             view = view if all(isinstance(n, int) and n > 0 for n in view) else None
-            result = oe.open_one(browser, editor, project, browser.profile / "project-look.c3p", None,
+            result = oe.open_one(browser, editor, project, oe.staged(project, "review-look"), None,
                                  bool(args.release), review(args.layouts, args.settle, view, shots))
             result["places"] = unmeasured(project, args.design)
             # Names this run, so that a reply checked against its brief is not taken for one of a later run

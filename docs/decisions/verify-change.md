@@ -18,10 +18,11 @@ summary.
 
 ## Evidence
 
-- The checker already keeps its state on disk: `.tmp/check-project.json`
-  holds a digest of the files, the problems and the fix-loop counts
-  (`fix-loop-cap.md`), and `pack_project.py` packs only against it
-  (`pack-after-check.md`). No later step recorded which files it checked.
+- The checker already keeps its state on disk:
+  `.tmp/scripts/check-project/result.json` holds a digest of the files, the
+  problems and the fix-loop counts (`fix-loop-cap.md`), and `pack_project.py`
+  packs only against it (`pack-after-check.md`). No later step recorded which
+  files it checked.
 - The step scripts give a usable signal for each outcome: exit 0 on a pass,
   1 on a finding, 3 for a check that did not run
   (`not-checked-is-not-a-pass.md`), 5 for a browser profile another run

@@ -16,7 +16,7 @@ The steps, by the words a hand-over names them with:
 It runs them in order and stops at the first that finds something, asks
 something or cannot run, and its last line says what to do next. A step that
 opens the editor is run again only when a file of the project changed since
-it passed: the record, .tmp/verify-change.json, keeps each step's outcome with
+it passed: the record, .tmp/scripts/verify-change/result.json, keeps each step's outcome with
 a digest of every file of the project outside its dot folders and
 tools/plans/. The play step also runs again when a kept plan changed. The
 checker and the design review always run, because they take seconds.
@@ -56,7 +56,8 @@ STEPS = ("checked", "reviewed", "opened", "previewed", "played", "looked")
 EDITOR_STEPS = ("opened", "previewed", "played", "looked")      # rerun only when the files changed
 RECORD = c3.VERIFY_RECORD
 PLANS = Path("tools") / "plans"
-LOOK_RESULT = Path(".tmp") / "review-look.json"         # where review_look.py writes its result by default
+# Where review_look.py writes its result by default.
+LOOK_RESULT = c3.script_folder(Path(), "review-look") / "result.json"
 DESIGN = Path("tools") / "design.json"
 QUESTION = re.compile(r"^\s+\d+\.\s+(.*\S)")
 SCRIPT_OF = {"checked": "check_project.py", "reviewed": "review_design.py", "opened": "open_in_editor.py",
@@ -132,7 +133,7 @@ class Run:
 
     def __init__(self, project: c3.Project, args) -> None:
         self.root, self.args = project.root, args
-        self.path = self.root / ".tmp" / RECORD
+        self.path = self.root / RECORD
         try:
             self.record = json.loads(self.path.read_text(encoding="utf-8"))
             assert isinstance(self.record.get("steps"), dict)
@@ -144,9 +145,9 @@ class Run:
         self.style = args.style or (self.root / c3.GENERATOR).is_file()
 
     def save(self) -> None:
-        self.path.parent.mkdir(exist_ok=True)
-        if not (self.path.parent / ".gitignore").exists():
-            (self.path.parent / ".gitignore").write_text("*\n", encoding="utf-8")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not (self.root / c3.SCRATCH / ".gitignore").exists():
+            (self.root / c3.SCRATCH / ".gitignore").write_text("*\n", encoding="utf-8")
         self.path.write_text(json.dumps(self.record, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 
     def script(self, name: str, *extra: str) -> tuple[int, str]:
@@ -265,7 +266,8 @@ def opened(run: Run) -> tuple[int, str] | None:
         return None
     code, out = run.script("open_in_editor.py", "--preview", *run.browser())
     line = last_line(out)
-    shots = sorted((run.root / ".tmp" / "shots").glob("*.png"), key=lambda f: f.stat().st_mtime)
+    shots = sorted((c3.script_folder(run.root, "open-in-editor") / "shots").glob("*.png"),
+                   key=lambda f: f.stat().st_mtime)
     shot = (f"\n          screenshot {c3.shown_path(shots[-1])}: show it to the user, since the editor runs headless "
             f"and they saw no window") if shots else ""
     if code == 0:

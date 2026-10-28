@@ -371,7 +371,7 @@ def main() -> int:
     ap.add_argument("--browser", metavar="EXE",
                     help="the Chromium-based browser to start (default: Edge, Chrome or Chromium where installed)")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
-                    help="keep the browser profile in FOLDER/editor-<browser> instead of the project's .tmp/")
+                    help="keep the browser profile in FOLDER/editor-<browser> instead of .tmp/browsers/")
     args = ap.parse_args()
 
     project = c3.find_project(args.project)
@@ -414,7 +414,7 @@ def main() -> int:
 
     try:
         result = oe.drive(exe, oe.profile_folder(args.profile and args.profile.resolve(), project, exe), False,
-                          lambda b: oe.open_one(b, editor, project, b.profile / "project-sheet.c3p", None,
+                          lambda b: oe.open_one(b, editor, project, oe.staged(project, "screenshot-sheet"), None,
                                                 bool(args.release), then),
                           extra=(*BROWSER_ARGS, SCHEME_ARG.format(0 if args.dark else 1)))
     except oe.ProfileBusy as e:

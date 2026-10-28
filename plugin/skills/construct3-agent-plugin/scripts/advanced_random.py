@@ -456,7 +456,7 @@ def preview_sources(project: Path, release: str | None, exe: str | None) -> tupl
     if not exe:
         raise RuntimeError("no Edge, Chrome or Chromium here to run the preview; pass --browser or --runtime")
     editor = f"{oe.EDITOR}{release.strip('/')}/" if release else oe.EDITOR
-    browser = oe.Browser(exe, oe.scratch(project) / f"editor-{Path(exe).stem.lower()}", False)
+    browser = oe.Browser(exe, oe.profile_folder(None, project, exe), False)
 
     def then(b, target, page) -> dict:
         started = oe.start_preview(b, target, page)
@@ -484,7 +484,7 @@ def preview_sources(project: Path, release: str | None, exe: str | None) -> tupl
             b.devtools.call("Target.closeTarget", targetId=window["targetId"])
 
     try:
-        result = oe.open_one(browser, editor, project, browser.profile / "project-0.c3p", None, bool(release), then)
+        result = oe.open_one(browser, editor, project, oe.staged(project, "advanced-random"), None, bool(release), then)
     finally:
         browser.close()
     ran = result.get("preview") or {}

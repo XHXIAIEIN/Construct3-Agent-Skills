@@ -5,7 +5,7 @@ Date: 2026-10-16
 ## Problem
 
 `open_in_editor.py` drives the machine's browser on a profile kept between
-runs, `.tmp/editor-<browser>` of the project. A warm profile opens the
+runs, `.tmp/browsers/editor-<browser>` of the project. A warm profile opens the
 editor in seconds, a cold one in tens of seconds. Every script that drives
 the browser does so through the same `Browser` class. A second browser
 process started on a profile hands its request to the first and exits, so
@@ -33,7 +33,7 @@ connection. With the lock, the first run prints `opened` and exits 0 as
 before, and the second prints one line and exits 5:
 
 ```
-another run holds the browser profile <project>/.tmp/editor-msedge (pid 48532, open_in_editor.py,
+another run holds the browser profile <project>/.tmp/browsers/editor-msedge (pid 48532, open_in_editor.py,
 since 2026-10-16 03:28:02): wait for it to end, or pass --profile FOLDER to run on a profile of this run's own
 ```
 

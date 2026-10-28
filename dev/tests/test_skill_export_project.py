@@ -108,7 +108,6 @@ def stopped_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, opened: bool, s
 
     def stop(*args):
         raise export.Stop(f"stopped in {stop_in}")
-    monkeypatch.setattr(export, "scratch", lambda project: tmp_path)
     monkeypatch.setattr(export, "pack", lambda project, version, skip: b"zip")
     monkeypatch.setattr(export, "attach", lambda spec: browser)
     monkeypatch.setattr(export, "attached_page", lambda devtools, project: (tab, opened))
@@ -118,7 +117,7 @@ def stopped_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, opened: bool, s
     monkeypatch.setattr(export, "close_project", lambda page: closed.append(page))
     with pytest.raises(export.Stop):
         export.run(tmp_path, tmp_path / "web", "1.0.0.0", "9222", None)
-    assert not (tmp_path / "export-project.c3p").exists()
+    assert not (tmp_path / ".tmp" / "scripts" / "export-project" / f"{tmp_path.name}.c3p").exists()
     return export, browser, tab, closed
 
 
