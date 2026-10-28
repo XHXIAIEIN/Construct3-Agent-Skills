@@ -1029,9 +1029,12 @@ def test_a_condition_parameter_has_the_type_it_takes(project, ace, said):
                                        "stops with \"parameter 1 does not take 'string'\". Convert it with int()"),
     ('tokenat(Coin.Tween.Progress("t"), 0, ",")', "tokenat takes text as its parameter text and is given a number; the editor stops with "
                                                    "\"parameter 0 does not take 'number'\". Convert it with str()"),
-    # & is text beside text, and unknown beside a comparison; a branch of each type is unknown.
+    # & beside a comparison binds as in JavaScript: "a" & (LEVEL = 1), text.
+    ('tokenat("a", "a" & LEVEL = 1, ",")', "takes a number as its parameter index and is given text"),
+    ('tokenat("a", (LEVEL & 1) = 1, ",") & tokenat("a" & LEVEL = 1, 0, ",")', None),
+    # & is text beside text; a branch of each type is unknown.
     ('tokenat("Lv" & LEVEL, -LEVEL, ",") & tokenat(LEVEL & "", (LEVEL), ",")', None),
-    ('tokenat("a" & LEVEL = 1, 0, ",") & tokenat(LEVEL ? 1 : "a", 0, ",")', None),
+    ('tokenat(LEVEL ? 1 : "a", 0, ",")', None),
 ])
 def test_an_operation_in_an_argument_has_the_type_the_manual_gives(project, text, said):
     """The manual's operator table: a comparison gives 1 or 0, & joins text when either side
