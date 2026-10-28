@@ -300,6 +300,16 @@ class ExpressionChecks:
                 self._eases.update(c3.load(pack)["text"]["ui"]["bars"]["timeline"]["eases"])
         return self._eases
 
+    def project_eases(self) -> set[str]:
+        """Names of the project's custom eases: the timelines items whose file holds
+        transitionKeyframes, which the editor saves under timelines/transitions/."""
+        out = set()
+        for name, folder in folder_items(self.p.data.get("timelines", {})):
+            path = self.p.project_file("timelines", name, folder)
+            if path and "transitionKeyframes" in c3.load(path):
+                out.add(name)
+        return out
+
     def check_param(self, where: str, key: str, value, ptype: str, items: dict | None, obj: str, scope: dict,
                     writes: bool = False, stand_in: str | None = None) -> None:
         """writes: the parameter belongs to an action, which assigns the variable it names.
@@ -322,7 +332,10 @@ class ExpressionChecks:
         elif ptype == "ease":
             eases = self.builtin_eases()
             if isinstance(value, str) and eases and value not in eases and not p.data.get("eases"):
-                self.err(f"{where}: {key}={value!r} is not a built-in ease{closest(value, eases)}")
+                custom = self.project_eases()
+                if value not in custom:
+                    self.err(f"{where}: {key}={value!r} is neither a built-in ease nor a custom ease of the "
+                             f"project{closest(value, eases | custom)}")
         elif ptype == "audiofile":
             # The editor looks the name up among the sound and music files, without the extension and
             # in any case, and refuses the project on any other value: "missing file '0'". The official

@@ -752,7 +752,22 @@ def test_c_style_operators_are_refused_with_the_construct_ones(project):
 
 def test_ease_is_a_builtin_id(project):
     out = findings(project, lambda s: collect_tween(s)["parameters"].update(ease="ease-in-back"))
-    assert "ease='ease-in-back' is not a built-in ease; closest: easeinback" in out
+    assert "ease='ease-in-back' is neither a built-in ease nor a custom ease of the project; closest: easeinback" in out
+
+
+def test_ease_may_name_a_custom_ease_of_the_project(project):
+    """The editor saves a custom ease as a timelines item with transitionKeyframes, under
+    timelines/transitions/ even when project.c3proj lists it in an unnamed subfolder."""
+    (project / "timelines" / "transitions").mkdir(parents=True)
+    key = {"sax": 0, "say": 0, "eax": 0, "eay": 0, "se": True, "ee": True, "sm": "cubic"}
+    (project / "timelines" / "transitions" / "Settle.json").write_text(json.dumps({
+        "name": "Settle", "linear": False, "purpose": "any",
+        "transitionKeyframes": [dict(key, x=0, y=0), dict(key, x=1, y=1)]}), encoding="utf-8")
+    edit(project, "project.c3proj", lambda data: data.setdefault("timelines", {"items": [], "subfolders": []})
+         ["subfolders"].append({"items": ["Settle"], "subfolders": []}))
+    assert "ease='Settle'" not in findings(project, lambda s: collect_tween(s)["parameters"].update(ease="Settle"))
+    out = findings(project, lambda s: collect_tween(s)["parameters"].update(ease="Setle"))
+    assert "ease='Setle' is neither a built-in ease nor a custom ease of the project; closest: Settle" in out
 
 
 # --- messages that say what to write instead ----------------------------------------------
