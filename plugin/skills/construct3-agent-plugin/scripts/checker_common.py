@@ -98,6 +98,9 @@ FOLDER_PROJECT_RELEASE = 30900
 # Sprite(2).X picks an instance by IID; the index is checked as an expression.
 IDENT = re.compile(r"\w+")
 NUMBER = re.compile(r"\d+(\.\d+)?(e[+-]?\d+)?", re.I)
+# The tokens of an expression whose text literals are blanked to "": a literal, a number, a name,
+# an operator or a bracket. Anything else, a stray character, leaves the expression untyped.
+TYPE_TOKEN = re.compile(r'""|\d+(?:\.\d+)?(?:e[+-]?\d+)?|\w+|<>|<=|>=|[-+*/%^&|=<>?:(),.]', re.I)
 EMPTY_CALL = re.compile(r"\s*\(\s*\)")
 MEMBER = re.compile(r"(\w+)(?:\([^()]*\))?\s*\.\s*(\w+)(?:\s*\.\s*(\w+))?")
 # C-style operators the expression parser refuses, with the Construct operator for each; the power
@@ -350,6 +353,17 @@ def call_arguments(text: str, end: int) -> int:
         elif text[j] == "," and depth == 1:
             count += 1
     return count  # not closed: the editor names that syntax error itself
+
+
+def arguments_end(text: str, i: int) -> int:
+    """The index just after the parenthesis that closes the one at text[i]; text literals
+    are blanked to "" first, so a parenthesis inside one does not count."""
+    depth = 0
+    for j in range(i, len(text)):
+        depth += {"(": 1, ")": -1}.get(text[j], 0)
+        if depth == 0:
+            return j + 1
+    return len(text) + 1  # not closed
 
 
 # find(text, find) and findcase take the text to search first. A one-character literal there
