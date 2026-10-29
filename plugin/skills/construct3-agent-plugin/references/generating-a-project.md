@@ -234,7 +234,7 @@ parameters are in the template.
   named values, such as settings, are a `dictionary_file()`.
 - Instances go into a layer in any order: the run lists every layer in
   `z_order()`, back to front as an editor user arranges it, the backdrop
-  and the areas first, then the rest by the Y of their feet, a child after
+  and the areas and zones first, then the rest by the Y of their feet, a child after
   its parent and a box after the box that holds it. A game that draws by
   another rule, a 3D layer by depth, defines `z_order()` below the end
   marker.

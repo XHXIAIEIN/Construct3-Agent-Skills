@@ -192,7 +192,7 @@
       "id": "layer.z-order",
       "status": "adopted",
       "scope": "every-look",
-      "says": "Each layer lists its instances as an editor user would arrange them, back to front: the backdrop, the areas, then the rest by the Y of their feet; a child after its parent, a box inside another box after it unless the outer one is a label.",
+      "says": "Each layer lists its instances as an editor user would arrange them, back to front: the backdrop, the areas and zones, then the rest by the Y of their feet; a child after its parent, a box inside another box after it unless the outer one is a label.",
       "template": "z_order()",
       "helpers": "z_order(), build_all()"
     },
