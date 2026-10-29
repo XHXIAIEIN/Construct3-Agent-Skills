@@ -169,7 +169,20 @@ def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     assert [t.strip() for t in fields["tools"].split(",")] == ["Bash", "PowerShell", "Read", "Edit", "Write", "Grep",
                                                                "Glob", "Skill", "Agent"]
     assert "construct3:construct3-agent-plugin" in body and "SKILL.md" in body
-    assert "`brief:`" in body and "construct3:look-judge" in body
+    assert "`brief:`" in body and "construct3:look-judge" in body and "construct3:design-judge" in body
+
+
+def test_the_design_judge_only_reads_and_runs_the_measured_model():
+    """The design judge answers review_design.py's brief apart from the agent that wrote the events: it can only
+    read, it starts without the project's instruction files, and it names the model whose answers were measured
+    by its full ID (docs/decisions/design-judge-agent.md)."""
+    text = (PLUGIN / "agents" / "design-judge.md").read_text(encoding="utf-8")
+    head, body = text.split("\n---\n", 1)
+    fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
+    assert fields["name"] == "design-judge" and len(fields["description"]) < 1024
+    assert fields["tools"] == "Read" and fields["omitClaudeMd"] == "true"
+    assert fields["model"].startswith("claude-"), fields["model"]
+    assert "brief.md" in body and "offset" in body
 
 
 def test_the_look_judge_only_reads_and_runs_the_measured_model():

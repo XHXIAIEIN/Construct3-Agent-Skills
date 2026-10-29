@@ -41,7 +41,8 @@ def test_questions_are_answered_once_for_the_files_they_were_asked_about(project
     change to a file asks them again."""
     code, out = tool(project, "verify_change", "--upto", "reviewed")
     assert code == 1 and steps(out) == {"checked": "passed", "reviewed": "asked"}, out
-    assert out.splitlines()[-1].startswith("next: answer the ") and out.splitlines()[-1].endswith(" --answered")
+    assert out.splitlines()[-1].startswith("next: have the ") and out.splitlines()[-1].endswith(" --answered")
+    assert any(line.startswith("brief: ") and "review-design/brief.md" in line for line in out.splitlines()), out
     code, out = tool(project, "verify_change", "--upto", "reviewed", "--answered")
     lines = out.splitlines()
     assert code == 0 and steps(out) == {"checked": "passed", "reviewed": "passed"}, out
