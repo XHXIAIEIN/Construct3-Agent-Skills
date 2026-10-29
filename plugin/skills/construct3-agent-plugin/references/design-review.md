@@ -1,8 +1,12 @@
 # Review the changed sheets
 
 `review_design.py --check` runs the full checker and prints design questions.
-Read the changed sheets with `print_sheet.py`, then follow their calls and
-shared state to judge every question. The complete checker log is saved in
+It also writes them, with the sheets as `print_sheet.py` prints them, into
+`.tmp/scripts/review-design/brief.md`. If you can start a sub-agent, give it
+that brief as its whole task, as the `brief:` line says, because a reviewer
+that has not seen the request judges the events as they read. Otherwise read
+the changed sheets with `print_sheet.py`, then follow their calls and shared
+state to judge every question. The complete checker log is saved in
 `.tmp/scripts/review-design/check.json`.
 
 Use optional `--prepare` for complete evidence batches and saved judgements.

@@ -21,8 +21,9 @@ a digest of every file of the project outside its dot folders and
 tools/plans/. The play step also runs again when a kept plan changed. The
 checker and the design review always run, because they take seconds.
 
-A question is answered for the files it was asked about. Answer the design
-questions it printed, then run it with --answered, which records them. The look
+A question is answered for the files it was asked about. Have the design
+questions it printed answered, through the brief of review_design.py, then run
+it with --answered, which records them. The look
 questions pass on a reply that review_look.py --reply checked against the brief
 of the run that asked them: one that answers every question, each yes saying
 where. A change to the project asks them again, as it reruns the checks;
@@ -250,9 +251,9 @@ def reviewed(run: Run) -> tuple[int, str] | None:
                     f"each names the event and what to write; a finding the user asked for on purpose stays, and "
                     f"the hand-over says why")
     if open_:
-        todo.append(f"answer the {len(open_)} question{'s' if len(open_) != 1 else ''} above yes or no from "
-                    f"print_sheet.py; change what you answer yes about the events and globals your change wrote, "
-                    f"and name a yes about any other in the hand-over")
+        todo.append(f"have the {len(open_)} question{'s' if len(open_) != 1 else ''} above answered yes or no as "
+                    f"the brief: line above says; change what was answered yes about the events and globals your "
+                    f"change wrote, and name a yes about any other in the hand-over")
     flag = " --answered" if open_ else ""
     return stopped(run, "reviewed", 1, out, f"next: {'; '.join(todo)}; then run {again(run)}{flag}",
                    "failed" if found else "asked")

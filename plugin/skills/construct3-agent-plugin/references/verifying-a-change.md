@@ -237,8 +237,11 @@ events that differ only in their numbers and texts (53 in 27; the style
 ladder of `check_project.py --style` takes 5 or more), 3 or more inverted
 conditions (34 in 21), a global one function or one group reads and writes
 (262 in 92), and a UID kept in an instance variable (19 in 16). A question
-is answered from `print_sheet.py` for the events it names, never from
-memory of the plan. Two candidates were dropped: a global that several
+is answered from the printed events it names, never from memory of the
+plan. So the review writes the questions and the sheets as `print_sheet.py`
+prints them into `brief.md`, for a reviewer that has not seen the project or
+the request; `construct3:design-judge` is such a reviewer. Without a
+sub-agent, answer them from `print_sheet.py`. Two candidates were dropped: a global that several
 functions write and others read (20 in 6 examples, 15 in the editor-made game,
 all of them game state), and 10 or more globals on a layout's sheet (45
 examples; the examples keep shared globals on a sheet with no layout,
