@@ -36,6 +36,14 @@ def test_ace_lookup_names_combo_items_in_the_locale(built):
     assert code == 0 and "(top | bottom)" in out
 
 
+def test_ace_lookup_writes_a_grouped_combo_by_its_item_id(skill_only):
+    """Set cursor style's item is stored by its id like a combo's. Written as "0", the template
+    taught "16" for grabbing, which loads and checks clean but leaves the default cursor."""
+    code, out = tool(skill_only, "lookup_ace", "Mouse", "set-cursor-style2")
+    assert code == 0 and '"parameters": {"cursor-style": "normal"}' in out, out
+    assert "(normal | all-scroll | none | help | pointer | " in out and " grab | grabbing | " in out, out
+
+
 def test_ace_lookup_marks_shared_triggers_and_writes_expressions(built):
     code, out = tool(built, "lookup_ace", "Coin", "collision", "another")
     assert "condition on-collision-with-another-object - On collision with another object [_common]  <isTrigger>" in out
