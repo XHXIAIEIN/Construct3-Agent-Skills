@@ -13,6 +13,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [Motion by Class: Eases by What Moves, a Popup Helper and Five Motion Checks](motion-by-class.md) — 2026-10-30
 - [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
 - [SKILL.md Holds Facts and Tool Entries Inside 5000 Tokens](skill-body-budget.md) — 2026-10-30
+- [Title and Result Screens Get Their Own Type Rules](title-and-result-screens.md) — 2026-10-30
 - [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
 - [A game project's scratch goes in `.tmp/` by use, its products in `.build/`](scratch-and-build-folders.md) — 2026-10-28

@@ -3,10 +3,12 @@ screen the box around their content covers, and how much larger their largest ob
 the next. The generator template's playfield checks take their thresholds from this. With
 --text, measure their texts instead: each size as a share of the viewport's shorter side, the
 sizes of a layout and how far apart they step, how near the edge the nearest text sits, and how
-many items the screen's texts gather in one ninth of it while its corners stand empty.
+many items the screen's texts gather in one ninth of it while its corners stand empty. With
+--screens, group the texts by kind of screen: title or menu, result, and play. Then measure the
+largest text of each kind and the title image of each title screen.
 
     python evals/measure_layout.py --examples <Construct-Example-Projects>/example-projects
-                                   [--text] [--out ROWS.json] [--rag FOLDER]
+                                   [--text | --screens] [--out ROWS.json] [--rag FOLDER]
 
 An example counts when its tags in data/c3-examples name a game ("Game template" or "Demo
 game") and not "3D". A layout counts when it is one screen, at most 5% larger than the viewport
@@ -16,7 +18,10 @@ scrolling layer, not a Text, not rotated, clipped to the viewport, less any that
 it both ways, which are backdrops. A text is a Text, its size in pt drawn at 4/3 px, or a Sprite
 Font, its character height times its scale, that shows a non-empty text; its distance to the
 edge counts on a layout of one screen or a layer that does not scroll, from the sides its
-letters align to. Exit codes: 0 measured, 2 bad arguments.
+letters align to. A screen is a layout whose name says what it is. On a layout of play, a layer
+whose name says so is a screen too. NO_SCREEN names the layouts and layers that are no screen.
+A title image is the image of the game's name that TITLE_IMAGES names for a title screen. Exit
+codes: 0 measured, 2 bad arguments.
 """
 from __future__ import annotations
 
@@ -33,6 +38,18 @@ from scripts.measure_examples import RAG, box_on_screen, examples_meta, layers_i
 import review_look as rl  # noqa: E402  (on the path measure_examples sets)
 
 STORES = re.compile(r"repositor|bank|objects|template", re.I)
+NO_SCREEN = re.compile(r"repositor|bank|objects|template|credits|tutorial|debug|loading|login|palette", re.I)
+RESULT = re.compile(r"gameover|levelover|success|congrat|^win$|finish|ending|endgame|finalscore|result|"
+                    r"endoflevel|levelup", re.I)
+TITLE = re.compile(r"title|menu|opening|intro|selection|pause|settings|options|clickanywhere", re.I)
+# Each title screen's image, and the share of the image's height that its tallest line of capitals
+# takes. Both were read by eye: the examples name their title images differently, and an image
+# holds glow, plates and art around its letters.
+TITLE_IMAGES = {("glokar", "TitleScreen"): ("Logo", 0.85), ("grukkle-onslaught", "MainMenu"): ("MMTitleGrukkle", 0.33),
+                ("kitty-katcher", "TitleScreen"): ("Logo", 0.24), ("kiwi-story", "TitleScreen"): ("Logo", 0.5),
+                ("overloaded-underqualified", "Menu"): ("MenuTitle", 0.34), ("poplab", "TitleScreen"): ("Logo_Large", 0.47),
+                ("rat-purrsuit", "Menu"): ("MenuTitle", 0.31), ("selene", "MainMenu"): ("Menu_Title", 0.13),
+                ("space-blaster", "Title"): ("logo", 0.75)}
 
 
 def games(rag: Path) -> list[str]:
@@ -195,6 +212,104 @@ def report_text(rows: list[dict]) -> None:
           + (f" ({'; '.join(crowded)})" if crowded else ""))
 
 
+def screen_kind(name: str) -> str | None:
+    """"title", "result" or "play" for a layout or layer of that name; None for no screen."""
+    if NO_SCREEN.search(name):
+        return None
+    return "result" if RESULT.search(name) else "title" if TITLE.search(name) else "play"
+
+
+def world_box(w: dict) -> list[float]:
+    left, top = w["x"] - w.get("originX", 0) * w["width"], w["y"] - w.get("originY", 0) * w["height"]
+    return [left, top, left + w["width"], top + w["height"]]
+
+
+def met(a: list[float], b: list[float]) -> float:
+    """Area where two boxes meet."""
+    return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+
+
+def title_image(image: tuple[str, float], drawn: list[tuple[str, dict, dict]], text_px_max: float,
+                vw: float, vh: float) -> dict:
+    """Measure the title image of a title screen.
+
+    image: (object type, share of the image's height its capitals take), from TITLE_IMAGES.
+    drawn: the screen's instances back to front, as (type, world, properties).
+    Returns caps, the height of the capitals as a share of the shorter side; over_text, that
+    height over the size of the screen's largest text; and covered, the largest share of the image
+    that one instance drawn after it covers. Backdrops and fades, which cover 80% of the screen
+    both ways, do not count."""
+    otype, caps = image
+    n = next(n for n, (t, _, _) in enumerate(drawn) if t == otype)
+    w = drawn[n][1]
+    box, h = world_box(w), abs(w["height"]) * caps
+    covered = 0.0
+    for other, ow, props in drawn[n + 1:]:
+        # An object whose name holds the image's name is a layer of the title itself
+        if otype in other or props.get("initially-visible") is False or (
+                ow["width"] >= 0.8 * vw and ow["height"] >= 0.8 * vh):
+            continue
+        covered = max(covered, met(world_box(ow), box) / abs(w["width"] * w["height"]))
+    return {"type": otype, "caps": round(h / min(vw, vh), 3), "over_text": round(h / text_px_max, 1),
+            "covered": round(covered, 2)}
+
+
+def measure_screens(examples: Path, rag: Path) -> list[dict]:
+    """One row per screen that holds text: its kind, its text sizes as shares of the shorter side,
+    and, on a title screen with an image in TITLE_IMAGES, its title image."""
+    rows = []
+    for gid in games(rag):
+        proj = examples / gid / "project.c3proj"
+        if not proj.is_file():
+            continue
+        p = load(proj)
+        vw, vh = p["viewportWidth"], p["viewportHeight"]
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = json.loads(f.read_text(encoding="utf-8"))
+            kind = screen_kind(lay["name"])
+            if kind is None:
+                continue
+            screens: dict[tuple[str, str], list[float]] = {}
+            drawn = []
+            for layer in layers_in(lay["layers"]):
+                own = kind if kind != "play" else screen_kind(layer["name"])
+                for inst in layer["instances"]:
+                    props, w = inst.get("properties", {}), inst.get("world")
+                    if w and layer.get("isInitiallyVisible", True):
+                        drawn.append((inst["type"], w, props))
+                    px = text_px(props)
+                    if own is None or px is None or not str(props.get("text", "")).strip():
+                        continue
+                    name = lay["name"] if kind != "play" or own == "play" else f"{lay['name']}/{layer['name']}"
+                    screens.setdefault((name, own), []).append(px)
+            for (name, own), sizes in screens.items():
+                row = {"example": gid, "screen": name, "kind": own, "viewport": [vw, vh],
+                       "sizes": sorted({round(px / min(vw, vh), 4) for px in sizes})}
+                if (gid, name) in TITLE_IMAGES:
+                    row["image"] = title_image(TITLE_IMAGES[gid, name], drawn, max(sizes), vw, vh)
+                rows.append(row)
+    return rows
+
+
+def report_screens(rows: list[dict]) -> None:
+    def cuts(vals: list[float]) -> str:
+        vals = sorted(vals)
+        return (f"{len(vals)}, min {vals[0]:g} " + " ".join(
+            f"p{int(k * 100)} {vals[min(len(vals) - 1, int(k * len(vals)))]:g}" for k in (0.25, 0.5, 0.75))
+            + f" max {vals[-1]:g}") if vals else "none"
+    for kind in ("title", "result", "play"):
+        some = [r for r in rows if r["kind"] == kind]
+        print(f"{kind}: {len(some)} screens of {len({r['example'] for r in some})} examples; largest text, share of "
+              f"the shorter side: {cuts([r['sizes'][-1] for r in some])}; one size: "
+              f"{sum(len(r['sizes']) == 1 for r in some)}; largest over smallest: "
+              f"{cuts([r['sizes'][-1] / r['sizes'][0] for r in some if len(r['sizes']) > 1])}")
+    images = [r["image"] for r in rows if "image" in r]
+    print(f"title images: {len(images)}; height of their capitals, share of the shorter side: "
+          f"{cuts([i['caps'] for i in images])}; over the size of the screen's largest text: "
+          f"{cuts([i['over_text'] for i in images])}; covered 5% or more by something drawn after it: "
+          f"{sum(i['covered'] >= 0.05 for i in images)}")
+
+
 def share(rows: list[dict], key: str, test) -> str:
     n = sum(1 for r in rows if test(r[key]))
     return f"{n} of {len(rows)} ({100 * n / len(rows):.0f}%)"
@@ -205,19 +320,23 @@ def main() -> int:
                                  epilog="example: python evals/measure_layout.py --examples ../Construct-Example-Projects/"
                                         "example-projects --out .local/docs/evidence/layout.json")
     ap.add_argument("--examples", type=Path, required=True, help="the example-projects folder of the clone")
-    ap.add_argument("--text", action="store_true", help="measure the layouts' texts, not their content")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--text", action="store_true", help="measure the layouts' texts, not their content")
+    mode.add_argument("--screens", action="store_true", help="measure the texts and title images by kind of screen")
     ap.add_argument("--out", type=Path, help="write every measured layout here as JSON")
     ap.add_argument("--rag", type=Path, default=RAG, help="the Construct3-RAG folder, for the examples' tags")
     args = ap.parse_args()
     if not args.examples.is_dir():
         print(f"--examples {args.examples}: not a folder; pass <Construct-Example-Projects>/example-projects", file=sys.stderr)
         return 2
-    rows = (measure_text if args.text else measure)(args.examples, args.rag)
+    rows = (measure_text if args.text else measure_screens if args.screens else measure)(args.examples, args.rag)
     if not rows:
         print("no layout measured: check that --examples is the example-projects folder")
         return 0
     if args.text:
         report_text(rows)
+    elif args.screens:
+        report_screens(rows)
     else:
         for key in ("covers", "focal"):
             vals = sorted(r[key] for r in rows)

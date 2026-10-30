@@ -22,6 +22,7 @@
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
+    "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
@@ -335,6 +336,28 @@
       "scope": "every-look",
       "says": "Each size of TEXT_SIZE at least 1.2 times the next smaller, a modular scale: the step between the sizes of an official 2D game example's layout runs from 1.03 to 3, a quarter of the steps under 1.25, and 71 brands' design systems step a median 1.17; no ratio holds.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "screen.title-name",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A title screen names the game in its largest letters, drawn as an image by the art route: the capitals of the official 2D game examples' title images are 7 to 35% of the viewport's shorter side, 18% at the median, and 1.6 to 12.6 times the size of the screen's largest text. The template has no title screen; display, its largest kind, sets capitals at 5.7%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
+    },
+    {
+      "id": "screen.result-headline",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A result screen states the moment in one line at text_size(\"display\"), at least 6% of the shorter side, and keeps to one text size where it can: the official 2D game examples' result screens show their largest text at a median 8.3% of the shorter side, a quarter at 6.25% or less, and 21 of 23 use one size. hud_header() sets it at text_size(\"title\"), 3.7%, under all of them but one.",
+      "template": "hud_header()",
+      "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
+    },
+    {
+      "id": "screen.object-over-name",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "An object of the layout drawn over the game's name, as a poster's subject crosses its title: no official 2D game example's title image has another object over 5% of it, apart from fades and its own shine; one logo draws its mascot over its letters inside the image, so a subject that crosses the name belongs to the art.",
+      "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
     },
     {
       "id": "outline.width",
