@@ -1,8 +1,9 @@
-"""prepare_art.py: the image tool's pictures cut out, fitted to the boxes art() asks for, and taken
-by the generator in place of the stand-ins."""
+"""The image route of art.py, prepare_art.py: the image tool's pictures cut out, fitted to the boxes
+art() asks for, and taken by the generator in place of the stand-ins."""
 import json
 import math
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,24 @@ pytest.importorskip("PIL", reason="Pillow is not installed; pip install pillow")
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
 prepare_art = script_module("prepare_art")
+SCRIPT = ".agents/skills/construct3-agent-plugin/scripts/art.py"
+
+
+@pytest.fixture
+def project(project):
+    """The stand-in game with its pictures on the image route."""
+    generator = project / "tools" / "build_project.py"
+    generator.write_text(generator.read_text(encoding="utf-8").replace('ART_ROUTE = "svg"', 'ART_ROUTE = "image"', 1),
+                         encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0, out
+    return project
+
+
+def row(out: str, stem: str) -> list[str]:
+    """The table row of a picture: its name, route, state and next step."""
+    line = next(line for line in out.splitlines() if line.startswith(stem + " "))
+    return re.split(r"\s{2,}", line.strip(), maxsplit=3)
 
 MAGENTA = (255, 0, 255)
 KEYS = prepare_art.KEYS
@@ -145,33 +164,34 @@ def sprite(file: str, subject: str, w: int = 64, h: int = 64) -> dict:
 def test_prepare_art_lists_the_next_step_only(project):
     """No ART_STYLE: that step alone. Then the key picture alone, while more than one sprite is to
     make. Then a prompt per picture."""
-    code, out = tool(project, "prepare_art", "--list")
+    code, out = tool(project, "art")
     assert code == 0, out
-    assert out.splitlines() == [
+    assert row(out, "coin-default-000") == ["coin-default-000", "image", "make",
+                                            "make art/raw/coin-default-000.png, prompt below"], out
+    assert out.splitlines()[-2:] == [
         "style: none. Write ART_STYLE in tools/build_project.py: one sentence of art direction, agreed with the user, "
         "that fixes the rendering, linework, colour temperature, light direction, proportions and framing, so that "
         "every picture shares it",
-        "to make: 1, to prepare: 0, done: 0; next: write ART_STYLE, run python tools/build_project.py, then python "
-        ".agents/skills/construct3-agent-plugin/scripts/prepare_art.py --list again"]
+        f"to make: 1, to prepare: 0, done: 0; next: write ART_STYLE, run python tools/build_project.py, then python "
+        f"{SCRIPT} again"]
     assert (project / "art" / "raw").is_dir()
 
     edit(project, "art/wanted.json", lambda wanted: wanted.update(style="Bright flat vector, thick dark outlines."))
-    code, out = tool(project, "prepare_art", "--list")
+    code, out = tool(project, "art")
     lines = out.splitlines()
-    assert lines[0] == "style: Bright flat vector, thick dark outlines."
+    assert "style: Bright flat vector, thick dark outlines." in lines
     assert "make coin-default-000: ratio 1:1, for a 160x160 box -> art/raw/coin-default-000.png" in lines
     assert ('  "Bright flat vector, thick dark outlines; a gold coin seen from the front. One subject, whole and '
             'centred with room around it, on a flat magenta #FF00FF background: no scenery, no shadow on the '
             'ground, no text."') in lines
-    assert lines[-1] == ("to make: 1, to prepare: 0, done: 0; next: make each with the image tool, then python "
-                         ".agents/skills/construct3-agent-plugin/scripts/prepare_art.py")
+    assert lines[-1] == f"to make: 1, to prepare: 0, done: 0; next: make each with the image tool, then python {SCRIPT}"
 
     edit(project, "art/wanted.json", lambda wanted: wanted["images"].extend(
         [sprite("coin-default-001.png", "a silver coin"), sprite("rose-default-000.png", "a pink rose"),
          {"file": "sky-default-000.png", "kind": "scene", "width": 720, "height": 1280, "origin": [0, 0],
           "subject": "a night sky over hills"}]))
-    code, out = tool(project, "prepare_art", "--list")
-    assert out.splitlines() == [
+    code, out = tool(project, "art")
+    assert out.splitlines()[5:] == [
         "style: Bright flat vector, thick dark outlines.",
         'warning: ART_STYLE names no colour temperature, light direction, proportions or framing, so each prompt '
         'leaves them to the image tool and the pictures can differ in them. Name them in ART_STYLE, or write "colour '
@@ -179,12 +199,12 @@ def test_prepare_art_lists_the_next_step_only(project):
         'key picture: "Bright flat vector, thick dark outlines; a line-up of a gold coin seen from the front; a pink '
         'rose; a silver coin, side by side on a flat green #00FF00 background, no text". If the user is in the '
         'session, show it and keep the one they choose. Save it as art/raw/_key.png',
-        "to make: 4, to prepare: 0, done: 0; next: make the key picture, then python "
-        ".agents/skills/construct3-agent-plugin/scripts/prepare_art.py --list for the prompts of the others"], out
+        f"to make: 4, to prepare: 0, done: 0; next: make the key picture, then python {SCRIPT} for the prompts of "
+        f"the others"], out
 
     # the key picture is the style reference of every sprite, not of a scene
     Image.new("RGB", (64, 32), (0, 255, 0)).save(project / "art" / "raw" / "_key.png")
-    code, out = tool(project, "prepare_art", "--list")
+    code, out = tool(project, "art")
     lines = out.splitlines()
     assert ("make rose-default-000: ratio 1:1, for a 64x64 box, art/raw/_key.png as the reference image -> "
             "art/raw/rose-default-000.png") in lines
@@ -196,7 +216,7 @@ def test_prepare_art_lists_the_next_step_only(project):
             'characters in front, no text."') in lines
 
     (project / "art" / "wanted.json").unlink()
-    code, out = tool(project, "prepare_art")
+    code, out = tool(project, "art")
     assert code == 2 and "no art/wanted.json" in out and "give every sprite an art()" in out
 
 
@@ -235,10 +255,11 @@ def test_prepare_art_warns_of_subjects_that_come_out_wrong(project):
                                                                   images=items))
     (project / "art" / "raw").mkdir(parents=True)
     Image.new("RGB", (64, 32), (255, 0, 255)).save(project / "art" / "raw" / "_key.png")
-    code, out = tool(project, "prepare_art", "--list", "--limit", "0")
+    code, out = tool(project, "art", "--limit", "0")
     lines = out.splitlines()
-    assert code == 0 and lines[1].startswith("warning: ART_STYLE names no colour temperature"), out
-    assert lines[2].startswith("warning: tree-default-000") and lines[7].startswith("warning: slime"), out
+    at = lines.index("style: Dark gilded flat shapes, 暗金描边.")
+    assert code == 0 and lines[at + 1].startswith("warning: ART_STYLE names no colour temperature"), out
+    assert lines[at + 2].startswith("warning: tree-default-000") and lines[at + 7].startswith("warning: slime"), out
     assert ("make knight-default-000: ratio 1:1, for a 64x64 box, art/raw/_key.png as the reference image -> "
             "art/raw/knight-default-000.png") in lines
 
@@ -267,26 +288,27 @@ def test_prepare_art_warns_of_a_thin_art_style_only_while_pictures_are_to_make(p
     """A full style prints no warning; a thin one is warned of above the prompts, which print all the
     same (test_prepare_art_lists_the_next_step_only); with every picture done, nothing is said."""
     edit(project, "art/wanted.json", lambda wanted: wanted.update(style=FULL_STYLE))
-    code, out = tool(project, "prepare_art", "--list")
+    code, out = tool(project, "art")
     lines = out.splitlines()
-    assert code == 0 and lines[0] == f"style: {FULL_STYLE}" and lines[1].startswith("make coin-default-000"), out
+    at = lines.index(f"style: {FULL_STYLE}")
+    assert code == 0 and lines[at + 1].startswith("make coin-default-000"), out
 
     edit(project, "art/wanted.json", lambda wanted: wanted.update(style="Bright flat vector."))
     (project / "art" / "coin-default-000.png").write_bytes(b"")
-    code, out = tool(project, "prepare_art", "--list")
-    assert out.splitlines() == ["style: Bright flat vector.", "done coin-default-000: art/coin-default-000.png",
-                                "ok: all 1 pictures done; next: python tools/build_project.py"], out
+    code, out = tool(project, "art")
+    assert row(out, "coin-default-000") == ["coin-default-000", "image", "done", "-"], out
+    assert "style:" not in out and out.splitlines()[-1] == "ok: 1 pictures from art/", out
 
 
 def test_prepare_art_cuts_out_a_picture_and_the_generator_takes_it(project):
     picture(project / "art" / "raw" / "coin-default-000.jpg")
-    code, out = tool(project, "prepare_art")
+    code, out = tool(project, "art")
     assert code == 0, out
     assert ("coin-default-000: coin-default-000.jpg 512x512, background #" in out
             and "-> art/coin-default-000.png 160x160" in out), out
-    assert out.splitlines()[-1] == "ok: 1 pictures in art/; next: python tools/build_project.py"
-    code, out = tool(project, "prepare_art", "--list")
-    assert out.splitlines()[-1] == "ok: all 1 pictures done; next: python tools/build_project.py", out
+    assert "generator: ok:" in out and out.splitlines()[-1].startswith("ok: 1 pictures from art/"), out
+    code, out = tool(project, "art", "--status")
+    assert row(out, "coin-default-000") == ["coin-default-000", "image", "done", "-"], out
     img = Image.open(project / "art" / "coin-default-000.png")
     assert img.mode == "RGBA" and img.size == (160, 160) and img.info.get("c3-art") == "painted"
     px = img.load()
@@ -328,16 +350,14 @@ def test_prepare_art_refuses_a_picture_it_cannot_cut_out(project):
     edit(project, "art/wanted.json", lambda wanted: wanted.update(style="Bright flat vector."))
     raw = project / "art" / "raw" / "coin-default-000.jpg"
     picture(raw, stripes=True)
-    for _ in range(2):                                   # the same picture again counts once
-        code, out = tool(project, "prepare_art")
-        assert code == 1, out
-        assert ("coin-default-000: coin-default-000.jpg: its edge is not one flat colour" in out
-                and "; make it again on a flat magenta #FF00FF background, or with a transparent one (refusal 1 of 3; "
-                    "after 3 it keeps its stand-in)" in out), out
-    script = ".agents/skills/construct3-agent-plugin/scripts/prepare_art.py"
-    assert out.splitlines()[-1] == (f"prepared: 0, could not use: 1, still to make: 0; next: python {script} --list "
-                                    f"for the prompts of the pictures above, make them again, then python {script}")
-    code, out = tool(project, "prepare_art", "--list")
+    code, out = tool(project, "art")
+    assert code == 1, out
+    assert ("coin-default-000: coin-default-000.jpg: its edge is not one flat colour" in out
+            and "; make it again on a flat magenta #FF00FF background, or with a transparent one (refusal 1 of 3; "
+                "after 3 it keeps its stand-in)" in out), out
+    code, again = tool(project, "art")                   # the same picture is not cut again, nor counted again
+    assert code == 0 and "its edge is not one flat colour" not in again, again
+    assert row(again, "coin-default-000")[2] == "again", again
     lines = out.splitlines()
     assert ("make coin-default-000 again (refusal 1 of 3; after 3 it keeps its stand-in): ratio 1:1, for a 160x160 box "
             "-> art/raw/coin-default-000.png") in lines, out
@@ -347,30 +367,28 @@ def test_prepare_art_refuses_a_picture_it_cannot_cut_out(project):
     assert lines[-1].startswith("to make: 1, to prepare: 0, done: 0; next: make each with the image tool")
 
     picture(raw, r=270, shadow=False)
-    code, out = tool(project, "prepare_art")
+    code, out = tool(project, "art")
     assert code == 1 and "the subject runs off the picture over" in out, out
     assert "make it again whole and centred, with room around it (refusal 2 of 3;" in out
     # on white, a cut would take the subject's whites with it
     picture(raw, bg=(250, 250, 250))
-    code, out = tool(project, "prepare_art")
+    code, out = tool(project, "art")
     assert code == 0, out
     assert "its background is #F" in out and "neither magenta nor green" in out, out
     keep = "To try again, change its subject in art(), which starts the count again"
     assert ("make it again on a flat magenta #FF00FF background, or with a transparent one. Refused 3 times, so it "
             f"keeps its stand-in. {keep}") in out
-    assert out.splitlines()[-1] == ("prepared: 0, could not use: 0, still to make: 0, kept as stand-ins: 1; next: "
-                                    "python tools/build_project.py")
-    code, out = tool(project, "prepare_art", "--list")
-    assert out.splitlines()[-2:] == [
-        f"stand-in coin-default-000: refused 3 times, so it keeps its stand-in. {keep}",
-        "to make: 0, to prepare: 0, done: 0, stand-ins: 1; next: python tools/build_project.py"], out
+    assert row(out, "coin-default-000") == ["coin-default-000", "image", "stand-in",
+                                            "keeps its stand-in: change its subject in art() to try again"], out
+    code, out = tool(project, "art")
+    assert code == 0 and out.splitlines()[-1] == "ok: 0 pictures from art/, 1 keep their stand-in", out
     code, out = run(project, "tools/build_project.py")
     assert code == 0 and "1 of 1 images show their stand-in" in out, out
 
     # a new subject is a new request: its count starts again
     edit(project, "art/wanted.json", lambda wanted: wanted["images"][0].update(subject="a gold coin, flat"))
-    code, out = tool(project, "prepare_art", "--list")
-    assert "prepare coin-default-000: coin-default-000.jpg" in out.splitlines(), out
+    code, out = tool(project, "art", "--status")
+    assert row(out, "coin-default-000")[2] == "prepare", out
 
 
 def test_prepare_art_fits_a_scene_and_keeps_a_picture_with_transparency(project):
@@ -382,7 +400,7 @@ def test_prepare_art_fits_a_scene_and_keeps_a_picture_with_transparency(project)
     cut = Image.new("RGBA", (300, 600), (0, 0, 0, 0))
     ImageDraw.Draw(cut).rectangle([100, 100, 200, 500], fill=(30, 140, 220, 255))
     cut.save(project / "art" / "raw" / "coin-default-000.png")
-    code, out = tool(project, "prepare_art")
+    code, out = tool(project, "art")
     assert code == 0, out
     assert "sky-default-000: sky-default-000.jpg 1365x768 -> art/sky-default-000.png 720x1280, cropped to cover it" in out
     assert "coin-default-000.png 300x600, its own transparency" in out

@@ -125,13 +125,26 @@ of scope `every-look` still stops the run.
 
 The plan names the art direction in one sentence, `ART_STYLE`, and each
 sprite with what its picture shows and its box in units. Every sprite is an
-`art()`, which shows its stand-in until its picture is in `art/`. The
-session that has an image tool makes the pictures; the plan does not draw
-them in code. Art drawn in code looks worse than the stand-ins and mixes
-drawing styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md`).
-When this session has an image generation tool, run
-`python scripts/prepare_art.py --list` and follow its output; without one,
-keep the stand-ins.
+`art()`, which shows its stand-in until its picture is in `art/`, and each
+picture takes one of two routes (`art.routes`):
+
+- `ART_ROUTE = "svg"`, the template's default: the pictures are drawn in
+  code as SVG and rendered in the browser. An object whose frames must keep
+  one box and baseline, such as a character that walks, takes
+  `art(..., route="svg")` on either route.
+- `ART_ROUTE = "image"`, when this session has an image generation tool:
+  the tool makes each picture from the prompt that `scripts/art.py` prints.
+
+After the generator has run, run `python scripts/art.py` and do what its
+last line says. It runs the game's `tools/drawings.py`, renders every
+drawing, fits every picture of the image tool, runs the generator again so
+that `art()` takes them, and writes a contact sheet of every picture. For
+the drawings still to make, it writes a brief: give it as the whole task to
+a `construct3:art-drawer` sub-agent, which draws them all in one style with
+`scripts/svg_kit.py` and reads its own contact sheet before it returns.
+Without that agent type, draw them yourself as the brief says. Never compute
+a picture pixel by pixel in Python: with nothing to hold a style, it mixes
+styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md`).
 
 ## Build, check, open
 
@@ -368,9 +381,10 @@ parameters are in the template.
   the run on a palette that breaks `colour.structure`, and in paper and ink
   `palette.greys`.
 - A sprite is `art(file, kind, w, h, role, subject)` in `build_images()`. It
-  takes the picture `art/<file>` when it is there, which
-  `scripts/prepare_art.py` fits to the box; until then it draws the
-  stand-in. Both have the same box, origin and collision polygon, so the
+  takes the picture `art/<file>` when it is there, which `scripts/art.py`
+  renders or fits to the box; until then it draws the stand-in. `role` is
+  the picture's body, which its hit frame shows in the flash, and
+  `route="svg"` or `"image"` overrides `ART_ROUTE` for one object. Both have the same box, origin and collision polygon, so the
   layouts and events do not change when the art arrives. `subject` says in
   words what the picture shows, for its prompt. Kind `"scene"` is an opaque
   backdrop that fills its box.

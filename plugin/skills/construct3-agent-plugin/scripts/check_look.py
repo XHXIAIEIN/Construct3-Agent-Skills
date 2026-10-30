@@ -12,7 +12,7 @@ layouts and event sheets the editor would load and checks:
                         360 px the images keep the antialiased edges the
                         template draws. A
                         painting meant to keep soft edges in pixel art is
-                        named with --painted, and the art prepare_art.py
+                        named with --painted, and the art that art.py
                         wrote is known by the mark it leaves in the file
   grid.world-placement  an instance of a world layer starts on the grid: its
                         box's left or right edge and top or bottom edge are
@@ -63,7 +63,7 @@ import c3project as c3
 
 
 def painted_mark(path: Path) -> bool:
-    """Whether the PNG carries the text chunk scripts/prepare_art.py writes into a painting."""
+    """Whether the PNG carries the text chunk scripts/art.py writes into a picture."""
     data = path.read_bytes()
     pos = 8
     while pos + 8 <= len(data):
@@ -97,7 +97,7 @@ def check_alpha(root: Path, painted: list[str], out: list[str], soft: bool = Fal
         if hidden:
             out.append(f"alpha.pure: {rel} has {len(hidden)} clear pixels that hold a colour, the first at "
                        f"({hidden[0] % w},{hidden[0] // w}); write a clear pixel as (0, 0, 0, 0)")
-        if soft or painted_mark(png):       # an antialiased edge, or the soft edges of a picture of prepare_art.py
+        if soft or painted_mark(png):       # an antialiased edge, or the soft edges of a picture of art.py
             continue
         for i, p in enumerate(pixels):
             if 0 < p[3] < 255:

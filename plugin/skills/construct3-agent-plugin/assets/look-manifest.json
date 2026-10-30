@@ -4,6 +4,8 @@
   "about": "The look of a generated game and the route its art takes: what the generator template holds, what stops its run, what the user has decided and what is still open. Paper and ink is the fallback, the game's look only when the user gave none: no style, no art direction, and no references or existing project to take one from. When the user gave one, the generator names where it comes from in USER_LOOK, PALETTE, the backdrop and the art take the user's look, and only the rules of scope every-look hold; a rule of scope paper-and-ink then stops and flags nothing, and its value is a default the user's look replaces. An agent hands the model the deliver steps and runs the confirm steps on what comes back. This file is the one owner of every look rule: the skill, its references, the template's comments and the guides cite a rule by its id and do not restate it, and a script that enforces a rule reads its value here.",
   "template": "assets/build_project.py",
   "decisions": [
+    "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
+    "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
     "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
     "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
@@ -478,14 +480,36 @@
       "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
-      "id": "art.image-tool",
+      "id": "art.routes",
       "status": "adopted",
       "scope": "every-look",
-      "says": "A sprite is art(): its picture when it is in art/, else its stand-in, in the same box of whole units with the same origin and collision polygon. When the session has an image tool, the pictures come from it, prompted by prepare_art.py --list from ART_STYLE and each subject, then cut out and fitted by prepare_art.py. Art is not drawn in code.",
-      "template": "ART_STYLE, art()",
+      "says": "A sprite is art(): its picture when it is in art/, else its stand-in, in the same box of whole units with the same origin and collision polygon. Each picture takes one of two routes. On the SVG route, the default, it is drawn in code as SVG by the game's tools/drawings.py with the skill's svg_kit and rendered in the browser at its box size; a construct3:art-drawer sub-agent draws them from the brief that art.py writes. On the image route, when the session has an image tool, the tool makes it from the prompt that art.py prints, and art.py cuts it out and fits it. An object whose frames must keep one box and baseline takes the SVG route on either. A picture is never computed pixel by pixel in Python.",
+      "template": "ART_ROUTE",
+      "value": "'svg'",
       "helpers": "art(), hit_frame(), write_wanted()",
-      "confirm": "prepare_art.py: ok",
-      "source": "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md"
+      "confirm": "art.py: ok",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.roles",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "A drawing names the roles of PALETTE, never a colour: svg_kit writes each role as a CSS variable that art.py sets when it renders, and a shade() or light() of a role mixes it towards ink or canvas; in pixel art a drawing takes the roles alone. The hit frame is the same drawing with the picture's role in the flash colour.",
+      "template": "PALETTE",
+      "helpers": "art(), write_wanted()",
+      "confirm": "art.py: a drawing that names a colour is refused",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.ids",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "Every id in a drawing starts with the drawing's own name, because two drawings inlined on one page that share an id both paint with the first one's definition.",
+      "template": "art()",
+      "confirm": "art.py: a drawing with another id is refused",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
     },
     {
       "id": "juice.functions",
@@ -553,9 +577,9 @@
   ],
   "deliver": [
     "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, PALETTE's values by role from it, canvas and canvas_alt the backdrop's, and ART_STYLE from it; the rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink.",
-    "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
+    "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, ART_ROUTE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
     "Keep SHAPE_STYLE and the helpers between the markers; a helper the game changes is defined again below the end marker. Give every sprite an art() in whole units, which draws its stand-in until its picture arrives, and place it with shape_inst() on a grid cell; create runtime objects at grid_random().",
-    "With an image tool in the session: run prepare_art.py --list, make each picture with the prompt it prints, run prepare_art.py, then the generator. Never compute the art pixel by pixel in code: with nothing to hold a style, it mixes styles on one screen.",
+    "Run art.py after the generator and do what its last line says. On the SVG route it writes a brief for the drawings still to make: give it to a construct3:art-drawer sub-agent as its whole task. On the image route, with an image tool in the session, make each picture with the prompt it prints, then run art.py again. Never compute a picture pixel by pixel in Python: with nothing to hold a style, it mixes styles on one screen.",
     "Keep PALETTE's roles, whatever their colours. In paper and ink: the player in ink, in the shape that subject.player-shape gives, and structure a rectangle in solid; a circle for what is collected, a triangle for what hurts. An area or a range is drawn as lines, zone() of a zone_image(), and a reach a dashed ring(); a slot is a disc of canvas_alt the size of what fills it; an area with a rule of its own is area() of a pattern(); the plain paper is the opaque Background layer's colour and no object, and backdrop() of the checker lies behind everything only where something is transparent, a mask or a background still to come. With USER_LOOK set, draw the stand-ins in the user's colours, and lay the areas and the backdrop in the user's look: area() and backdrop() take any Tiled Background type.",
     "Place the HUD with hud_tag() for the round or the level and no game name, hud_stat() for the count under its name, and hud_keys() with hints() for the controls. Place any other label with hud_text(), hud_bar(), labelled_bar() or band_text(); each holds it to the screen's edges with the Anchor behavior. Place the playfield at centred(w, h, play_area(hud)), and pass the HUD's groups and the playfield to spaced(). An instance placed by anchor() or row() takes behaviors=anchored(where). Lay a popup's dim over screen_box(), on the popup's own layer. Leave FULLSCREEN and z_order() as they are: they fill the screen and order each layer for any game.",
     "Write BEATS for the game's zones or rounds, and read the curve the generator prints; measure every gap of a platformer level with jump().",
@@ -567,7 +591,7 @@
   "confirm": [
     "python tools/build_project.py: the last line starts with ok:",
     "python <skill>/scripts/check_look.py --project <folder>: the last line starts with ok:",
-    "python <skill>/scripts/prepare_art.py --list --project <folder>, where the art is meant to come from an image tool: no picture left to make",
+    "python <skill>/scripts/art.py --project <folder>: the last line starts with ok:",
     "python <skill>/scripts/open_in_editor.py --project <folder>: opened",
     "The look itself is the user's call on a screenshot; no script scores it."
   ]

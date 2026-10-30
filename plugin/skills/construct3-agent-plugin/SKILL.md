@@ -1,7 +1,7 @@
 ---
 name: construct3-agent-plugin
 description: Check, read, look up and generate the JSON of a Construct 3 folder project (project.c3proj, eventSheets, layouts, objectTypes, families) against the schemas of every Construct 3 condition, action, expression and effect and the rules the Construct 3 editor applies when it opens a project. Use this skill whenever you write or edit an event sheet or any other project file of a Construct 3 game, need the exact id, parameters and JSON of a condition, action or expression, want to read an event sheet or an official example as events instead of JSON, generate a whole project from a script, or the editor refuses to open or preview a project, even if the user only says "add a mechanic", "fix this event" or pastes an editor error.
-compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. prepare_art.py needs Pillow, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
+compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. art.py needs Pillow for the pictures of an image tool, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
 metadata:
   source: https://github.com/XHXIAIEIN/Construct3-Agent-Skills
 ---
@@ -149,10 +149,11 @@ scripts print the `git clone`: run it once the user agrees.
 - In pixel art the labels are Sprite Fonts, which draw only the characters
   baked into them. After you change a text by hand, run
   `python scripts/bake_font.py`.
-- Art computed pixel by pixel in code, with nothing to hold a style, looks
-  worse than the stand-in shapes and mixes styles. When this session has an image generation tool, run
-  `python scripts/prepare_art.py --list` and follow its output; without
-  one, keep the stand-ins.
+- A generated game's pictures come through `art()`: after the generator,
+  run `python scripts/art.py` and do what its last line says. Without an
+  image generation tool, it hands the drawings to a
+  `construct3:art-drawer` sub-agent. Never compute a picture pixel by
+  pixel in Python: with nothing to hold a style, it mixes styles.
 - A handed-over change that came back with an editor or runtime error
   twice, or a user asking how to report a problem with the skill: read
   [references/reporting-a-problem.md](references/reporting-a-problem.md).

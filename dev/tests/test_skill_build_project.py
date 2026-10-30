@@ -1412,8 +1412,8 @@ def test_template_art_shows_the_stand_in_until_its_picture_is_there(tmp_path):
     assert png_pixels(tmp_path / "images" / "gem-default-001.png")[0][20] == (255, 255, 255, 255)
     inst = t.shape_inst("Gem", "gem-default-000.png", 2, 3)
     assert (inst["world"]["x"], inst["world"]["y"]) == (96, 160)
-    with pytest.raises(SystemExit, match=r"art/gem-default-000.png is 64x64, and art\(\) asks 96x96: put the picture "
-                                         r"in art/raw/ and run the skill's scripts/prepare_art.py.* or delete"):
+    with pytest.raises(SystemExit, match=r"art/gem-default-000.png is 64x64, and art\(\) asks 96x96: run the skill's "
+                                         r"scripts/art.py, which renders its drawing .* or delete"):
         t.art("gem-default-000.png", "circle", 96, 96, "reward", "a red gem")
 
 
