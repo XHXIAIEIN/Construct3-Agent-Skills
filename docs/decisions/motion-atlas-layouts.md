@@ -33,7 +33,7 @@ title screen here is any title, menu, pause or settings screen.
 
 | Rule | Prompts (of 200) | Official examples | Template | Decision |
 |------|------------------|-------------------|----------|----------|
-| A title, menu or pause screen sets its texts on the vertical centre line | 82 centre their headline or stack | 51 of 63 texts on 16 title screens of 11 examples are centred within 2% of the width; of the 10 such screens with two texts or more, 8 centre all and none centres none | `hud_header()` holds a menu's title top left; no title screen | `screen.menu-axis`, proposed |
+| A title, menu or pause screen sets its texts on the vertical centre line | 82 centre their headline or stack | 51 of 63 texts on 16 title screens of 11 examples are centred within 2% of the width; of the 10 such screens with two texts or more, 8 centre all and none centres none | `hud_header()` held a menu's title top left; no title screen | `screen.menu-axis`, adopted |
 | Text sits a small inset from the edge | Median inset 24 px, 2.7% of the shorter side | The text nearest the edge sits a median 3% in, 52 of 75 layouts within 5% (`look-from-aesthetics-skills.md`) | `MARGIN` is a fifteenth of the shorter side in whole units: 4.4% at 720, 5.9% at 1080, 6.7% in pixel art | `screen.edge-inset`, proposed |
 | A change of page passes through a wipe or a fade | 41 page transitions, median 0.8 s; 38 loaders | 31 of the 51 examples that go to another layout have an object type named as a fade, transition, curtain or wipe | `go_to_layout()` cuts | `screen.transition`, proposed |
 | Items that enter together start a step apart | 96 state a stagger; per site a median 70 ms, 60 to 80 ms between the quartiles | 18 waits of a constant times `loopindex` in 12 examples: median 0.125 s, a quarter at 0.1 s or less; the menus step 0.1 to 0.25 s | No stagger helper | `motion.stagger` stays proposed with both ranges |
@@ -65,7 +65,7 @@ the six dimensions of `ART_STYLE` vary, and the pick replaces nothing else.
 1. **Propose the rules the examples agree with, reject the rest.** The
    centred menu, the small inset and the fade between layouts hold on both
    the websites and the examples. Each changes a helper or a constant, so
-   each waits for the owner.
+   each waits for the owner's choice.
 2. **Adopt the three now.** It changes every generated menu and every HUD's
    margin without the owner's choice.
 3. **Take the atlas's numbers as they are.** The type contrast, the 11 px
@@ -76,9 +76,15 @@ the six dimensions of `ART_STYLE` vary, and the pick replaces nothing else.
 Option 1. The look manifest holds each rule above under its id, with the
 evidence in its `says`:
 
-- `screen.menu-axis`, `screen.edge-inset` and `screen.transition` are
-  proposed. Adopting one changes `hud_header()` or a new menu helper,
-  `MARGIN`, or `go_to_layout()`, and the test that holds it.
+- `screen.menu-axis` is adopted, as the owner chose. `hud_header()` sets a
+  title, menu or pause screen's title on the vertical centre line at the
+  top, with its tag under it. `button(..., "center", row)` puts a button on
+  the cell nearest the line, half a unit off it at most. `on_axis()` warns
+  of an instance of a layout or layer named title, menu or pause that sits
+  further off. A settings screen, rows of a name beside its control, is
+  left out, and a back button in a corner passes as a warning.
+- `screen.edge-inset` and `screen.transition` are proposed. Adopting one
+  changes `MARGIN` or `go_to_layout()`, and the test that holds it.
 - `motion.stagger` stays proposed. The websites step 60 to 80 ms and the
   examples 0.1 to 0.25 s; the owner picks the step.
 - The others are rejected, each for the measurement in the table. A
@@ -89,8 +95,8 @@ evidence in its `says`:
 
 - The owner picks one of the proposed rules: set it to adopted and change
   the template and its test with it.
-- The template gains a title screen: measure its axis against
-  `screen.menu-axis`.
+- The template gains a title screen: build it with `hud_header()` and
+  centred buttons, and check it passes `on_axis()` without a warning.
 - The example clone updates: rerun `measure_layout.py --frame` and the
   three subcommands of `measure_examples.py`.
 - The play HUD changes its corners: compare it with the examples' one or
