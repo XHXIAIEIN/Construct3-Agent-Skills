@@ -7,6 +7,7 @@
     "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
     "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
     "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
+    "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md",
     "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
     "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
@@ -173,6 +174,14 @@
       "scope": "every-look",
       "says": "No Text shows an emoji: an emoji draws from the device's emoji font, so its picture differs between systems and from ART_STYLE, and a Sprite Font draws nothing for it. An icon is art in its own box. No string of the layouts and event sheets of the 544 official examples holds an emoji; the 13 strings with a symbol hold arrows naming keys in instructions and a Sprite Font's own drawn heart.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
+    },
+    {
+      "id": "type.counting-digits",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A number that count_up() counts is left-aligned, so the digits before the one that changes stay put, or set in a font whose digits share one width. Inter's digits are 0.42 to 0.66 em wide, the 1 the narrowest, and Construct's Text has no tabular figures, so a centred or right-aligned count shifts its other digits on every tick of its 0.5 s. One official example counts a number, centred and padded to three digits.",
+      "helpers": "count_up(), counting(), hud_text()",
+      "source": "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md"
     },
     {
       "id": "lines.areas",
