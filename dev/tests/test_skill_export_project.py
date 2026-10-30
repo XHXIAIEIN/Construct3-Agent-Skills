@@ -139,6 +139,44 @@ def test_a_stopped_export_leaves_the_users_own_tab_on_the_start_page(monkeypatch
     assert "window.__c3Keep = setInterval" in export.oe.SETUP_JS
 
 
+@pytest.mark.parametrize("release, reused", [([506, 3], True), ([476, 4], True), ([475, 0], False)])
+def test_the_own_window_reuses_an_editor_page_by_its_release(monkeypatch, tmp_path, release, reused):
+    """The logged-in page of the script's window was at editor.construct.net/, release 506.3, after
+    Update on the editor's update prompt; the next two runs matched pages by the URL of the project's
+    release, r476-4/, opened a new page, showed Guest and stopped at the login (2026-10-31). A page
+    whose release opens the project is reused wherever its URL points; an older one is not."""
+    export = script_module("export_project")
+    (tmp_path / "project.c3proj").write_text('{"savedWithRelease": 47604}', encoding="utf-8")
+    pages = {"preview": "https://preview.construct.net/local.html", "editor": export.oe.EDITOR}
+    opened = []
+
+    class Page(Tab):
+        def __init__(self, url: str) -> None:
+            super().__init__(url.rsplit("/", 1)[-1])
+            self.ws = self
+
+        def close(self) -> None:
+            pass
+
+        def evaluate(self, expression: str, by_value: bool = True, wait: float = 10):
+            super().evaluate(expression)
+            return release if expression == export.oe.RELEASE_JS else None
+
+    class Browser:
+        port, devtools = 0, Tab("browser")
+
+        def page(self, url: str) -> tuple:
+            opened.append(url)
+            return "new", Page(url)
+
+    Browser.devtools.call = lambda method, **params: {"targetInfos": [
+        {"type": "page", "url": url, "targetId": target} for target, url in pages.items()]}
+    monkeypatch.setattr(export.oe, "DevTools", Page)
+    monkeypatch.setattr(export.oe, "load", lambda page, url: None)
+    target, page = export.own_page(Browser(), tmp_path)
+    assert (target, opened) == (("editor", []) if reused else ("new", [export.oe.EDITOR + "r476-4/"])), (target, opened)
+
+
 def test_a_crashed_editor_is_restarted_to_close_the_copy(capsys):
     """An export left the user's tab on the editor's crash report, which has no close button and
     came back each time the menu opened, so the copy could not be closed (2026-10-04, r495-2).

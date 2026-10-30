@@ -153,14 +153,27 @@ def editor_url(project: Path) -> str:
     return f"{oe.EDITOR}r{major}{f'-{minor}' if minor else ''}/" if major else oe.EDITOR
 
 
-def own_page(b: oe.Browser, url: str) -> tuple[str, oe.DevTools]:
-    """The editor page a run before left in the browser, with its login, else a new one.
-    The login lives in the page, so it is never reloaded."""
+def page_release(page: Page) -> int:
+    """The release of the editor in page, 50603 for r506.3; 0 while it has loaded no script."""
+    major, minor = (page.evaluate(oe.RELEASE_JS) + [0, 0])[:2]
+    return major * 100 + minor
+
+
+def own_page(b: oe.Browser, project: Path) -> tuple[str, oe.DevTools]:
+    """The editor page a run before left in the browser, with its login, if its release opens the
+    project, else a new one. The login lives in the page, so it is never reloaded. The release is
+    read from the page, not its URL: Update on the editor's update prompt takes a page of an older
+    release to editor.construct.net/, the latest one."""
+    saved = oe.saved_release(project)
     for t in b.devtools.call("Target.getTargets")["targetInfos"]:
-        if t["type"] == "page" and t["url"].startswith(url):
-            page = oe.DevTools(f"ws://127.0.0.1:{b.port}/devtools/page/{t['targetId']}")
+        if t["type"] != "page" or not t["url"].startswith(oe.EDITOR):
+            continue
+        page = oe.DevTools(f"ws://127.0.0.1:{b.port}/devtools/page/{t['targetId']}")
+        if page_release(page) >= saved:
             oe.keep_active(page)
             return t["targetId"], page
+        page.ws.close()
+    url = editor_url(project)
     target, page = b.page(url)
     oe.load(page, url)
     return target, page
@@ -242,8 +255,7 @@ def attached_page(devtools: oe.DevTools, project: Path) -> tuple[SessionPage, bo
             continue
         page = SessionPage(devtools, t["targetId"])
         oe.keep_active(page)
-        major, minor = (page.evaluate(oe.RELEASE_JS) + [0, 0])[:2]
-        if major * 100 + minor >= saved:
+        if page_release(page) >= saved:
             return page, False
         devtools.call("Target.detachFromTarget", sessionId=page.session)
     url = editor_url(project)
@@ -903,7 +915,7 @@ def run(project: Path, folder: Path, version: str, spec: str | None, exe: str | 
         page, opened = attached_page(devtools, project)
     else:
         b = own_browser(project, exe)
-        target, page = own_page(b, editor_url(project))
+        target, page = own_page(b, project)
         show_window(b, target, "normal")
         close_project(page)     # one a run that was killed left, before the login is read: a restart loses it
     print(f"logged in as {wait_for_login(page)}, exporting {version}", flush=True)
