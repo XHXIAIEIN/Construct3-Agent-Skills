@@ -1104,22 +1104,23 @@ def colours_of(project: Path, kind: str) -> set[tuple]:
     return set()
 
 
-def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str]:
+def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str, str | None]:
     """What the viewport shows behind the game: from the Background layer down through the layers under it,
     such as the template's parallax-0 layer of a checker, the image of the first instance that covers the
-    viewport (a backdrop), else the colour of the first opaque layer (the template's paper)."""
+    viewport (a backdrop), else the colour of the first opaque layer (the template's paper). The colours, where
+    they come from, and the backdrop's type when one covers the viewport."""
     layers = layout.get("layers", [])
     names = [layer.get("name", "").lower() for layer in layers]
     if "background" not in names:
-        return set(), "no Background layer"
+        return set(), "no Background layer", None
     for layer in reversed(layers[:names.index("background") + 1]):
         cover = next((i for i in reversed(layer.get("instances", []))
                       if contains(box_of(i), (0, 0, *view_of(project))) and colours_of(project, i["type"])), None)
         if cover:
-            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport"
+            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport", cover["type"]
         if not layer.get("isTransparent", True):
-            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour"
-    return set(), "a transparent Background layer and nothing covering the viewport"
+            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour", None
+    return set(), "a transparent Background layer and nothing covering the viewport", None
 
 
 def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
@@ -1131,7 +1132,7 @@ def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
         return results + [(False, "layouts/Game.json is not readable JSON")] * 5
     # The template's paper is the Background layer's colour, unless a backdrop covers the layer. Its labels
     # are dark ink on white, so the navy is what puts readability at stake.
-    shown, source = background_colours(layout, project)
+    shown, source, _ = background_colours(layout, project)
     dark = bool(shown) and all(abs(a - b) <= 40 for colour in shown for a, b in zip(colour, NAVY))
     results.append((dark, f"{source}: {sorted(shown) or 'no colour'}"))
     hud = hud_of(layout)
@@ -1859,6 +1860,8 @@ def grade_art_without_an_image_tool(run: Path) -> list[tuple[bool, str]]:
 # amber of their coins and lanterns. 32 keeps the deep navy of readable-on-a-dark-background out of the plum.
 PLUM, PLUM_SLACK = (0x2A, 0x1E, 0x3D), 32
 AMBER, AMBER_SLACK = (0xF2, 0xA5, 0x41), 48
+# A painted backdrop shows a scene on the plum, as stall.png does (73% of it within PLUM_SLACK)
+MOSTLY = 0.5
 # The references outline each shape in ink 6 to 12 px wide: within EDGE px of the clear, most of a drawn coin is dark
 EDGE, INK_MAX = 3, 80
 
@@ -1893,9 +1896,12 @@ def grade_look_from_references(run: Path) -> list[tuple[bool, str]]:
         layout = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return results + [(False, "layouts/Game.json is not readable JSON")] * 5
-    shown, source = background_colours(layout, project)
-    plum = bool(shown) and all(near(c, PLUM, PLUM_SLACK) for c in shown)
-    results.append((plum, f"{source}: {sorted(shown) or 'no colour'}"))
+    shown, source, cover = background_colours(layout, project)
+    picture = next(iter(sorted((project / "images").glob(f"{cover.lower()}*.png"))), None) if cover else None
+    pixels = [c for _, _, c in opaque(picture)] if picture else list(shown)
+    share = sum(near(c, PLUM, PLUM_SLACK) for c in pixels) / len(pixels) if pixels else 0
+    results.append((share >= MOSTLY, f"{source}: {share:.0%} within {PLUM_SLACK} of the plum, commonest "
+                                     f"{commonest([(0, 0, c) for c in pixels])}"))
     coin = next(iter(sorted((project / "images").glob("coin*-000.png"))), project / "images" / "coin-default-000.png")
     pixels = opaque(coin)
     main = commonest(pixels)

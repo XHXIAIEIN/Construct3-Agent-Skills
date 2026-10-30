@@ -591,7 +591,7 @@
       ],
       "assertions": [
         "check_project.py of the clone exits 0 on the regenerated project",
-        "What the viewport shows behind the game is the references' dark plum: every colour within 32 of #2A1E3D in every channel",
+        "What the viewport shows behind the game is mostly the references' dark plum: half of it or more within 32 of #2A1E3D in every channel, as 73% of stall.png is",
         "The coin's commonest colour, counted in bins of 3 bits a channel as art.measure counts it, is the references' amber: within 48 of #F2A541 in every channel",
         "The coin is outlined in ink as the references' shapes are: over half of its opaque pixels within 3 px of its edge have no channel at 80 or more",
         "The look is the user's: USER_LOOK of tools/build_project.py is set",
