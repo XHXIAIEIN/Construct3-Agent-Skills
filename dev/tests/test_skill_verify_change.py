@@ -204,6 +204,25 @@ def test_a_yes_from_before_the_change_passes_the_look_step(project: Path, monkey
     assert "look yes from before Game 4, ugly - the player: a plain blue box" in out.splitlines()[-1], out
 
 
+def test_the_editor_steps_share_one_browser_closed_as_the_run_ends(project: Path,
+                                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """The scripts run with SHARED naming the project, so each leaves the browser and the open project to the
+    next; the run closes that browser as it ends, also when a step stops it."""
+    seen, closed = {}, []
+    init = verify_change.Run.__init__
+
+    def spy(self, *a) -> None:
+        init(self, *a)
+        seen.update(self.env)
+    monkeypatch.setattr(verify_change.Run, "__init__", spy)
+    monkeypatch.setattr(verify_change.oe, "browser_path", lambda: "msedge.exe")
+    monkeypatch.setattr(verify_change.oe, "close_shared", lambda exe, profile: closed.append((exe, profile)))
+    code, out = drive(project, monkeypatch, Look(project))
+    assert code == 1 and steps(out)["looked"] == "asked", out
+    assert Path(seen[verify_change.oe.SHARED]).resolve() == project.resolve()
+    assert [exe for exe, _ in closed] == ["msedge.exe"] and closed[0][1].name == "editor-msedge"
+
+
 def test_the_look_step_stops_on_a_finding_of_check_look(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A generated game's look check runs before the look review, and a finding stops the step there."""
     editor = Editor(**{"check_look.py": (1, "grid.world-placement: layout Game, layer Game: Coin uid 3 is off the "
