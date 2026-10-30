@@ -72,6 +72,21 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   The browser's screencast cannot do it: with the window's size emulated it
   sends no frame, or a strip. Construct's Video Recorder plugin records the
   canvas with its sound, but only in a project that has the object.
+- `record` with `fps` writes its video in game time, for counting an
+  effect's frames. The recorder takes about 40 screenshots a second while
+  the preview ticks at the display's rate, so a video on the clock holds
+  about half the frames of a 60 fps effect, and `vfx-timing.md` in
+  Construct3-Cookbook shows that halving an impact moves its rise-to-fall
+  ratio out of its row. Each instant start + k / fps of game time takes the
+  last screenshot whose game time, read right after it, is at or before
+  it. The plan slows the game in a `js` step of its own, not the recorder,
+  because the timeouts of the steps after it count wall-clock seconds and
+  the audio clock is not scaled, and a reader of the plan sees the scale.
+  A frame with no screenshot of its own repeats the one before; the run
+  counts those and names the scale that puts a quarter of a frame of game
+  time between two screenshots. A probe of a pixel-art impact settled the
+  method: at `runtime.timeScale = 0.1` every screenshot fell 4.6 ms of game
+  time or less before its instant.
 - A recording is for reviewing what happened. Its `watch` expressions are
   read with every frame, and `timeline.json` puts the frames, the steps that
   ran and the errors on one clock; the agent gets the watched values' changes
