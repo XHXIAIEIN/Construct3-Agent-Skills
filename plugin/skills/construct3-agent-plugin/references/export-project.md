@@ -185,6 +185,19 @@ or export again with the script (the *Auto-increment version* bullet below).
   refuses a project a newer release saved. The script opens
   `editor.construct.net/r<release>/` from `savedWithRelease`. [Edge,
   2026-10-01]
+- An editor of a release older than the latest stable one, opened at
+  `editor.construct.net/r<release>/`, shows "Update available" with Update
+  and Not now about 2 seconds after it loads. Update sets the page's address
+  to `editor.construct.net/`, which loads the latest release and shows Guest.
+  A user who logs in there leaves the logged-in page at the root, so the
+  script finds its page again by the release the page runs, not by its
+  address. [r476.4 editor in Edge, 2026-10-31: in the export window of
+  ghost-chaser, the page went from `r476-4/` to the root 7 seconds after it
+  opened and 36 seconds before the user logged in. The profile's history
+  records the move as a link from `r476-4/` with no login page between. A
+  new `r476-4/` page in that profile showed the prompt, and r476.4's
+  `main.js` sets `location.href = location.origin` on Update. A fresh
+  profile showed the welcome tour instead]
 - The export report's download link, clicked in a driven browser, saves no
   file; the script reads the zip out of the page instead. [r504 editor in
   Edge, 2026-10-01]
