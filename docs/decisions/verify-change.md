@@ -89,9 +89,10 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
   browser running and keeps the project's editor page, marked with a digest
   of the packed files. The next script takes that page while it holds the
   same files, and opens the project again otherwise; each still starts a
-  preview of its own. The run closes the browser as it ends. On a warm
-  profile the three editor scripts took 22.5 seconds instead of 33.1, with
-  the same output.
+  preview of its own. The run closes the browser as it ends. Over eight
+  eval projects, three calls each on a warm profile, a call that ran every
+  editor step took a median 33.6 seconds instead of 44.4, and each project
+  saved 10.1 to 11.4 seconds, with the same output.
 - A design question is answered with an explicit `--answered`, so a run
   that answers is visible in its transcript, and the eval can count one
   that skipped. An answer holds for the files it was asked about: a change
