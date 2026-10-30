@@ -347,10 +347,10 @@
     },
     {
       "id": "screen.result-headline",
-      "status": "proposed",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "A result screen states the moment in one line at text_size(\"display\"), at least 6% of the shorter side, and keeps to one text size where it can: the official 2D game examples' result screens show their largest text at a median 8.3% of the shorter side, a quarter at 6.25% or less, and 21 of 23 use one size. hud_header() sets it at text_size(\"title\"), 3.7%, under all of them but one.",
-      "template": "hud_header()",
+      "says": "A result screen states the moment in one line at text_size(\"display\"), centred on the screen, with at most a small tag under it: the official 2D game examples' result screens show their largest text at a median 8.3% of the shorter side, a quarter at 6.25% or less, and 21 of 23 use one size. display is 64 pt, 7.9% at 1080; in pixel art it is two units, 4.4% at 360. A menu keeps hud_header().",
+      "template": "result_headline()",
       "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
     },
     {
