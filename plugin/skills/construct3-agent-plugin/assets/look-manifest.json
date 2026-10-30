@@ -7,6 +7,7 @@
     "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
     "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
     "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
+    "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md",
     "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
     "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
@@ -162,6 +163,14 @@
       "value": "0.0175",
       "helpers": "on_scale(), em_px()",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "type.counting-digits",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A number that count_up() counts is left-aligned, so the digits before the one that changes stay put, or set in a font whose digits share one width. Inter's digits are 0.42 to 0.66 em wide, the 1 the narrowest, and Construct's Text has no tabular figures, so a centred or right-aligned count shifts its other digits on every tick of its 0.5 s. One official example counts a number, centred and padded to three digits.",
+      "helpers": "count_up(), counting(), hud_text()",
+      "source": "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md"
     },
     {
       "id": "lines.areas",
@@ -607,8 +616,12 @@
       "id": "motion.stagger",
       "status": "proposed",
       "scope": "every-look",
-      "says": "Items that enter together, the rows of a menu or the cards of a hand, start 0.03 to 0.08 s apart, and input does not wait for the last. Proposed until the official examples are read for a step.",
-      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+      "says": "Items that enter together, the rows of a menu or the cards of a hand, start one step apart, and input does not wait for the last. The official examples step a loop's waits by 0.1 s at the median, 0.1 to 0.15 s in the middle half, waves of enemies among them; Emil Kowalski's animation skills step 0.03 to 0.08 s and cap the whole at 0.3 s.",
+      "options": [
+        "measured: 0.1 s a step, as the official examples' loops wait",
+        "web: 0.03 to 0.08 s a step and 0.3 s in all, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) stagger a list"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md"
     },
     {
       "id": "menu.hold-to-confirm",
