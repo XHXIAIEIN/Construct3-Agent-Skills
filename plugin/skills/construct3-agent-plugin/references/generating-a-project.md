@@ -417,6 +417,14 @@ parameters are in the template.
   never on an object that collides (`motion.squash-art`): a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of
   the mask.
+- A tween takes the ease and the seconds of its class from `TWEEN_STYLE`:
+  `style="hud_in"`, `"hud_out"`, `"bar"`, `"camera"`, `"world"` (the
+  default), `"popup"` or `"banner"` (`motion.tween-style`). A popup is
+  `popup(panel, dim)` to open and `popup(panel, dim, show=False)` to close,
+  with `popup_closed(panel, dim)` among the module's events. The motion
+  checks of `check_look.py` are the rules whose ids start with `motion.`.
+  [motion-vocabulary.md](motion-vocabulary.md) names each motion with its
+  helper and value: a pop, a float, a hit stop, a shake, a ticker, a stagger.
 - A label is `TEXT_SIZE["body"]`, a screen's title `TEXT_SIZE["title"]`, the
   count `TEXT_SIZE["number"]` and a banner `TEXT_SIZE["display"]`, each in
   the weight `TEXT_WEIGHT` gives it, a font of `FONT`, never bold. `FONT`
