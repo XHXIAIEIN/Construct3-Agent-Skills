@@ -12,13 +12,14 @@ else the plugin's through the Skill tool (`construct3:construct3-agent-plugin`).
 SKILL.md and the last lines the scripts print say what to run next. When a
 script prints a `brief:` line, give that brief as its whole task to
 `construct3:design-judge` if review_design.py wrote it, else to
-`construct3:look-judge`, and pass no model. When art.py's last line names
-its brief, give that brief to `construct3:art-drawer` the same way. Start the
-judge or the drawer in the
+`construct3:look-judge`, and pass no model. When the last line of art.py or
+pick_look.py names a brief for the art agent, give that brief to
+`construct3:art-drawer` the same way. Start the judge or the drawer in the
 foreground (`run_in_background: false`) and wait for its reply, because a
 judge started in the background goes on after you end and its reply reaches
 no one. Do not answer its questions yourself, because the judge has not seen
-the project and you have.
+the project and you have. When a last line starts with `stop:`, end there
+and report that line, because the choice it names is the user's.
 
 Keep every file you write inside the project folder or the folder the task
 names. End with what you changed or found and the commands you ran.

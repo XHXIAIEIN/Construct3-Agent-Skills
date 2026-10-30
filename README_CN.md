@@ -56,7 +56,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 ## Claude Code plugin
 
-`plugin/` 同时是一个 Claude Code plugin，名为 `construct3`。用户问到 Construct 3 项目时，它自动加载 skill。它还添加四个子 agent 类型。`construct3:project-worker` 接手主 agent 交出去的改动或查询。`construct3:art-drawer` 按 `art.py` 写的 brief 用 SVG 画出生成游戏的图，返回前先看自己的联系表。`construct3:look-judge` 回答 `review_look.py` 对截图提出的问题，`construct3:design-judge` 回答 `review_design.py` 对事件表提出的问题：两者都没看过项目和需求，只能读文件。这个 plugin 有三种安装方式：
+`plugin/` 同时是一个 Claude Code plugin，名为 `construct3`。用户问到 Construct 3 项目时，它自动加载 skill。它还添加四个子 agent 类型。`construct3:project-worker` 接手主 agent 交出去的改动或查询。`construct3:art-drawer` 按 `art.py` 写的 brief 用 SVG 画出生成游戏的图，返回前先看自己的联系表；用户给了游戏的风格时，它先通过 `pick_look.py` 把游戏的第一屏画成三种风格，让用户挑一种。`construct3:look-judge` 回答 `review_look.py` 对截图提出的问题，`construct3:design-judge` 回答 `review_design.py` 对事件表提出的问题：两者都没看过项目和需求，只能读文件。这个 plugin 有三种安装方式：
 
 - 从 [Claude 插件目录](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory)安装，得到 Anthropic 审核过的版本。每个版本都要等审核，所以这份副本可能比本仓库落后几个提交。
 - 把本仓库作为插件市场安装，跟上发布的版本。在 Claude 里打开 设置 > 自定义 > 插件。点右上角的 添加 > 添加市场 > 从仓库添加，填入 `https://github.com/XHXIAIEIN/Construct3-Agent-Skills`，再点同步。在终端里做同样的事，运行：

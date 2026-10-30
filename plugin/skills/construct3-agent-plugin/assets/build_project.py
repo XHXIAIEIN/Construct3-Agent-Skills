@@ -1008,6 +1008,7 @@ def write_wanted() -> None:
     write_json("art/wanted.json", {"style": ART_STYLE, "flash": list(rgb(HIT_FLASH["role"])),
                                    "flash_role": HIT_FLASH["role"], "pixel_art": PIXEL_ART, "unit": UNIT,
                                    "line_width": SHAPE_STYLE["outline_width"], "view": [VIEW_W, VIEW_H],
+                                   "user_look": USER_LOOK, "text_size": TEXT_SIZE, "text_weight": TEXT_WEIGHT,
                                    "palette": {role: list(c) for role, c in PALETTE.items()},
                                    "images": list(ART.values())})
     waiting = [rel for rel in ART if not (ROOT / "art" / rel).exists()]
@@ -3444,8 +3445,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp b518f4f92980 ================
-
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp a0cd04d19a8a ================
 
 # --- the game ---------------------------------------------------------------------------
 # Pacing, then what build_all() calls: images, data files, object types, layouts, the event sheet

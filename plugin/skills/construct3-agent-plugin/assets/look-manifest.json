@@ -15,6 +15,7 @@
     "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
+    "Construct3-Agent-Skills/docs/decisions/look-picker.md",
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
@@ -494,6 +495,15 @@
       "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
     },
     {
+      "id": "look.picker",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "When the user gave a look, in words or references, the user picks it before any art is drawn or made: the art agent draws the first play screen at the viewport's size in three named directions, paper and ink and two from the user's look. Every two directions differ in two or more dimensions of an art direction (rendering, linework, colour temperature, light direction, proportions, framing), never only in their colours, and each keeps the roles of PALETTE and the kinds of TEXT_SIZE. pick_look.py checks and renders them behind a picker with a brief for the look judge, and stops for the user; the pick alone becomes USER_LOOK, PALETTE and ART_STYLE, and its screen art/look.png, which every drawing and every prompt then follows. When the user gave no look, paper and ink applies with no picker. A rule of status open, such as subject.player-shape, may be shown on the directions; the pick does not decide it.",
+      "template": "USER_LOOK",
+      "confirm": "pick_look.py: stop",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-picker.md"
+    },
+    {
       "id": "art.roles",
       "status": "enforced",
       "scope": "every-look",
@@ -675,7 +685,7 @@
     }
   ],
   "deliver": [
-    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, PALETTE's values by role from it, canvas and canvas_alt the backdrop's, and ART_STYLE from it; the rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink.",
+    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK. After the generator's first run and before any art, run pick_look.py and do what its last line says (look.picker): the art agent draws the first play screen in three directions, the user picks one, and the pick writes USER_LOOK, PALETTE's values by role, canvas and canvas_alt the backdrop's, and ART_STYLE. The rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink, with no picker.",
     "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, ART_ROUTE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
     "Keep SHAPE_STYLE and the helpers between the markers; a helper the game changes is defined again below the end marker. Give every sprite an art() in whole units, which draws its stand-in until its picture arrives, and place it with shape_inst() on a grid cell; create runtime objects at grid_random().",
     "Run art.py after the generator and do what its last line says. On the SVG route it writes a brief for the drawings still to make: give it to a construct3:art-drawer sub-agent as its whole task. On the image route, with an image tool in the session, make each picture with the prompt it prints, then run art.py again. Never compute a picture pixel by pixel in Python: with nothing to hold a style, it mixes styles on one screen.",

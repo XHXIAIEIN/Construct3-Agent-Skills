@@ -28,7 +28,9 @@ game's canvas, frames of one object side by side: .tmp/scripts/art/contact.png.
 
 When drawings are still to make, it writes .tmp/scripts/art/brief.md, the
 whole task of the construct3:art-drawer sub-agent: the pictures, the kit, the
-look and the questions to answer on the contact sheet.
+look and the questions to answer on the contact sheet. When the user gave a
+look, USER_LOOK, it is picked first: pick_look.py keeps the picked first play
+screen as art/look.png, which the brief names.
 
 A picture refused three times keeps its stand-in, recorded in
 art/refused.json; change its subject in art() to try again.
@@ -128,11 +130,11 @@ def page(svg: str, roles: dict) -> str:
 class Renderer:
     """One headless browser for the run, with a page that renders a drawing or a contact sheet."""
 
-    def __init__(self, root: Path, exe: str) -> None:
+    def __init__(self, root: Path, exe: str, folder: str = FOLDER) -> None:
         import open_in_editor as oe
         import pack_project as pp
         self.oe, self.root = oe, root
-        self.folder = pp.script_folder(root, FOLDER)
+        self.folder = pp.script_folder(root, folder)
         self.browser = oe.Browser(exe, pp.browser_profile(root, "art", exe), False)
         _, self.page = self.browser.page("about:blank")
         self.page.call("Emulation.setDefaultBackgroundColorOverride", color={"r": 0, "g": 0, "b": 0, "a": 0})
@@ -405,6 +407,9 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path |
         f"{(root / 'art' / 'wanted.json').as_posix()}.",
         "",
         f"Art direction: {wanted.get('style') or '(none given: flat shapes with an ink outline, light from the top left)'}",
+        *([f"The look the user picked is its first play screen in {(root / image_route.LOOK).as_posix()}: open it "
+           f"with the Read tool and draw every picture in its rendering, linework and light."]
+          if (root / image_route.LOOK).is_file() else []),
         f"Roles: {', '.join(f'{r} {c}' for r, c in hexes(wanted['palette']).items())}. The canvas behind the "
         f"game is {hexes(wanted['palette'])['canvas']}.",
         "",
@@ -437,10 +442,11 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path |
 
 
 # --- the run -------------------------------------------------------------------------------
-def run_drawings(root: Path) -> tuple[int, str]:
+def run_drawings(root: Path, script: Path = DRAWINGS) -> tuple[int, str]:
+    """Runs the drawing script at root/script with svg_kit on its path: its exit code and what it said."""
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(c3.SKILL_DIR / "scripts"),
                                                                        os.environ.get("PYTHONPATH")]))}
-    p = subprocess.run([sys.executable, str(root / DRAWINGS)], cwd=root, env=env, capture_output=True, text=True,
+    p = subprocess.run([sys.executable, str(root / script)], cwd=root, env=env, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=120)
     return p.returncode, (p.stdout + p.stderr).strip()
 
@@ -592,7 +598,11 @@ def main() -> int:
                 and now[item["file"]] in ("draw", "redraw")]
     counts = {s: list(now.values()).count(s) for s in set(now.values())}
     count = ", ".join(f"{s}: {n}" for s, n in sorted(counts.items()))
-    if drawings:
+    if drawings and image_route.unpicked(root, wanted):
+        out.append(f"{count}; next: the user gave a look, USER_LOOK, and it is not picked yet: run "
+                   f"{c3.script_command(root, 'pick_look.py')}, which has the first play screen drawn in three "
+                   f"directions for the user to pick, then this script")
+    elif drawings:
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "brief.md").write_text(brief(root, wanted, [i for i in wanted["images"] if i.get("route") == "svg"],
                                                skill, sheet), encoding="utf-8")

@@ -35,12 +35,34 @@ characters, one per pixel, and every edge stays hard.
 A shape can take one of the textures, each an SVG filter of this module:
 grain=True for a paper grain inside the shape, rough=True for an edge drawn by
 hand, wash=True for a watercolour edge; stroke() draws a brush line that
-thickens in the middle. Every id in a file starts with the drawing's own name,
-because two drawings inlined on one page that share an id both paint with the
-first one's definition.
+thickens in the middle. d.gradient() is a fill that runs from one role to
+another along an ease curve, so it has no hard edge where it starts and ends.
+Every id in a file starts with the drawing's own name, because two drawings
+inlined on one page that share an id both paint with the first one's
+definition.
+
+A box drawn inside a rounded box takes inner(), which gives the inner box and
+its radius, the outer radius less the gap, so the gap stays even round the
+corners:
+
+    panel = dict(x=0, y=0, w=d.w, h=d.h, r=d.unit / 2)
+    d.rect(**panel, fill="ink")
+    d.rect(**svg_kit.inner(**panel, pad=d.line * 2), fill="canvas")
+
+A set of icons is drawn through one kit.icons() call, which fixes the stroke
+width, the corner radius and the weight of every icon drawn through it:
+
+    icons = kit.icons(stroke=4, radius=4, weight="line")
+    with icons.drawing("heart-default-000.png") as d:
+        d.path("M 8 20 ...")        # a line 4 px wide in the picture's role
+
+A first play screen in a look of the picker (scripts/pick_look.py) is a
+drawing of the viewport's size, kit.screen(name), and its labels are
+d.text(..., kind=), one of the kinds of TEXT_SIZE.
 """
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -67,6 +89,13 @@ FILTERS = {
 }
 
 
+# Control points of the ease curves a gradient takes, as CSS names them
+EASES = {"linear": (0, 0, 1, 1), "ease": (0.25, 0.1, 0.25, 1), "ease-in": (0.42, 0, 1, 1),
+         "ease-out": (0, 0, 0.58, 1), "ease-in-out": (0.42, 0, 0.58, 1)}
+WEIGHTS = ("line", "solid")                  # an icon drawn as a line, or filled
+PICKER = "pick-look"                         # .tmp/scripts/pick-look/, where a screen of the look picker is written
+
+
 def wanted(root: Path) -> dict:
     """art/wanted.json of the project at root, which the generator writes."""
     path = root / "art" / "wanted.json"
@@ -82,6 +111,28 @@ def stem_of(rel: str) -> str:
 def num(v: float) -> str:
     """A coordinate as SVG writes it: at most two decimals, no trailing zeros."""
     return f"{v:.2f}".rstrip("0").rstrip(".") if v != int(v) else str(int(v))
+
+
+def inner(x: float, y: float, w: float, h: float, r: float, pad: float) -> dict:
+    """The box `pad` px inside the rounded box (x, y, w, h) of corner radius r, with the radius r - pad,
+    never below 0, as d.rect() takes it: d.rect(**inner(...), fill=...)."""
+    if 2 * pad >= min(w, h):
+        sys.exit(f"inner(): a gap of {num(pad)} px leaves nothing of a {num(w)}x{num(h)} box; take a smaller pad")
+    return {"x": x + pad, "y": y + pad, "w": w - 2 * pad, "h": h - 2 * pad, "r": max(0, r - pad)}
+
+
+def eased(t: float, ease: str) -> float:
+    """How far the ease curve of that name is at the share t of its time, both from 0 to 1."""
+    x1, y1, x2, y2 = EASES[ease]
+
+    def bezier(a: float, b: float, s: float) -> float:
+        return 3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3
+
+    lo, hi = 0.0, 1.0
+    for _ in range(40):                      # the curve's x rises with s, so halving finds the s of t
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if bezier(x1, x2, mid) < t else (lo, mid)
+    return bezier(y1, y2, (lo + hi) / 2)
 
 
 class Kit:
@@ -101,17 +152,38 @@ class Kit:
         return [item for item in self.items.values() if item.get("route") == "svg"]
 
     def drawing(self, rel: str) -> "Drawing":
+        return Drawing(self, self.item(rel))
+
+    def item(self, rel: str) -> dict:
         if rel not in self.items:
             near = ", ".join(sorted(self.items)[:8])
             sys.exit(f"drawing({rel!r}): art() asks for no such picture; art/wanted.json holds {near}")
-        return Drawing(self, self.items[rel])
+        return self.items[rel]
+
+    def icons(self, stroke: float | None = None, radius: float | None = None, weight: str = "line") -> "Icons":
+        """A set of icons that share a stroke `stroke` px wide, the game's line width by default, corners of
+        `radius` px, an eighth of a unit by default, and one weight of WEIGHTS: "line" draws every shape as a
+        line in the picture's role, "solid" fills it and draws its edge in the same colour."""
+        if weight not in WEIGHTS:
+            sys.exit(f"icons(weight={weight!r}): the weights are {', '.join(WEIGHTS)}")
+        return Icons(self, stroke or self.line, self.unit / 8 if radius is None else radius, weight)
+
+    def screen(self, name: str) -> "Drawing":
+        """The first play screen in one look of the picker, a drawing of the viewport's size, written to
+        .tmp/scripts/pick-look/<name>.svg; its colours are the roles, which the picker sets per look."""
+        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
+            sys.exit(f"screen({name!r}): a screen's name is lowercase words joined by dashes, such as 'ink-wash'")
+        w, h = self.wanted["view"]
+        return Drawing(self, {"file": name + ".png", "width": w, "height": h, "kind": "screen"},
+                       c3.script_folder(self.root, PICKER))
 
 
 class Drawing:
     """One picture: shapes added in order, back to front, written to art/<name>.svg on exit."""
 
-    def __init__(self, kit: Kit, item: dict) -> None:
+    def __init__(self, kit: Kit, item: dict, folder: Path | None = None) -> None:
         self.kit, self.item = kit, item
+        self.folder = folder or kit.root / "art"
         self.w, self.h = item["width"], item["height"]
         self.unit, self.line, self.pixel_art = kit.unit, kit.line, kit.pixel_art
         self.prefix = stem_of(item["file"])
@@ -153,7 +225,33 @@ class Drawing:
         """A role's name, or a shade() or light() of one, as a CSS value; None is no paint."""
         if value is None:
             return "none"
-        return value if value.startswith(("var(", "color-mix(")) else self.colour(value)
+        return value if value.startswith(("var(", "color-mix(", "url(")) else self.colour(value)
+
+    def gradient(self, name: str, start: str, end: str, x1: float = 0, y1: float = 0, x2: float = 0,
+                 y2: float = 1, ease: str = "ease-in-out", steps: int = 8, start_opacity: float = 1,
+                 end_opacity: float = 1) -> str:
+        """A fill from the role `start` to the role `end`, and from one opacity to the other, along the line
+        (x1, y1) to (x2, y2) in shares of the shape's box, top to bottom by default. `steps` stops between the
+        two lie on the ease curve of EASES, so the change starts and ends without a hard edge. Returns the paint
+        to give a shape's fill, d.rect(..., fill=d.gradient("sky", "canvas", "reward"))."""
+        self.mixed("gradient")
+        if ease not in EASES:
+            sys.exit(f"{self.prefix}: gradient(ease={ease!r}): the curves are {', '.join(EASES)}")
+        gid = f"{self.prefix}-{name}"
+        stops = []
+        for i in range(steps + 2):
+            t = i / (steps + 1)
+            k = eased(t, ease)
+            colour = f"color-mix(in srgb, {self.colour(start)}, {self.colour(end)} {num(k * 100)}%)"
+            opacity = start_opacity + (end_opacity - start_opacity) * k
+            stops.append(f'<stop offset="{num(t * 100)}%" style="stop-color:{colour};stop-opacity:{num(opacity)}"/>')
+        text = (f'<linearGradient id="{gid}" x1="{num(x1)}" y1="{num(y1)}" x2="{num(x2)}" y2="{num(y2)}">'
+                + "".join(stops) + "</linearGradient>")
+        if self.defs.get(gid, text) != text:
+            sys.exit(f"{self.prefix}: gradient({name!r}) is defined twice, with other values; give the second "
+                     f"another name")
+        self.defs[gid] = text
+        return f"url(#{gid})"
 
     # --- textures --------------------------------------------------------------------------
     def texture(self, name: str) -> str:
@@ -241,6 +339,21 @@ class Drawing:
                     self.rect(x + c, y + r, run - c, 1, legend[ch])
                 c = run
 
+    def text(self, x: float, y: float, words: str, kind: str, fill: str = "ink", anchor: str = "start") -> None:
+        """A label whose baseline starts at (x, y), in the size of the kind `kind` of TEXT_SIZE and the game's
+        font; `anchor` is "start", "middle" or "end". The look picker holds every label to its kind's size."""
+        sizes = self.kit.wanted.get("text_size")
+        if sizes is None:
+            sys.exit(f"{self.prefix}: art/wanted.json has no text_size, which the helpers of an older template do "
+                     f"not write: refresh them with the skill's install.py and run the generator")
+        if kind not in sizes:
+            sys.exit(f"{self.prefix}: text(kind={kind!r}): the kinds of TEXT_SIZE are {', '.join(sizes)}")
+        size = sizes[kind] * (1 if self.pixel_art else 4 / 3)        # pt to px; a Sprite Font's size is in px
+        words = words.replace("&", "&amp;").replace("<", "&lt;")
+        self.body.append("  " * self.depth + f'<text class="{kind}" x="{num(x)}" y="{num(y)}" '
+                         f'text-anchor="{anchor}" style="fill:{self.paint(fill)};font-size:{num(size)}px">'
+                         f"{words}</text>")
+
     class _Group:
         def __init__(self, d: "Drawing", attrs: str) -> None:
             self.d, self.attrs = d, attrs
@@ -272,9 +385,53 @@ class Drawing:
     def save(self) -> Path:
         if not self.body:
             sys.exit(f"{self.prefix}: the drawing is empty")
-        path = self.kit.root / "art" / f"{self.prefix}.svg"
+        path = self.folder / f"{self.prefix}.svg"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.svg(), encoding="utf-8", newline="\n")
         return path
+
+
+class Icons:
+    """A set of icons drawn with one stroke width, one corner radius and one weight; see Kit.icons()."""
+
+    def __init__(self, kit: Kit, stroke: float, radius: float, weight: str) -> None:
+        self.kit, self.stroke, self.radius, self.weight = kit, stroke, radius, weight
+
+    def drawing(self, rel: str) -> "Icon":
+        return Icon(self, self.kit.item(rel))
+
+
+class Icon(Drawing):
+    """One icon of a set: every shape takes the set's stroke and weight, and every rectangle its radius."""
+
+    def __init__(self, icons: Icons, item: dict) -> None:
+        super().__init__(icons.kit, item)
+        self.icons = icons
+        self.line = icons.stroke
+
+    def shape(self, tag: str, fill: str | None = None, line: str | None = None, line_width: float | None = None,
+              **kw) -> None:
+        """As Drawing.shape(), in the set's weight: a line icon fills nothing and draws its shapes as lines in the
+        picture's role, or in `line`; a solid one fills them in the picture's role, or in `fill`, with an edge of
+        the same colour. The stroke width is the set's."""
+        if line_width not in (None, self.icons.stroke):
+            sys.exit(f"{self.prefix}: an icon of the set takes its stroke of {num(self.icons.stroke)} px, not "
+                     f"{num(line_width)}; change the stroke of kit.icons() for every icon")
+        role = self.item.get("role", "ink")
+        if self.icons.weight == "line":
+            if fill is not None:
+                sys.exit(f"{self.prefix}: a line icon fills nothing; draw it as lines, or make the set solid")
+            super().shape(tag, None, line or role, self.icons.stroke, **kw)
+        else:
+            super().shape(tag, fill or role, fill or role, self.icons.stroke, **kw)
+
+    def rect(self, x: float, y: float, w: float, h: float, fill: str | None = None, r: float | None = None,
+             **kw) -> None:
+        """A rectangle with the set's corner radius, or a smaller one for a box inside another, as inner() gives."""
+        if r is not None and r > self.icons.radius:
+            sys.exit(f"{self.prefix}: an icon's corners are {num(self.icons.radius)} px at most, not {num(r)}; change "
+                     f"the radius of kit.icons() for every icon")
+        super().rect(x, y, w, h, fill, r=self.icons.radius if r is None else r, **kw)
 
 
 def smooth(points: list[tuple[float, float]], steps: int = 6) -> list[tuple[float, float]]:
