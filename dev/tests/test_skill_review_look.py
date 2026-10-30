@@ -590,3 +590,54 @@ def test_a_text_measured_on_what_lies_behind_it_is_faint_under_text_contrast():
     assert [f["uids"] for f in found] == [[1]]
     assert "read 3.0:1 on #ffffff behind them, under the 4.5:1 a text needs" in found[0]["line"]
     assert rl.TIER["faint"] == "broken"
+
+
+def test_each_reference_goes_with_the_layout_it_is_named_after_or_with_the_start(tmp_path):
+    """A reference whose file name is a layout's name, as spelt or as its screenshot's file, pairs with that layout;
+    any other with the layout the game starts on, or the first one looked at when that one shows nothing."""
+    refs = [tmp_path / n for n in ("market.jpg", "map.png", "Level-2.webp")]
+    layouts = ["Title", "Map", "Level:2"]
+    assert rl.paired(refs, layouts, "Title") == {"Title": [refs[0]], "Map": [refs[1]], "Level:2": [refs[2]]}
+    assert rl.paired(refs[:1], layouts, "Gone") == {"Title": [refs[0]]}
+    assert rl.paired(refs, [], "Title") == {}
+
+
+PAIRED = {"places": [], "brief": ".tmp/look/brief.md", "preview": {"started": True, "errors": [], "layouts": [
+    {"layout": "Game", "shot": ".tmp/look/Game.png", "findings": [], "errors": []}]},
+    "references": {"Game": {"pair": ".tmp/look/Game@reference.png", "colours": [{"hex": "#57AA54", "share": 0.85}],
+                            "references": [{"file": "art/references/market.jpg",
+                                            "colours": [{"hex": "#F3E9D5", "share": 0.53},
+                                                        {"hex": "#A05C00", "share": 0.004}]}]}}}
+
+
+def test_a_screenshot_with_references_shows_its_pair_and_asks_whether_it_looks_like_another_game():
+    """The pair picture beside the screenshot in the brief, one more question about the look, ugly when yes, and the
+    colours measured on each side printed under the screenshot's line."""
+    text = rl.brief(PAIRED)
+    assert "1. Game: .tmp/look/Game.png (pair picture: .tmp/look/Game@reference.png)\n" in text
+    assert f"Question {rl.REFERENCE_AT} asks about the look alone" in text
+    assert f"{len(rl.QUESTIONS) + 1}. {rl.REFERENCE}\n" in text
+    assert rl.question_tiers(False, [], True)[-1] == "ugly" and len(rl.questions(False, [], True)) == 8
+    reply = "\n".join(f"Game {q}: no" for q in range(1, 8)) + "\nGame 8: yes - whole screen: green, not warm paper"
+    lines, code, verdict = rl.check_reply(PAIRED, reply, "r.md", None)
+    assert code == 1 and verdict["yeses"] == ["Game 8, ugly - whole screen: green, not warm paper"], lines
+    assert lines[-2].startswith("  a yes to question 8 is fixed in the look, not in one object: PALETTE")
+    lines = rl.report({"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e",
+                       "warnings": [], "unread_references": ["art/references/sketch.bmp"], **PAIRED})
+    at = lines.index("layout 'Game' (1 of 1): screenshot .tmp/look/Game.png")
+    assert lines[at + 1:at + 4] == [
+        "  reference: pair picture .tmp/look/Game@reference.png, the user's references beside the screenshot",
+        "    colours of market.jpg: #F3E9D5 53%, #A05C00 <1%", "    colours of the screenshot: #57AA54 85%"]
+    assert ("reference: art/references/sketch.bmp is not read, so no pair picture shows it: save it as PNG, JPEG or "
+            "WebP") in lines
+    assert lines[-1] == f"  8. {rl.REFERENCE}" and rl.REFERENCE.isascii()
+    assert "pair picture" not in rl.brief({**PAIRED, "references": {}})
+
+
+def test_a_game_that_took_paper_and_ink_over_the_references_gets_no_pair():
+    """The user picked paper and ink over the look of the references, so the run says why it pairs nothing."""
+    lines = rl.report({"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e",
+                       "warnings": [], "unpaired_references": 2, **{**PAIRED, "references": {}}})
+    assert any(line.startswith("reference: USER_LOOK is empty, so the game takes paper and ink, and no pair picture "
+                               "is made for the 2 pictures in art/references/") for line in lines), lines
+    assert not any(rl.REFERENCE in line for line in lines)

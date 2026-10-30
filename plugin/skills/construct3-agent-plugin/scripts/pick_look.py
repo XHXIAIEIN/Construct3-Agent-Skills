@@ -11,7 +11,10 @@ differs from every other in two or more of the dimensions of an art direction
 (rendering, linework, colour temperature, light direction, proportions,
 framing), never only in its colours, and keeps the roles of PALETTE and the
 kinds of TEXT_SIZE, so that the pick is the values USER_LOOK, PALETTE and
-ART_STYLE of the template and nothing else.
+ART_STYLE of the template and nothing else. When art/references/ holds the
+user's references (PNG, JPEG or WebP), the draw brief names them with the
+colours measured from each. The two directions from the user's look take
+their colours from these.
 
 Everything lies in .tmp/scripts/pick-look/ of the project:
 
@@ -454,7 +457,22 @@ def judge_brief(directions: list[dict], folder: Path) -> str:
     return "\n".join(lines)
 
 
-def draw_brief(root: Path, wanted: dict, folder: Path, skill: str) -> str:
+def reference_colours(root: Path, exe: str | None) -> list[tuple[Path, list | None]]:
+    """The user's reference pictures in art/references/, each with the colours measured from it, or None for each
+    when no browser can measure them."""
+    refs, _ = art.references(root)
+    if not refs or not exe:
+        return [(r, None) for r in refs]
+    renderer = art.Renderer(root, exe, PICKER)
+    try:
+        _, measured = art.measure(renderer, [[(r.name, r) for r in refs]], "references", 480, 270 * len(refs))
+    finally:
+        renderer.close()
+    return list(zip(refs, measured))
+
+
+def draw_brief(root: Path, wanted: dict, folder: Path, skill: str,
+               refs: list[tuple[Path, list | None]] = ()) -> str:
     """The art agent's whole task: the first play screen in three directions, and the form of directions.json."""
     c3proj = c3.load(root / "project.c3proj")
     first = c3proj.get("firstLayout") or "the first layout of project.c3proj"
@@ -479,6 +497,7 @@ def draw_brief(root: Path, wanted: dict, folder: Path, skill: str) -> str:
         "2. and 3. Two directions from the user's look, each named by what it is (\"Ink wash\", \"Neon arcade\"), "
         "each with a USER_LOOK that says where in the user's look it comes from.",
         "",
+        *reference_lines(refs),
         f"Every two directions differ in {MIN_AXES} or more of the six dimensions of an art direction "
         f"({', '.join(prepare_art.DIMENSIONS)}), never only in their colours. Each keeps the roles of PALETTE ({roles}) "
         "with colours of its own, and the kinds of TEXT_SIZE "
@@ -506,6 +525,20 @@ def draw_brief(root: Path, wanted: dict, folder: Path, skill: str) -> str:
         "Reply with the names of the three directions, or with what still fails after the last round.",
     ]
     return "\n".join(lines) + "\n"
+
+
+def reference_lines(refs: list[tuple[Path, list | None]]) -> list[str]:
+    """The draw brief's paragraph on the user's reference pictures and the colours measured from them."""
+    if not refs:
+        return []
+    lines = ["The user gave the look by references too. Open each with the Read tool: "
+             + ", ".join(r.as_posix() for r, _ in refs) + "."]
+    if all(c is not None for _, c in refs):
+        lines += ["The colours measured from them, commonest first:",
+                  *(f"- {r.name}: {art.colours(c)}" for r, c in refs),
+                  "Take the colours of the two directions from the user's look from these measured colours, not "
+                  "from the words of the look, because a word such as 'golden' names no exact colour."]
+    return lines + [""]
 
 
 def axis(d: dict, directions: list[dict]) -> str:
@@ -611,7 +644,9 @@ def run(root: Path, wanted: dict, folder: Path, skill: str, exe: str | None) -> 
     if not (folder / DIRECTIONS).is_file():
         folder.mkdir(parents=True, exist_ok=True)
         brief = folder / "draw-brief.md"
-        brief.write_text(draw_brief(root, wanted, folder, skill), encoding="utf-8")
+        import open_in_editor as oe
+        refs = reference_colours(root, exe or oe.browser_path())
+        brief.write_text(draw_brief(root, wanted, folder, skill, refs), encoding="utf-8")
         return 0, [f"no {DIRECTIONS} yet; next: start a construct3:art-drawer sub-agent with {brief} as its whole "
                    f"task, or draw the three directions as that brief says yourself; then run "
                    f"{c3.script_command(root, 'pick_look.py')}"]

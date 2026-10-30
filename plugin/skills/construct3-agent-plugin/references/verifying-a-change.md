@@ -191,7 +191,9 @@ faint or partly hidden; an object over a text, a button or a card's face;
 the HUD cut by the screen's edge; a stand-in or an object drawn in a style
 of its own; a backdrop that catches the eye before what the player acts on;
 kinds that look alike; a screen that looks like an app's dashboard;
-decoration repeated on every layout; and, when the
+decoration repeated on every layout; when the user's reference pictures
+are in `art/references/`, a screenshot that looks like another game beside
+them (`look.references`); and, when the
 project has a design, the screen entries that `play_design.py` cannot
 measure. Art layered on purpose, such as scenery running past the edge, is
 no mistake. The agent that wrote the events reads its own screenshots by
@@ -220,7 +222,11 @@ fragile finding, for the hand-over to give with each fix in three parts:
 before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
 a finding of it stops the step before the review. When `scripts/art.py`
 has written a contact sheet of the game's pictures, the brief shows it
-after the screenshots, under the same questions. A question answered from
+after the screenshots, under the same questions. When there are references,
+the brief names a pair picture, `<layout>@reference.png`, beside each
+screenshot that has references, and the run prints the colours measured on
+each side. A yes to that question is fixed in `PALETTE`, `ART_STYLE` and
+the drawings, toward the references' colours. A question answered from
 memory of the events, not from the picture, is not answered.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up

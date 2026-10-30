@@ -121,7 +121,10 @@ before any art (`look.picker`): after the generator's first run,
 directions, paper and ink and two from the user's look, and stops for the
 user's pick. The pick writes `USER_LOOK`, `PALETTE` with `canvas` and
 `canvas_alt` from the backdrop, and `ART_STYLE`, and keeps its screen as
-`art/look.png`, which every picture then follows. When the user gives none,
+`art/look.png`, which every picture then follows. Save the user's
+reference pictures as PNG, JPEG or WebP in `art/references/`
+(`look.references`): the draw brief gives the colours measured from them,
+and the look review shows each screen beside them. When the user gives none,
 `USER_LOOK` stays empty and the game takes paper and ink, the template's
 fallback, with no picker. `assets/look-manifest.json` holds every rule of
 the look, each under an id that this file cites, with its value and its

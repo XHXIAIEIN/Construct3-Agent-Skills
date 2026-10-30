@@ -212,3 +212,39 @@ def test_art_waits_for_the_pick_of_the_users_look_and_then_refers_to_it(project)
     code, out = tool(project, "art")
     brief = (project / ".tmp" / "scripts" / "art" / "brief.md").read_text(encoding="utf-8")
     assert "The look the user picked is its first play screen in " in brief and "art/look.png" in brief
+
+
+class Measurer(Painter):
+    """A Painter that also stands for the script the page runs: one colour measured from each picture."""
+
+    def __init__(self, root, exe, folder="art"):
+        super().__init__(root, exe, folder)
+        self.page = self
+        self.pictures = 0
+
+    def shot(self, html, name, w, h=None):
+        self.pages.append(name)
+        self.pictures = html.count("<img data-measure")
+        return b""
+
+    def evaluate(self, script):
+        return [[{"hex": "#2B2140", "share": 0.41}, {"hex": "#E8A33C", "share": 0.12}]] * self.pictures
+
+
+def test_the_draw_brief_names_the_users_references_and_the_colours_measured_from_them(project, monkeypatch):
+    """The two directions from the user's look take their colours from the references, measured, not from words;
+    with no browser the brief still names the references."""
+    folder = project / "art" / "references"
+    folder.mkdir()
+    for name in ("market.jpg", "stall.png"):
+        (folder / name).write_bytes(png(4, 4, lambda x, y: (40, 30, 60, 255)))
+    monkeypatch.setattr(art, "Renderer", Measurer)
+    refs = pick_look.reference_colours(project, "browser")
+    assert [(r.name, c[0]["hex"]) for r, c in refs] == [("market.jpg", "#2B2140"), ("stall.png", "#2B2140")]
+    wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
+    brief = pick_look.draw_brief(project, wanted, project / ".tmp", "skill", refs)
+    assert f"Open each with the Read tool: {(folder / 'market.jpg').as_posix()}, " in brief
+    assert "- market.jpg: #2B2140 41%, #E8A33C 12%\n" in brief and "not from the words of the look" in brief
+    blind = pick_look.draw_brief(project, wanted, project / ".tmp", "skill", pick_look.reference_colours(project, None))
+    assert "stall.png." in blind and "measured" not in blind
+    assert "references" not in pick_look.draw_brief(project, wanted, project / ".tmp", "skill")
