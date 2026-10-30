@@ -389,14 +389,16 @@ def grade_name_the_restart_event(run: Path) -> list[tuple[bool, str]]:
 
 def unchanged(run: Path, allowed: tuple[str, ...] = ()) -> tuple[bool, str]:
     """Whether no project file differs from the fixture, with the list of those that do. A path that starts
-    with one of `allowed` is skipped, and so are .tmp, where the skill's scripts write their results, and .git,
-    which SKILL.md tells a run to create."""
+    with one of `allowed` is skipped, and so are .tmp, where the skill's scripts write their results, .git,
+    which SKILL.md tells a run to create, and tools/plans/, where preview_project.py --keep keeps a plan that
+    verify_change.py replays."""
     want = {k: v for k, v in json.loads((run / "fixture.json").read_text(encoding="utf-8")).items() if not k.endswith((".sids", ".warnings", ".commit"))}
     project = run / "project"
     have = {p.relative_to(project).as_posix(): hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
             for p in sorted(project.rglob("*"))
             if p.is_file() and p.name != "AGENTS.md" and not {".agents", "__pycache__", ".tmp", ".git"} & set(p.parts)}
-    changed = sorted(k for k in set(want) | set(have) if want.get(k) != have.get(k) and not k.startswith(allowed))
+    changed = sorted(k for k in set(want) | set(have)
+                     if want.get(k) != have.get(k) and not k.startswith(("tools/plans/", *allowed)))
     return not changed, f"files that differ from the fixture: {changed or 'none'}"
 
 

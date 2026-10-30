@@ -89,9 +89,11 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
 - The look questions pass on a reply, not on `--answered`. Each run of
   `review_look.py` names itself in its result, and `review_look.py --reply`
   writes its verdict onto the run whose brief the reply answers. The look
-  step passes on that run's reply when it answers every question no, and
-  the files are the ones it was asked about. A yes fails the step, and the
-  agent fixes it, which asks again. The owner chose this on 2026-10-30,
+  step passes on that run's reply when it answers every question with no
+  new yes, and the files are the ones it was asked about. A yes from before
+  the change goes into the hand-over
+  (`look-blocks-only-what-the-change-brought.md`). A new yes fails the step,
+  and the agent fixes it, which asks again. The owner chose this on 2026-10-30,
   because a step that passed with "name its yes in the hand-over" let a
   yes about a stand-in among drawn art reach the user. After three replies
   with a yes the step passes, and the hand-over names each yes left, so a

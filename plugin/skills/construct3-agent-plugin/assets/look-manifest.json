@@ -13,6 +13,7 @@
     "Construct3-Agent-Skills/docs/decisions/input-controls.md",
     "Construct3-Agent-Skills/docs/decisions/landscape-viewport.md",
     "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
+    "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
     "Construct3-Agent-Skills/docs/decisions/look-picker.md",
@@ -721,6 +722,14 @@
       "says": "Every finding of the look review and every yes of its judge has a tier. broken: the player cannot read, reach or tell apart what the screen shows, at some data state or shape of screen. ugly: it reads but looks wrong, the looks of rules avoid.* among them. fragile: right as shown and one realistic step from broken, as a text with no declared limit, or a finish of a pixel or two, as a label 2 px off its centre. broken and ugly fail the look step and are fixed broken first; fragile warns and goes into the hand-over, each fix in three parts: before, after and why. A yes with more than one right fix is the user's to pick.",
       "confirm": "review_look.py: the tier of each finding and yes",
       "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "look.before-the-change",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "The look step fails only on a yes the change brought. In a git repository the brief shows each layout also as it was at the commit where the change starts. That commit is the newest one of HEAD's history that another local branch holds. The judge marks each yes new or before. A yes from before is the project's own look, so it fails nothing and goes into the hand-over. Without git, or on a layout the change added, every yes is new.",
+      "confirm": "review_look.py --reply: new and before; verify_change.py: the ok: line names each yes from before",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md"
     },
     {
       "id": "look.worst-data",

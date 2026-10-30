@@ -79,8 +79,9 @@ at about 10 000 characters and its last line says how to get the rest;
 
 `verify_change.py` takes minutes once it opens the editor. A finding names
 its place, `sheet Game event 15 action 2`, and what to write. `stop:` names
-a finding that two changes left standing. A yes of the look review fails
-the look step until the third round, which passes it. Exit code 3 or a
+a finding that two changes left standing. A new yes of the look review
+fails the look step until the third round, which passes it. A yes from
+before the change goes into the hand-over. Exit code 3 or a
 `skipped:` line is a check that did not run; exit code 2 and `stopped at`
 give the cause. `pack_project.py` refuses files that the check has not
 passed.

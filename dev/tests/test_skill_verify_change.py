@@ -190,6 +190,20 @@ def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatc
     assert record["steps"]["looked"]["state"] == "passed" and record["look_rounds"] == 0
 
 
+def test_a_yes_from_before_the_change_passes_the_look_step(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A yes the reviewer saw on the screen before the change is no fault of the change: the step passes in the
+    first round and the ok: line names it for the hand-over."""
+    editor = Look(project)
+    drive(project, monkeypatch, editor, "--answered")
+    editor.replied(complete=True, yes=0, yeses=[], before=["Game 4, ugly - the player: a plain blue box"])
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 1, out
+    assert ("looked    passed: look: reply.md answers every question with no new yes; name the 1 yes from before "
+            "in the hand-over") in out
+    assert "  from before: Game 4, ugly - the player: a plain blue box" in out
+    assert "look yes from before Game 4, ugly - the player: a plain blue box" in out.splitlines()[-1], out
+
+
 def test_the_look_step_stops_on_a_finding_of_check_look(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A generated game's look check runs before the look review, and a finding stops the step there."""
     editor = Editor(**{"check_look.py": (1, "grid.world-placement: layout Game, layer Game: Coin uid 3 is off the "

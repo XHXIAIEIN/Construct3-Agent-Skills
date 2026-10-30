@@ -6,6 +6,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [The Art of a Generated Game Is Drawn by a Sub-Agent on a Fixed Model](art-drawer-agent.md) — 2026-10-30
 - [Art Drawn in Code as SVG: The Route Without an Image Tool](art-drawn-in-code.md) — 2026-10-30
 - [One Script Moves Every Picture of a Generated Game](art-entry-point.md) — 2026-10-30
+- [The Look Step Fails Only on What the Change Brought](look-blocks-only-what-the-change-brought.md) — 2026-10-30
 - [The Look Manifest Owns Every Look Rule](look-manifest-owns-the-rules.md) — 2026-10-30
 - [The User Picks a Given Look on the First Play Screen in Three Directions](look-picker.md) — 2026-10-30
 - [The Look Review Ranks Its Faults and Checks Worst Data and Other Screens](look-severity.md) — 2026-10-30

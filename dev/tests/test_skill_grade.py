@@ -778,6 +778,20 @@ def test_find_in_a_big_sheet_grades_the_event_and_the_bonus(tmp_path: Path) -> N
     assert make_fixtures.wave_bonus(make_fixtures.BIG_SHEET_FOCUS) == 454 and "coins-big-sheet" in make_fixtures.SEEDS
 
 
+def test_a_kept_plan_is_no_changed_project_file(tmp_path: Path) -> None:
+    """preview_project.py --keep writes tools/plans/, which verify_change.py replays and does not count as a
+    project file, so a run that kept a plan still leaves the project as its fixture; any other new file does not."""
+    run_dir = tmp_path / "run"
+    (run_dir / "project").mkdir(parents=True)
+    (run_dir / "project" / "project.c3proj").write_text("{}", encoding="utf-8")
+    (run_dir / "fixture.json").write_text(json.dumps(make_fixtures.digest(run_dir / "project")), encoding="utf-8")
+    (run_dir / "project" / "tools" / "plans").mkdir(parents=True)
+    (run_dir / "project" / "tools" / "plans" / "walk.json").write_text("[]", encoding="utf-8")
+    assert grader.unchanged(run_dir)[0]
+    (run_dir / "project" / "tools" / "notes.txt").write_text("x", encoding="utf-8")
+    assert grader.unchanged(run_dir) == (False, "files that differ from the fixture: ['tools/notes.txt']")
+
+
 FIND_ANSWERS = Path(__file__).parent / "fixtures" / "find_answers"
 
 

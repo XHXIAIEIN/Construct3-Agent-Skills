@@ -208,11 +208,16 @@ image tool, answer each question from the picture, and name the same for
 each yes. Save these answers to `.tmp/scripts/review-look/reply.md` in the
 form the brief gives and check them with `--reply` as well, because `verify_change.py`
 passes its look step only on a reply that `--reply` checked: one that
-answers every question, each yes saying where, with no yes. A yes fails the
-step: fix it and run `verify_change.py` again, which looks again. After
-three replies with a yes the step passes, and its `ok:` line names each yes
-left and each fragile finding, for the hand-over to give with each fix in
-three parts: before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
+answers every question, each yes saying where, with no new yes. In a git
+repository the brief also gives each screenshot the same layout before the
+change. That layout comes from the commit where the branch `agents` left the
+user's branch. The reviewer marks each yes new or before. A yes from before
+is the project's own look, not a fault of the change. It fails nothing, and
+the `ok:` line names it for the hand-over. A new yes fails the step: fix it and
+run `verify_change.py` again, which looks again. After three replies with a
+new yes the step passes, and its `ok:` line names each yes left and each
+fragile finding, for the hand-over to give with each fix in three parts:
+before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
 a finding of it stops the step before the review. When `scripts/art.py`
 has written a contact sheet of the game's pictures, the brief shows it
 after the screenshots, under the same questions. A question answered from

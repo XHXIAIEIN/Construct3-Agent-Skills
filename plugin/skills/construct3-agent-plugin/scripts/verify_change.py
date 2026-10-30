@@ -349,13 +349,19 @@ def looked(run: Run) -> tuple[int, str] | None:
         if not reply.get("yes") or rounds >= LOOK_ROUNDS:
             run.record["look_rounds"] = 0
             run.record["look_left"] = reply.get("yeses", []) if reply.get("yes") else []
+            # A yes from before passes
+            run.record["look_before"] = reply.get("before", [])
+            from_before = len(run.record["look_before"])
             line = (f"look: {reply['file']} answers every question" + (
                 f" and still has {reply['yes']} yes after {rounds} rounds: name each in the hand-over"
-                if reply.get("yes") else " no"))
+                if reply.get("yes") else f" with no new yes; name the {from_before} yes from before in the hand-over"
+                if from_before else " no"))
             run.keep("looked", "passed", line, 0)
             show("looked", "passed", line)
             for left in run.record["look_left"]:
                 print(f"  left: {left}")
+            for left in run.record["look_before"]:
+                print(f"  from before: {left}")
             return None
         run.record["look_rounds"] = rounds
         line = f"look: {reply['file']} has {reply['yes']} yes, round {rounds} of {LOOK_ROUNDS}"
@@ -401,13 +407,16 @@ RUNNERS = (("checked", checked), ("reviewed", reviewed), ("opened", opened), ("p
 
 
 def look_warnings(run: Run) -> list[str]:
-    """What the look step leaves for the hand-over once it passed: each yes still there after its rounds, and the
-    fragile findings of the review it passed on, which warn and do not stop it."""
+    """What the look step leaves for the hand-over once it passed: each yes still there after its rounds, each yes
+    the screen showed before the change, and the fragile findings of the review it passed on, which warn and do not
+    stop it."""
     if not run.passed_here("looked"):
         return []
     layouts = (look_result(run).get("preview") or {}).get("layouts", [])
     fragile = [f"{d['layout']}: {f['rule']}" for d in layouts for f in d.get("findings", []) if f.get("tier") == "fragile"]
-    return [f"look yes {y}" for y in run.record.get("look_left", [])] + [f"warns {w}" for w in fragile]
+    return ([f"look yes {y}" for y in run.record.get("look_left", [])]
+            + [f"look yes from before {y}" for y in run.record.get("look_before", [])]
+            + [f"warns {w}" for w in fragile])
 
 
 def handed_over(run: Run, upto: str) -> str:
