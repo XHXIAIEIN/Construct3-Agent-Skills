@@ -149,8 +149,8 @@ scripts print the `git clone`: run it once the user agrees.
 - In pixel art the labels are Sprite Fonts, which draw only the characters
   baked into them. After you change a text by hand, run
   `python scripts/bake_font.py`.
-- Art drawn in code with Pillow looks worse than the stand-in shapes and
-  mixes styles. When this session has an image generation tool, run
+- Art computed pixel by pixel in code, with nothing to hold a style, looks
+  worse than the stand-in shapes and mixes styles. When this session has an image generation tool, run
   `python scripts/prepare_art.py --list` and follow its output; without
   one, keep the stand-ins.
 - A handed-over change that came back with an editor or runtime error

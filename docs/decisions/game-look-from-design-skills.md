@@ -103,7 +103,7 @@ once their exceptions were in place.
 ## Decision
 
 Option 3, with one bullet of option 2 in
-`prompts/references/new-project.md`. In `assets/build_project.py`:
+`Construct3-Cookbook/guides/project-files/new-project.md`. In `assets/build_project.py`:
 
 - `PALETTE`, the game's colours by role; `rgb(role)` stops the run on a role
   that is not there and lists those that are; `rgba()` writes a colour as a

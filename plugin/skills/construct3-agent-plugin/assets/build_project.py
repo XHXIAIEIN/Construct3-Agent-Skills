@@ -1007,7 +1007,7 @@ def write_wanted() -> None:
 # pointer_types() declares the Mouse, pointer_module() plays them. With POINTER off each adds
 # nothing, so a game calls them either way.
 POINTER = globals().get("POINTER", False)
-POINTER_STYLE = globals().get("POINTER_STYLE", {"hover": "ink", "pressed": "pressed", "seconds": 0.15})
+POINTER_STYLE = globals().get("POINTER_STYLE", {"hover": "hover", "pressed": "pressed", "seconds": 0.15})
 POINTED: dict[str, list[str]] = {}         # the hover and pressed frames drawn for an image, by its file name
 
 
@@ -3330,7 +3330,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-27, stamp 8fe592b49eb0 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f513ab18d488 ================
 
 
 # --- the game ---------------------------------------------------------------------------

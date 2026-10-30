@@ -38,7 +38,8 @@ layouts and event sheets the editor would load and checks:
                         fit is Cover, which draws under a phone's notch,
                         reads the safe area's insets in its events or scripts
 
-UNIT is 8 for a viewport 360 px high or less, else 32, as in the template.
+UNIT and the behaviors that collide are the values of grid.unit and
+motion.squash-art in the manifest, which the template holds too.
 A layer at parallax 0 is the HUD, held to the viewport's edges, and is not
 checked; neither is a rotated instance. Whether the look works is the user's
 call on a screenshot.
@@ -182,8 +183,18 @@ def check_spawn(root: Path, out: list[str]) -> int:
     return read
 
 
+MANIFEST = Path(__file__).resolve().parent.parent / "assets" / "look-manifest.json"
+RULES = {r["id"]: r for r in json.loads(MANIFEST.read_text(encoding="utf-8"))["rules"]}
+
+
+def rule_value(rule: str, **view: int):
+    """The value of a rule of assets/look-manifest.json, its expression read over the viewport's
+    VIEW_W and VIEW_H, so the check holds the value the template holds."""
+    return eval(RULES[rule]["value"], {"__builtins__": {}}, view)
+
+
 # The behaviors that make an object collide, so a squash of its size moves its collision box.
-COLLIDING = ("Platform", "EightDir", "Physics", "Car", "solid", "jumpthru")
+COLLIDING = rule_value("motion.squash-art")
 
 
 def colliding_items(root: Path) -> dict[str, list[str]]:
@@ -311,9 +322,11 @@ def main() -> int:
               f"--project <folder>", file=sys.stderr)
         return 1
     project = c3.load(root / "project.c3proj")
-    unit = args.unit or (8 if project.get("viewportHeight", 1080) <= 360 else 32)
+    view = {"VIEW_W": project.get("viewportWidth", 1920), "VIEW_H": project.get("viewportHeight", 1080)}
+    unit = args.unit or rule_value("grid.unit", **view)
     out: list[str] = []
-    images = check_alpha(root, args.painted, out, soft=unit != 8)
+    pixel_unit = rule_value("grid.unit", VIEW_W=0, VIEW_H=0)     # the grid of a pixel-art viewport
+    images = check_alpha(root, args.painted, out, soft=unit != pixel_unit)
     instances = check_grid(root, unit, out)
     creates = check_spawn(root, out)
     check_pixel_font(root, out)
