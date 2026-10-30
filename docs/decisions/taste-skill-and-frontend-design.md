@@ -126,7 +126,7 @@ frontend-design:
 
 | Heading | What it says | This repository today | Change |
 |---------|--------------|-----------------------|--------|
-| Intro | A design lead with a distinct point of view, for a client who rejected templated work | Paper and ink, the same look for every game with no look given (`paper-and-ink-is-the-fallback.md`) | Question for the user below; no change |
+| Intro | A design lead with a distinct point of view, for a client who rejected templated work | Paper and ink, the same look for every game with no look given (`paper-and-ink-is-the-fallback.md`) | None: the user keeps paper and ink as the only fallback (option 2) |
 | Ground your designs in the subject matter | The subject's materials and vernacular decide the look; propose the subject and confirm | The game's request names the subject; `pick_look.py` runs only when the user gave a look | The draw-brief proposal below |
 | Design principles: the first thing seen | Open with what is most characteristic of the subject | The first play screen is what the picker draws | None |
 | Design principles: typography | One or two families; a scale; avoid one accented word, capitals for labels, labels above content | `type.inter`, `TEXT_SIZE`; the fallback's tag is tracked capitals | `type.caps-labels` rejected for a game; `hud.tag-plain` proposed for the fallback |
@@ -158,9 +158,10 @@ frontend-design:
    uses on purpose: capitals in 18 examples, zero-padded scores and clocks in
    28, shadows and gradients in any painted look. Its own blind test shows
    the rules met without the page winning.
-2. **Replace the fixed fallback with a direction dealt from the subject**,
-   as both skills would. A decision about paper and ink, which the user made
-   on screenshots and keeps as the fallback; not this record's to make.
+2. **Replace the fixed fallback with directions taken from the subject**,
+   as both skills would, or show them in the picker beside paper and ink
+   when the user gave no look. Turned down by the user on 2026-10-31: paper
+   and ink stays the only fallback, with no picker.
 3. **Record the measured rules, propose the rest.** Chosen.
 
 ## Decision
@@ -173,15 +174,15 @@ Option 3. The look manifest gets:
   without the middle dot, the tracking and the zero padding, with the
   options for the user to choose.
 
-The template, the sub-agents and the review questions do not change. One
-question goes to the user: whether a game given no look keeps paper and ink
-alone, or also gets the picker with paper and ink beside two directions
-taken from the game's subject.
+The template, the sub-agents and the review questions do not change. A
+game given no look keeps paper and ink alone, as
+`paper-and-ink-is-the-fallback.md` says, and `hud.tag-plain` stays proposed
+until the user picks one of its options.
 
 ## Re-evaluate when
 
-- The user answers the question on the fallback or picks an option of
-  `hud.tag-plain`: rewrite this record and the rule.
+- The user picks an option of `hud.tag-plain`: rewrite this record and
+  the rule.
 - A blind comparison of generated games, the kind taste-skill ran, is
   set up: score paper and ink against a direction taken from the subject.
 - The example clone updates: rerun `measure_layout.py --labels`.
