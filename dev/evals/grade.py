@@ -1104,22 +1104,23 @@ def colours_of(project: Path, kind: str) -> set[tuple]:
     return set()
 
 
-def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str]:
+def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str, str | None]:
     """What the viewport shows behind the game: from the Background layer down through the layers under it,
     such as the template's parallax-0 layer of a checker, the image of the first instance that covers the
-    viewport (a backdrop), else the colour of the first opaque layer (the template's paper)."""
+    viewport (a backdrop), else the colour of the first opaque layer (the template's paper). The colours, where
+    they come from, and the backdrop's type when one covers the viewport."""
     layers = layout.get("layers", [])
     names = [layer.get("name", "").lower() for layer in layers]
     if "background" not in names:
-        return set(), "no Background layer"
+        return set(), "no Background layer", None
     for layer in reversed(layers[:names.index("background") + 1]):
         cover = next((i for i in reversed(layer.get("instances", []))
                       if contains(box_of(i), (0, 0, *view_of(project))) and colours_of(project, i["type"])), None)
         if cover:
-            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport"
+            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport", cover["type"]
         if not layer.get("isTransparent", True):
-            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour"
-    return set(), "a transparent Background layer and nothing covering the viewport"
+            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour", None
+    return set(), "a transparent Background layer and nothing covering the viewport", None
 
 
 def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
@@ -1131,7 +1132,7 @@ def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
         return results + [(False, "layouts/Game.json is not readable JSON")] * 5
     # The template's paper is the Background layer's colour, unless a backdrop covers the layer. Its labels
     # are dark ink on white, so the navy is what puts readability at stake.
-    shown, source = background_colours(layout, project)
+    shown, source, _ = background_colours(layout, project)
     dark = bool(shown) and all(abs(a - b) <= 40 for colour in shown for a, b in zip(colour, NAVY))
     results.append((dark, f"{source}: {sorted(shown) or 'no colour'}"))
     hud = hud_of(layout)
@@ -1855,6 +1856,65 @@ def grade_art_without_an_image_tool(run: Path) -> list[tuple[bool, str]]:
             generator_is_source(run)]
 
 
+# The references of look-from-references, as art.measure counts them: the plum their dark backdrop is, and the
+# amber of their coins and lanterns. 32 keeps the deep navy of readable-on-a-dark-background out of the plum.
+PLUM, PLUM_SLACK = (0x2A, 0x1E, 0x3D), 32
+AMBER, AMBER_SLACK = (0xF2, 0xA5, 0x41), 48
+# A painted backdrop shows a scene on the plum, as stall.png does (73% of it within PLUM_SLACK)
+MOSTLY = 0.5
+# The references outline each shape in ink 6 to 12 px wide: within EDGE px of the clear, most of a drawn coin is dark
+EDGE, INK_MAX = 3, 80
+
+
+def near(a: tuple, b: tuple, slack: int) -> bool:
+    return all(abs(x - y) <= slack for x, y in zip(a, b))
+
+
+def commonest(pixels: list[tuple]) -> tuple | None:
+    """The mean colour of the commonest bin of 3 bits a channel, as art.measure counts a picture's colours."""
+    bins: dict[tuple, list] = {}
+    for _, _, c in pixels:
+        bins.setdefault(tuple(v >> 5 for v in c), []).append(c)
+    if not bins:
+        return None
+    top = max(bins.values(), key=len)
+    return tuple(round(sum(c[i] for c in top) / len(top)) for i in range(3))
+
+
+def ink_edge(pixels: list[tuple]) -> float:
+    """The share of the opaque pixels within EDGE px of a clear one, or of the picture's edge, that are ink-dark."""
+    at = {(x, y): c for x, y, c in pixels}
+    edge = [c for (x, y), c in at.items()
+            if any((x + dx, y + dy) not in at for dx in range(-EDGE, EDGE + 1) for dy in range(-EDGE, EDGE + 1))]
+    return sum(max(c) < INK_MAX for c in edge) / len(edge) if edge else 0.0
+
+
+def grade_look_from_references(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    results = [checker_line(project)]
+    try:
+        layout = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return results + [(False, "layouts/Game.json is not readable JSON")] * 5
+    shown, source, cover = background_colours(layout, project)
+    picture = next(iter(sorted((project / "images").glob(f"{cover.lower()}*.png"))), None) if cover else None
+    pixels = [c for _, _, c in opaque(picture)] if picture else list(shown)
+    share = sum(near(c, PLUM, PLUM_SLACK) for c in pixels) / len(pixels) if pixels else 0
+    results.append((share >= MOSTLY, f"{source}: {share:.0%} within {PLUM_SLACK} of the plum, commonest "
+                                     f"{commonest([(0, 0, c) for c in pixels])}"))
+    coin = next(iter(sorted((project / "images").glob("coin*-000.png"))), project / "images" / "coin-default-000.png")
+    pixels = opaque(coin)
+    main = commonest(pixels)
+    results.append((main is not None and near(main, AMBER, AMBER_SLACK), f"{coin.name}: commonest colour {main}"))
+    share = ink_edge(pixels)
+    results.append((share > 0.5, f"{coin.name}: {share:.0%} of its edge ink-dark"))
+    import check_look
+    look = check_look.user_look(project)
+    results.append((bool(look), f"USER_LOOK = {look!r}"))
+    results.append(generator_is_source(run))
+    return results
+
+
 def animations_of(project: Path) -> dict[str, dict[str, list[Path]]]:
     """Each Sprite type's animations by name, with the image file of each frame as the editor names it."""
     out = {}
@@ -1936,7 +1996,8 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "double-jump": grade_kept, "key-opens-door": grade_kept, "stay-on-screen": grade_kept, "walls-stop-the-player": grade_kept,
            "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
            "art-without-an-image-tool": grade_art_without_an_image_tool,
-           "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art}
+           "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art,
+           "look-from-references": grade_look_from_references}
 
 
 # The columns trace.py counts from a transcript: four cost columns, then the route columns.
