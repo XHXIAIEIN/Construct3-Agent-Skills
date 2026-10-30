@@ -1463,7 +1463,7 @@ def press(obj: str, actions: list, tween: str = "Tween") -> list:
     """The two events of a press on obj, a button()'s shape with Tween. The touch that lands on
     it marks it pressed and squashes it; the touch's end springs it back and runs `actions` only
     if the touch ends on it, so a finger that slides off cancels.
-        module("Menu", events=[*press("Restart", [restart_layout()])])"""
+        module("Menu", events=[*press("Restart", fade_to())])"""
     PRESSED.add(obj)
     return [*event(f"Press {obj} down under the finger", [on_touched(obj)],
                    [set_bool(obj, "pressed", True), *squash(obj, "press", tween, "down")]),
@@ -1505,7 +1505,8 @@ def count_up(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> 
 def counting(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> list:
     """The two events that show count_up()'s count on obj: during it, the tween's value rounded
     towards `value`, so a gain of 1 shows at once; at its end, `value`, because the tween's value
-    reads 0 once the tween has ended."""
+    reads 0 once the tween has ended. obj is best left-aligned: check_texts() warns otherwise."""
+    COUNTED.add(obj)
     v = f"Self.{tween}.Value({q(tag)})"
     return [*event(f"Show {obj}'s count while it runs", [is_playing(obj, tag, beh=tween)],
                    [set_text(obj, f"{v} < {value} ? ceil({v}) : floor({v})")]),
@@ -1551,6 +1552,49 @@ def restart_layout() -> dict:
 
 def go_to_layout(name: str) -> dict:
     return act("go-to-layout", "System", {"layout": name})
+
+
+# A change of layout passes through a cover over the whole screen in FADE's role
+# (look-manifest.json, screen.transition): fade_to() fades the cover in, then changes the layout,
+# and each layout of the sheet opens under it and fades it away. The wait ignores the time scale,
+# so a pause menu's quit still leaves.
+FADE = {"seconds": 0.3, "ease": "easeinoutsine", "role": "ink"}
+_fades = False                             # fade_to() was called, so add_fade() adds the cover
+
+
+def fade_to(layout: str | None = None) -> list:
+    """Actions that fade the screen to FADE's role, then go to `layout`, or restart this one when it
+    is None. Use them for every change of layout, in place of go_to_layout() and restart_layout():
+    write_all() then puts the cover on a top layer of every layout the sheet runs and fades it away
+    when the layout starts.
+        event("Start the next round", [...], [set_var("beat", "beat + 1"), *fade_to()])"""
+    global _fades
+    _fades = True
+    seconds = f"{FADE['seconds']:g}"
+    return [set_visible("Fade", True), tween1("Fade", "fade-out", "offsetOpacity", "100", seconds, FADE["ease"]),
+            wait(seconds, use_timescale=False), go_to_layout(layout) if layout else restart_layout()]
+
+
+def add_fade(types: dict, layouts: dict, sheet: dict) -> None:
+    """The cover fade_to() fades in: the type Fade, a Tiled Background of FADE's role with the Tween
+    behavior, over screen_box() on a top layer of parallax 0 in each layout that runs `sheet`, opaque
+    at the start; and the group that fades it away when a layout starts and hides it after. A layout
+    with no sheet has no cover, because nothing would fade it away. Nothing without fade_to()."""
+    if not _fades:
+        return
+    write_png("fade.png", UNIT, UNIT, lambda x, y: (*rgb(FADE["role"]), 255))
+    types["Fade"] = image_type("Fade", "TiledBg", UNIT, UNIT, 0, 0, behaviors=[beh_def("Tween")])
+    for lay in layouts.values():
+        if lay["eventSheet"] == sheet["name"]:
+            lay["layers"].append(layer("Fade", parallax=0) | {"instances": [
+                tiledbg_inst("Fade", *screen_box(), 0, 0, behaviors=dict(TWEEN))]})
+    seconds = f"{FADE['seconds']:g}"
+    sheet["events"].append(module("Fade", events=[
+        *event("Fade the cover away as the layout starts", [on_start()],
+               [tween1("Fade", "fade-in", "offsetOpacity", "0", seconds, FADE["ease"])]),
+        *event("Hide the cover once it has faded away", [on_tween_finished("Fade", "fade-in")],
+               [set_visible("Fade", False)]),
+    ]))
 
 
 def set_group_active(title: str, state: str = "activated") -> dict:
@@ -2214,21 +2258,21 @@ def longest_text(otype: str, longest: str | None, size: float) -> None:
         LONGEST[otype] = longest
 
 
+def text_actions(node) -> list[dict]:
+    """Every action of `node`, a sheet or part of one, that sets a text: Set text, Append text and
+    Typewriter text."""
+    if isinstance(node, list):
+        return [a for value in node for a in text_actions(value)]
+    if not isinstance(node, dict):
+        return []
+    own = [node] if node.get("id") in ("set-text", "append-text", "typewriter-text") else []
+    return own + [a for value in node.values() for a in text_actions(value)]
+
+
 def write_texts(sheet: dict, types: dict) -> None:
     """Writes tools/texts.json, which review_look.py shows as the worst data. Warns of a Text the events set
     that has no `longest`: review_look.py then guesses its worst text."""
-    set_by: set[str] = set()
-
-    def walk(node) -> None:
-        if isinstance(node, dict):
-            if node.get("id") in ("set-text", "append-text", "typewriter-text"):
-                set_by.add(node.get("objectClass"))
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-    walk(sheet)
+    set_by = {a.get("objectClass") for a in text_actions(sheet)}
     open_ = sorted(n for n in set_by if n in types and types[n].get("plugin-id") in FONT_PLUGINS and n not in LONGEST)
     if open_:
         print(f"warning: the events set the text of {', '.join(open_)}, and no helper says how long it gets: "
@@ -2236,6 +2280,38 @@ def write_texts(sheet: dict, types: dict) -> None:
               f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
               f"that text")
     write_json("tools/texts.json", {"longest": dict(sorted(LONGEST.items()))})
+
+
+# The characters a device draws as emoji (Unicode's Emoji_Presentation, and U+FE0F, which asks for
+# the emoji form of the one before it): each system draws its own picture, unlike ART_STYLE, and a
+# Sprite Font draws nothing (look-manifest.json, text.no-emoji)
+EMOJI = re.compile("[⌚⌛⏩-⏬⏰⏳◽◾☔☕♈-♓♿⚓⚡"
+                   "⚪⚫⚽⚾⛄⛅⛎⛔⛪⛲⛳⛵⛺⛽✅"
+                   "✊✋✨❌❎❓-❕❗➕-➗➰➿⬛⬜⭐"
+                   "⭕️\U0001f000-\U0001faff]")
+COUNTED: set[str] = set()                  # the Text types counting() counts
+
+
+def check_texts(sheet: dict, layouts: dict) -> None:
+    """Stops the run on an emoji in a layout's Text or in a text the events set, naming each; warns of
+    a Text that counting() counts and that is not left-aligned, whose other digits shift as one
+    changes, since Inter's digits differ in width (type.counting-digits)."""
+    found = [f"layout {name}: {inst['type']} {inst['properties']['text']!r}" for name, lay in layouts.items()
+             for layer_ in layers_in(lay["layers"]) for inst in layer_["instances"]
+             if EMOJI.search(str(inst.get("properties", {}).get("text", "")))]
+    found += [f"the events: {a['objectClass']} {a['parameters'].get('text', '')!r}" for a in text_actions(sheet)
+              if EMOJI.search(str(a.get("parameters", {}).get("text", "")))]
+    if found:
+        sys.exit("an emoji draws as each device's own picture and not at all in a Sprite Font; draw the icon as "
+                 "art in its own box beside the text, art() or shape() in build_images(), and take the emoji out "
+                 "of:\n  " + "\n  ".join(found))
+    shifting = sorted({inst["type"] for lay in layouts.values() for layer_ in layers_in(lay["layers"])
+                       for inst in layer_["instances"] if inst["type"] in COUNTED
+                       and inst.get("properties", {}).get("horizontal-alignment", "left") != "left"})
+    if shifting:
+        print(f"warning: counting() counts {', '.join(shifting)}, which {'is' if len(shifting) == 1 else 'are'} not "
+              f"left-aligned, so its other digits shift on every step of the count: Inter's digits differ in "
+              f"width; align it left, so the digits before the one that changes stay put")
 
 
 def hud_text(otype: str, text: str, where: str, size: float | None = None, longest: str | None = None,
@@ -3541,6 +3617,8 @@ def write_all(c3proj: Path) -> None:
             layer_["instances"] = z_order(layer_["instances"])
     # Sheet first: press() and squash() record their types, which then get their variables
     sheet = build_event_sheet()
+    add_fade(types, layouts, sheet)
+    check_texts(sheet, layouts)
     write_texts(sheet, types)
     press_types(types, layouts)
     squash_types(types, families, layouts)
@@ -3601,7 +3679,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f9cf13d14fb4 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp d8798e026e02 ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3772,7 +3850,7 @@ def module_restart() -> dict:
     return module("Restart", events=[
         event("Start the next round when the last coin is gone",
               [cmp2("Coin.Count", EQ, "0"), trigger_once()],
-              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), restart_layout()]),
+              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), *fade_to()]),
     ])
 
 

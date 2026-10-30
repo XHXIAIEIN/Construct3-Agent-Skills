@@ -6,7 +6,8 @@ from tests.skill_helpers import tool, edit, template_module, cond, block, png
 
 def test_check_look_passes_the_stand_in_and_names_each_fault(project):
     code, out = tool(project, "check_look")
-    assert code == 0 and out.splitlines()[-1].startswith("ok: 4 images, 2 world instances on a 32 px grid, "
+    # One of the images is the fade's cover
+    assert code == 0 and out.splitlines()[-1].startswith("ok: 5 images, 2 world instances on a 32 px grid, "
                                                           "1 runtime creations"), out
     t = template_module()
     t.ROOT = project
@@ -95,9 +96,10 @@ def test_check_look_names_the_motion_that_breaks_the_hud_or_a_tween(project):
     """A HUD object that grows from 0, and a count restarted without Stop, are findings; an
     overshoot or an ease-in fade on the HUD and a squash of an object a size tween destroys are
     warnings, since the subject of a moment and a guarded squash are not in the files. The stand-in
-    game's own tweens, a coin's hit and its shrink in one action list among them, raise none."""
+    game's own tweens, a coin's hit and its shrink in one action list among them, and the fade's
+    cover in and out, raise none."""
     code, out = tool(project, "check_look")
-    assert code == 0 and "motion." not in out and out.splitlines()[-1].endswith(", 3 tweens"), out
+    assert code == 0 and "motion." not in out and out.splitlines()[-1].endswith(", 5 tweens"), out
     t = template_module()
     stop = t.stop_tweens("ScoreText", "count")
     count = t.tween_value("ScoreText", "count", "int(ScoreText.Text)", "score", "0.5", "easeoutquad")

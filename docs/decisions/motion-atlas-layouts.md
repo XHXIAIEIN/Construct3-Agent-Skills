@@ -35,7 +35,7 @@ title screen here is any title, menu, pause or settings screen.
 |------|------------------|-------------------|----------|----------|
 | A title, menu or pause screen sets its texts on the vertical centre line | 82 centre their headline or stack | 51 of 63 texts on 16 title screens of 11 examples are centred within 2% of the width; of the 10 such screens with two texts or more, 8 centre all and none centres none | `hud_header()` held a menu's title top left; no title screen | `screen.menu-axis`, adopted |
 | Text sits a small inset from the edge | Median inset 24 px, 2.7% of the shorter side | The text nearest the edge sits a median 3% in, 52 of 75 layouts within 5% (`look-from-aesthetics-skills.md`) | `MARGIN` is a fifteenth of the shorter side in whole units: 4.4% at 720, 5.9% at 1080, 6.7% in pixel art | `screen.edge-inset`, proposed |
-| A change of page passes through a wipe or a fade | 41 page transitions, median 0.8 s; 38 loaders | 31 of the 51 examples that go to another layout have an object type named as a fade, transition, curtain or wipe | `go_to_layout()` cuts | `screen.transition`, proposed |
+| A change of page passes through a wipe or a fade | 41 page transitions, median 0.8 s; 38 loaders | 31 of the 51 examples that go to another layout have an object type named as a fade, transition, curtain or wipe | `go_to_layout()` cuts | `screen.transition`, adopted: `fade_to()` |
 | Items that enter together start a step apart | 96 state a stagger; per site a median 70 ms, 60 to 80 ms between the quartiles | 18 waits of a constant times `loopindex` in 12 examples: median 0.125 s, a quarter at 0.1 s or less; the menus step 0.1 to 0.25 s | No stagger helper | `motion.stagger` stays proposed with both ranges |
 | The display type is about 8 times the smallest label | Display median 10.7% of the shorter side; over the smallest label a median 8.4, 5.1 to 14.4 between the quartiles | A screen's largest text over its smallest: a median 2 on play screens, at most 5.3 (`--screens`); title images are 1.6 to 12.6 times the screen's largest text | `display` over `tag`: 4.3 at 1080, 6.4 at 720, 2 in pixel art | `type.scale-contrast`, rejected |
 | Labels at 11 px | Smallest label a median 1.2% of the shorter side | The smallest text of every example is at least 1.78% | `type.min-size` holds 1.75% | `type.small-labels`, rejected |
@@ -83,8 +83,16 @@ evidence in its `says`:
   of an instance of a layout or layer named title, menu or pause that sits
   further off. A settings screen, rows of a name beside its control, is
   left out, and a back button in a corner passes as a warning.
-- `screen.edge-inset` and `screen.transition` are proposed. Adopting one
-  changes `MARGIN` or `go_to_layout()`, and the test that holds it.
+- `screen.transition` is adopted, as the owner chose on 2026-10-31.
+  `fade_to()` fades a cover of `FADE`'s role in over 0.3 s, then changes
+  the layout, and `add_fade()` puts the cover on a top layer of every
+  layout the sheet runs and fades it away as each starts. The stand-in
+  game restarts each round through it. 0.3 s, not the websites' 0.8 s,
+  because `review_look.py` takes its screenshot 1 s after the layout
+  starts and a game restarts far more often than a page changes.
+- `screen.edge-inset` is proposed. Adopting it changes `MARGIN`, a value
+  the owner chose on the paper-and-ink prototype, and the tests that hold
+  it.
 - `motion.stagger` stays proposed. The websites step 60 to 80 ms and the
   examples 0.1 to 0.25 s; the owner picks the step.
 - The others are rejected, each for the measurement in the table. A
@@ -95,6 +103,8 @@ evidence in its `says`:
 
 - The owner picks one of the proposed rules: set it to adopted and change
   the template and its test with it.
+- A game needs another way between layouts, a wipe or a cut on purpose:
+  `fade_to()` then takes it as an option.
 - The template gains a title screen: build it with `hud_header()` and
   centred buttons, and check it passes `on_axis()` without a warning.
 - The example clone updates: rerun `measure_layout.py --frame` and the

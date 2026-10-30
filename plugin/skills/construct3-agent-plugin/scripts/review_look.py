@@ -23,7 +23,8 @@ the object type, the instance's UID and what to change:
   edge      a visible HUD instance that the edge of the screen cuts
   frame     every instance of a Sprite type shows one frame of an animation
             that has more, though a text instance variable differs between them
-  crowd     a ninth of the screen off its middle whose texts tell 3 items or more
+  placeholder  a visible text still "Text" or Lorem ipsum after the start
+  crowd    a ninth of the screen off its middle whose texts tell 3 items or more
             while two corners hold no text; a label on its object, a bar along
             an edge and a message over half the screen are left out
   optical   a label, a text beside a shape in a row, or a glyph alone on a
@@ -61,8 +62,7 @@ before it; play to such a scene with preview_project.py and a shot step.
 
 Screenshots go to --shots as <layout>.png, the whole result to --out.
 Beside the screenshots it writes brief.md: the screenshots, the questions and
-the form of the answer, for a reviewer that has not seen the project, since
-the agent that built the game reads its pictures by what it meant to build.
+the form of the answer, for a reviewer that has not seen the project.
 The last three lines are look:, next:, and brief:, which says who answers.
 
 With git, the brief also shows each layout as it was where the branch agents
@@ -170,7 +170,9 @@ BLANK_WAIT = 1.0
 TIERS = ("broken", "ugly", "fragile")
 BLOCKING = ("broken", "ugly")
 TIER = {"text": "broken", "stacked": "broken", "overlap": "broken", "edge": "broken", "frame": "broken",
-        "faint": "broken", "crowd": "ugly", "unlimited": "fragile", "optical": "fragile"}
+        "faint": "broken", "placeholder": "broken", "crowd": "ugly", "unlimited": "fragile", "optical": "fragile"}
+# A Text's default text, in any case, or Lorem ipsum anywhere in it
+PLACEHOLDER = re.compile(r"^\s*text\s*$|lorem ipsum", re.I)
 
 # Each question asks what a player sees as a mistake, not a fact about the picture: worded as facts (two
 # outline weights, an object over another, anything the edge cuts), a judge answered yes on most screens
@@ -334,6 +336,15 @@ def text_findings(instances: list[dict]) -> list[dict]:
                           f"is cut or wraps: make the box at least {px(max(tw, w))}x{px(max(th, h))} or the font "
                           f"smaller"})
     return found
+
+
+def placeholder_findings(instances: list[dict]) -> list[dict]:
+    """Shown texts that still read as the Text object's default, "Text", or as Lorem ipsum once the layout has run
+    (text.placeholder): the layout files of the examples hold such texts, which their events replace."""
+    return [{"rule": "placeholder", "uids": [i["uid"]], "line":
+             f"{name(i)} still shows a placeholder after the layout has run: set its text in the layout or in an "
+             f"On start of layout event"}
+            for i in instances if "textSize" in i and i["shown"] and PLACEHOLDER.search(i.get("text") or "")]
 
 
 def stacked_findings(instances: list[dict]) -> list[dict]:
@@ -957,7 +968,7 @@ def findings(snap: dict, only: tuple[str, ...] | None = None) -> list[dict]:
     one_screen = all(s <= 1.05 * v for s, v in zip(snap["size"], snap["viewport"]))
     run = {"text": lambda: text_findings(instances), "stacked": lambda: stacked_findings(instances),
            "overlap": lambda: overlap_findings(instances, layers), "edge": lambda: edge_findings(instances, layers),
-           "frame": lambda: frame_findings(instances),
+           "frame": lambda: frame_findings(instances), "placeholder": lambda: placeholder_findings(instances),
            "crowd": lambda: crowd_findings(instances, layers, one_screen)}
     return tiered([f for rule, find in run.items() if only is None or rule in only for f in find()])
 

@@ -353,8 +353,18 @@ parameters are in the template.
   its type the behavior.
 - A number that counts to its new value takes `count_up(text, value)` in
   the actions where the value changes, and `counting(text, value)` among a
-  module's events. The Text shows the number alone and has the Tween
-  behavior.
+  module's events. The Text shows the number alone, has the Tween behavior
+  and is left-aligned, or its other digits shift as one changes
+  (`type.counting-digits`; the run warns).
+- Every change of layout is `*fade_to(layout)`, or `*fade_to()` to restart
+  this one, in place of `go_to_layout()` and `restart_layout()`
+  (`screen.transition`). The run then puts a cover on a top layer of every
+  layout the sheet runs and fades it away as each starts.
+- A text holds no emoji: the run stops on one in a layout or in a text the
+  events set (`text.no-emoji`). An icon is art in its own box beside the
+  text. A Text that the events set starts with real text, never `Text` or
+  Lorem ipsum, which `review_look.py` reports if it is still shown
+  (`text.placeholder`).
 - A button is `button(type, file, label, text, col, row)`, its shape drawn
   at `button_size(text)`; col `"center"` puts it on the cell nearest the
   vertical centre line. The label is centred on the shape, in the colour

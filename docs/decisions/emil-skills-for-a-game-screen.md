@@ -29,7 +29,7 @@ read below.
 | Skill, heading | What it says | What this repository does | Change |
 |----------------|--------------|---------------------------|--------|
 | `break-ui` | Feed a component plausible worst data through the same boundary as the demo data, behind a Demo / Worst / Empty / One toggle; nonsense data proves nothing; check at the narrowest and widest widths | `review_look.py --data` shows each layout at demo, worst, empty and one, and on three more screen shapes; the worst text is the longest that `tools/texts.json` declares, and a guessed one only warns (`look.worst-data`, `look.screen-shapes`) | None: the same mechanism |
-| `break-ui`, catalog, numbers | A value that changes live jitters without tabular figures | `count_up()` counts a score for 0.5 s. Inter's digits are 0.42 to 0.66 em wide (`LATIN_EMS`), so a centred or right-aligned count moves its other digits on every tick. Construct's Text has no tabular figures | `type.counting-digits`, proposed |
+| `break-ui`, catalog, numbers | A value that changes live jitters without tabular figures | `count_up()` counts a score for 0.5 s. Inter's digits are 0.42 to 0.66 em wide (`LATIN_EMS`), so a centred or right-aligned count moves its other digits on every tick. Construct's Text has no tabular figures | `type.counting-digits`, adopted |
 | `break-ui`, catalog, collections, plurals, time, media, RTL, zoom | 1,000 rows, "1 members", relative dates, broken avatars, right-to-left text, browser zoom | A game draws its text on a canvas at the viewport's scale. Its HUD shows counts beside an icon or a label, not a noun after a number | None: not for a game screen |
 | `emil-design-eng`, press | Scale 0.95 to 0.98 on `:active`, 100 to 160 ms | `press()` squashes to 0.9 at once, back in 0.1 s `easeoutsine`; the examples pop a button to 0.85 to 1.25 ([count-up-and-press.md](count-up-and-press.md)) | None: the examples decide |
 | `emil-design-eng`, origin-aware popovers | A popover grows from its trigger; a modal stays centred | `popup()` opens a centred modal panel | None: the modal exemption |
@@ -76,15 +76,19 @@ Scripts and rows: `.local/docs/evidence/emil-skills-for-a-game-screen/`.
 
 ## Decision
 
-Option 3. `type.counting-digits` is `proposed`, so the template and the
-checks are unchanged until the owner decides: a number that `count_up()`
-counts is left-aligned, so the digits before the one that changes stay,
-or set in a font whose digits share one width.
+Option 3. `type.counting-digits` is adopted, as the owner chose on
+2026-10-31: a number that `count_up()` counts is left-aligned, so the
+digits before the one that changes stay, or set in a font whose digits
+share one width. `counting()` records the Text it counts, and the
+generator's `check_texts()` warns of one that is not left-aligned. It
+warns and does not stop, because a right-aligned score in a corner still
+reads; it moves for the 0.5 s of a count.
 
 ## Re-evaluate when
 
-- A recording of a counted score shows its digits move, or a font with
-  equal digit widths replaces Inter: settle `type.counting-digits`.
+- A recording of a counted score shows its digits move by more than the
+  owner accepts, or a font with equal digit widths replaces Inter: make the
+  warning a stop, or drop it.
 - The template gets a drag, a swipe or a list that scrolls: take the
   projection, the rubber-band and the velocity threshold above.
 - The template gets a sound helper: fire it in the event of its cause.

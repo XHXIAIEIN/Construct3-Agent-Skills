@@ -171,17 +171,19 @@
     },
     {
       "id": "text.no-emoji",
-      "status": "proposed",
+      "status": "enforced",
       "scope": "every-look",
-      "says": "No Text shows an emoji: an emoji draws from the device's emoji font, so its picture differs between systems and from ART_STYLE, and a Sprite Font draws nothing for it. An icon is art in its own box. No string of the layouts and event sheets of the 544 official examples holds an emoji; the 13 strings with a symbol hold arrows naming keys in instructions and a Sprite Font's own drawn heart.",
-      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
+      "says": "No Text shows an emoji, and the generator stops on one in a layout's Text or a text the events set: an emoji draws from the device's emoji font, so its picture differs between systems and from ART_STYLE, and a Sprite Font draws nothing for it. An icon is art in its own box. No string of the layouts and event sheets of the 544 official examples holds an emoji; the 13 strings with a symbol hold arrows naming keys in instructions and a Sprite Font's own drawn heart.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
+      "template": "EMOJI",
+      "helpers": "check_texts()"
     },
     {
       "id": "type.counting-digits",
-      "status": "proposed",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "A number that count_up() counts is left-aligned, so the digits before the one that changes stay put, or set in a font whose digits share one width. Inter's digits are 0.42 to 0.66 em wide, the 1 the narrowest, and Construct's Text has no tabular figures, so a centred or right-aligned count shifts its other digits on every tick of its 0.5 s. One official example counts a number, centred and padded to three digits.",
-      "helpers": "count_up(), counting(), hud_text()",
+      "says": "A number that count_up() counts is left-aligned, so the digits before the one that changes stay put, or set in a font whose digits share one width. Inter's digits are 0.42 to 0.66 em wide, the 1 the narrowest, and Construct's Text has no tabular figures, so a centred or right-aligned count shifts its other digits on every tick of its 0.5 s; check_texts() warns of a counted Text that is not left-aligned. One official example counts a number, centred and padded to three digits.",
+      "helpers": "count_up(), counting(), check_texts()",
       "source": "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md"
     },
     {
@@ -371,10 +373,11 @@
     },
     {
       "id": "text.placeholder",
-      "status": "proposed",
+      "status": "enforced",
       "scope": "every-look",
-      "says": "No Text shows the Text object's default text or Lorem ipsum once its layout has run. 21 of the official 2D game examples' 448 Texts hold one in the layout files and events set them at runtime, so only the runtime can judge it. Proposed until review_look.py runs over those examples.",
-      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
+      "says": "No Text shows the Text object's default text or Lorem ipsum once its layout has run. 21 of the official 2D game examples' 448 Texts hold one in the layout files and events set them at runtime, so only the runtime can judge it. review_look.py reports a shown text that still reads so after the layout has run, a broken finding.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
+      "confirm": "review_look.py: placeholder"
     },
     {
       "id": "type.line-height",
@@ -438,10 +441,13 @@
     },
     {
       "id": "screen.transition",
-      "status": "proposed",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "A change of layout passes through a fade that covers the screen: 31 of the 51 official examples that go to another layout have an object type named as a fade, transition, curtain or wipe, and 41 of 200 motion-design websites wipe between pages, a median 0.8 s. The template's go_to_layout() cuts.",
-      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+      "says": "A change of layout passes through a cover over the whole screen: fade_to() fades it in over FADE's 0.3 s, then goes to the layout or restarts this one, and every layout the sheet runs opens under it and fades it away. 31 of the 51 official examples that go to another layout have an object type named as a fade, transition, curtain or wipe, and 41 of 200 motion-design websites wipe between pages, a median 0.8 s. A layout with no sheet gets no cover, since nothing would fade it away.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
+      "template": "FADE",
+      "helpers": "fade_to(), add_fade()",
+      "value": "{'seconds': 0.3, 'ease': 'easeinoutsine', 'role': 'ink'}"
     },
     {
       "id": "type.scale-contrast",

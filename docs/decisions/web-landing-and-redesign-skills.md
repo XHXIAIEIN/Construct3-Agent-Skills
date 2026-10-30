@@ -77,7 +77,7 @@ the space the HUD leaves is the whole screen in nearly all of them.
 | B7. Motion | One ease-out curve, 500 ms for movement, 300 for colour, never under 200 ms; only transform and opacity; reduced motion | `TWEEN_STYLE` by class, from the examples' tweens (`motion-by-class.md`); `popup` takes `easeoutquint`, the same curve; `motion.reduced` proposed | `motion.duration-floor`, rejected: 183 of 1275 of the examples' tweens are under 0.2 s, and a hit flash of 0.08 s and a press of 0.1 s are measured choices (`count-up-and-press.md`). Transform and opacity only is a browser's reflow rule, and Construct lays out nothing |
 | Navigation | A floating nav bar, an animated menu toggle, a full-height mobile menu whose links arrive 60 ms apart within 400 ms | `motion.stagger`, proposed, 0.03 to 0.08 s apart | None: not for a game screen, web navigation. The 400 ms cap of a sequence joins `motion.stagger` when the examples are read for a step |
 | Scroll reveals | Sections rise 32 px and fade in once over 600 to 800 ms; no scroll listener | No counterpart | None: not for a game screen, which does not scroll as a page |
-| B8. Content realism | Real copy, specific names, numbers that are not round, no filler words, calm system messages, sentence case | `look.worst-data`: each layout is shown with the longest text, no text and counts of 1 | `text.placeholder`, proposed: a Text still showing the Text object's default text or Lorem ipsum once the layout has run. The rest is marketing copy |
+| B8. Content realism | Real copy, specific names, numbers that are not round, no filler words, calm system messages, sentence case | `look.worst-data`: each layout is shown with the longest text, no text and counts of 1 | `text.placeholder`, enforced: a Text still showing the Text object's default text or Lorem ipsum once the layout has run. The rest is marketing copy |
 | B9. States | Hover, active, focus, loading, empty and error states on every control | `POINTER`: the hover and pressed roles; `press()` squashes a pressed object to 0.9 for 0.1 s; `look.worst-data` shows the empty state | None: held for the pointer and the press. A focus ring needs a menu moved by keys or a pad, which the template does not have (`input-controls.md`) |
 | B10. Ship requirements | Legal links, a 404, form validation, skip link, cookies, favicon, meta tags, alt text, semantic HTML | No counterpart in the look | None: not for a game screen, a website's furniture |
 | B11. Tagline reveal section | A large tagline, word by word from 30% to full colour as it scrolls in | Text at 35% in `hints()`, the dim of a used key | None: not for a game screen, scroll-driven |
@@ -97,7 +97,7 @@ the space the HUD leaves is the whole screen in nearly all of them.
 | Color and surfaces | An approved palette, no background gradient, no purple-blue AI gradient, saturation under 80%, one accent, one grey family, tinted shadows, grain, one light direction, no stray dark section, imagery for empty sections | `PALETTE` by role; `colour.one-accent` rejected; `palette.greys` neutral; `shadow.form`: one direction for the whole scene; `avoid.same-decoration`; `depth.parallax-layers` rejected in paper and ink | None. A saturation cap fails paper and ink's adopted accents, three of them fully saturated, and a game's accents mark kinds of content. A grey family and tinted shadows are the user's look, with no measurement to set a threshold |
 | Layout | Break symmetry, no three equal cards, `100dvh`, grid, max width, variable heights, the radius formula, the spacing scale, overlap, more bottom padding, aligned rows, optical alignment | Grid on `UNIT`; `result_headline()` centred by measurement; `layout.focal` rejected because a grid of equal tiles is a sound game screen; `optical-label-centring.md` centres a label by its ink; `layout.balance` centres the playfield in what the HUD leaves | `OPTICAL_LIFT` set to 0, the user's choice: the examples centre their content, a median 0% off the middle with 44 of 81 within 3%. The rest is a web page's layout |
 | Interactivity and states | Eases and durations, scroll reveals, a floating nav, menu motion, reduced motion, hover, press, focus, loading, empty, error, dead links, current page, smooth scroll, transform only | As in the landing page rows B7 and B9 | `motion.duration-floor`, rejected, as above |
-| Content | Specific people, numbers and brands; no filler; specific CTAs and value; calm messages; active voice; no placeholder; sentence case | `look.worst-data` | `text.placeholder`, proposed. The rest is a page's copy |
+| Content | Specific people, numbers and brands; no filler; specific CTAs and value; calm messages; active voice; no placeholder; sentence case | `look.worst-data` | `text.placeholder`, enforced. The rest is a page's copy |
 | Component patterns | No generic card, no one-sided border, fewer ghost buttons, no pill badges, no accordion FAQ, no carousel, no tower pricing, fewer modals, no avatar circles, no sun-moon toggle, no link-farm footer | `avoid.dashboard`, enforced: no rounded cards, no score pill, no soft shadow under every panel; `popup()` for a panel | None: the game's form of the same fault is held; the rest are web components |
 | Iconography and imagery | Approved icon sets, no cliché metaphors, one stroke width, a favicon, no stock team photos | `svg_kit.icons()`: one stroke and radius for a set; `avoid.style-mix`; `avoid.kinds-alike` | None: held for drawn icons. An export's icon is not part of the look review |
 | Code quality | Semantic HTML, no inline styles, no fixed pixel widths, alt text, a z-index scale, no dead code, real imports, meta tags | `layer.z-order` orders each layer; `check_project.py` refuses an ACE that does not exist; `type.scale` and `colour.palette-only` refuse a hand-set value | None: the game's forms are held; the rest is HTML |
@@ -149,10 +149,13 @@ Options 2, 3 and 4, in `assets/look-manifest.json`:
 
 - `type.two-families`, proposed: the texts of a screen use at most two type
   families, as every official 2D game example layout does.
-- `text.placeholder`, proposed: no Text shows the Text object's default text
-  or Lorem ipsum once its layout has run. It is proposed until
-  `review_look.py` runs over the examples whose layouts hold such a text and
-  shows that their events replace each one.
+- `text.placeholder`, enforced since the owner chose it on 2026-10-31: no
+  Text shows the Text object's default text or Lorem ipsum once its layout
+  has run. `review_look.py` reports a shown text that still reads so as a
+  broken finding, `placeholder`. Before that, it ran over the 13 layouts of
+  12 official examples whose layout files hold such a text, at their own
+  viewport, and found none on screen: their events replace each one, or it
+  starts hidden.
 - `motion.duration-floor`, rejected, with its measurement.
 - `layout.balance`, adopted: the user set `OPTICAL_LIFT` to 0 on
   2026-10-31, so `centred()` puts the playfield in the middle of the play
@@ -165,9 +168,9 @@ No sub-agent's prompt changes.
 
 - A look the user gives sets three type families and the user likes it on
   screenshots: the two-family limit is taste, not legibility.
-- `review_look.py` runs over the examples that hold a placeholder in their
-  layouts: adopt `text.placeholder` as a finding if none is left once the
-  layout has run.
+- A game shows its placeholder only after play, such as a result text set
+  when the round ends: `review_look.py` sees a layout 1 s after it starts,
+  so that case needs a kept play with a shot step.
 - The user asks for an existing game's look to be upgraded: decide option 5.
 - A user finds a centred playfield low on screenshots: the lift comes back as the user's look.
 - The template gets a menu moved by keys or a pad: it needs a focus state.
