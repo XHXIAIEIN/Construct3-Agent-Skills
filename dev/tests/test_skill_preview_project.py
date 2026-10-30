@@ -405,7 +405,7 @@ def test_preview_project_replays_the_kept_plans_and_names_the_one_that_fails_now
     ], lines
     # a plan kept before --keep needed an until step passes on anything, and says so
     lines, failed = pp.replay_report(result, {}, {**until, "hint": 0})
-    assert "  ok    hint: 1 step, no until step, so it checks nothing, in 2.0 s" in lines, lines
+    assert "  ok    hint: 1 step, no until after an input or wait, so it checks nothing, in 2.0 s" in lines, lines
     assert lines[-1] == "  replayed: 1 of 3 kept plans pass with 0 until checks, 1 runtime error", lines
 
 
@@ -418,14 +418,20 @@ def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(pro
     assert pp.kept_plans(project) == [kept]
     code, out = run(project, SCRIPT, "plan.json", "--keep", "a b")
     assert code == 2 and "--keep takes a NAME of letters, digits, - and _" in out, out
-    # a plan of keys and reads passes whatever the game does, so it is refused before the editor opens
+    # a plan of keys and reads passes whatever the game does, so it is refused before the editor opens; so is
+    # one whose only until reads the start, as runs of fix-wasd-twitch wrote it once a plan needed an until
     reads = tmp_path / "reads.json"
-    reads.write_text(json.dumps({"steps": [{"key": "KeyW", "seconds": 1},
-                                           {"js": "runtime.objects.Player.getFirstInstance().y"}]}), encoding="utf-8")
-    code, out = run(project, SCRIPT, str(reads), "--keep", "walk")
-    assert code == 2 and "not kept: the plan has no until step" in out and "--keep walk" in out, out
+    for steps in ([{"key": "KeyW", "seconds": 1}, {"js": "runtime.objects.Player.getFirstInstance().y"}],
+                  [{"until": "runtime.objects.Player.getFirstInstance() !== null"}, {"key": "KeyW", "seconds": 1},
+                   {"js": "runtime.objects.Player.getFirstInstance().y"}]):
+        reads.write_text(json.dumps({"steps": steps}), encoding="utf-8")
+        code, out = run(project, SCRIPT, str(reads), "--keep", "walk")
+        assert code == 2 and "not kept: no until step comes after an input or a wait" in out, out
+        assert "--keep walk" in out, out
     assert not (project / "tools" / "plans" / "walk.json").exists()
-    assert pp.checks({"steps": [{"key": "KeyW"}, {"until": "true"}, {"js": "1"}, {"until": "1"}]}) == 2
+    assert pp.checks({"steps": [{"until": "a"}, {"key": "KeyW"}, {"until": "b"}, {"js": "1"}, {"until": "c"}]}) == 2
+    assert pp.checks({"steps": [{"wait": 3}, {"until": "vars.timer === 0"}]}) == 1
+    assert pp.checks({"steps": [{"until": "a"}, {"js": "b"}]}) == 0
     code, out = run(project, SCRIPT)
     assert code == 2 and "give a PLAN.json to play, or --all" in out, out
     kept.unlink()

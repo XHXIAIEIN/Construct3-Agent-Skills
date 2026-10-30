@@ -74,10 +74,9 @@ by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
-committed with the change it checks; one with no until step checks nothing and is not
-kept. --all replays every kept plan from a first
-launch and names each one that fails; its result goes to plans.json in
-.tmp/scripts/preview-project/.
+committed with the change it checks; one with no until after an input or wait checks
+nothing and is not kept. --all replays every kept plan from a first launch and names
+each that fails, into .tmp/scripts/preview-project/plans.json.
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
 "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
@@ -1084,9 +1083,15 @@ def kept_plans(project: Path) -> list[Path]:
     return sorted(folder.glob("*.json")) if folder.is_dir() else []
 
 
+# The steps after which the game has done something a check can read: an input, or time passing.
+DOING = ("tap", "hold", "drag", "key", "wait")
+
+
 def checks(plan: dict) -> int:
-    """The until steps of a plan: the only steps that fail when the game does not do what it should."""
-    return sum("until" in step for step in plan["steps"])
+    """The until steps after the first input or wait: the only steps that fail when the game does not do what
+    the change should make it do. An until before them reads the start, such as an instance that exists."""
+    first = next((i for i, step in enumerate(plan["steps"]) if any(k in step for k in DOING)), len(plan["steps"]))
+    return sum("until" in step for step in plan["steps"][first + 1:])
 
 
 def keep(plan: Path, project: Path, name: str) -> Path:
@@ -1142,7 +1147,7 @@ def replay_report(result: dict, refused: dict[str, list[str]], until: dict[str, 
             held += until[name]
             lines.append(f"  ok    {name}: {done['planned']} step{'s' if done['planned'] != 1 else ''}, "
                          + (f"{until[name]} until check{'s' if until[name] != 1 else ''}" if until[name] else
-                            "no until step, so it checks nothing,")
+                            "no until after an input or wait, so it checks nothing,")
                          + f" in {done['seconds']:.1f} s")
     total = len(ran) + len(refused)
     lines.append(f"  replayed: {total - failed} of {total} kept plans pass with {held} until "
@@ -1249,9 +1254,10 @@ def main() -> int:
         print("\n".join([f"{args.plan}: {p}" for p in problems] + ["See --help for the steps."]), file=sys.stderr)
         return 2
     if args.keep and not checks(plan):
-        print(f"{args.plan}: not kept: the plan has no until step, so it passes whatever the game does, and a "
-              f"replay of it after a later change shows nothing. A js, state or shot step prints what it reads and "
-              f"checks nothing. Write what the change must make true as an until step after the input, such as "
+        print(f"{args.plan}: not kept: no until step comes after an input or a wait, so the plan passes whatever "
+              f"the game does, and a replay of it after a later change shows nothing. An until before the first "
+              f"input reads the start, and a js, state or shot step prints what it reads and checks nothing. Write "
+              f"what the change must make true as an until step after the input, such as "
               f"{{\"until\": \"runtime.objects.Player.getFirstInstance().x > 200\", \"timeout\": 2}}, then run "
               f"this again with --keep {args.keep}", file=sys.stderr)
         return 2
