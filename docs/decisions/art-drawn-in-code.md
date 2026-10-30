@@ -173,8 +173,6 @@ runs and their transcripts' ids are in `.local/docs/evidence/art-route/`.
 
 ## Open
 
-- Which model the art sub-agent runs. The owner picks after the runs
-  above; until then it names Opus.
 - Whether a stroke library such as a freehand-stroke one should replace
   the kit's own `stroke()`, under which licence, and whether the plugin may
   carry it or it goes to the user's cache, as the fonts do.

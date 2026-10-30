@@ -32,13 +32,16 @@ answered no, and replies with the questions still answered yes.
 brief to it as it hands a judge's brief. `pick_look.py` hands it the first
 play screen in three looks the same way (`look-picker.md`).
 
-Both candidate models drew the trial's card game in one style
-(`art-drawn-in-code.md`, "A drawing run measured here"). The type names
-Opus until the owner picks the model from those contact sheets.
+The type runs Opus. Both candidate models drew the trial's card game in
+one style (`art-drawn-in-code.md`, "A drawing run measured here"), and the
+owner picked Opus from those contact sheets: it ended in two rounds with no
+question left as yes, where Sonnet took three and left the three buttons
+alike.
 
 ## Re-evaluate when
 
-- The owner picks the model: name it here and in the agent file.
+- A newer model is released: draw the same card game again with it and
+  compare the contact sheets.
 - A drawing run leaves a style of its own on a screen that the look review
   finds: the brief's questions or the kit change, measured on the same
   card game.
