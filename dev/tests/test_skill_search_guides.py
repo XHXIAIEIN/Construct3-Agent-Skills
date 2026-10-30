@@ -15,9 +15,48 @@ def test_the_entry_with_most_of_the_words_comes_first_in_full(built):
     code, out = tool(built, "search_guides", "click", "button", "behind", "--examples", "0")
     assert code == 0
     lines = out.splitlines()
-    assert lines[0] == "pitfalls:" and lines[1].startswith(f"{GUIDES.as_posix()}/plugins/touch.md:")
-    assert "*Pick top/bottom* (top)" in lines[2]
+    first = lines.index("pitfalls:") + 1
+    assert lines[first].startswith(f"{GUIDES.as_posix()}/plugins/touch.md:")
+    assert "*Pick top/bottom* (top)" in lines[first + 1]
     assert "[manual:" not in out
+
+
+@NEEDS_COOKBOOK
+def test_a_symptom_prints_its_causes_in_order_before_the_entries(built):
+    """Words of what goes wrong on screen print the row of the symptom table, each cause on a line of its own
+    that ends with the full path of the page that holds its entry."""
+    code, out = tool(built, "search_guides", "trigger", "never", "fires", "--examples", "0", "--limit", "0")
+    assert code == 0, out
+    lines = out.splitlines()
+    assert lines[0] == "symptoms:" and lines[1].startswith(f"{GUIDES.as_posix()}/symptoms.md:"), out
+    assert lines[2] == "  A trigger never fires", out
+    assert lines[3].startswith("  1. ") and lines[3].endswith(f"{GUIDES.as_posix()}/primitives/events/includes.md")
+    assert lines[4].startswith("  2. "), out
+    assert lines.index("pitfalls:") > lines.index("symptoms:"), out
+
+
+def test_symptom_rows_resolve_their_links_and_skip_the_header(tmp_path):
+    """A row's causes split at each number that follows a sentence. The header row matches no word, and a
+    clone without the table prints only the entries."""
+    rag = fake_rag(tmp_path / "Construct3-RAG")
+    guides = tmp_path / "Cookbook" / "guides"
+    (guides / "plugins").mkdir(parents=True)
+    (guides / "pitfalls.md").write_text("# Pitfalls\n", encoding="utf-8")
+    (guides / "plugins" / "snakes.md").write_text("# Snakes\n\n- A snake grows. [manual: x]\n", encoding="utf-8")
+    (guides / "symptoms.md").write_text(
+        "# Symptoms\n\n| Symptom | Causes to check, in order |\n|---|---|\n"
+        "| The snake does not grow | 1. It ate nothing: [Snakes](plugins/snakes.md). "
+        "2. It grew 2. 5 cells back: [Snakes](plugins/snakes.md#x). |\n", encoding="utf-8")
+    code, out = run(tmp_path, SKILL / "scripts" / "search_guides.py", "snake", "symptom", "--examples", "0",
+                    "--rag", str(rag), "--cookbook", str(tmp_path / "Cookbook"))
+    assert code == 0, out
+    page = (guides / "plugins" / "snakes.md").as_posix()
+    assert out.splitlines()[:5] == ["symptoms:", f"{(guides / 'symptoms.md').as_posix()}:5", "  The snake does not grow",
+                                    f"  1. It ate nothing: {page}", f"  2. It grew 2. 5 cells back: {page}#x"], out
+    (guides / "symptoms.md").unlink()
+    code, out = run(tmp_path, SKILL / "scripts" / "search_guides.py", "snake", "--examples", "0",
+                    "--rag", str(rag), "--cookbook", str(tmp_path / "Cookbook"))
+    assert code == 0 and out.startswith("pitfalls:\n"), out
 
 
 def own_page(project: Path, text: str) -> None:

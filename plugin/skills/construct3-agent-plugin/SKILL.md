@@ -58,7 +58,7 @@ the expressions, so it can refuse a project that the checker passes.
 |--------|-----|
 | `scripts/lookup_ace.py OBJECT [WORD ...]` | The conditions, actions and expressions of a project object, `System`, a plugin or a behavior, with their parameters and the JSON to write; or an effect's parameters |
 | `scripts/lookup_script_api.py NAME ...` | The scripting API: an interface's members, or a member's declaration |
-| `scripts/search_guides.py WORD ...` | The pitfalls and official examples that hold the words |
+| `scripts/search_guides.py WORD ...` | The symptoms, pitfalls and official examples that hold the words; give it the words of what you see when events misbehave |
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet as the editor words it, under its event numbers; `--map` the layouts that run each sheet, `--find NAME` the events that use a name, `--since COMMIT` what changed |
 | `scripts/print_layout.py [LAYOUT ...]` | Layers and instances in Z order with box, size and text, `on no object` for a label off its button |
 | `scripts/edit_sheet.py SHEET PLAN.json` | A change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |

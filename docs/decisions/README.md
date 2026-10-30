@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [The Guide Search Prints the Symptom Rows First](symptom-search.md) — 2026-10-31
 - [Title and Result Screens Get Their Own Type Rules](title-and-result-screens.md) — 2026-10-31
 - [The Art of a Generated Game Is Drawn by a Sub-Agent on a Fixed Model](art-drawer-agent.md) — 2026-10-30
 - [Art Drawn in Code as SVG: The Route Without an Image Tool](art-drawn-in-code.md) — 2026-10-30
