@@ -406,12 +406,15 @@ def browsers_folder(root: Path) -> Path:
 
 
 def project_folder(folder: Path) -> Path:
-    """The project a folder belongs to: the folder above its .tmp/ or .build/, so that a .c3p packed
-    into .build/ keeps its scratch in the project's .tmp/ and not in .build/.tmp/."""
-    parts = folder.parts
-    for i, part in enumerate(parts):
-        if part in (SCRATCH, BUILD) and i:
-            return Path(*parts[:i])
+    """The project a folder belongs to: the nearest folder upward that holds project.c3proj, or the
+    folder above the nearest .tmp/ or .build/, so that a .c3p packed into .build/ keeps its scratch
+    in the project's .tmp/ and not in .build/.tmp/. A project that lives in another repository's
+    .tmp/ stops the search, so its scratch stays in its own .tmp/."""
+    for f in (folder, *folder.parents):
+        if (f / "project.c3proj").is_file():
+            return f
+        if f.name in (SCRATCH, BUILD) and f.parent != f:
+            return f.parent
     return folder
 
 
