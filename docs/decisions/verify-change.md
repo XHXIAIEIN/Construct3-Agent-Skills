@@ -89,10 +89,14 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
 - The look questions pass on a reply, not on `--answered`. Each run of
   `review_look.py` names itself in its result, and `review_look.py --reply`
   writes its verdict onto the run whose brief the reply answers. The look
-  step passes on that run's reply when it answers every question, each yes
-  saying where, and the files are the ones it was asked about. A yes is
-  fixed, which changes the files and asks again, or named in the
-  hand-over. An agent that answers the brief itself saves its answers as
+  step passes on that run's reply when it answers every question no, and
+  the files are the ones it was asked about. A yes fails the step, and the
+  agent fixes it, which asks again. The owner chose this on 2026-10-30,
+  because a step that passed with "name its yes in the hand-over" let a
+  yes about a stand-in among drawn art reach the user. After three replies
+  with a yes the step passes, and the hand-over names each yes left, so a
+  judge that keeps a wrong yes cannot hold the chain forever. In a
+  generated game the step runs `check_look.py` before the review. An agent that answers the brief itself saves its answers as
   `reply.md` and checks them with `--reply` too. When the look step waits,
   a reply that answers every question no ends with the command that goes
   on.

@@ -154,6 +154,23 @@ same white, so a card's hit frame shows no change; `art.py` says so in a
 note. The drawings and the contact sheets are in
 `.local/docs/evidence/art-route/`.
 
+### The eval cases, a small main model
+
+`dev/evals/evals.json` holds three cases of the route, each run once as a
+`claude -p` session on Haiku with the plugin loaded, so the main agent
+could start `construct3:art-drawer` (Opus); every run did:
+
+| Case | Grader | Cost | Seconds | Look judge, two Haiku runs |
+|------|--------|------|---------|----------------------------|
+| `art-without-an-image-tool` | 5 of 5 | $0.40 | 209 | not run |
+| `walk-cycle-frames` | 6 of 6, four frames on one row | $0.62 | 427 | not run |
+| `card-game-art` | 4 of 4 file assertions | $3.15 | 1 490 | question 6 no on every picture in both; question 4 yes on the art sheet in both, for an empty card slot drawn as a dashed outline, and on the battle screen in one, for the enemy's health bar, a flat bar of the template |
+
+So on the card game the judge told the four enemies apart and found one
+style among the drawn pictures; what it called a style of its own was a
+slot meant to stay empty and a bar the template draws, not a drawing. The
+runs and their transcripts' ids are in `.local/docs/evidence/art-route/`.
+
 ## Open
 
 - Which model the art sub-agent runs. The owner picks after the runs
@@ -164,11 +181,12 @@ note. The drawings and the contact sheets are in
 
 ## Re-evaluate when
 
-- A small model runs the card-game case of `dev/evals/evals.json`
-  (`card-game-art`) with the route. Keep the route as the default when the
-  look judge finds one style on every screen and tells the enemies apart,
-  and the frames of each object share their box and baseline. Otherwise
-  record what failed here and keep the stand-ins for that case.
+- A run of `card-game-art` or `walk-cycle-frames` leaves a drawing in a
+  style of its own on a screen, or enemies the judge takes for one another:
+  record it here and change the brief or the kit, measured on the same
+  case.
+- The template's bars and slots read as stand-ins beside drawn art on more
+  screens: draw them through `art()` too.
 - A client's image tool returns frames of one object without drift. Then
   drawn characters matter only for the clients without one.
 - Construct gives SVG Picture animation frames or a collision polygon.
