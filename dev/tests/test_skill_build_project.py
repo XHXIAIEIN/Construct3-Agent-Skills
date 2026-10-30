@@ -1495,6 +1495,57 @@ def test_template_counts_a_number_up_from_the_number_it_shows():
     assert (ended["conditions"][0]["id"], ended["actions"][0]["parameters"]["text"]) == ("on-tweens-finished", "score")
 
 
+def test_template_eases_a_tween_by_the_class_of_what_it_moves():
+    """A tween helper takes its time and ease from TWEEN_STYLE by class: the HUD, a bar, the camera
+    and the world keep easeinoutsine, a popup and a banner open with easeoutquint in under 0.35 s.
+    A time or an ease given wins, and a class TWEEN_STYLE lacks stops the run."""
+    t = template_module()
+    assert {k: (s["ease"], s["seconds"]) for k, s in t.TWEEN_STYLE.items()} == {
+        "hud_in": ("easeinoutsine", 0.5), "hud_out": ("easeinoutsine", 0.5), "bar": ("easeinoutsine", 0.25),
+        "camera": ("easeinoutsine", 1), "world": ("easeinoutsine", 0.5), "popup": ("easeoutquint", 0.2),
+        "banner": ("easeoutquint", 0.25)}
+    timed = lambda a: (a["parameters"]["time"], a["parameters"]["ease"])
+    assert timed(t.tween1("Coin", "t", "offsetY", "0")) == ("0.5", "easeinoutsine")
+    assert timed(t.tween1("Coin", "t", "offsetY", "0", "2", "easeoutback")) == ("2", "easeoutback")
+    assert timed(t.tween2("Title", "t", "position", "0", "0", style="banner")) == ("0.25", "easeoutquint")
+    assert timed(t.tween_width("HpFill", "hp", "10")) == ("0.25", "easeinoutsine")
+    assert timed(t.tween_value("Camera", "zoom", "1", "2", style="camera")) == ("1", "easeinoutsine")
+    dims = t.hints("KeyBox")["children"][-1]["actions"][-1]
+    assert (dims["parameters"]["property"], timed(dims)) == ("offsetOpacity", ("0.5", "easeinoutsine"))
+    with pytest.raises(SystemExit, match="tween style 'menu': the classes are hud_in, hud_out, bar"):
+        t.tween1("Coin", "t", "offsetY", "0", style="menu")
+
+
+def test_template_opens_a_popup_from_near_its_size_and_closes_it_the_way_it_came():
+    """popup() shows the dim and the panel at opacity 0, the panel at POPUP["scale"] of its size,
+    and tweens both in with the popup class; closing tweens them back the same way, and
+    popup_closed() hides both when the panel's fade out ends, which an open in the meantime stops."""
+    t = template_module()
+    panel = t.sprite_inst("Panel", 960, 540, 640, 384)
+    dim = t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))
+    opened = t.popup(panel, dim)
+    assert [(a["id"], a["objectClass"]) for a in opened] == [
+        ("set-visible", "Dim"), ("set-opacity", "Dim"), ("tween-one-property", "Dim"),
+        ("set-visible", "Panel"), ("set-opacity", "Panel"), ("set-size", "Panel"),
+        ("tween-two-properties", "Panel"), ("tween-one-property", "Panel")]
+    assert opened[5]["parameters"] == {"width": "608", "height": "364.8"}
+    dim_in, size_in, fade_in = opened[2]["parameters"], opened[6]["parameters"], opened[7]["parameters"]
+    assert (dim_in["property"], dim_in["end-value"]) == ("offsetOpacity", "50")
+    assert (size_in["property"], size_in["end-x"], size_in["end-y"]) == ("size", "640", "384")
+    assert (fade_in["tags"], fade_in["end-value"]) == ('"popup-in"', "100")
+    assert {(p["time"], p["ease"]) for p in (dim_in, size_in, fade_in)} == {("0.2", "easeoutquint")}
+    closed = t.popup(panel, dim, show=False)
+    assert [(a["objectClass"], a["parameters"].get("end-value", a["parameters"].get("end-x"))) for a in closed] == [
+        ("Dim", "0"), ("Panel", "608"), ("Panel", "0")]
+    assert {(a["parameters"]["time"], a["parameters"]["ease"]) for a in closed} == {("0.2", "easeoutquint")}
+    comment, hide = t.popup_closed(panel, dim)
+    assert comment["text"] == "Hide Panel once it has closed"
+    assert (hide["conditions"][0]["id"], hide["conditions"][0]["parameters"]["tags"]) == ("on-tweens-finished",
+                                                                                         '"popup-out"')
+    assert [(a["objectClass"], a["parameters"]["visibility"]) for a in hide["actions"]] == [
+        ("Panel", "invisible"), ("Dim", "invisible")]
+
+
 def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     """A hit is the shape's second frame, the same outline and shadow filled in HIT_FLASH's role
     and tagged "hit", shown for HIT_FLASH["seconds"] of real time and then frame 0 again; the

@@ -1583,18 +1583,47 @@ def set_text(obj: str, text: str) -> dict:
     return act("set-text", obj, {"text": text})
 
 
+# Ease and seconds of a tween by the class of what it moves (motion.tween-style). Each class keeps
+# one kind of motion, so the player can tell what matters: the HUD fades and slides in and out, a
+# bar's fill slides, the camera moves slowly and evenly, a world object moves as the game needs, and
+# a popup or a banner, the subject of a moment, opens fast and settles. A tween helper takes
+# style=<class>; a time or an ease passed to it wins over the class's.
+# An overshoot ease (back, elastic, bounce) is for world objects and the subject of a moment, never
+# for the HUD, and the HUD never eases in; check_look.py warns of both.
+TWEEN_STYLE = {
+    "hud_in": {"ease": "easeinoutsine", "seconds": 0.5},
+    "hud_out": {"ease": "easeinoutsine", "seconds": 0.5},
+    "bar": {"ease": "easeinoutsine", "seconds": 0.25},
+    "camera": {"ease": "easeinoutsine", "seconds": 1},
+    "world": {"ease": "easeinoutsine", "seconds": 0.5},
+    "popup": {"ease": "easeoutquint", "seconds": 0.2},
+    "banner": {"ease": "easeoutquint", "seconds": 0.25},
+}
+
+
+def eased(style: str, time: str | None, ease: str | None) -> tuple[str, str]:
+    """The time and ease of a tween of class `style` in TWEEN_STYLE, unless given."""
+    if style not in TWEEN_STYLE:
+        sys.exit(f"tween style {style!r}: the classes are {', '.join(TWEEN_STYLE)}; add one to TWEEN_STYLE")
+    s = TWEEN_STYLE[style]
+    return (f"{s['seconds']:g}" if time is None else time), ease or s["ease"]
+
+
 # Tween behavior; beh is the behavior's name on the object
-def tween1(obj: str, tag: str, prop: str, end: str, time: str, ease: str = "easeinoutsine",
-           destroy: bool = False, beh: str = "Tween") -> dict:
-    """prop: offsetX, offsetY, size, offsetWidth, offsetHeight, offsetAngle, offsetOpacity, offsetScaleX, ..."""
+def tween1(obj: str, tag: str, prop: str, end: str, time: str | None = None, ease: str | None = None,
+           destroy: bool = False, beh: str = "Tween", style: str = "world") -> dict:
+    """prop: offsetX, offsetY, size, offsetWidth, offsetHeight, offsetAngle, offsetOpacity, offsetScaleX, ...
+    time in seconds and ease default to TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-one-property", obj, {
         "tags": q(tag), "property": prop, "end-value": end, "time": time, "ease": ease,
         "destroy-on-complete": "yes" if destroy else "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
 
 
-def tween2(obj: str, tag: str, prop: str, end_x: str, end_y: str, time: str, ease: str = "easeinoutsine",
-           destroy: bool = False, beh: str = "Tween") -> dict:
-    """prop: position, size or scale."""
+def tween2(obj: str, tag: str, prop: str, end_x: str, end_y: str, time: str | None = None, ease: str | None = None,
+           destroy: bool = False, beh: str = "Tween", style: str = "world") -> dict:
+    """prop: position, size or scale. time and ease default to TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-two-properties", obj, {
         "tags": q(tag), "property": prop, "end-x": end_x, "end-y": end_y, "time": time, "ease": ease,
         "destroy-on-complete": "yes" if destroy else "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
@@ -1610,14 +1639,19 @@ def bar_width(value: str, maximum: str, length: float) -> str:
     return f"clamp({value} / {maximum}, 0, 1) * {length:g}"
 
 
-def tween_width(obj: str, tag: str, width: str, time: str = "0.25", ease: str = "easeinoutsine", beh: str = "Tween") -> dict:
+def tween_width(obj: str, tag: str, width: str, time: str | None = None, ease: str | None = None, beh: str = "Tween",
+                style: str = "bar") -> dict:
     """Slides a fill to a new width instead of jumping: tween_width("HpFill", "hp", bar_width("hp", "HP_MAX", 380))."""
-    return tween1(obj, tag, "offsetWidth", width, time, ease, beh=beh)
+    return tween1(obj, tag, "offsetWidth", width, time, ease, beh=beh, style=style)
 
 
-def tween_value(obj: str, tag: str, start: str, end: str, time: str, ease: str = "easeinoutsine", beh: str = "Tween") -> dict:
+def tween_value(obj: str, tag: str, start: str, end: str, time: str | None = None, ease: str | None = None,
+                beh: str = "Tween", style: str = "world") -> dict:
     """A tween of a number, for what Tween has no property for. Read it as Obj.Tween.Value("tag")
-    while it plays; it reads 0 after it ends."""
+    while it plays; it reads 0 after it ends. A second value tween under a tag that still plays runs
+    beside the first, so stop_tweens() the tag before a restart. time and ease default to
+    TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-value", obj, {
         "tags": q(tag), "start-value": start, "end-value": end, "time": time, "ease": ease,
         "destroy-on-complete": "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
@@ -1637,6 +1671,40 @@ def on_any_tween_finished(obj: str, beh: str = "Tween") -> dict:
 
 def stop_tweens(obj: str, tag: str, beh: str = "Tween") -> dict:
     return act("stop-tweens", obj, {"tags": q(tag)}, beh=beh)
+
+
+# A popup's panel opens from `scale` of its size at opacity 0 while its dim fades in to `dim` %, in
+# the time and ease of TWEEN_STYLE["popup"], and closes the way it came.
+POPUP = {"scale": 0.95, "dim": 50}
+
+
+def popup(panel: dict, dim: dict, show: bool = True, tween: str = "Tween") -> list:
+    """Actions that open the popup, or close it with show=False. `panel` and `dim` are their layout
+    instances, each with the Tween behavior `tween` and placed hidden, properties["initially-visible"]
+    False before link(): the dim over screen_box() on the popup's layer, the panel with its origin at
+    its centre and its labels and buttons link()ed to it, so they follow its position, opacity and
+    visibility. popup_closed() among the module's events hides both once the close ends.
+        event("Open the pause menu", [on_touched("PauseButton")], popup(PAUSE_PANEL, PAUSE_DIM))"""
+    p, d = panel["type"], dim["type"]
+    w, h = panel["world"]["width"], panel["world"]["height"]
+    k = POPUP["scale"]
+    if show:
+        return [set_visible(d, True), act("set-opacity", d, {"opacity": "0"}),
+                tween1(d, "popup", "offsetOpacity", f"{POPUP['dim']:g}", beh=tween, style="popup"),
+                set_visible(p, True), act("set-opacity", p, {"opacity": "0"}),
+                act("set-size", p, {"width": f"{w * k:g}", "height": f"{h * k:g}"}),
+                tween2(p, "popup", "size", f"{w:g}", f"{h:g}", beh=tween, style="popup"),
+                tween1(p, "popup-in", "offsetOpacity", "100", beh=tween, style="popup")]
+    return [tween1(d, "popup", "offsetOpacity", "0", beh=tween, style="popup"),
+            tween2(p, "popup", "size", f"{w * k:g}", f"{h * k:g}", beh=tween, style="popup"),
+            tween1(p, "popup-out", "offsetOpacity", "0", beh=tween, style="popup")]
+
+
+def popup_closed(panel: dict, dim: dict, tween: str = "Tween") -> list:
+    """The event that hides the popup's panel and dim once popup(..., show=False) has faded the
+    panel out. An open during the close stops that fade, so the popup stays shown."""
+    return event(f"Hide {panel['type']} once it has closed", [on_tween_finished(panel["type"], "popup-out", beh=tween)],
+                 [set_visible(panel["type"], False), set_visible(dim["type"], False)])
 
 
 # Timer behavior
@@ -2817,7 +2885,7 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
         events += event("Dim the keys on the player's first input",
                         [trigger, cond("compare-boolean-eventvar", "System", {"variable": "used"}, inverted=True)],
                         [set_bool_var("used", True),
-                         tween1(box_type, "hint", "offsetOpacity", str(HINT_OPACITY), "0.5", beh=tween)])
+                         tween1(box_type, "hint", "offsetOpacity", str(HINT_OPACITY), beh=tween, style="hud_out")])
     return module("Hints", events, variables=[var("used", "boolean", "false",
                                                   "The player has used the controls; kept across a restart",
                                                   static=True)])
@@ -3404,7 +3472,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 5f6c1ffde32b ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 4b0c84283aaf ================
 
 
 # --- the game ---------------------------------------------------------------------------
