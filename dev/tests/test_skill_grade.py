@@ -1459,3 +1459,20 @@ def test_make_fixtures_lays_out_the_checker_fix_seeds(tmp_path: Path) -> None:
     sheet = read_json(runs / "fix-endless-pulse" / "with_skill" / "project" / SHEET)
     assert sorted(json.dumps(a["parameters"]) for a in actions_of(sheet["events"])
                   if a.get("callFunction") == "Pulse") == ['["0"]', "[true]"]
+
+
+def test_the_look_of_the_references_is_missing_from_the_fixture_and_read_from_its_colours(
+        tmp_path: Path, generated: Callable) -> None:
+    """On the fixture as laid out the checker and the rerun pass, and the plum, the amber, the ink outline and
+    USER_LOOK are missing. The references hold the colours the grader asks for, as art.measure would count them."""
+    run_dir = generated_case(tmp_path, generated, "look-from-references")
+    results = list(graded_by(run_dir).values())
+    assert [ok for ok, _ in results] == [True, False, False, False, False, True], results
+    stall = make_fixtures.PICTURES["coins-look-refs"][0] / "stall.png"
+    pixels = grader.opaque(stall)
+    assert grader.near(grader.commonest(pixels), grader.PLUM, grader.PLUM_SLACK)
+    assert not grader.near(grader.NAVY, grader.PLUM, grader.PLUM_SLACK)
+    # A coin of amber outlined 4 px in ink, and the same coin flat
+    ring = [(x, y, (20, 14, 31) if min(x, y, 31 - x, 31 - y) < 4 else (242, 165, 65)) for x in range(32) for y in range(32)]
+    flat = [(x, y, (242, 165, 65)) for x, y, _ in ring]
+    assert grader.commonest(ring) == (242, 165, 65) and grader.ink_edge(ring) > 0.5 and grader.ink_edge(flat) == 0
