@@ -122,6 +122,26 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   `.tmp/scripts/preview-project/shots/` and its result, so a plan that is not
   kept is played once. A passing run says how to keep it and how many plans
   are kept, and a refused kept plan fails the replay like a failed step.
+- Only a plan that checks the change is kept. An `until` step is the one
+  step that fails when the game does not do what it should, and one before
+  the first input or wait reads the start. So `--keep` refuses a plan with
+  no `until` after its first `tap`, `hold`, `drag`, `key` or `wait`, before
+  the editor opens, and `--all` gives each plan's checks; its last line,
+  which `verify_change.py` prints as the played line, gives the checks that
+  held. Of the 90 plans kept in eval runs before the rule, 21 held keys and
+  printed positions, checking nothing, and all were from fix-wasd-twitch.
+  On that case, three runs an arm:
+
+  | Rule | Runs whose kept plan checks the walking | Worker tokens, mean |
+  |------|------------------------------------------|---------------------|
+  | none (old skill) | 1 of 3, then 0 of 3 | 69 200 |
+  | an `until` anywhere | 1 of 3: two met it with an `until` at step 1 that the Player exists | not compared |
+  | an `until` after the first input or wait | 3 of 3, each a distance the Player must walk after a key | 78 700 |
+
+  Each of the three plans of the last rule fails on its run's project
+  before the fix, at the `until` after the first key. No `--keep` was
+  refused: every worker read `preview_project.py --help` first and wrote
+  the plan the help names.
 - The run's output tells the agent what the page does for the user, so the
   agent points the user to it: a part that looks wrong comes back as a task.
 - The review page follows the design language of the host UI kits (the
