@@ -1885,7 +1885,8 @@ def grade_walk_cycle_frames(run: Path) -> list[tuple[bool, str]]:
     results.append(drawn_as_svg(project, [f.name for f in files]))
     rows = sheet_rows(project)
     sets = {str(params(a).get("animation", "")).strip('"').lower()
-            for _, a in rows if a.get("id") == "set-animation" and a.get("objectClass") == kind}
+            for ev, _ in rows for a in ev.get("actions", [])
+            if a.get("id") == "set-animation" and a.get("objectClass") == kind}
     others = sets - {anim.lower()}
     results.append((anim.lower() in sets and bool(others), f"set-animation on {kind}: {sorted(sets) or 'none'}"))
     results.append(generator_is_source(run))
