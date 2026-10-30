@@ -35,7 +35,8 @@ measurement stays rejected unless new evidence says otherwise.
 - **World choice.** `new-work.md` lists the category's default page and its
   opposite as a rut, and neither may be a candidate. It lists seven
   candidate worlds over at least three material families. A world is dealt
-  by dice from a private catalogue. Font and palette ban lists and four
+  by dice from a catalogue that impeccable's `CLAUDE.md` keeps in a private
+  repository. Font and palette ban lists and four
   named generated looks catch the model's prior, and the model's first
   palette counts as spent.
 - **Judging a render.** `critique.md` runs a design review and the
@@ -63,11 +64,11 @@ a scrolling document, CSS breakpoints, forms, the DOM.
 |-----------------|--------------|---------------------------|--------|
 | `SKILL.md` | Routes the commands; loads the product and design files; makes the craft floor the last read before an edit | The manifest holds every look rule with its status and scope, and the generator's checks stop its run (`look-manifest-owns-the-rules.md`) | None. The manifest's checks run where the agent writes, while the craft floor is prose read before an edit |
 | `mode-persuade.md`, `mode-operate.md`, `mode-read.md`, `operate.md` | The surface's mode limits what the world may take; on a working screen the world lends four things and never the controls; a render with its name covered must still read as its category | Play, title and result screens are measured apart (`title-and-result-screens.md`). Question 7 of `review_look.py` asks the play screen's category test: a game, not an app's dashboard (`avoid.dashboard`). Question 5 keeps the backdrop behind what the player acts on | None. The split by screen kind already holds, with measurements. Read mode is not for a game screen |
-| `new-work.md` | Rut list, seven candidates, dice-dealt world, challengers on two axes, colour strategy by coverage, ban lists of fonts and generated looks, direction contract, comp to plates to a measured hero gate | No free choice of world: paper and ink when the user gave no look (`paper-and-ink-is-the-fallback.md`), else `pick_look.py` draws three directions, two of them from the user's references with their measured colours, and the user picks (`look-picker.md`) | None. The ban lists counter a prior that picks the world; here the user picks among directions tied to the references. The catalogue is a private service. The colour strategies are not measured on the examples |
+| `new-work.md` | Rut list, seven candidates, dice-dealt world, challengers on two axes, colour strategy by coverage, ban lists of fonts and generated looks, direction contract, comp to plates to a measured hero gate | No free choice of world: paper and ink when the user gave no look (`paper-and-ink-is-the-fallback.md`), else `pick_look.py` draws three directions, two of them from the user's references with their measured colours, and the user picks (`look-picker.md`) | None. The ban lists counter a prior that picks the world; here the user picks among directions tied to the references. The catalogue is not public. The colour strategies are not measured on the examples |
 | `craft.md` | Deprecated alias of `new-work.md` | | None |
 | `shape.md`, `init.md` | An interview of two or three questions a round; product facts with no aesthetic question; nothing recorded that the user did not answer | `USER_LOOK` names where a given look comes from; a rule the user has not decided stays `open` with its options | None. The same principle holds |
 | `document.md`, `extract.md` | Write `DESIGN.md` from the built code; pull repeated values into tokens | `PALETTE` roles and `TEXT_SIZE` kinds. `write_png()` stops a colour outside `PALETTE` and `on_scale()` a size outside `TEXT_SIZE` (`colour.palette-only`, `type.scale`) | None. Drift stops at write time |
-| `critique.md` | Two isolated assessments; heuristic scores 0 to 4; cognitive load with at most four options per decision; personas; P0 to P3; degraded banner | `review_look.py` prints the measured findings and writes a brief with fixed yes/no questions and nothing of the game's intent for `look-judge`. Each question has a tier (`look-severity.md`). `--reply` names every missing answer | Scores and personas stay out: a loose question made judges report more, not more correctly (`look-judge-calibration.md`). Four options per decision is not for a game screen, where a level select shows the game's levels. The banner leads to proposal 2 |
+| `critique.md` | Two isolated assessments; heuristic scores 0 to 4; cognitive load with at most four options per decision; personas; P0 to P3; degraded banner | `review_look.py` prints the measured findings and writes a brief with fixed yes/no questions and nothing of the game's intent for `look-judge`. Each question has a tier (`look-severity.md`). `--reply` names every missing answer | Scores and personas stay out: a loose question made judges report more, not more correctly (`look-judge-calibration.md`). Four options per decision is not for a game screen, where a level select shows the game's levels. The degraded banner matches proposal 2, who answered |
 | `audit.md` | Five dimensions scored 0 to 4: accessibility, performance, theming, responsive design, implementation integrity | `check_project.py`, `check_look.py` and the findings of `review_look.py` | None. Scores as above; theming and responsive design are not for a game screen |
 | `audit.native.md`, `adapt.native.md`, `ios.md`, `android.md` | Native apps: safe areas, 44 pt and 48 dp targets, system controls, text scaling | `touch.target` (48 dp, 44 pt), `screen.safe-area`, `look.screen-shapes` | None. A game draws its own controls |
 | `polish.md` | Refines the world it has; fixes broken before cosmetic; closes a critique when the file's bytes change | Broken before ugly (`look.severity`); a yes from before the change only warns (`look-blocks-only-what-the-change-brought.md`); a saved judgement holds while its input version matches | None |
@@ -86,9 +87,9 @@ a scrolling document, CSS breakpoints, forms, the DOM.
 | `generate.md`, `live.md`, `live-setup.md` | Variants of a page element in a browser overlay, with tuning knobs | | Not for a game screen. The picker's three directions are the variant step |
 | `component-review.md`, `region-map.md` | Cut the approved comp into painted plates and code-drawn regions; the user reviews the plates | Each object type has its box and subject in `art/wanted.json`; `art.py` writes a contact sheet; the art agent answers its questions | None |
 | `routing.md`, `doctor.md`, `hooks.md` | A menu from the project's signals; repair of stale files; the detector after each edit and at the end | The last line of each script names the next step; the generator checks on every run; `install.py` reports a copy that differs | None |
-| `craft-floor.md`, Verify | Contrast, depth, spacing, type, motion, states, the parts the page did not draw (selection, caret, scrollbars), copy, coverage | Each present but the parts not drawn: a generated game keeps Construct's icons | `art.icon` proposed (table below) |
+| `craft-floor.md`, Verify | Contrast, depth, spacing, type, motion, states, the parts the page did not draw (selection, caret, scrollbars), copy, coverage | Each has a check here, except the parts the game did not draw: a generated game keeps Construct's icons | `art.icon` proposed (table below) |
 | `craft-floor.md`, Refuse | Cards as structure, gradient text, glass, side stripes, hard offset shadows, a system display face, emoji or glyphs as icons, geometric masks, light or dark by category | `avoid.dashboard`; `screen.title-name` proposed draws the name as an image; paper and ink casts no shadow by default (`shadow.form`) | `text.no-emoji` proposed (table below) |
-| `degraded/finish-reviewer.md` | Capture validity first; inventory before the contract; type, material and ground against the approved comp; four derived verdicts; a pass that scores earlier fixes | A layout that draws nothing gets no question; the judge never sees intent; the tier of each question decides the verdict; three rounds, each yes marked new or before. The pair picture shows the user's references, not the picked screen | Proposal 1 |
+| `degraded/finish-reviewer.md` | Capture validity first; inventory before the contract; type, material and ground against the approved comp; four derived verdicts; a pass that scores earlier fixes | A layout that draws nothing gets no question; the judge never sees intent; the tier of each question decides the verdict; three rounds, each yes marked new or before. The pair picture shows the user's references, not the picked screen | Proposal 1, the picked screen as the pair |
 | `degraded/asset-producer.md`, `degraded/documenter.md`, `degraded/manual-edit-applier.md` | Plates cut from the comp without redesign; `DESIGN.md` after the build; edits from the overlay | Every drawing follows `art/look.png` | None |
 | Detector, `antipatterns.json` | 62 rules over CSS and the DOM (below) | The findings of `review_look.py` (`text`, `overlap`, `edge`, `faint`, `crowd`, `frame`) and `check_look.py` | Mapped below |
 
@@ -103,7 +104,7 @@ The detector's rules by what a game screen has:
   wide shadow are `avoid.dashboard`. A broken image and hidden content are
   the blank screenshot that gets no question.
 - **Rejected by measurement here.** A flat type hierarchy, steps under
-  1.25, is `type.modular-scale`.
+  1.25, matches `type.modular-scale`, which the examples turned down.
 - **Inside a user decision.** `overused-font` names Inter, which paper and
   ink uses by the user's choice (`type.inter`). impeccable's own working
   screens permit a familiar sans, and a HUD is the game's working screen.
@@ -141,7 +142,7 @@ example shows a symbol as an icon in a Text.
 |----------|----------|------------------------|---------------|
 | All | 544 | 268 | 434 |
 | 2D games | 113 | 54 | 106 |
-| The studio's (Viridino) | 29 | 0 | 29 |
+| The studio's (Viridino or Forsteri) | 29 | 0 | 29 |
 | The studio's 2D games | 13 | 0 | 13 |
 
 Every finished game of the studio draws its own icons and keeps the
@@ -179,13 +180,17 @@ Option 3. The manifest gains three rules:
   `ART_STYLE`, and a Sprite Font draws nothing for it (`type.pixel-font`).
   An icon is art in its own box. No string of the 544 examples holds one.
   Enforced, it would be a finding of `check_look.py` on a layout's text or
-  a Set text action, of the tier `ugly`, the style of its own of question
-  4.
+  a Set text action, at the tier `ugly`, as question 4 of `review_look.py` asks of an object
+  drawn in a style of its own.
 - `art.icon`, proposed: the game's icons are drawn from its look by the art
   route, as every studio game draws them. The splash loader stays, as every
-  studio game keeps it.
-- `motion.exit-faster`, rejected: the HUD leaves faster than it enters. The
-  examples fade 62 of 92 HUD objects out in the same time as in.
+  studio game keeps it. `web-landing-and-redesign-skills.md` leaves a
+  website's favicon out of the look review; the icon of a game is the
+  picture of it on a home screen or a store page, which the studio's games
+  draw.
+- `motion.exit-faster`, rejected: the rule that a HUD object leaves faster
+  than it enters. The examples fade 62 of 92 HUD objects out in the same
+  median time as in.
 
 Two changes to the review are proposed and not made, because the brief of
 `look-judge` changes with them and each change needs the calibration of
@@ -217,7 +222,8 @@ The template, `pick_look.py` and the sub-agents' prompts stay as they are.
 - A look picked from references is judged generic on the user's
   screenshots, such as a near-black ground with a neon glow: impeccable's
   list of generated looks becomes a question for the picker's judge.
-- impeccable publishes the evaluations behind its rules, kept in a private
-  repository: read them for a measured threshold.
+- impeccable publishes the evaluations behind its rules, which its
+  `CLAUDE.md` places in a private repository: read them for a measured
+  threshold.
 - The example clone updates: rerun `measure_examples.py glyphs`, `icons`
   and `fades`.
