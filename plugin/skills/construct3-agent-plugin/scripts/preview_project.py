@@ -47,8 +47,9 @@ Steps, each an object with one of these keys, and "note" for a label:
   js CODE                       run JavaScript against the runtime and print what it returns
   state [TYPE ...]              the globals, every type's count, the named types' instances with
                                 their inspector values, named in --locale
-  shot NAME                     a screenshot, NN-NAME.png in --shots; named as not drawn yet when it
-                                is one colour
+  shot NAME                     a screenshot, NN-NAME.png in --shots, with the share of it that is one
+                                colour and how far its luminance deviates; named as not drawn yet when
+                                both say it shows nothing
   record NAME, watch, fps       record from here to the next record step or the end: NN-NAME.mp4 with
                                 ffmpeg or .gif with Pillow, the frames, a contact sheet of up to 12
                                 numbered frames to judge the motion from, and NN-NAME.html to review
@@ -71,8 +72,12 @@ The game starts on the layout the editor opens on, as with F5. A game that reloa
 its page goes on in the new page: the step the reload broke off runs again, except
 a js step whose code had started, which fails.
 
+After each step the run reads the layout and the ticks: a step that changes the layout says
+so, and a step fails when the game stopped ticking for more than 1 second, or stopped answering.
+A request that failed prints a network: line at the step it came in, and counts as an error.
+
 The browser runs headless and silent; --headed shows it. A step that fails leaves
-NN-failed.png. Screenshots and recordings go to --shots, by default
+NN-failed.png and the trail of layouts the game went through. Screenshots and recordings go to --shots, by default
 .tmp/scripts/preview-project/shots/ in the project, and the whole result to --out,
 by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
@@ -81,9 +86,10 @@ A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the proj
 committed with the change it checks; it needs an until after an input or wait. --all
 replays each kept plan from a first launch, into .tmp/scripts/preview-project/plans.json.
 
-The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
-"viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
-"line", "ok", "said", "errors", "value" of a js step, "state" of a state step, "reloaded"}]}.
+The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "first_layout",
+"runtime", "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps":
+[{"step", "line", "ok", "said", "errors", "layout", "ticks": {"ticks", "seconds", "longest"},
+"value" of a js step, "state" of a state step, "reloaded"}]}.
 """
 from __future__ import annotations
 
@@ -120,10 +126,14 @@ output:
     1 until runtime.objects.Enemy.getAllInstances().length >= 3: true after 1.4 s
     2 drag Piece 0 to BattleSlot 1: (120, 712) to (215, 388) in 0.4 s
       runtime: <an error the game logged during the step, with its event, and (N times) when it came more than once>
-    3 key ShiftLeft+ArrowRight: held 0.5 s
+      network: HTTP 404 https://preview.construct.net/level3.json (Fetch)      <a request that failed>
+    3 key ShiftLeft+ArrowRight: held 0.5 s; layout 'Menu' -> 'Game'
     4 state Piece: <as open_in_editor.py --state prints it>
-    5 shot after-merge: shots/05-after-merge.png
+    5 shot after-merge: shots/05-after-merge.png (99.20% one colour, luminance deviation 9.1)
+    6 until <...>: FAILED, still false after 10 s; the window then: shots/06-failed.png (...)
+      trail: 'Menu' at the start, 'Game' after step 3
     recorded merge: 95 frames in 3.4 s, shots/02-merge.mp4
+      the game ticked 490 times in 3.4 s, 144 a second, at most 21 ms apart
       sheet shots/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
       2 at 35 ms (largest change), ..., 10 at 3380 ms (end)
         <how to judge the motion from the sheet>
@@ -156,6 +166,15 @@ PRESS = {"hold": 0.5, "drag": 0.4, "move": 0.4, "key": 0.1}
 RESIZE = 5
 # Seconds a page the game reloaded gets to run its runtime again.
 RELOAD = 30
+# Seconds the game's page or worker gets to answer after a step; past them its thread is held.
+ANSWER = 5
+# Seconds between two ticks past which a step fails, the game having stopped. In previews of 12
+# official examples and a converted game on a 143 Hz display, the longest gap over 78 changes of
+# layout was 0.27 s, as a layout with many objects started; within a running layout 0.05 s, and
+# while screenshots were taken one after another as a record step takes them 0.014 s.
+STALL = 1.0
+FROZEN = (f"the game stopped answering for {ANSWER} s: an endless loop in its events or a script holds its thread, "
+          f"such as a While whose condition stays true or a function that calls itself")
 # Where the editor serves a preview, and where a game's saves live.
 PREVIEW = "https://preview.construct.net"
 # The page that reviews a recording, its timeline put where it says TIMELINE.
@@ -417,11 +436,14 @@ class Game:
         """None while the page the probe was left in still runs. After the game
         reloaded its page (Browser *Reload*), the probe and c3play are left again in
         the new page once its runtime ticks, and the seconds that took are returned.
-        Raises StepFailed when no runtime ticks in the new page.
+        Raises StepFailed when no runtime ticks in the new page, or when the page or
+        worker that runs the game is there and does not answer: its thread is held.
         The answer is also what the errors a step caused arrive before."""
         try:
-            if self.run("typeof c3play === 'object'", wait=5):
+            if self.run("typeof c3play === 'object'", wait=ANSWER):
                 return None
+        except oe.NoAnswer:
+            raise StepFailed(FROZEN) from None
         except oe.DevToolsError:    # the page's context or the worker went with the reload
             pass
         began = time.monotonic()
@@ -435,6 +457,16 @@ class Game:
         if self.recording and self.recording.read:
             self.recording.session = self.recording.game_session()
         return time.monotonic() - began
+
+    def pulse(self) -> dict | None:
+        """The layout that runs, and the ticks since the last call (runtime-probe.js ticks()):
+        None while the game's page reloads. Raises StepFailed when the game does not answer."""
+        try:
+            return self.run("({...c3probe.ticks(), layout: c3probe.runtime.layout.name})", wait=ANSWER)
+        except oe.NoAnswer:
+            raise StepFailed(FROZEN) from None
+        except oe.DevToolsError:    # the page reloads; reloaded() leaves the probe again after the next step
+            return None
 
     def aim(self, target: str | dict) -> tuple[float, float]:
         if isinstance(target, dict) and "js" in target:
@@ -578,7 +610,7 @@ class Recorder(threading.Thread):
             "no frame of game time passed, or the game time was not read, so the video keeps the clock: "
             if self.fps else ""]
         lines = [f"{len(frames)} frames in {sum(seconds):.1f} s, {said[0]}"
-                 f"{made or 'no ffmpeg or Pillow here to join them'}", *said[1:]]
+                 f"{made or 'no ffmpeg or Pillow here to join them'}", *said[1:], *tick_lines(self.steps)]
         cells = sheet_frames(timeline["frames"], timeline["steps"], frame_change(paths, timeline["frames"]))
         sheet = make_sheet([paths[i] for i, _ in cells], [timeline["frames"][i]["t"] for i, _ in cells],
                            self.folder.with_name(self.folder.name + "-sheet.png"))
@@ -622,6 +654,17 @@ def write_index(shots: Path) -> Path:
     recordings = [r for _, r in sorted(found, key=lambda pair: pair[0], reverse=True)]
     index.write_text(REVIEW.replace("/*RECORDINGS*/null", script_json(recordings)), encoding="utf-8")
     return index
+
+
+def tick_lines(steps: list[dict]) -> list[str]:
+    """How the game ticked over the steps a recording covered: from each step's ticks, read after it."""
+    read = [s["ticks"] for s in steps if s.get("ticks")]
+    seconds = sum(r["seconds"] for r in read)
+    if not seconds:
+        return []
+    ticks = sum(r["ticks"] for r in read)
+    return [f"the game ticked {ticks} times in {seconds:.1f} s, {ticks / seconds:.0f} a second, at most "
+            f"{max(r['longest'] for r in read) * 1000:.0f} ms apart"]
 
 
 def watch_lines(frames: list[dict]) -> list[str]:
@@ -1002,10 +1045,18 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
 
 
 def screenshot(game: Game, path: Path) -> str:
+    """The screenshot's path, with how much it shows: the share of it that is one colour and the
+    deviation of its luminance, which together tell a frame with nothing drawn."""
     path.write_bytes(base64.b64decode(game.win.call("Page.captureScreenshot")["data"]))
-    share = oe.blank(game.win)
-    return (f"{path}: {c3.BLANK:.1%} or more of it is one colour, so the game had not drawn yet or draws nothing "
-            f"in view here; add a wait or until step before this shot" if share else str(path))
+    got = oe.fill(game.win)
+    if not got:
+        return str(path)
+    share, spread = got
+    if c3.is_blank(share, spread):
+        return (f"{path}: {share:.2%} of it is one colour and its luminance deviates {spread:.1f}, under "
+                f"{c3.SPREAD:g}, so the game had not drawn yet or draws nothing in view here; add a wait or until "
+                f"step before this shot")
+    return f"{path} ({share:.2%} one colour, luminance deviation {spread:.1f})"
 
 
 def play(plan: dict, shots: Path, project: Path) -> Callable[[oe.Browser, str, oe.DevTools], dict]:
@@ -1020,6 +1071,7 @@ def play(plan: dict, shots: Path, project: Path) -> Callable[[oe.Browser, str, o
         touch, view, ratio = bool(plan.get("touch")), plan.get("viewport"), plan.get("pixel_ratio", 1)
         game = None
         try:
+            oe.watch_network(win)
             if view or ratio != 1:
                 size = emulate(win, view, ratio)
                 if view and size != tuple(view):
@@ -1041,8 +1093,13 @@ def play(plan: dict, shots: Path, project: Path) -> Callable[[oe.Browser, str, o
             before = oe.runtime_errors(win)
             game = Game(win, live[0], touch, size, f"ws://127.0.0.1:{browser.port}/devtools/page/{window['targetId']}",
                         view, project, ratio)
+            try:
+                first = game.pulse()    # the steps' ticks are counted from here
+            except StepFailed as e:
+                return {"started": False, "layout": None, "runtime": None, "steps": [], "errors": [*before, str(e)]}
+            first = first and first["layout"]
             began = time.monotonic()
-            steps = play_steps(game, plan["steps"], shots)
+            steps = play_steps(game, plan["steps"], shots, first)
             seconds = time.monotonic() - began
             recorded = game.stop_recording()
             try:
@@ -1054,7 +1111,7 @@ def play(plan: dict, shots: Path, project: Path) -> Callable[[oe.Browser, str, o
             browser.devtools.call("Target.closeTarget", targetId=window["targetId"])
             if game:
                 game.close()
-        return {"started": True, "layout": layout, "runtime": "worker" if game.live else "page",
+        return {"started": True, "layout": layout, "first_layout": first, "runtime": "worker" if game.live else "page",
                 "seconds": round(seconds, 1), "viewport": list(size), "pixel_ratio": ratio, "touch": touch,
                 "errors": before, "steps": steps, "planned": len(plan["steps"]), "recorded": recorded}
     return run
@@ -1069,19 +1126,24 @@ def enable(win: oe.DevTools, sessions: list[str | None]) -> None:
             pass
 
 
-def play_steps(game: Game, steps: list[dict], shots: Path) -> list[dict]:
+def play_steps(game: Game, steps: list[dict], shots: Path, layout: str | None = None) -> list[dict]:
     """Run the steps in order until one fails: what each said, read and caused.
 
     A game that reloads its page loses the probe with it. After each step the
     probe is looked for, and left again in the new page; the step's `reloaded`
     lists the seconds the game took to start again. A step the reload broke
     off runs again in the new page, except a js step whose code had started:
-    it may have done part of its work, so it fails."""
+    it may have done part of its work, so it fails.
+
+    Then the layout and the ticks are read: a step that leaves the game on
+    another layout than `layout`, the one before it, says so, and a step in
+    which the game did not tick for STALL seconds fails."""
     played: list[dict] = []
     for n, step in enumerate(steps, 1):
         started_at = time.monotonic()
         ok, said, extra = attempt(game, step, n, shots)
         reloads: list[float] = []
+        pulse = None
         try:
             back = game.reloaded()
             if back is not None:
@@ -1097,9 +1159,19 @@ def play_steps(game: Game, steps: list[dict], shots: Path) -> list[dict]:
                         said += f"; then the page reloaded again, and the game started {back:.1f} s later"
                 else:
                     said += "; the page reloaded while the code ran, so the step did not run again"
-        except StepFailed as e:     # the reloaded page ran no game
+            pulse = game.pulse()
+        except StepFailed as e:     # the reloaded page ran no game, or the game stopped answering
             ok, said = False, f"{said}; {e}"
-        done = {"step": n, "line": step_line(n, step), "ok": ok, "said": said, **extra}
+        if pulse:
+            if pulse["layout"] != layout:
+                said += f"; layout {layout!r} -> {pulse['layout']!r}"
+                layout = pulse["layout"]
+            if ok and pulse["longest"] > STALL:
+                ok, said = False, (f"{said}; the game did not tick for {pulse['longest']:.1f} s during the step, "
+                                   f"as when a long loop in its events or a script holds its thread")
+        done = {"step": n, "line": step_line(n, step), "ok": ok, "said": said, **extra, "layout": layout}
+        if pulse:
+            done["ticks"] = {k: round(pulse[k], 3) for k in ("ticks", "seconds", "longest")}
         if reloads:
             done["reloaded"] = [round(s, 1) for s in reloads]
         if not ok:
@@ -1110,8 +1182,8 @@ def play_steps(game: Game, steps: list[dict], shots: Path) -> list[dict]:
         done["errors"] = oe.runtime_errors(game.win)    # they arrived before reloaded() was answered
         played.append(done)
         if game.recording:      # its timeline places the step
-            game.recording.steps.append({k: done[k] for k in ("step", "line", "ok", "said", "errors")}
-                                        | {"start": started_at, "end": time.monotonic()})
+            game.recording.steps.append({k: done[k] for k in ("step", "line", "ok", "said", "errors", "ticks")
+                                         if k in done} | {"start": started_at, "end": time.monotonic()})
         if not ok:
             break
     return played
@@ -1141,16 +1213,36 @@ def report(result: dict, label: Callable[[str], str] = oe.key_name) -> list[str]
     for done in ran["steps"]:
         said = f": {done['said']}" if done["said"] else ""
         lines.append(f"  {done['line']}{said}" if done["ok"] else f"  {done['line']}: FAILED, {done['said']}")
+        if not done["ok"] and ran.get("first_layout"):
+            lines.append(f"    trail: {trail(ran['first_layout'], ran['steps'])}")
         if "state" in done:
             lines += ["  " + line for line in oe.state_lines(done["state"], label)]
         lines += oe.runtime_lines(done["errors"], "    ")
     if ran.get("recorded"):
         lines.append(f"  {ran['recorded']}")
-    errors = len(ran["errors"]) + sum(len(d["errors"]) for d in ran["steps"])
     ok = sum(d["ok"] for d in ran["steps"])
     lines.append(f"  ran: {ok} of {ran['planned']} steps in {ran['seconds']:.1f} s, "
-                 f"{errors or 'no'} runtime error{'' if errors == 1 else 's'}")
+                 f"{errors_text(ran['errors'] + [e for d in ran['steps'] for e in d['errors']])}")
     return lines
+
+
+def errors_text(errors: list[str]) -> str:
+    """How many runtime errors and failed requests a run logged, for its last line."""
+    failed = sum(e.startswith(oe.NETWORK) for e in errors)
+    logged = len(errors) - failed
+    return (f"{logged or 'no'} runtime error{'' if logged == 1 else 's'}"
+            + (f" and {failed} failed request{'' if failed == 1 else 's'}" if failed else ""))
+
+
+def trail(first: str, steps: list[dict]) -> str:
+    """The layouts the game went through: the one it started on, then each one it went to, with the step
+    after which it ran there."""
+    went, now = [f"{first!r} at the start"], first
+    for done in steps:
+        if done.get("layout") and done["layout"] != now:
+            now = done["layout"]
+            went.append(f"{now!r} after step {done['step']}")
+    return ", ".join(went)
 
 
 def kept(out: Path | None, shots: Path | None, project: Path) -> tuple[Path, Path]:
@@ -1213,7 +1305,7 @@ def replay_report(result: dict, refused: dict[str, list[str]], until: dict[str, 
         return oe.report(result, label), len(refused) + 1
     lines = oe.opened_lines(result)
     ran = (result.get("preview") or {}).get("plans", {})
-    failed, errors, held = 0, 0, 0
+    failed, errors, held = 0, [], 0
     for name in sorted(set(ran) | set(refused)):
         where = (KEPT / f"{name}.json").as_posix()
         if name in refused:
@@ -1227,7 +1319,7 @@ def replay_report(result: dict, refused: dict[str, list[str]], until: dict[str, 
             continue
         raw = done["errors"] + [e for d in done["steps"] for e in d["errors"]]
         logged = oe.runtime_lines(raw, "    ")
-        errors += len(raw)
+        errors += raw
         bad = next((d for d in done["steps"] if not d["ok"]), None)
         if bad or logged or len(done["steps"]) < done["planned"]:
             failed += 1
@@ -1243,7 +1335,7 @@ def replay_report(result: dict, refused: dict[str, list[str]], until: dict[str, 
                          + f" in {done['seconds']:.1f} s")
     total = len(ran) + len(refused)
     lines.append(f"  replayed: {total - failed} of {total} kept plans pass with {held} until "
-                 f"check{'' if held == 1 else 's'}, {errors or 'no'} runtime error{'' if errors == 1 else 's'}")
+                 f"check{'' if held == 1 else 's'}, {errors_text(errors)}")
     return lines, failed
 
 

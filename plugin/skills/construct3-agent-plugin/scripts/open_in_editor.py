@@ -111,6 +111,7 @@ output, one entry per addon with --install-addon, then one per project:
     preview: layout '<name>', runtime in the worker, 600 ticks in 4.2 s, 1 error      with --preview
     editor: <the crash report the editor showed while it built the preview>
     runtime: <the first line of each distinct error, and (N times) when it came more than once; --out keeps each with its stack>
+    network: HTTP 404 https://preview.construct.net/level3.json (Fetch)      a request that failed, an error too
     globals: Score 0, Lives 3                                                         with --state
     objects: Player 1, Enemy 6, Coin 12
     Player: 1 instance                                                                with --state Player
@@ -126,7 +127,8 @@ output, one entry per addon with --install-addon, then one per project:
 
 exit codes: 0 every project opened, and with --preview ran without errors; 1 at least one did not, or an
 --install-addon was refused; 2 no project
-found, the editor did not load, or --locale has no language pack; 3 no browser here, or --steps: the steps
+found, the editor did not load (the line names the browser's error, such as ERR_NAME_NOT_RESOLVED, and what to
+check), or --locale has no language pack; 3 no browser here, or --steps: the steps
 for a browser tool were printed instead, the project is not opened yet; 5 another run holds the browser
 profile, named in the line with its pid: wait for it to end, or pass --profile for a profile of this run's own
 """
@@ -343,8 +345,9 @@ NEXT = ("next: a message that names a place, `Game, event 12, condition 1`, is e
         "need no object type or usedAddons entry). A missing addon by another author is installed in the "
         "editor, not written into the files: tell the user which.")
 NEXT_PREVIEW = ("next: a runtime error names its place, `Event sheet 1, event 3, action 1` for a script in an event, "
-                "numbered as scripts/print_sheet.py numbers it. Fix the first error first, because the errors after it "
-                "can follow from it. Then run this again with --preview. The preview "
+                "numbered as scripts/print_sheet.py numbers it. A network line names a URL the game asked for and did "
+                "not get: a file the project lacks, or a name the events spell wrong. Fix the first error first, "
+                "because the errors after it can follow from it. Then run this again with --preview. The preview "
                 "starts on the layout the editor shows after opening, as F5 does: firstLayout, or the one the editor "
                 "last left open in project.uistate.json.")
 
@@ -354,7 +357,27 @@ class AddonRefused(Exception):
 
 
 class EditorNotLoaded(Exception):
-    pass
+    """The editor's page did not get ready. The message says why and ends with what to do."""
+
+
+# What to do when the browser could not reach the editor, by the start of the error code its error page
+# shows. Edge shows DNS_PROBE_FINISHED_NXDOMAIN for a name that does not resolve, Chrome ERR_NAME_NOT_RESOLVED.
+UNREACHED = (
+    (("DNS_PROBE_", "ERR_NAME_"), "the editor's host name did not resolve: check that this machine is online, "
+                                  "and its DNS server or its proxy, the system's setting or HTTPS_PROXY"),
+    (("ERR_PROXY_", "ERR_TUNNEL_"), "the proxy did not connect: check the system's proxy setting or HTTPS_PROXY"),
+    (("ERR_CERT_", "ERR_SSL_"), "the answer came with a certificate the browser does not trust, as from a proxy or an "
+                                "antivirus that reads HTTPS: have the user trust that certificate in the system, or "
+                                "use a network without it"),
+    (("ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_FAILED",
+      "ERR_ADDRESS_UNREACHABLE", "ERR_NETWORK_ACCESS_DENIED", "ERR_BLOCKED"),
+     "the connection was refused: a firewall, a proxy or a filter of the network blocks the editor's host; check "
+     "them, or use another network"),
+    (("ERR_TIMED_OUT", "ERR_CONNECTION_TIMED_OUT"), "the connection timed out: run again, and if it times out again, "
+                                                    "check the network connection and the proxy"),
+    (("ERR_INTERNET_DISCONNECTED",), "this machine is offline: connect it and run again"),
+)
+NOT_LOADED = "check the network connection and --release, and run again"
 
 
 def find_projects(paths: list[Path]) -> list[Path]:
@@ -546,6 +569,7 @@ class DevTools:
         the user allows the connection."""
         self.ws, self.last, self.lock = WebSocket(url, timeout), 0, threading.Lock()
         self.events: list[dict] = []    # only a connection that enables a domain gets any
+        self.network = False    # watch_network() turned on the requests of the page and its workers
 
     def call(self, method: str, wait: float = CALL, session: str | None = None, **params) -> dict:
         """`session` addresses a target attached to this one, a page's worker."""
@@ -887,21 +911,34 @@ def load(page: DevTools, editor: str) -> None:
         except DevToolsError:
             pass
         if where[0].startswith("chrome-error:"):
-            raise EditorNotLoaded(f"{editor} could not be reached")
+            raise EditorNotLoaded(unreached(page, editor))
         if where[0].startswith(EDITOR) and where[1] == "complete":     # /beta redirects to its release
             break
         time.sleep(0.2)
     else:
-        raise EditorNotLoaded(f"{editor} did not finish loading in 30 seconds")
+        raise EditorNotLoaded(f"{editor} did not finish loading in 30 seconds: run again, since the browser keeps "
+                              f"what it loaded, and if it stops again, check the network connection and the proxy")
     if where[2] >= 400:
-        raise EditorNotLoaded(f"{editor} answered HTTP {where[2]}")
+        raise EditorNotLoaded(f"{editor} answered HTTP {where[2]}: "
+                              + ("--release names no release of the editor; leave it out, or name one as the "
+                                 "editor's URL spells it, such as r502" if where[2] == 404 else NOT_LOADED))
+
+
+def unreached(page: DevTools, editor: str) -> str:
+    """Why the browser could not reach the editor: the error code its error page shows, and what to do."""
+    try:
+        code = page.evaluate(r"(document.body?.innerText.match(/ERR_[A-Z0-9_]+|DNS_PROBE_[A-Z_]+/) || [''])[0]")
+    except DevToolsError:
+        code = ""
+    advice = next((advice for starts, advice in UNREACHED if code.startswith(starts)), NOT_LOADED)
+    return f"{editor} could not be reached{f', {code}' if code else ''}: {advice}"
 
 
 def set_up(page: DevTools) -> None:
     """Run SETUP in the editor's page; EditorNotLoaded says what kept the page from getting ready."""
     ready = page.evaluate(f"({SETUP_JS})()", wait=SETUP_WAIT)
     if ready != "ready":
-        raise EditorNotLoaded(ready)
+        raise EditorNotLoaded(f"{ready}: {NOT_LOADED}")
 
 
 def put_file(page: DevTools, path: Path) -> None:
@@ -910,8 +947,14 @@ def put_file(page: DevTools, path: Path) -> None:
     page.call("DOM.setFileInputFiles", files=[str(path)], objectId=field["objectId"])
 
 
-def message_text(event: dict) -> str | None:
-    """An uncaught exception or a console.error of a Runtime event, else None."""
+# The start of the text of a request that failed, among the errors of a run.
+NETWORK = "network: "
+
+
+def message_text(event: dict, urls: dict[tuple, str] | None = None) -> str | None:
+    """An uncaught exception or a console.error of a Runtime event, a response of HTTP 400 or more, or a
+    request that got no response, else None. `urls` gives each request's URL by (session, request id),
+    since a request that failed is reported without it."""
     p = event["params"]
     if event["method"] == "Runtime.exceptionThrown":
         d = p["exceptionDetails"]
@@ -920,6 +963,13 @@ def message_text(event: dict) -> str | None:
         args = [str(a.get("value", a.get("description", ""))) for a in p["args"]]
         styles = args[0].count("%c") if args else 0     # the runtime styles its messages: "%cEvent sheet 1", css
         return " ".join([args[0].replace("%c", ""), *args[1 + styles:]]) if args else ""
+    if event["method"] == "Network.responseReceived" and p["response"]["status"] >= 400:
+        return f"{NETWORK}HTTP {p['response']['status']} {p['response']['url']} ({p.get('type', 'Other')})"
+    # A request the page cancelled, as a reload or an AbortController does, is not a failure
+    if event["method"] == "Network.loadingFailed" and not p.get("canceled") and p["errorText"] != "net::ERR_ABORTED":
+        why = p.get("blockedReason") or (p.get("corsErrorStatus") or {}).get("corsError")
+        url = (urls or {}).get((event.get("sessionId"), p["requestId"]), "a request")
+        return f"{NETWORK}{p['errorText']}{f' {why}' if why else ''} {url} ({p.get('type', 'Other')})"
     return None
 
 
@@ -943,15 +993,41 @@ def start_preview(browser: Browser, target: str, page: DevTools) -> tuple[dict, 
     return window, win
 
 
+def watch_network(win: DevTools) -> None:
+    """Have the preview window report its requests, right after start_preview: the page's from here on,
+    and each worker's from its start. A worker reports its requests only to a session of its own, and
+    the runtime's worker requests what the layout loads as it starts, so a new worker waits until
+    serve(), which attach() and preview() call, has turned its reports on."""
+    win.network = True
+    win.call("Network.enable")
+    win.call("Target.setAutoAttach", autoAttach=True, waitForDebuggerOnStart=True, flatten=True)
+
+
+def serve(win: DevTools) -> None:
+    """For each worker attached since the last call: turn on its requests where watch_network() asked
+    for them, and start it if it waits for that."""
+    for e in [e for e in win.events if e["method"] == "Target.attachedToTarget" and not e.get("served")]:
+        e["served"] = True
+        p = e["params"]
+        try:
+            if win.network and p["targetInfo"]["type"] == "worker":
+                win.call("Network.enable", session=p["sessionId"])
+            if p.get("waitingForDebugger"):
+                win.call("Runtime.runIfWaitingForDebugger", session=p["sessionId"])
+        except DevToolsError:   # a worker that ended since
+            pass
+
+
 def attach(win: DevTools, patience: float = 0) -> tuple[list[str | None], list[str | None], bool]:
     """Leave the probe where the game runs: the preview page, None, or one of its
     workers, a session id. Returns every session, the one that runs the game (an
     empty list when none does), and whether a runtime was found that did not tick.
     A preview that is still loading answers nothing yet; it is asked again for
-    `patience` seconds."""
+    `patience` seconds. A worker that starts from here on does not wait for serve()."""
     win.call("Target.setAutoAttach", autoAttach=True, waitForDebuggerOnStart=False, flatten=True)
     end = time.monotonic() + patience
     while True:
+        serve(win)
         gone = {e["params"]["sessionId"] for e in win.events if e["method"] == "Target.detachedFromTarget"}
         sessions = [None] + [e["params"]["sessionId"] for e in win.events
                              if e["method"] == "Target.attachedToTarget"
@@ -972,37 +1048,52 @@ def attach(win: DevTools, patience: float = 0) -> tuple[list[str | None], list[s
 
 def runtime_errors(win: DevTools) -> list[str]:
     """The uncaught exceptions and console errors logged since the last call, once
-    Runtime.enable has been sent to the session they came from."""
-    errors = [text[:600] for text in map(message_text, win.events) if text]
-    win.events[:] = [e for e in win.events if e["method"].startswith("Target.")]
+    Runtime.enable has been sent to the session they came from, and the requests that
+    failed since, once watch_network() has turned them on. A request still running
+    keeps its URL for the call that sees it fail."""
+    def key(e: dict) -> tuple:
+        return e.get("sessionId"), e["params"]["requestId"]
+
+    urls = {key(e): e["params"]["request"]["url"] for e in win.events if e["method"] == "Network.requestWillBeSent"}
+    errors = [text[:600] for text in (message_text(e, urls) for e in win.events) if text]
+    ended = {key(e) for e in win.events if e["method"] in ("Network.loadingFinished", "Network.loadingFailed")}
+    win.events[:] = [e for e in win.events if e["method"].startswith("Target.")
+                     or e["method"] == "Network.requestWillBeSent" and key(e) not in ended]
     return errors
 
 
 def runtime_lines(errors: list[str], indent: str = "  ") -> list[str]:
-    """One `runtime:` line per distinct error, in the order each first came, with how many times it
-    came. An error raised every tick is logged hundreds of times, and a line for each would push a
-    different error past the output's limit."""
+    """One `runtime:` line per distinct error, or `network:` for a request that failed, in the order each
+    first came, with how many times it came. An error raised every tick is logged hundreds of times, and
+    a line for each would push a different error past the output's limit."""
     counts: dict[str, int] = {}
     for e in errors:
         first = e.splitlines()[0]
         counts[first] = counts.get(first, 0) + 1
-    return [f"{indent}runtime: {first}" + (f" ({n} times)" if n > 1 else "") for first, n in counts.items()]
+    return [f"{indent}{'' if first.startswith(NETWORK) else 'runtime: '}{first}" + (f" ({n} times)" if n > 1 else "")
+            for first, n in counts.items()]
 
 
 def preview(browser: Browser, editor: tuple[str, DevTools], seconds: float, state: list[str] | None = None) -> dict:
     """Preview the layout the editor shows, let it run for `seconds`, then read what
     the runtime reported, and with `state` what the game holds.
 
-    Nothing listens while it runs: Runtime.enable hands over what a page or worker
-    logged before it, so the preview page and its workers, the runtime in one of
-    them, are attached once at the end."""
+    Runtime.enable hands over what a page or worker logged before it, so the probe
+    and Runtime are attached once at the end. Requests are reported only as they
+    run, so the window reports them from the start, and each worker that starts
+    meanwhile is let run once it does (serve)."""
     target, page = editor
     started = start_preview(browser, target, page)
     if isinstance(started, list):
         return {"started": False, "layout": None, "runtime": None, "errors": started}
     window, win = started
-    time.sleep(seconds)
+    end = time.monotonic() + seconds
     try:
+        watch_network(win)
+        while time.monotonic() < end:
+            win.call("Target.getTargets")    # answered by the browser, and the events come with it
+            serve(win)
+            time.sleep(min(0.1, max(0.0, end - time.monotonic())))
         sessions, live, stalled = attach(win)
         snap, read = None, None
         if live:
@@ -1261,13 +1352,21 @@ def addon_report(result: dict) -> list[str]:
     return lines
 
 
-def blank(page: DevTools) -> float | None:
-    """c3project.blank_share of the window drawn at an eighth of its width and height: the
-    PNG reader of c3project, in plain Python, is slow on a full-size screenshot."""
+def fill(page: DevTools) -> tuple[float, float] | None:
+    """c3project.fill of the window drawn at an eighth of its width and height: the PNG
+    reader of c3project, in plain Python, is slow on a full-size screenshot. The capture
+    rounds its size up, and a height of 932 adds a black last row that reads as something
+    drawn, so the window is drawn to the multiple of 8 below its size."""
     w, h = page.evaluate("[innerWidth, innerHeight]")
     shot = page.call("Page.captureScreenshot", format="png",
-                     clip={"x": 0, "y": 0, "width": w, "height": h, "scale": 0.125})
-    return c3.blank_share(base64.b64decode(shot["data"]))
+                     clip={"x": 0, "y": 0, "width": w // 8 * 8, "height": h // 8 * 8, "scale": 0.125})
+    return c3.fill(base64.b64decode(shot["data"]))
+
+
+def blank(page: DevTools) -> float | None:
+    """c3project.blank_share of the window, taken as fill() takes it."""
+    got = fill(page)
+    return got[0] if got and c3.is_blank(*got) else None
 
 
 def play_next(ran: dict) -> str:
@@ -1575,8 +1674,7 @@ def drive(exe: str, profile: Path, headed: bool, work: Callable[[Browser], T],
         browser = Browser(exe, profile, headed, extra)
         return work(browser)
     except EditorNotLoaded as e:
-        print(f"the editor did not load: {e}. Check the network connection and --release, and run again.",
-              file=sys.stderr)
+        print(f"the editor did not load: {e}.", file=sys.stderr)
     except (DevToolsError, OSError) as e:
         print(f"{exe} could not be driven: {e}. Pass another browser with --browser.", file=sys.stderr)
     finally:
@@ -1762,9 +1860,8 @@ def main() -> int:
         print(e, file=sys.stderr)
         return BUSY
     except EditorNotLoaded as e:
-        print(f"the editor did not load: {e}. Check the network connection and --release, and run again; "
-              f"without a connection, ask the user to open the project in Construct 3 and paste the text of the "
-              f"dialog it shows.", file=sys.stderr)
+        print(f"the editor did not load: {e}; without a connection, ask the user to open the project in Construct 3 "
+              f"and paste the text of the dialog it shows.", file=sys.stderr)
         return 2
     except (DevToolsError, OSError) as e:
         print(f"{exe} could not be driven: {e}. Pass another browser with --browser, or --steps to open the "
@@ -1773,9 +1870,8 @@ def main() -> int:
     unprinted = sum(1 for r in results if r.pop("unprinted", False))
     args.out.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
     if all(r["status"] == "error" for r in results):
-        print("the editor did not load for any project. Check the network connection and --release, and run "
-              "again; without a connection, ask the user to open the project in Construct 3 and paste the text "
-              "of the dialog it shows.", file=sys.stderr)
+        print("the editor did not load for any project; do what its error line says. Without a connection, ask the "
+              "user to open the project in Construct 3 and paste the text of the dialog it shows.", file=sys.stderr)
         return 2
     if unprinted:
         print(f"{unprinted} results not printed in full: {args.out} keeps every one, --limit 0 prints them")

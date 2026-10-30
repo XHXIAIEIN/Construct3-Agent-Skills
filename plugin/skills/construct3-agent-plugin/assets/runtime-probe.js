@@ -77,6 +77,25 @@
     };
   }
 
-  globalThis.c3probe = {runtime, snapshot};
+  // The clock between ticks, for a game that stops ticking: ticks() gives the ticks since it was last
+  // called, the seconds since then, and the longest gap between two ticks in that time, in seconds, the
+  // gap still open included.
+  let last = performance.now(), since = last, longest = 0, count = 0;
+  runtime.addEventListener("tick", () => {
+    const now = performance.now();
+    longest = Math.max(longest, now - last);
+    last = now;
+    count++;
+  });
+  function ticks() {
+    const now = performance.now();
+    const read = {ticks: count, seconds: (now - since) / 1000, longest: Math.max(longest, now - last) / 1000};
+    since = now;
+    longest = 0;
+    count = 0;
+    return read;
+  }
+
+  globalThis.c3probe = {runtime, snapshot, ticks};
   return true;
 })()

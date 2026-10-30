@@ -1,4 +1,5 @@
 """preview_project.py: the plan, checked before the editor opens, the steps it plays, the recording and the report."""
+import base64
 import json
 import os
 import re
@@ -7,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.skill_helpers import INSTALLED, run, script_module
+from tests.skill_helpers import INSTALLED, png, run, script_module
 
 pp = script_module("preview_project")
 SCRIPT = f"{INSTALLED}/scripts/preview_project.py"
@@ -244,10 +245,12 @@ def test_preview_project_prints_an_error_raised_every_tick_once_with_its_count()
 
 
 class ReloadingGame:
-    """A game whose page reloads: each step's outcomes in turn, and what reloaded() answers after each try."""
+    """A game whose page reloads: each step's outcomes in turn, what reloaded() answers after each try, and
+    what pulse() reads after each step, None when there are no more."""
 
-    def __init__(self, outcomes: list, reloads: list) -> None:
+    def __init__(self, outcomes: list, reloads: list, pulses: list | None = None) -> None:
         self.outcomes, self.reloads, self.win, self.recording, self.tries = outcomes, reloads, None, None, []
+        self.pulses = pulses or []
 
     def reloaded(self) -> float | None:
         back = self.reloads.pop(0)
@@ -255,11 +258,18 @@ class ReloadingGame:
             raise back
         return back
 
+    def pulse(self) -> dict | None:
+        got = self.pulses.pop(0) if self.pulses else None
+        if isinstance(got, Exception):
+            raise got
+        return got
+
 
 def play_reloading(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, steps: list[dict], outcomes: list,
-                   reloads: list) -> tuple[ReloadingGame, list[dict]]:
+                   reloads: list, pulses: list | None = None, layout: str | None = None
+                   ) -> tuple[ReloadingGame, list[dict]]:
     """play_steps on a ReloadingGame, each try of a step kept in its tries."""
-    game = ReloadingGame(outcomes, reloads)
+    game = ReloadingGame(outcomes, reloads, pulses)
 
     def do_step(game, step, n, shots):
         game.tries.append(n)
@@ -271,7 +281,7 @@ def play_reloading(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, steps: list[
     monkeypatch.setattr(pp, "do_step", do_step)
     monkeypatch.setattr(pp.oe, "runtime_errors", lambda win: [])
     monkeypatch.setattr(pp, "screenshot", lambda game, path: str(path.name))
-    return game, pp.play_steps(game, steps, tmp_path)
+    return game, pp.play_steps(game, steps, tmp_path, layout)
 
 
 def test_preview_project_goes_on_after_the_game_reloads_its_page(monkeypatch, tmp_path):
@@ -331,6 +341,92 @@ def test_preview_project_stops_with_the_steps_kept_when_a_reload_breaks_off_a_js
     assert [(d["ok"], d["said"]) for d in played] == [
         (False, "at (40, 600); the page reloaded, and no runtime ran in it in 30 seconds; the window then: "
                 "01-failed.png")]
+
+
+def ticked(layout: str, longest: float = 0.02) -> dict:
+    """What pulse() reads after a step of a second: the layout, and the ticks of a 140 Hz display."""
+    return {"ticks": 140, "seconds": 1.0, "longest": longest, "layout": layout}
+
+
+def test_preview_project_says_where_a_step_changed_the_layout_and_the_trail_where_one_failed(monkeypatch, tmp_path):
+    """A tap that goes to the next layout says so on its line; a step that fails later prints the layouts the game
+    went through, so an until that waits on the wrong layout shows where the game is."""
+    steps = [{"tap": "Start"}, {"wait": 1}, {"tap": "Next"}, {"until": "vars.won", "timeout": 2}]
+    _, played = play_reloading(monkeypatch, tmp_path, steps,
+                               ["at (215, 466)", "ok", "at (40, 600)", pp.StepFailed("still false after 2 s")],
+                               [None] * 4, [ticked("Menu"), ticked("Game"), ticked("Game"), ticked("Shop")], "Menu")
+    assert [(d["ok"], d["said"], d["layout"]) for d in played] == [
+        (True, "at (215, 466)", "Menu"), (True, "ok; layout 'Menu' -> 'Game'", "Game"),
+        (True, "at (40, 600)", "Game"),
+        (False, "still false after 2 s; layout 'Game' -> 'Shop'; the window then: 04-failed.png", "Shop")]
+    assert played[0]["ticks"] == {"ticks": 140, "seconds": 1.0, "longest": 0.02}
+    result = opened(played, 4, 4.1)
+    result["preview"]["first_layout"] = "Menu"
+    lines = pp.report(result)
+    at = lines.index(f"  4 until vars.won: FAILED, {played[3]['said']}")
+    assert lines[at + 1] == "    trail: 'Menu' at the start, 'Game' after step 2, 'Shop' after step 4", lines
+
+
+def test_preview_project_fails_a_step_in_which_the_game_stopped_ticking(monkeypatch, tmp_path):
+    """A loop in the events that holds the game's thread for seconds and ends: the step it fell in fails."""
+    steps = [{"key": "Space"}, {"wait": 1}]
+    _, played = play_reloading(monkeypatch, tmp_path, steps, ["held 0.1 s", "ok"], [None, None],
+                               [ticked("Game", pp.STALL + 1.5), ticked("Game")], "Game")
+    assert [(d["ok"], d["said"]) for d in played] == [
+        (False, "held 0.1 s; the game did not tick for 2.5 s during the step, as when a long loop in its events or a "
+                "script holds its thread; the window then: 01-failed.png")]
+
+
+def test_preview_project_fails_a_step_after_which_the_game_does_not_answer(monkeypatch, tmp_path):
+    """An endless loop holds the thread for good: the page or worker that runs the game is there and gives no
+    answer, which is not a reload, so the run stops at once instead of waiting for a new page."""
+    _, played = play_reloading(monkeypatch, tmp_path, [{"key": "Space"}, {"wait": 1}], ["held 0.1 s"],
+                               [pp.StepFailed(pp.FROZEN)], [], "Game")
+    assert [(d["ok"], d["said"], d["layout"]) for d in played] == [
+        (False, f"held 0.1 s; {pp.FROZEN}; the window then: 01-failed.png", "Game")]
+
+    class Window:
+        def evaluate(self, js, wait=None, session=None):
+            raise pp.oe.NoAnswer(f"Runtime.evaluate: no answer in {wait:g} seconds")
+
+    game = pp.Game(Window(), "worker-1", False, (430, 932), "", None, tmp_path)
+    monkeypatch.setattr(pp.oe, "attach", lambda win, patience: pytest.fail("a held thread is not a reload"))
+    for read in (game.reloaded, game.pulse):
+        with pytest.raises(pp.StepFailed, match="the game stopped answering for 5 s: an endless loop"):
+            read()
+
+
+def test_preview_project_prints_how_the_game_ticked_over_a_recording():
+    steps = [{"step": 4, "ticks": {"ticks": 3, "seconds": 0.02, "longest": 0.007}},
+             {"step": 5, "ticks": {"ticks": 150, "seconds": 2.98, "longest": 2.004}}, {"step": 6}]
+    assert pp.tick_lines(steps) == ["the game ticked 153 times in 3.0 s, 51 a second, at most 2004 ms apart"]
+    assert pp.tick_lines([{"step": 1}]) == []
+
+
+def test_preview_project_prints_beside_a_shot_how_much_of_it_is_one_colour_and_how_its_luminance_deviates(
+        monkeypatch, tmp_path):
+    """A sprite alone on an empty screen leaves 99.98% one colour, which alone read as nothing drawn; with the
+    deviation of its luminance the shot shows something. A screen of one colour is named as not drawn yet."""
+    shot = base64.b64encode(png(2, 2, lambda x, y: (209, 209, 209, 255))).decode()
+    game = SimpleNamespace(win=SimpleNamespace(call=lambda method, **params: {"data": shot}))
+    monkeypatch.setattr(pp.oe, "fill", lambda win: (0.9998, 2.6))
+    assert pp.screenshot(game, tmp_path / "10-ship.png") == (
+        f"{tmp_path / '10-ship.png'} (99.98% one colour, luminance deviation 2.6)")
+    monkeypatch.setattr(pp.oe, "fill", lambda win: (1.0, 0.0))
+    assert pp.screenshot(game, tmp_path / "07-empty.png") == (
+        f"{tmp_path / '07-empty.png'}: 100.00% of it is one colour and its luminance deviates 0.0, under 2, so the "
+        f"game had not drawn yet or draws nothing in view here; add a wait or until step before this shot")
+
+
+def test_preview_project_counts_the_failed_requests_apart_from_the_runtime_errors():
+    steps = [{"step": 1, "line": "1 wait 1 s", "ok": True, "said": "ok", "errors": [
+        "network: HTTP 404 https://preview.construct.net/level3.json (Fetch)", "TypeError: x is null",
+        "network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Image)"]}]
+    lines = pp.report(opened(steps, 1, 1.0))
+    assert lines[3:] == ["    network: HTTP 404 https://preview.construct.net/level3.json (Fetch)",
+                         "    runtime: TypeError: x is null",
+                         "    network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Image)",
+                         "  ran: 1 of 1 steps in 1.0 s, 1 runtime error and 2 failed requests"], lines
 
 
 def test_preview_project_joins_a_recording_into_a_gif_without_ffmpeg(tmp_path, monkeypatch):
