@@ -17,6 +17,7 @@
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
     "Construct3-Agent-Skills/docs/decisions/look-picker.md",
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
+    "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
@@ -482,6 +483,114 @@
       "helpers": "hit_frame(), hit_flash(), beh_def()",
       "confirm": "check_look.py: motion.hit",
       "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
+    },
+    {
+      "id": "motion.tween-style",
+      "status": "open",
+      "scope": "every-look",
+      "says": "A tween takes its ease and seconds from TWEEN_STYLE by the class of what it moves: the HUD fading or sliding in and out, a bar's fill, the camera, a world object, a popup, a banner. The HUD, a bar, the camera and the world keep easeinoutsine, 0.5 s for the HUD and the world, 0.25 s for a bar, 1 s for the camera, as the official examples tween them. A popup and a banner open with easeoutquint in 0.2 and 0.25 s, a strong ease-out under 0.3 s, where the examples fade a popup with easeinoutsine in 0.5 s at the median. The user judges the two on a recording; until then the template keeps the strong ease-out for popups and banners only.",
+      "template": "TWEEN_STYLE",
+      "value": "{'hud_in': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'hud_out': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'bar': {'ease': 'easeinoutsine', 'seconds': 0.25}, 'camera': {'ease': 'easeinoutsine', 'seconds': 1}, 'world': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'popup': {'ease': 'easeoutquint', 'seconds': 0.2}, 'banner': {'ease': 'easeoutquint', 'seconds': 0.25}}",
+      "helpers": "eased(), tween1(), tween2(), tween_width(), tween_value(), hints()",
+      "options": [
+        "measured: a popup and a banner take the HUD's easeinoutsine in 0.5 s, as the official examples' popups fade, nearly all with easeinoutsine, 0.25 to 1 s in the middle half, none scaled",
+        "strong ease-out: a popup and a banner take easeoutquint in 0.2 to 0.35 s, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) set for an element that enters or leaves; the template holds this one, for popups and banners only"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.popup",
+      "status": "open",
+      "scope": "every-look",
+      "says": "popup() opens a panel from 0.95 of its size at opacity 0 while its dim fades in to 50 %, in TWEEN_STYLE['popup'], and closes it the way it came; popup_closed() hides both once the close ends. The official examples fade their popups and never scale one.",
+      "template": "(POPUP['scale'], POPUP['dim'])",
+      "value": "(0.95, 50)",
+      "helpers": "popup(), popup_closed(), screen_box()",
+      "options": [
+        "scale and fade: the panel from 0.95 of its size and opacity 0, never from 0, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) open a dialog; the template holds this one",
+        "fade only: the panel fades in at its size, as the official examples' popups do"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.frequency",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "On the HUD only, how often a change happens decides its motion: a change on every action of the player, a score tick, an ammo count, shows at once or in the bar class; a moment of the session, a title card, a level clear, a new record, gets the popup or banner class and may overshoot. World juice on every jump or hit stays, as published games squash, shake and flash on each one. count_up() counts the score on every gain for 0.5 s, so the rule would change it.",
+      "options": [
+        "HUD only: a per-action HUD change is instant, a per-session moment gets the delight, and the world keeps its juice on every jump or hit",
+        "everywhere: motion that repeats on every action is cut in the world too, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) would cut it in an interface; this drops the squash and the flash on every jump and hit that published games keep",
+        "no rule: every helper keeps its motion whatever its frequency"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.hud-overshoot",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "An overshoot ease, back, elastic or bounce, is for world objects and for the subject of a moment, such as a title card or a banner, never for the rest of the HUD. Which HUD object is the subject is not in the files, so the check warns.",
+      "helpers": "tween1(), tween2()",
+      "confirm": "check_look.py: motion.hud-overshoot (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.hud-ease-in",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "The HUD does not fade in with an ease-in, which starts slowest at the moment the player looks for it. A fader or a dim that covers the viewport is left out, and so is a fade or a slide out.",
+      "helpers": "tween1()",
+      "confirm": "check_look.py: motion.hud-ease-in (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.panel-from-zero",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "A HUD object never grows its size or its scale from 0 in both directions: it opens near its size at opacity 0, as popup() does. A width from 0 alone, a banner opening from its centre or a gauge, passes.",
+      "helpers": "popup()",
+      "confirm": "check_look.py: motion.panel-from-zero",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.value-restart",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "A value tween that starts from the number a Text shows, or from a tween's value, has Stop for its tag before it, or runs only while that tag is not playing: a second value tween under a tag that still plays runs beside the first, and the number jumps when the first ends. count_up() does it.",
+      "helpers": "count_up(), stop_tweens(), tween_value()",
+      "confirm": "check_look.py: motion.value-restart",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.size-on-dying",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "An object that a size tween destroys is not squashed back to its image size by another event: a size tween stops the one running on that property, which then never destroys the instance. A squash in the same actions, or after On created or a tween's On finished, passes. The check warns, because an event's conditions may keep the squash off a dying instance.",
+      "helpers": "squash(), tween2()",
+      "confirm": "check_look.py: motion.size-on-dying (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.reduced",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A MOTION scale from 0 to 1 for reduced motion multiplies the shake's magnitude, the camera's moves and the squash's share; the hit flash stays, since it shows the hit without moving anything. Proposed until the official examples are read for a setting of the kind.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.stagger",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "Items that enter together, the rows of a menu or the cards of a hand, start 0.03 to 0.08 s apart, and input does not wait for the last. Proposed until the official examples are read for a step.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "menu.hold-to-confirm",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A menu action that destroys progress, such as quitting a run or deleting a save, takes a press held for about 1 s that fills the button in a linear tween, and a release before the end cancels it. Proposed until the official examples are read for a confirm of the kind.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
     },
     {
       "id": "art.routes",

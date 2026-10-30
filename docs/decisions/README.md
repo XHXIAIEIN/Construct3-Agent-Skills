@@ -9,6 +9,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [The Look Manifest Owns Every Look Rule](look-manifest-owns-the-rules.md) — 2026-10-30
 - [The User Picks a Given Look on the First Play Screen in Three Directions](look-picker.md) — 2026-10-30
 - [The Look Review Ranks Its Faults and Checks Worst Data and Other Screens](look-severity.md) — 2026-10-30
+- [Motion by Class: Eases by What Moves, a Popup Helper and Five Motion Checks](motion-by-class.md) — 2026-10-30
 - [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
 - [SKILL.md Holds Facts and Tool Entries Inside 5000 Tokens](skill-body-budget.md) — 2026-10-30
 - [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
