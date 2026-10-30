@@ -1794,6 +1794,121 @@ def grade_report_two_enemies(run: Path) -> list[tuple[bool, str]]:
     return results + [unchanged(run)]
 
 
+# --- the art cases ----------------------------------------------------------------------------
+def art_module():
+    """The skill's art.py, whose checks of a drawing the graders reuse."""
+    import art
+    return art
+
+
+def opaque(path: Path) -> list[tuple]:
+    """The opaque pixels of a PNG as (x, y, rgb), [] for a missing or unreadable one."""
+    read = c3.png_rgba(path.read_bytes()) if path.is_file() else None
+    if not read:
+        return []
+    w, _, px = read
+    return [(i % w, i // w, p[:3]) for i, p in enumerate(px) if p[3] >= 128]
+
+
+def wanted_items(project: Path) -> dict[str, dict]:
+    try:
+        return {i["file"]: i for i in json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))["images"]}
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def drawn_as_svg(project: Path, files: list[str]) -> tuple[bool, str]:
+    """Whether each picture has a drawing art.py accepts, and images/ holds the render of it."""
+    art, items, bad = art_module(), wanted_items(project), []
+    for rel in files:
+        svg = project / "art" / (rel[:-4] + ".svg")
+        if rel not in items or not svg.is_file():
+            bad.append(f"{rel}: no art/{svg.name}")
+            continue
+        problems = art.svg_problems(svg.read_text(encoding="utf-8"), items[rel])
+        if problems:
+            bad.append(f"{rel}: {problems[0]}")
+        elif not (project / "art" / rel).is_file() or (project / "images" / rel).read_bytes() != \
+                (project / "art" / rel).read_bytes():
+            bad.append(f"{rel}: images/ does not hold its render")
+    return bool(files) and not bad, f"{len(files)} picture(s); not drawn on the SVG route: {bad or 'none'}"
+
+
+def no_pixel_scripts(project: Path) -> tuple[bool, str]:
+    pil = [f.name for f in (project / "tools").glob("*.py")
+           if re.search(r"^\s*(from PIL|import PIL)", f.read_text(encoding="utf-8", errors="replace"), re.M)]
+    return not pil, f"scripts of tools/ that import PIL: {pil or 'none'}"
+
+
+def grade_art_without_an_image_tool(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    coin = "coin-default-000.png"
+    colours = {c for _, _, c in opaque(project / "images" / coin)}
+    return [checker_line(project),
+            (len(colours) > 8, f"images/{coin}: {len(colours)} opaque colours"),
+            drawn_as_svg(project, [coin]),
+            no_pixel_scripts(project),
+            generator_is_source(run)]
+
+
+def animations_of(project: Path) -> dict[str, dict[str, list[Path]]]:
+    """Each Sprite type's animations by name, with the image file of each frame as the editor names it."""
+    out = {}
+    for path in (project / "objectTypes").glob("*.json"):
+        item = json.loads(path.read_text(encoding="utf-8-sig"))
+        if item.get("plugin-id") != "Sprite":
+            continue
+        name = item["name"]
+        out[name] = {a["name"]: [project / "images" / f"{name.lower()}-{a['name'].lower()}-{i:03d}.png"
+                                 for i in range(len(a.get("frames", [])))]
+                     for a in (item.get("animations") or {}).get("items", [])}
+    return out
+
+
+def grade_walk_cycle_frames(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    results = [checker_line(project)]
+    found = [(t, a, files) for t, anims in animations_of(project).items() for a, files in anims.items()
+             if len(files) >= 4 and len(anims) >= 2]
+    walk = next(((t, a, files) for t, a, files in found
+                 if len({f.read_bytes() if f.is_file() else b"" for f in files}) == len(files)), None)
+    results.append((walk is not None, f"types with a 4-frame animation beside another: "
+                                      f"{[f'{t}.{a}' for t, a, _ in found] or 'none'}; frames all differ: "
+                                      f"{walk[0] + '.' + walk[1] if walk else 'none'}"))
+    if walk is None:
+        return results + [(False, "no walk"), (False, "no walk"), (False, "no walk"), generator_is_source(run)]
+    kind, anim, files = walk
+    sizes = {c3.png_rgba(f.read_bytes())[:2] for f in files}
+    feet = [max(y for _, y, _ in px) for px in (opaque(f) for f in files) if px]
+    results.append((len(sizes) == 1 and len(feet) == len(files) and max(feet) - min(feet) <= 2,
+                    f"{kind}.{anim}: sizes {sorted(sizes)}, feet on rows {sorted(feet)}"))
+    results.append(drawn_as_svg(project, [f.name for f in files]))
+    rows = sheet_rows(project)
+    sets = {str(params(a).get("animation", "")).strip('"').lower()
+            for _, a in rows if a.get("id") == "set-animation" and a.get("objectClass") == kind}
+    others = sets - {anim.lower()}
+    results.append((anim.lower() in sets and bool(others), f"set-animation on {kind}: {sorted(sets) or 'none'}"))
+    results.append(generator_is_source(run))
+    return results
+
+
+def grade_card_game_art(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    results = [checker_line(project)]
+    items = wanted_items(project)
+    enemies = sorted(rel for rel in items if re.search(r"slime|skeleton|bat|knight|enemy|foe", rel, re.I)
+                     and items[rel]["kind"] != "scene")
+    masks = {rel: {(x, y) for x, y, _ in opaque(project / "images" / rel)} for rel in enemies}
+    alike = [(a, b) for i, a in enumerate(enemies) for b in enemies[i + 1:]
+             if masks[a] and len(masks[a] & masks[b]) >= 0.9 * max(len(masks[a]), len(masks[b]))]
+    results.append((len([m for m in masks.values() if m]) >= 4 and not alike,
+                    f"enemy pictures {enemies}; alike: {alike or 'none'}"))
+    cards = sorted(rel for rel in items if re.search(r"card", rel, re.I) and items[rel]["kind"] != "scene")
+    results.append(drawn_as_svg(project, enemies + cards))
+    results.append(no_pixel_scripts(project))
+    return results
+
+
 GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_load_errors,
            "keep-checking-after-compaction": grade_keep_checking_after_compaction,
            "name-the-restart-event": grade_name_the_restart_event, "find-in-a-long-sheet": grade_find_in_a_long_sheet,
@@ -1814,7 +1929,9 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "platform-state-in-chinese": grade_platform_state_in_chinese,
            "design-a-catch-game": grade_design_a_catch_game, "report-two-enemies": grade_report_two_enemies,
            "double-jump": grade_kept, "key-opens-door": grade_kept, "stay-on-screen": grade_kept, "walls-stop-the-player": grade_kept,
-           "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False)}
+           "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
+           "art-without-an-image-tool": grade_art_without_an_image_tool,
+           "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art}
 
 
 # The columns trace.py counts from a transcript: four cost columns, then the route columns.
