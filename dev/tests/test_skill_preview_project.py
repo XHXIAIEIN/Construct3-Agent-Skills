@@ -150,6 +150,45 @@ def test_preview_project_drags_through_its_waypoints_and_can_release_moving(monk
     assert ("touchMove", 300, 200) in sent and ("touchMove", 100, 200) in sent and slept[-1] == 0
 
 
+def test_preview_project_moves_the_mouse_with_no_button_from_where_the_pointer_is(monkeypatch, tmp_path):
+    """A hover: mouseMoved events with no button, starting where the last mouse event
+    left the pointer; the first move of a run starts on its own first point, and 0
+    seconds sends one event a point."""
+    sent, slept = [], []
+    win = SimpleNamespace(call=lambda method, **e: sent.append((method, e)))
+    game = pp.Game(win, None, False, (1280, 720), "", None, tmp_path)
+    places = {"Menu": (100, 40), "Item": (150, 92), "Sub": (300, 200)}
+    monkeypatch.setattr(game, "aim", lambda t: places[t] if isinstance(t, str) else (t["x"], t["y"]))
+    monkeypatch.setattr(pp.time, "sleep", slept.append)
+
+    assert pp.do_step(game, {"move": "Item"}, 1, tmp_path) == ("at (150, 92), the run's first mouse event", None)
+    assert sent == [("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 150, "y": 92, "buttons": 0})]
+    sent.clear()
+    pp.do_step(game, {"tap": "Menu"}, 2, tmp_path)
+    sent.clear()
+    step = {"move": "Sub", "through": ["Item"], "seconds": 0.5, "rest": 0.3}
+    said, _ = pp.do_step(game, step, 3, tmp_path)
+    assert said == "(100, 40) through (150, 92) to (300, 200) in 0.5 s, then still 0.3 s"
+    assert pp.step_line(3, step) == "3 move through Item to Sub"
+    assert {e["type"] for _, e in sent} == {"mouseMoved"} and all("button" not in e and e["buttons"] == 0
+                                                                   for _, e in sent)
+    assert ((150, 92) in [(e["x"], e["y"]) for _, e in sent] and (sent[-1][1]["x"], sent[-1][1]["y"]) == (300, 200))
+    assert sum(slept[-len(sent) - 1:-1]) == pytest.approx(0.5) and slept[-1] == 0.3
+    assert game.pointer == (300, 200)
+    sent.clear()
+    said, _ = pp.do_step(game, {"move": {"x": 700, "y": 450}, "through": ["Item"], "seconds": 0}, 4, tmp_path)
+    assert said == "(300, 200) through (150, 92) to (700, 450) at once"
+    assert [(e["x"], e["y"]) for _, e in sent] == [(150, 92), (700, 450)]
+
+    _, problems = pp.check_plan({"touch": True, "steps": [{"move": "Item"}, {"move": "Item", "to": "Sub"},
+                                                          {"move": "Item", "through": "Sub"}, {"move": ""}]})
+    for expected in ('step 1 (move) moves the mouse with no button held, and a touch plan has no mouse',
+                     "step 2 (move) has 'to'", "step 3 (move): through is a list of targets like the one it moves to",
+                     "step 4 (move): the target is a type name"):
+        assert any(p.startswith(expected) for p in problems), (expected, problems)
+    assert pp.check_plan({"steps": [{"move": "Item", "through": ["Sub"], "seconds": 0, "rest": 1}]})[1] == []
+
+
 def opened(steps: list[dict], planned: int, seconds: float, touch: bool = False) -> dict:
     """The result of a run that opened the project and played `steps` in the page's runtime."""
     return {"project": "Game", "status": "opened", "title": "Game - Construct 3",
@@ -393,15 +432,20 @@ def test_preview_project_replays_the_kept_plans_and_names_the_one_that_fails_now
     logged = {**ok, "errors": ["Event sheet 1, event 4, action 2: TypeError\n    at stack"]}
     result = {"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e", "preview": {
         "plans": {"merge": done([ok, bad], 3), "hint": done([ok]), "buy": done([logged])}}}
-    lines, failed = pp.replay_report(result, {"old": ["step 1 has none of tap, hold"]})
+    until = {"merge": 1, "hint": 2, "buy": 1}
+    lines, failed = pp.replay_report(result, {"old": ["step 1 has none of tap, hold"]}, until)
     assert failed == 3
     assert lines[1:] == [
         "  FAIL  buy (tools/plans/buy.json): runtime: Event sheet 1, event 4, action 2: TypeError",
-        "  ok    hint: 1 step in 2.0 s",
+        "  ok    hint: 1 step, 2 until checks in 2.0 s",
         "  FAIL  merge (tools/plans/merge.json): 2 until vars.merged: FAILED, still false after 10 s",
         "  FAIL  old (tools/plans/old.json): the plan is refused: step 1 has none of tap, hold",
-        "  replayed: 1 of 4 kept plans pass, 1 runtime error",
+        "  replayed: 1 of 4 kept plans pass with 2 until checks, 1 runtime error",
     ], lines
+    # a plan kept before --keep needed an until step passes on anything, and says so
+    lines, failed = pp.replay_report(result, {}, {**until, "hint": 0})
+    assert "  ok    hint: 1 step, no until after an input or wait, so it checks nothing, in 2.0 s" in lines, lines
+    assert lines[-1] == "  replayed: 1 of 3 kept plans pass with 0 until checks, 1 runtime error", lines
 
 
 def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(project, tmp_path):
@@ -413,6 +457,20 @@ def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(pro
     assert pp.kept_plans(project) == [kept]
     code, out = run(project, SCRIPT, "plan.json", "--keep", "a b")
     assert code == 2 and "--keep takes a NAME of letters, digits, - and _" in out, out
+    # a plan of keys and reads passes whatever the game does, so it is refused before the editor opens; so is
+    # one whose only until reads the start, as runs of fix-wasd-twitch wrote it once a plan needed an until
+    reads = tmp_path / "reads.json"
+    for steps in ([{"key": "KeyW", "seconds": 1}, {"js": "runtime.objects.Player.getFirstInstance().y"}],
+                  [{"until": "runtime.objects.Player.getFirstInstance() !== null"}, {"key": "KeyW", "seconds": 1},
+                   {"js": "runtime.objects.Player.getFirstInstance().y"}]):
+        reads.write_text(json.dumps({"steps": steps}), encoding="utf-8")
+        code, out = run(project, SCRIPT, str(reads), "--keep", "walk")
+        assert code == 2 and "not kept: no until step comes after an input or a wait" in out, out
+        assert "--keep walk" in out, out
+    assert not (project / "tools" / "plans" / "walk.json").exists()
+    assert pp.checks({"steps": [{"until": "a"}, {"key": "KeyW"}, {"until": "b"}, {"js": "1"}, {"until": "c"}]}) == 2
+    assert pp.checks({"steps": [{"wait": 3}, {"until": "vars.timer === 0"}]}) == 1
+    assert pp.checks({"steps": [{"until": "a"}, {"js": "b"}]}) == 0
     code, out = run(project, SCRIPT)
     assert code == 2 and "give a PLAN.json to play, or --all" in out, out
     kept.unlink()

@@ -37,6 +37,8 @@ Steps, each an object with one of these keys, and "note" for a label:
                                 press, move in steps, release (default 0.4 s); through is a list of
                                 TARGETs passed on the way, and rest the seconds the pointer stays still
                                 on "to" before the release (default 0.05; 0 for a flick)
+  move TARGET, seconds, through, rest
+                                a drag with no button, a hover, from where the pointer is; rest 0; no touch
   key NAME or [NAME, ...], seconds
                                 press a key for the time (default 0.1 s): ArrowLeft, Space, Enter, Escape,
                                 KeyA or a, Digit1 or 1, ShiftLeft; a list holds the keys together
@@ -74,9 +76,8 @@ by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
-committed with the change it checks. --all replays every kept plan from a first
-launch and names each one that fails; its result goes to plans.json in
-.tmp/scripts/preview-project/.
+committed with the change it checks; it needs an until after an input or wait. --all
+replays each kept plan from a first launch, into .tmp/scripts/preview-project/plans.json.
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
 "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
@@ -107,7 +108,6 @@ import open_in_editor as oe
 
 EPILOG = """examples:
   python scripts/preview_project.py .tmp/drafts/merge-plan.json
-  python scripts/preview_project.py plan.json --project "D:/Games/Merge" --headed
   python scripts/preview_project.py .tmp/drafts/merge-plan.json --keep merge-two-pieces
   python scripts/preview_project.py --all
 
@@ -134,9 +134,9 @@ output:
     ran: 5 of 5 steps in 9.6 s, 1 runtime error
 
 --all prints one line per kept plan instead of its steps:
-    ok    merge-two-pieces: 6 steps in 4.1 s
+    ok    merge-two-pieces: 6 steps, 2 until checks in 4.1 s
     FAIL  hint-after-idle (tools/plans/hint-after-idle.json): step 3 until ...: FAILED, false after 10 s
-  replayed: 1 of 2 kept plans pass, no runtime errors
+  replayed: 1 of 2 kept plans pass with 2 until checks, no runtime errors
 
 exit codes: 0 every step ran and the game logged no error (--all: in every kept plan); 1 a step failed, the
 game logged an error, or the project did not open; 2 the plan, the project, the editor or --locale could not be
@@ -144,13 +144,14 @@ used, or --all found no kept plan; 3 no browser here; 5 another run holds the br
 with its pid: wait for it to end, or pass --profile for a profile of this run's own
 """
 
-STEPS = ("tap", "hold", "drag", "key", "wait", "until", "js", "state", "shot", "record")
+STEPS = ("tap", "hold", "drag", "move", "key", "wait", "until", "js", "state", "shot", "record")
 # Where a project keeps the plans that passed, one per change they checked.
 KEPT = Path("tools") / "plans"
-FIELDS = {"tap": set(), "hold": {"seconds"}, "drag": {"to", "seconds", "through", "rest"}, "key": {"seconds"}, "wait": set(),
+FIELDS = {"tap": set(), "hold": {"seconds"}, "drag": {"to", "seconds", "through", "rest"},
+          "move": {"seconds", "through", "rest"}, "key": {"seconds"}, "wait": set(),
           "until": {"timeout"}, "js": {"timeout"}, "state": set(), "shot": set(), "record": {"watch"}}
-# Seconds a hold, a drag and a key press last when the step gives none.
-PRESS = {"hold": 0.5, "drag": 0.4, "key": 0.1}
+# Seconds a hold, a drag, a move and a key press last when the step gives none.
+PRESS = {"hold": 0.5, "drag": 0.4, "move": 0.4, "key": 0.1}
 # Seconds the preview window gets to take the plan's viewport.
 RESIZE = 5
 # Seconds a page the game reloaded gets to run its runtime again.
@@ -313,14 +314,18 @@ def check_plan(plan: object) -> tuple[dict, list[str]]:
         for extra in set(step) - {kind, "note"} - FIELDS[kind]:
             problems.append(f"step {n} ({kind}) has {extra!r}{c3.closest(extra, FIELDS[kind] | {'note'})}")
         value = step[kind]
-        if kind in ("tap", "hold", "drag") and not target_ok(value):
+        if kind in ("tap", "hold", "drag", "move") and not target_ok(value):
             problems.append(f"step {n} ({kind}): the target is a type name, \"Type 2\", \"uid 12\", "
                             f"{{\"x\": .., \"y\": .., \"layer\": ..}} or {{\"js\": ..}}")
         if kind == "drag" and not target_ok(step.get("to")):
             problems.append(f"step {n} (drag) needs \"to\", a target like the one it drags")
-        if kind == "drag" and "through" in step and not (isinstance(step["through"], list) and step["through"]
-                                                         and all(map(target_ok, step["through"]))):
-            problems.append(f"step {n} (drag): through is a list of targets like the one it drags")
+        if kind in ("drag", "move") and "through" in step and not (
+                isinstance(step["through"], list) and step["through"] and all(map(target_ok, step["through"]))):
+            problems.append(f"step {n} ({kind}): through is a list of targets like the one it "
+                            + ("drags" if kind == "drag" else "moves to"))
+        if kind == "move" and plan.get("touch"):
+            problems.append(f"step {n} (move) moves the mouse with no button held, and a touch plan has no mouse: a "
+                            f"finger cannot hover, so play the hover in a plan without \"touch\"")
         if kind == "key":
             names = key_names(value)
             wrong = [k for k in names if not (isinstance(k, str) and key_event(k))]
@@ -383,6 +388,7 @@ class Game:
         self.project, self.ratio = project, ratio
         self.recording: Recorder | None = None
         self.recorded: list[Recorder] = []      # finished, their connections closed after the window (Recorder)
+        self.pointer: tuple[float, float] | None = None     # where the last mouse event put the pointer
 
     def record(self, name: str, video: Path, watch: dict[str, str]) -> None:
         self.recording = Recorder(self.url, name, video, self.viewport, watch, self.project, self.ratio)
@@ -444,6 +450,7 @@ class Game:
     def mouse(self, kind: str, x: float, y: float, down: bool) -> None:
         extra = {"button": "left", "clickCount": 1} if kind != "mouseMoved" else {"button": "left"} if down else {}
         self.win.call("Input.dispatchMouseEvent", type=kind, x=x, y=y, buttons=1 if down else 0, **extra)
+        self.pointer = (x, y)
 
     def finger(self, kind: str, x: float = 0, y: float = 0) -> None:
         points = [] if kind == "touchEnd" else [{"x": x, "y": y, "id": 1}]
@@ -826,7 +833,9 @@ def step_line(n: int, step: dict) -> str:
     value = step[kind]
     what = {"tap": lambda: target_text(value), "hold": lambda: target_text(value),
             "drag": lambda: " through ".join(map(target_text, [value, *step.get("through", [])]))
-            + f" to {target_text(step['to'])}", "key": lambda: "+".join(key_names(value)),
+            + f" to {target_text(step['to'])}",
+            "move": lambda: "".join(f"through {target_text(t)} " for t in step.get("through", []))
+            + f"to {target_text(value)}", "key": lambda: "+".join(key_names(value)),
             "wait": lambda: f"{value:g} s", "until": lambda: one_line(value), "js": lambda: one_line(value),
             "state": lambda: " ".join([value] if isinstance(value, str) else value) or "counts",
             "shot": lambda: value, "record": lambda: value or "stop"}[kind]()
@@ -871,6 +880,23 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
         where = " through ".join(f"({x:.0f}, {y:.0f})" for x, y in points[:-1])
         moving = ", released moving" if rest == 0 else ""
         return f"{where} to ({points[-1][0]:.0f}, {points[-1][1]:.0f}) in {seconds:g} s{moving}", None
+    if kind == "move":
+        points = [game.aim(t) for t in [*step.get("through", []), value]]
+        seconds, rest = step.get("seconds", PRESS["move"]), step.get("rest", 0)
+        if game.pointer is None:    # no mouse event yet, so the move starts on its first point
+            game.mouse("mouseMoved", *points[0], False)
+            points = points[1:]
+        points = [game.pointer, *points]
+        for delay, x, y in path(points, seconds) if seconds else [(0, x, y) for x, y in points[1:]]:
+            time.sleep(delay)
+            game.mouse("mouseMoved", x, y, False)
+        time.sleep(rest)
+        still = f", then still {rest:g} s" if rest else ""
+        if len(points) == 1:
+            return f"at ({points[0][0]:.0f}, {points[0][1]:.0f}), the run's first mouse event{still}", None
+        where = " through ".join(f"({x:.0f}, {y:.0f})" for x, y in points[:-1])
+        took = f"in {seconds:g} s" if seconds else "at once"
+        return f"{where} to ({points[-1][0]:.0f}, {points[-1][1]:.0f}) {took}{still}", None
     if kind == "key":
         events = [key_event(k) for k in key_names(value)]
         seconds = step.get("seconds", PRESS["key"])
@@ -1083,6 +1109,17 @@ def kept_plans(project: Path) -> list[Path]:
     return sorted(folder.glob("*.json")) if folder.is_dir() else []
 
 
+# The steps after which the game has done something a check can read: an input, or time passing.
+DOING = ("tap", "hold", "drag", "key", "wait")
+
+
+def checks(plan: dict) -> int:
+    """The until steps after the first input or wait: the only steps that fail when the game does not do what
+    the change should make it do. An until before them reads the start, such as an instance that exists."""
+    first = next((i for i, step in enumerate(plan["steps"]) if any(k in step for k in DOING)), len(plan["steps"]))
+    return sum("until" in step for step in plan["steps"][first + 1:])
+
+
 def keep(plan: Path, project: Path, name: str) -> Path:
     """The plan copied as it was written into the project's kept plans."""
     to = project / KEPT / f"{name}.json"
@@ -1102,15 +1139,15 @@ def play_all(plans: dict[str, dict], shots: Path, project: Path) -> Callable[[oe
     return run
 
 
-def replay_report(result: dict, refused: dict[str, list[str]],
+def replay_report(result: dict, refused: dict[str, list[str]], until: dict[str, int],
                   label: Callable[[str], str] = oe.key_name) -> tuple[list[str], int]:
     """One line per kept plan, ok or FAIL with the step that failed or the first runtime error, and how many
-    failed."""
+    failed; `until` holds each plan's until checks."""
     if result["status"] != "opened":
         return oe.report(result, label), len(refused) + 1
     lines = oe.opened_lines(result)
     ran = (result.get("preview") or {}).get("plans", {})
-    failed, errors = 0, 0
+    failed, errors, held = 0, 0, 0
     for name in sorted(set(ran) | set(refused)):
         where = (KEPT / f"{name}.json").as_posix()
         if name in refused:
@@ -1133,11 +1170,14 @@ def replay_report(result: dict, refused: dict[str, list[str]],
             lines.append(f"  FAIL  {name} ({where}): {why}")
             lines += logged[1 if not bad else 0:][:3]
         else:
-            lines.append(f"  ok    {name}: {done['planned']} step{'s' if done['planned'] != 1 else ''} in "
-                         f"{done['seconds']:.1f} s")
+            held += until[name]
+            lines.append(f"  ok    {name}: {done['planned']} step{'s' if done['planned'] != 1 else ''}, "
+                         + (f"{until[name]} until check{'s' if until[name] != 1 else ''}" if until[name] else
+                            "no until after an input or wait, so it checks nothing,")
+                         + f" in {done['seconds']:.1f} s")
     total = len(ran) + len(refused)
-    lines.append(f"  replayed: {total - failed} of {total} kept plans pass, {errors or 'no'} runtime "
-                 f"error{'' if errors == 1 else 's'}")
+    lines.append(f"  replayed: {total - failed} of {total} kept plans pass with {held} until "
+                 f"check{'' if held == 1 else 's'}, {errors or 'no'} runtime error{'' if errors == 1 else 's'}")
     return lines, failed
 
 
@@ -1173,7 +1213,7 @@ def replay(args: argparse.Namespace, project: Path, exe: str, editor: str) -> in
         result = {"status": "opened", "project": str(project), "title": "not opened: every kept plan is refused",
                   "editor": "-", "preview": {"plans": {}}}
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
-    lines, failed = replay_report(result, refused)
+    lines, failed = replay_report(result, refused, {name: checks(plan) for name, plan in plans.items()})
     print_report(lines, args.limit, out, shots)
     if result["status"] != "opened":
         print(oe.NEXT)
@@ -1238,6 +1278,14 @@ def main() -> int:
         return 2
     if problems:
         print("\n".join([f"{args.plan}: {p}" for p in problems] + ["See --help for the steps."]), file=sys.stderr)
+        return 2
+    if args.keep and not checks(plan):
+        print(f"{args.plan}: not kept: no until step comes after an input or a wait, so the plan passes whatever "
+              f"the game does, and a replay of it after a later change shows nothing. An until before the first "
+              f"input reads the start, and a js, state or shot step prints what it reads and checks nothing. Write "
+              f"what the change must make true as an until step after the input, such as "
+              f"{{\"until\": \"runtime.objects.Player.getFirstInstance().x > 200\", \"timeout\": 2}}, then run "
+              f"this again with --keep {args.keep}", file=sys.stderr)
         return 2
     project = c3.find_project(args.project)
     if not project:
