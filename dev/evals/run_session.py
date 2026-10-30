@@ -39,7 +39,7 @@ import sys
 from pathlib import Path
 
 import make_fixtures
-from run_trigger_eval import stop_tree
+from run_trigger_eval import ISOLATED, stop_tree
 
 CASES = {c["name"]: c for c in make_fixtures.CASES}
 SIGNED_OUT = ("Failed to authenticate", "Not logged in", "Invalid API key", "/login")
@@ -52,7 +52,7 @@ class ClientError(RuntimeError):
 def turn(client: list[str], prompt: str, project: Path, session: str | None, args: argparse.Namespace) -> dict:
     """One `claude -p` turn in project: the JSON result the client printed."""
     cmd = [*client, "-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits",
-           "--allowedTools", args.allowed_tools]
+           "--allowedTools", args.allowed_tools, *ISOLATED]
     cmd += ["--resume", session] if session else []
     cmd += ["--model", args.model] if args.model else []
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}     # set inside a session, it refuses a nested one

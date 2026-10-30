@@ -52,6 +52,9 @@ from pathlib import Path
 from typing import IO
 
 SKILL = "construct3-agent-plugin"
+# The user's own CLAUDE.md, skills, hooks and plugins stay out of a run, so that the project and the tested plugin
+# alone decide what it does. The project's CLAUDE.md and .claude/skills and a --plugin-dir still load.
+ISOLATED = ["--setting-sources", "project,local"]
 
 
 class ClientError(RuntimeError):
@@ -79,7 +82,7 @@ def run_once(client: str, query: str, project: Path, model: str | None, max_tool
              timeout: int) -> tuple[str, str]:
     """What ended a run of query in a copy of project, and the end of the client's stderr when it
     did not answer."""
-    cmd = [*shlex.split(client), "-p", query, "--output-format", "stream-json", "--verbose"]
+    cmd = [*shlex.split(client), "-p", query, "--output-format", "stream-json", "--verbose", *ISOLATED]
     cmd += ["--model", model] if model else []
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}     # set inside a session, it refuses a nested one
     tmp = Path(tempfile.mkdtemp(prefix="trigger-"))
