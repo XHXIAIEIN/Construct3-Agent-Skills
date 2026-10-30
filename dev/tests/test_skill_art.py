@@ -142,3 +142,24 @@ def test_the_kit_draws_pixel_art_on_the_grid_in_roles_alone(project):
         kit.drawing(COIN).circle(1, 1, 1, fill="ink", grain=True)
     with pytest.raises(SystemExit, match="pixel art takes the roles of PALETTE alone"):
         kit.drawing(COIN).shade("reward")
+
+
+def test_a_picture_lost_on_the_canvas_and_frames_that_drift_are_found(project):
+    """art.contrast: a pale picture on the white canvas; art.frames: two frames of one animation whose feet stand
+    on different rows. Three versions that keep a finding leave it for the hand-over."""
+    wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
+    item = wanted["images"][0]
+    frames = [dict(item, file=f"hero-walk-00{i}.png", width=32, height=32) for i in range(2)]
+    pale = png(160, 160, lambda x, y: (240, 240, 240, 255) if 20 <= x < 140 and 20 <= y < 140 else (0, 0, 0, 0))
+    (project / "art" / COIN).write_bytes(pale)
+    for i, f in enumerate(frames):
+        (project / "art" / f["file"]).write_bytes(
+            png(32, 32, lambda x, y, i=i: (33, 33, 33, 255) if 8 <= x < 24 and 4 <= y < 28 - 3 * i else (0, 0, 0, 0)))
+    found = art.look_findings(project, wanted, [item, *frames])
+    assert [line.split(":")[0] for _, line in found] == ["art.contrast", "art.frames"], found
+    assert "0% of its edge reads 3:1 on the canvas #FFFFFF" in found[0][1]
+    assert "hero-walk: its frames stand on rows 24 to 27" in found[1][1]
+    for n in range(3):
+        (project / "art" / COIN).write_bytes(pale[:-12] + bytes([n]) + pale[-11:])     # another version, as pale
+        fix, kept = art.counted(project, found[:1])
+    assert fix == [] and kept[0].endswith("still so after 3 versions: name it in the hand-over"), kept

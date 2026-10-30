@@ -8,6 +8,7 @@
     "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
     "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
     "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
+    "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
     "Construct3-Agent-Skills/docs/decisions/input-controls.md",
     "Construct3-Agent-Skills/docs/decisions/landscape-viewport.md",
@@ -509,6 +510,24 @@
       "says": "Every id in a drawing starts with the drawing's own name, because two drawings inlined on one page that share an id both paint with the first one's definition.",
       "template": "art()",
       "confirm": "art.py: a drawing with another id is refused",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.contrast",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "In a game that draws no scene, half of a picture's edge, its shown pixels beside a clear one, reads at least 3:1 on the canvas, by its outline or by the body within two line widths inside it. Which scene a picture lies on is the layouts' and the events' to say, so a game with scenes leaves it to the look review of its screenshots. Three versions of a picture that keep the finding leave it for the hand-over.",
+      "template": "PALETTE['canvas']",
+      "confirm": "art.py: art.contrast",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
+    },
+    {
+      "id": "art.frames",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "The frames of one animation share their box, stand on one row within a sixteenth of a unit, at least 1 px, and are centred within a quarter of their width; one drawing function with pose parameters keeps them so.",
+      "template": "art()",
+      "confirm": "art.py: art.frames",
       "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
     },
     {

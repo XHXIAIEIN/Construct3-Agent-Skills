@@ -888,18 +888,36 @@ def shows_something(done: dict) -> bool:
     return bool(done.get("shot")) and not (done.get("blank") or {}).get("share")
 
 
+# The contact sheet of the generated game's pictures that the skill's art.py writes, judged with the screenshots:
+# question 4 then asks whether one picture is drawn in a style of its own, question 6 whether two look alike
+ART_SHEET = "Art sheet"
+
+
+def pictures(result: dict) -> list[tuple[str, str]]:
+    """(name, file) of every picture the questions are about: the screenshots that show something, then the
+    contact sheet of the game's art when the run found one."""
+    layouts = (result.get("preview") or {}).get("layouts", [])
+    shots = [(d["layout"], d["shot"]) for d in layouts if shows_something(d)]
+    return shots + ([(ART_SHEET, result["art_sheet"])] if shots and result.get("art_sheet") else [])
+
+
 def brief(result: dict) -> str:
     """The questions as a task for a reviewer that has not seen the project: the screenshots, the questions and
     the form of the answer, and nothing of what the game was meant to show."""
     layouts = (result.get("preview") or {}).get("layouts", [])
-    shots = [(d["layout"], d["shot"]) for d in layouts if shows_something(d)]
+    shots = pictures(result)
     asked = questions(len(layouts) > 1, result.get("places", []))
     lines = ["# Look review", "",
              "You have not seen this game's project, its events or how it was built, and you do not need to. Judge "
              "only what the screenshots show. If a picture does not show it, answer no. Answer yes only for "
              "what a player would see as a mistake: art layered on purpose is none, such as a character in "
-             "front of the ground or scenery that runs past the edge of the screen.", "",
-             "Open each screenshot with your image tool, one at a time:", ""]
+             "front of the ground or scenery that runs past the edge of the screen.", ""]
+    if result.get("art_sheet") and shots:
+        lines += [f"The last picture, {ART_SHEET}, is no screenshot: it shows each picture of the game on its own, "
+                  "at its size and enlarged, the frames of one object side by side. Ask of it what a player would "
+                  "see once the pictures are on screen together, and answer no to a question about text or the HUD.",
+                  ""]
+    lines += ["Open each screenshot with your image tool, one at a time:", ""]
     lines += [f"{n}. {layout}: {shot}" for n, (layout, shot) in enumerate(shots, 1)]
     lines += ["", "Answer every question for every screenshot, yes or no:", ""]
     lines += [f"{n}. {q}" for n, q in enumerate(asked, 1)]
@@ -960,7 +978,7 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
     """A reviewer's reply against the brief of the result: what it lacks, then every yes to fix, and the verdict
     that verify_change.py passes its look step on; verify is the command that goes on with the check chain."""
     layouts = (result.get("preview") or {}).get("layouts", [])
-    names = [d["layout"] for d in layouts if shows_something(d)]
+    names = [name for name, _ in pictures(result)]
     asked = len(questions(len(layouts) > 1, result.get("places", [])))
     answers, stray = read_reply(reply, names, asked)
     missing = [(n, [q for q in range(1, asked + 1) if (n, q) not in answers]) for n in names]
@@ -983,9 +1001,9 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
                      "where each yes is; then check its reply again")
     elif yeses:
         lines.append("next: fix each yes: name the layout and the object type at the place it describes, change it, "
-                     "then run review_look.py again and have its new brief answered"
-                     + (f"; name a yes about what your change did not touch in the hand-over, then run {verify}, "
-                        f"which passes its look step on this reply" if verify else ""))
+                     + (f"then run {verify}, which looks again; after three rounds with a yes its look step passes, "
+                        f"and the hand-over names each yes left" if verify else
+                        "then run review_look.py again and have its new brief answered"))
     elif verify:
         lines.append(f"next: every question is answered no; run {verify}, which passes its look step on this reply")
     else:
@@ -1146,6 +1164,9 @@ def main() -> int:
             result["places"] = unmeasured(project, args.design)
             # Names this run, so that a reply checked against its brief is not taken for one of a later run
             result["run"] = uuid.uuid4().hex[:12]
+            sheet = c3.script_folder(project, "art") / "contact.png"
+            if sheet.is_file():
+                result["art_sheet"] = str(sheet)
             if any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
                 result["brief"] = str(shots / "brief.md")
                 (shots / "brief.md").write_text(brief(result), encoding="utf-8")

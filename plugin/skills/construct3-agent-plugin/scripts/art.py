@@ -56,6 +56,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 
 import c3project as c3
 import prepare_art as image_route
+from checker_common import contrast_ratio
 
 DRAWINGS = Path("tools") / "drawings.py"
 FOLDER = "art"                               # .tmp/scripts/art/ of the project
@@ -66,8 +67,13 @@ LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|ok
                      r"(?!none|transparent|currentColor|inherit|var\(|color-mix\(|url\()[a-z]+", re.I)
 IDS = re.compile(r"\bid\s*=\s*\"([^\"]*)\"")
 SIZE = re.compile(r"<svg\b[^>]*?\bwidth=\"(\d+(?:\.\d+)?)\"[^>]*?\bheight=\"(\d+(?:\.\d+)?)\"")
-SCALE = 4                                    # the contact sheet's largest enlargement; every picture is at least doubled
+SCALE = 4                                    # the contact sheet's largest enlargement; a small picture is at least doubled
+LARGE = 256                                  # px: a picture larger than this shows once, without its enlargement
+SHEET_W = 1600                               # px: the contact sheet's width
 RENDER_WAIT = 10                             # seconds a drawing may take to render
+EDGE_CONTRAST = 3                            # art.contrast: what the edge of a picture reads against the canvas
+EDGE_SHARE = 0.5                             # the share of the edge that must read so
+FINDINGS = "findings.json"                   # the versions of each picture a look check found, in .tmp/scripts/art/
 
 
 def stem_of(rel: str) -> str:
@@ -174,16 +180,19 @@ def render(renderer: Renderer, root: Path, item: dict, wanted: dict) -> list[str
     roles = hexes(wanted["palette"])
     pixel_art = wanted["pixel_art"]
     _, _, picture = pixels_of(renderer.shot(page(svg, roles), stem, w, h), pixel_art)
-    flash = {**roles, item["role"]: roles[wanted["flash_role"]]}
-    _, _, hit = pixels_of(renderer.shot(page(svg, flash), stem + ".hit", w, h), pixel_art)
     if not any(p[3] for p in picture):
         raise image_route.Unusable("it renders as nothing: draw its shapes inside the box")
+    path = root / "art" / item["file"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(png(w, h, picture, not pixel_art))
+    if item["kind"] == "scene":                    # a backdrop is never hit
+        return [f"{stem}: art/{stem}.svg -> art/{item['file']} {w}x{h}"]
+    flash = {**roles, item["role"]: roles[wanted["flash_role"]]}
+    _, _, hit = pixels_of(renderer.shot(page(svg, flash), stem + ".hit", w, h), pixel_art)
     notes = []
     if hit == picture:
         notes.append(f"  note: its hit frame shows no change, because no shape is in its role {item['role']!r}: "
                      f"draw its body in that role, or give art() the role it is drawn in")
-    (root / "art" / item["file"]).parent.mkdir(parents=True, exist_ok=True)
-    (root / "art" / item["file"]).write_bytes(png(w, h, picture, not pixel_art))
     (root / "art" / f"{stem}.hit.png").write_bytes(png(w, h, hit, not pixel_art))
     return [f"{stem}: art/{stem}.svg -> art/{item['file']} {w}x{h} and its hit frame"] + notes
 
@@ -200,6 +209,100 @@ def svg_state(root: Path, item: dict, refused: dict) -> str:
     if r is None or image_route.fingerprint(svg) not in r["pictures"]:
         return "render"
     return "stand-in" if len(r["pictures"]) >= TRIES else "redraw"
+
+
+# --- the look checks of the pictures ---------------------------------------------------------
+def edge_share(root: Path, item: dict, back: tuple, band: int) -> float | None:
+    """The share of the picture's edge, its shown pixels beside a clear one, where a pixel within `band` px inside
+    it reads EDGE_CONTRAST:1 on the colour `back`: an outline that reads, or a body just inside a dark outline.
+    None for a picture with no edge."""
+    w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
+    behind = [v / 255 for v in back]
+    reads = [p[3] >= 128 and contrast_ratio([v / 255 for v in p[:3]], behind) >= EDGE_CONTRAST for p in px]
+    shown = [p[3] >= 128 for p in px]
+    edge = hits = 0
+    for i, on in enumerate(shown):
+        if not on:
+            continue
+        x, y = i % w, i // w
+        if all(0 <= nx < w and 0 <= ny < h and shown[ny * w + nx]
+               for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))):
+            continue
+        edge += 1
+        hits += any(reads[ny * w + nx] for ny in range(max(0, y - band), min(h, y + band + 1))
+                    for nx in range(max(0, x - band), min(w, x + band + 1)))
+    return hits / edge if edge else None
+
+
+def baseline(root: Path, item: dict) -> tuple[int, int] | None:
+    """The lowest shown row of a picture and the middle of its shown columns."""
+    w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
+    shown = [(i % w, i // w) for i, p in enumerate(px) if p[3] >= 128]
+    if not shown:
+        return None
+    xs = [x for x, _ in shown]
+    return max(y for _, y in shown), (min(xs) + max(xs)) // 2
+
+
+def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str, str]]:
+    """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), and for the frames of one
+    animation whose box, feet or middle differ (art.frames)."""
+    found = []
+    # A picture the PNG reader cannot read is the generator's to refuse, when art() takes it
+    done = [i for i in done if c3.png_rgba((root / "art" / i["file"]).read_bytes())]
+    # Which scene a picture lies on is the layouts' and the events' to say: with scenes, the look review judges
+    # the pictures on the screenshots, and this check holds the pictures to the canvas of a game without one
+    scenes = [i for i in done if i["kind"] == "scene"]
+    canvas, band = tuple(wanted["palette"]["canvas"]), 2 * wanted["line_width"]
+    for item in [] if scenes else done:
+        share = edge_share(root, item, canvas, band)
+        if share is not None and share < EDGE_SHARE:
+            found.append((item["file"], f"art.contrast: {stem_of(item['file'])}: {share:.0%} of its edge reads "
+                                        f"{EDGE_CONTRAST}:1 on the canvas {hexes(wanted['palette'])['canvas']}, by "
+                                        f"its outline or the body inside it, and half of it should: give it an outline "
+                                        f"in a role that reads on the canvas, or a body that does"))
+    animations: dict[str, list[dict]] = {}
+    for item in done:
+        animations.setdefault(item["file"].rsplit("-", 1)[0], []).append(item)
+    slack = max(1, wanted["unit"] // 16)          # px the feet of two frames may differ by: 2 at 1080, 1 in pixel art
+    for name, frames in animations.items():
+        if len(frames) < 2:
+            continue
+        boxes = {(f["width"], f["height"]) for f in frames}
+        if len(boxes) > 1:
+            found.append((frames[0]["file"], f"art.frames: {name}: its frames are {', '.join(f'{w}x{h}' for w, h in sorted(boxes))}; "
+                                             f"give every frame of an animation one box in art()"))
+            continue
+        lines = {f["file"]: baseline(root, f) for f in frames}
+        feet = [b[0] for b in lines.values() if b]
+        middles = [b[1] for b in lines.values() if b]
+        if feet and (max(feet) - min(feet) > slack or max(middles) - min(middles) > frames[0]["width"] // 4):
+            found.append((frames[0]["file"], f"art.frames: {name}: its frames stand on rows {min(feet)} to "
+                                             f"{max(feet)} and are centred from x {min(middles)} to {max(middles)}; "
+                                             f"draw them with one function from the same d.ground and centre"))
+    return found
+
+
+def counted(root: Path, found: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
+    """The findings to fix, and those that three versions of their picture kept, for the hand-over."""
+    path = c3.script_folder(root, FOLDER) / FINDINGS
+    try:
+        seen = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        seen = {}
+    fix, kept = [], []
+    for rel, line in found:
+        key = line.split(":")[0] + " " + rel
+        versions = seen.setdefault(key, [])
+        print_ = image_route.fingerprint(root / "art" / rel)
+        if print_ not in versions:
+            versions.append(print_)
+        (kept if len(versions) >= TRIES else fix).append(line + (f" ({len(versions)} of {TRIES})" if len(versions) < TRIES else
+                                                                f"; still so after {TRIES} versions: name it in the hand-over"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({k: v for k, v in seen.items() if any(k.endswith(" " + rel) for rel, _ in found)},
+                               indent=1), encoding="utf-8")
+    return fix, kept
 
 
 # --- the contact sheet ---------------------------------------------------------------------
@@ -220,10 +323,14 @@ def contact_page(root: Path, wanted: dict, done: list[dict]) -> str:
         for item in items:
             src = (root / "art" / item["file"]).as_uri()
             w, h = item["width"], item["height"]
-            k = max(2, min(SCALE, 512 // max(w, h)))
-            cells.append(f"<figure><img src=\"{src}\" width=\"{w}\" height=\"{h}\" style=\"{pixel}\">"
-                         f"<img src=\"{src}\" width=\"{w * k}\" height=\"{h * k}\" class=\"big\" style=\"{pixel}\">"
-                         f"<figcaption>{stem_of(item['file'])}</figcaption></figure>")
+            if max(w, h) > LARGE:                  # a scene or a panel: once, at most the sheet's half width
+                f = min(1, SHEET_W / 2 / w)
+                shown = f"<img src=\"{src}\" width=\"{round(w * f)}\" height=\"{round(h * f)}\" style=\"{pixel}\">"
+            else:
+                k = max(2, min(SCALE, 512 // max(w, h)))
+                shown = (f"<img src=\"{src}\" width=\"{w}\" height=\"{h}\" style=\"{pixel}\">"
+                         f"<img src=\"{src}\" width=\"{w * k}\" height=\"{h * k}\" class=\"big\" style=\"{pixel}\">")
+            cells.append(f"<figure>{shown}<figcaption>{stem_of(item['file'])}</figcaption></figure>")
         rows.append(f"<section><h2>{name}</h2><div class=\"row\">{''.join(cells)}</div></section>")
     return (f"<!doctype html><html><head><meta charset=\"utf-8\"><style>"
             f"body{{margin:0;padding:24px;background:{roles['canvas']};color:{roles['ink']};font:14px system-ui}}"
@@ -266,7 +373,9 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path |
         "- One function per object; each frame of the object is a call of it with other values, so its frames share "
         "the box and the line `d.ground` the feet stand on.",
         "- Every colour is a role, `fill=\"reward\"`, or a d.shade() or d.light() of one; the body in the picture's "
-        "role, so its hit frame shows the flash.",
+        "role, so its hit frame shows the flash. A colour the subjects need and the roles lack is a new role: add it "
+        "to PALETTE in tools/build_project.py, above the helpers' begin marker, named by what it plays (`slime`, "
+        "`bone`, `gold`), then run the generator.",
         "- Use the textures and stroke() so that a picture is more than plain shapes, the same ones on every "
         "picture, so that all of them read as one style.",
         "- Fill most of the box: a picture is fitted to nothing, it is the box.",
@@ -426,13 +535,15 @@ def main() -> int:
             try:
                 renderer = Renderer(root, exe)
                 try:
-                    sheet.write_bytes(renderer.shot(contact_page(root, wanted, done), "contact", 1600))
+                    sheet.write_bytes(renderer.shot(contact_page(root, wanted, done), "contact", SHEET_W))
                 finally:
                     renderer.close()
             except (oe.DevToolsError, OSError) as e:
                 out.append(f"contact sheet: not made, {Path(exe).name} could not be driven: {e}")
     if done and sheet.exists():
         out.append(f"contact sheet: {sheet}")
+    fix, kept = counted(root, look_findings(root, wanted, done)) if done else ([], [])
+    out += fix + kept
     drawings = [item for item in wanted["images"] if item.get("route") == "svg"
                 and now[item["file"]] in ("draw", "redraw")]
     counts = {s: list(now.values()).count(s) for s in set(now.values())}
@@ -447,7 +558,8 @@ def main() -> int:
         out.append(prompts[-1])
     elif any(s in ("render", "prepare") for s in now.values()):
         out.append(f"{count}; next: run {c3.script_command(root, 'art.py')}")
-    elif failed:
+    elif failed or fix:
+        failed += bool(fix)
         out.append(f"{count}; next: fix what the lines above name, then run {c3.script_command(root, 'art.py')}")
     else:
         kept = counts.get("stand-in", 0)

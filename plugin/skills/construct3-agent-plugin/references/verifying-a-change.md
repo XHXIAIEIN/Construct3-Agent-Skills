@@ -181,7 +181,13 @@ image tool, answer each question from the picture, and name the same for
 each yes. Save these answers to `.tmp/scripts/review-look/reply.md` in the
 form the brief gives and check them with `--reply` as well, because `verify_change.py`
 passes its look step only on a reply that `--reply` checked: one that
-answers every question, each yes saying where. A question answered from
+answers every question, each yes saying where, with no yes. A yes fails the
+step: fix it and run `verify_change.py` again, which looks again. After
+three replies with a yes the step passes, and the hand-over names each yes
+left. In a generated game the step first runs `scripts/check_look.py`, and
+a finding of it stops the step before the review. When `scripts/art.py`
+has written a contact sheet of the game's pictures, the brief shows it
+after the screenshots, under the same questions. A question answered from
 memory of the events, not from the picture, is not answered.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up

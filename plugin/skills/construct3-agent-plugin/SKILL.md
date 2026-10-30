@@ -100,9 +100,12 @@ editor it takes minutes: give the command a timeout of 10 minutes.
 - `stop:` names a finding that two changes left standing: do not change
   that place again, fix the others, and give it to the user as the line
   says.
-- Questions are yours to answer from `print_sheet.py`: change what you
-  answer yes about the events your change wrote, name any other yes in the
-  hand-over, then run it with `--answered`.
+- Design questions are yours to answer from `print_sheet.py`: change what
+  you answer yes about the events your change wrote, name any other yes in
+  the hand-over, then run it with `--answered`.
+- A yes of the look review fails the look step: fix it and run again. After
+  three rounds the step passes, and you name what is still yes in the
+  hand-over.
 
 Run it until its `ok:` line, then hand over what changed and what the
 plays played. Exit code 3 or a `skipped:` line is a check that did not
