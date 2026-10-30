@@ -24,6 +24,7 @@
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
+    "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md",
     "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
     "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
@@ -431,6 +432,32 @@
       "scope": "every-look",
       "says": "Small labels framing the content from the screen's corners, as 72 of 200 motion-design websites place them: of the official 2D game examples' 103 play screens, 50 hold a text in no corner, 31 in one, 19 in two and 3 in three or four. The template's play HUD holds three.",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.caps-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No label in capitals, from web design skills, where tracked capital labels read as a generated page: 138 of the 323 labels of 20 characters or fewer in the official 2D game examples are capitals, in 18 of 113 examples, \"GAME OVER\", \"START\" and \"SCORE:\" among them, and a pixel font often holds capitals only.",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
+    },
+    {
+      "id": "type.no-index-numbers",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No zero-padded number, from web design skills, where 01 / 02 / 03 marks reads as a generated page: 28 of 113 official 2D game examples call zeropad() in their events, on a score's fixed digits or a clock's seconds in all but at most 4, and 16 of their layouts' texts start padded, \"Score: 000\" or \"00:00\".",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
+    },
+    {
+      "id": "hud.tag-plain",
+      "status": "proposed",
+      "scope": "paper-and-ink",
+      "says": "The fallback's tag, hud_tag(), is tracked() capitals with parts joined by \" · \" and the round padded to two digits, \"ROUND · 01 / 06\": the three devices frontend-design names as template chrome. Of the official 2D game examples' 679 texts, none spaces its letters apart and 2 join parts with a bar, none with a middle dot; at most 4 of 113 examples pad a level, round or wave. Changing the tag also changes the items layout.spread counts, which splits a label at \" · \".",
+      "options": [
+        "keep the tag as it is: the user chose it on screenshots",
+        "drop the middle dot and the padding, keep the tracked capitals: \"ROUND 1 / 6\"",
+        "a plain tag in sentence case at the tag size: \"Round 1 of 6\""
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
     },
     {
       "id": "outline.width",
