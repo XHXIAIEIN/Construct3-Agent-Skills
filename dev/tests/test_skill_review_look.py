@@ -358,3 +358,72 @@ def test_review_look_finds_text_gathered_in_one_ninth_while_two_corners_stand_em
                text(42, "Best", [40, 650, 200, 680], "Best 40 · Gold 7", [160, 30])]
     assert rules(rl, *corners) == []
     assert rules(rl, dict(title, layer="Game"), dict(sub, layer="Game"), size=(4000, 720)) == []
+
+
+def test_review_look_pairs_each_label_text_and_glyph_with_the_shape_it_is_centred_on():
+    """A label, the one text inside a shape, pairs on each axis its alignment and its box centre; a
+    text beside a shape in a row pairs down; a glyph alone on a shape pairs both ways. A card that
+    holds two texts and a glyph off the centre are left out, and a text set at the top of its shape
+    pairs across only."""
+    found = rl.optical_pairs([
+        inst(1, "Button", [100, 600, 260, 660]),
+        text(2, "ButtonLabel", [100, 606, 260, 660], "Start", [60, 24]),
+        inst(3, "Toggle", [500, 600, 628, 664]),
+        text(4, "ToggleLabel", [400, 600, 468, 664], "Sound", [60, 20], align=("left", "center")),
+        inst(5, "Disc", [700, 300, 828, 428]),
+        inst(6, "Play", [732, 321, 796, 385]),
+        inst(7, "Card", [900, 100, 1100, 400]),
+        text(8, "CardName", [900, 100, 1100, 140], "Strike", [80, 24]),
+        text(9, "CardCost", [900, 360, 1100, 400], "2", [12, 24]),
+        inst(10, "Panel", [100, 100, 400, 300]),
+        text(11, "PanelTitle", [100, 100, 400, 140], "Shop", [80, 24]),
+        inst(12, "Ring", [500, 100, 628, 228]),
+        inst(13, "Gem", [500, 100, 532, 132]),
+    ], LAYERS, 720)
+    assert [(p["kind"], p["glyph"]["uid"], p["shape"]["uid"], p["axes"]) for p in found] == \
+        [("label", 2, 1, [0, 1]), ("beside", 4, 3, [1]), ("label", 11, 10, [0]), ("glyph", 6, 5, [0, 1])]
+
+
+def test_review_look_measures_ink_and_the_face_it_sits_on_from_two_shots():
+    """ink() is what changed between a shot and the one with the glyph hidden, a faint fringe left
+    out; face() is the part of a shape in the colour most of it shows, its shadow left out."""
+    w, grey, ink_, paper, shade = 10, (117, 117, 117, 255), (255, 255, 255, 255), (239, 239, 239, 255), \
+        (180, 180, 180, 255)
+    bare = [grey if 1 <= n % w <= 7 and 1 <= n // w <= 7 else shade if n % w == 8 or n // w == 8 else paper
+            for n in range(w * w)]
+    shown = [ink_ if 3 <= n % w <= 5 and 2 <= n // w <= 4 else (130, 130, 130, 255) if n == 66 else bare[n]
+             for n in range(w * w)]
+    empty = [paper] * (w * w)
+    box, centroid = rl.ink(w, shown, bare, [0, 0, w, w])
+    assert box == [3, 2, 6, 5] and centroid == (4.5, 3.5)
+    assert rl.ink(w, shown, bare, [0, 6, w, w]) is None
+    assert rl.face(w, bare, empty, [0, 0, w, w]) == [1, 1, 8, 8]
+
+
+def test_review_look_centres_a_label_by_its_capitals_or_chinese():
+    """The line a text is centred by is that of its capitals and digits, else its Chinese: "Play"
+    is centred as "P" is, and a text of short lowercase letters by all of them."""
+    assert [rl.reference(t) for t in ("Play", "HP 生命", "开始游戏，", "Level 3", "menu")] == \
+        ["P", "HP", "开始游戏", "L3", None]
+
+
+def test_review_look_finds_a_label_or_glyph_off_the_centre_of_its_face():
+    """A label whose ink sits off its face's centre by more than the larger of OPTICAL_PX and
+    OPTICAL_EM of its em is named with the box change that fixes it: a label on a shape shrinks its
+    box, a text beside one moves it. A glyph is named with the move that centres its area."""
+    button, label = inst(1, "Button", [32, 32, 224, 128]), text(2, "Label", [32, 32, 224, 128], "Continue",
+                                                                   [106, 32], em=26.7)
+    disc, tri = inst(5, "Disc", [640, 288, 768, 416]), inst(6, "Tri", [672, 320, 736, 384])
+    measured = [{"pair": {"kind": "label", "glyph": label, "shape": button, "axes": [0, 1]}, "offset": [0.5, -3.0]},
+                {"pair": {"kind": "label", "glyph": dict(label, uid=3), "shape": button, "axes": [0, 1]},
+                 "offset": [0, -1.5]},
+                {"pair": {"kind": "glyph", "glyph": tri, "shape": disc, "axes": [0, 1]}, "offset": [0, 10.75]},
+                {"pair": {"kind": "beside", "glyph": dict(label, uid=4), "shape": button, "axes": [1]},
+                 "offset": [0, -2.0]}]
+    found = rl.optical_findings(measured)
+    assert pairs(found) == [("optical", [2, 1]), ("optical", [6, 5]), ("optical", [4, 1])]
+    assert found[0]["line"] == ('Label uid 2 "Continue" on Button uid 1: its ink sits 3.0 px above the centre of '
+                                "the shape's face, which a player sees as off centre: move its ink down 3 px by "
+                                "shrinking its box from the top by 6 px")
+    assert "its area sits 10.8 px below" in found[1]["line"] and "move it 11 px up" in found[1]["line"]
+    assert found[2]["line"].endswith("move its ink down 2 px by moving its box as far")

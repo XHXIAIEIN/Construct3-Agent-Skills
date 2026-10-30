@@ -4,6 +4,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
 - [The Look Manifest Owns Every Look Rule](look-manifest-owns-the-rules.md) — 2026-10-30
+- [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
 - [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
 - [Art Drawn in Code and Rendered in the Browser: The Route to Try Next](art-drawn-in-code.md) — 2026-10-28
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28

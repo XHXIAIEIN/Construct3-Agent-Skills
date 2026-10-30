@@ -766,7 +766,7 @@ def corners(kind: str) -> list[tuple[float, float]]:
                        for a in (i * math.pi / 8 for i in range(16))]}[kind]
 
 
-def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: float = 0.5,
+def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: float | None = None,
           outline: bool | None = None, shadow: bool | None = None, inset: int = 0, state: bool = False) -> dict:
     """images/<rel>: a flat `kind` of SHAPES, w x h px in whole units, in the colour of `role`,
     with SHAPE_STYLE's outline and shadow unless `outline` or `shadow` says otherwise. `inset` px
@@ -774,7 +774,8 @@ def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: f
     inset=(TOUCH - SUBJECT) // 2. Edges are antialiased above 360 px. state=True draws a hover or
     a press frame, which need not read 3:1 on the paper. Returns its frame, also kept in
     FRAMES[rel]: origin (ox, oy) of the box, the shape's collision polygon across the box, and the
-    image's size with the shadow, which is the instance's size."""
+    image's size with the shadow, which is the instance's size. `oy` defaults to the middle, and for
+    a triangle to its centroid, two thirds down, so one placed by its origin looks centred."""
     if kind not in SHAPES:
         sys.exit(f"{rel}: {kind!r} is no shape; shape() draws {', '.join(SHAPES)}")
     if w % UNIT or h % UNIT:
@@ -783,6 +784,7 @@ def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: f
     if inset < 0 or 2 * inset >= min(w, h):
         sys.exit(f"{rel}: inset {inset} leaves nothing of a {w}x{h} box to draw; keep it under {min(w, h) // 2}, "
                  f"(TOUCH - SUBJECT) // 2 for a small drawing in a box a finger hits")
+    oy = oy if oy is not None else 2 / 3 if kind == "triangle" else 0.5
     style = SHAPE_STYLE
     edge = style["outline_width"] if (style["outline"] if outline is None else outline) else 0
     ratio = contrast(rgb(role), rgb("canvas_alt"))
@@ -1844,19 +1846,33 @@ def canvas_inst(otype: str, x: float = 0, y: float = 0, w: float | None = None, 
 def shape_inst(otype: str, rel: str, col: int, row: int, ivars=None, behaviors=None,
                collisions: bool = True) -> dict:
     """An instance of the shape images/<rel> with its top-left corner on grid cell (col, row), at
-    the image's size and the frame's origin; the shadow hangs off the cells."""
+    the image's size and the frame's origin; the shadow hangs off the cells. A triangle sits
+    centroid_lift() px higher, so the centre of its area, not of its box, is the centre of its cells."""
     f, (left, top) = drawn(rel), PADS[rel]
     x = col * UNIT - left + f["originX"] * f["width"]
-    y = row * UNIT - top + f["originY"] * f["height"]
-    return instance(otype, {"initially-visible": True, "initial-animation": "Default", "initial-frame": 0,
+    y = row * UNIT - top + f["originY"] * f["height"] - centroid_lift(rel)
+    inst = instance(otype, {"initially-visible": True, "initial-animation": "Default", "initial-frame": 0,
                             "enable-collisions": collisions, "live-preview": False},
                     world(x, y, f["width"], f["height"], f["originX"], f["originY"]), ivars, behaviors)
+    if centroid_lift(rel):
+        LIFTED[inst["uid"]] = centroid_lift(rel)
+    return inst
+
+
+LIFTED: dict[int, int] = {}                # px shape_inst() raised each triangle, by uid
+
+
+def centroid_lift(rel: str) -> int:
+    """Px shape_inst() raises a triangle that shape() drew as images/<rel>, so that its centroid, a
+    sixth of its height below its box's centre, sits on the centre of its cells; 0 for another
+    image."""
+    return round(DRAWN_AS[rel][2] / 6) if rel in DRAWN_AS and DRAWN_AS[rel][0] == "triangle" else 0
 
 
 def on_grid(instances: list, where: str) -> None:
     """Stops the run when an instance of a world layer starts off the grid: its box's left and
-    top, or its shape's past a shadow, are whole UNITs. Skips a rotated instance. Do not pass the
-    HUD, which anchor() holds to the edges."""
+    top, or its shape's past a shadow, are whole UNITs; a triangle's top may sit centroid_lift()
+    above. Skips a rotated instance. Do not pass the HUD, which anchor() holds to the edges."""
     dx, dy = shadow_offset()
     pads_x, pads_y = {0, max(0, -dx)}, {0, max(0, -dy)}
 
@@ -1868,7 +1884,7 @@ def on_grid(instances: list, where: str) -> None:
         if not w or w.get("angle"):
             continue
         left = w["x"] - w.get("originX", 0) * w["width"]
-        top = w["y"] - w.get("originY", 0) * w["height"]
+        top = w["y"] - w.get("originY", 0) * w["height"] + LIFTED.get(inst["uid"], 0)
         if not (fits(left, pads_x) and fits(top, pads_y)):
             sys.exit(f"{where}: {inst['type']} starts at ({left:g},{top:g}), off the {UNIT} px grid. Place a shape "
                      f"with shape_inst(type, image, col, row), which puts its corner on cell (col, row), and "
@@ -1979,6 +1995,7 @@ def text_ems(text: str) -> float:
 
 
 _advances: dict[str, int] = {}
+_boxes: dict[str, tuple] = {}              # BBX of each glyph of PIXEL_FONT: width, height, x and y offset
 _sprite_fonts: list[str] = []              # the text types text_type() made Sprite Fonts
 
 
@@ -1993,14 +2010,23 @@ def advance(c: str) -> int:
     """Advance in px of `c` in PIXEL_FONT at scale 1: the font's own, SPACE_EMS * UNIT for a space
     of U+2002 to U+200A, UNIT for a character the font lacks. The font is read once."""
     if not _advances:
-        cp = None
-        with pixel_font().open(encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if line.startswith("ENCODING "):
-                    cp = int(line.split()[1])
-                elif line.startswith("DWIDTH ") and cp is not None and 0 <= cp <= 0x10FFFF:
-                    _advances[chr(cp)] = int(line.split()[1])
+        read_pixel_font()
     return _advances.get(c) or (max(1, round(SPACE_EMS[c] * UNIT)) if c in SPACE_EMS else UNIT)
+
+
+def read_pixel_font() -> None:
+    """Reads each glyph's advance and box from PIXEL_FONT into _advances and _boxes."""
+    cp = None
+    with pixel_font().open(encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if line.startswith("ENCODING "):
+                cp = int(line.split()[1])
+            elif cp is None or not 0 <= cp <= 0x10FFFF:
+                continue
+            elif line.startswith("DWIDTH "):
+                _advances[chr(cp)] = int(line.split()[1])
+            elif line.startswith("BBX "):
+                _boxes[chr(cp)] = tuple(map(int, line.split()[1:5]))
 
 
 def text_px(text: str, size: float) -> float:
@@ -2019,6 +2045,30 @@ def em_px(size: float) -> float:
 def line_px(size: float) -> float:
     """Height in px of one line at `size`: a Sprite Font's cell, size px; a Text's LINE_EMS em."""
     return size if pixel_font() else size * PX_PER_PT * LINE_EMS
+
+
+# Share of the em by which capitals, digits and Chinese sit above the centre of a Text's em box, by
+# face. A face not listed takes system-ui's.
+OPTICAL_EMS = {"system-ui": 0.11}
+
+
+def optical_drop(text: str, size: float, weight: str = "regular") -> int:
+    """Px a one-line label of `text` at `size` in FONT's `weight` moves down to look centred on
+    its shape. Center centres the em box, where capitals, digits and Chinese sit high, so a text of
+    none of these returns 0. In pixel art with PIXEL_FONT, whole font pixels times the scale: the
+    cell's centre less the centre of "H" as bake_font.py bakes it. Shrink the box of a label on a
+    shape from the top by twice this, so it stays inside. Move a label beside a shape down by this
+    and keep its box one line high, because a line taller than its box draws from the box's top."""
+    if not any(c.isascii() and (c.isupper() or c.isdigit()) or unicodedata.east_asian_width(c) in ("W", "F")
+               and unicodedata.category(c).startswith("L") for c in text):
+        return 0
+    if pixel_font():
+        if not _boxes:
+            read_pixel_font()
+        descent = max(0, -min(_boxes[c][3] for c in map(chr, range(32, 127)) if c in _boxes))
+        _, gh, _, gy = _boxes["H"]
+        return round(UNIT / 2 - (UNIT - descent - gy - gh) - gh / 2) * round(size / UNIT)
+    return round(OPTICAL_EMS.get(face(weight), OPTICAL_EMS["system-ui"]) * em_px(size))
 
 
 def text_size(kind: str) -> float:
@@ -2239,7 +2289,7 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
            longest: str | None = None, color: str | None = None, ivars=None, behaviors=None, label_ivars=None,
            label_behaviors=None) -> tuple[dict, dict]:
     """A button: the shape images/<rel> on cell (col, row), and the Text type `label` showing
-    `text` centred on it. The label's size is `size` or label_size()'s, and its role reads on the
+    `text` centred on it by its ink (optical_drop() lowers it). The label's size is `size` or label_size()'s, and its role reads on the
     fill unless `color` names one. The label is the shape's child, size included, so press()
     squashes both. `longest` is the widest text it shows; a shape smaller than its button_size()
     stops the run. Returns (shape, label): put both on one layer in that order, so the label draws
@@ -2255,9 +2305,11 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
                  f"images/{rel} is {w}x{h}; draw it at button_size({longest or text!r}), or shorten the text")
     shape_ = shape_inst(otype, rel, col, row, ivars=ivars, behaviors=behaviors)
     on = FILLS.get(rel, "canvas_alt")
-    text_ = text_inst(label, text, units(col), units(row), w, h, size, "center",
+    weight = TEXT_WEIGHT.get("key", "medium")
+    drop = optical_drop((longest or "") + text, size, weight)
+    text_ = text_inst(label, text, units(col), units(row) + 2 * drop, w, h - 2 * drop, size, "center",
                       color=color or text_on(on, size), on=on, ivars=label_ivars, behaviors=label_behaviors,
-                      weight=TEXT_WEIGHT.get("key", "medium"))
+                      weight=weight)
     link(shape_, text_, size=True)
     return shape_, text_
 
@@ -2266,14 +2318,16 @@ def labelled_bar(label: str, text: str, frame_name: str, fill_name: str, where: 
                  height: float = 0, inset: float = 2, caps: bool = False, dx: float = 0, dy: float = 0,
                  color: str = "ink", on: str = "canvas_alt") -> tuple[dict, dict, dict]:
     """A bar with its name in front, held to the edge `where` as one box: the Text `label` showing
-    `text`, a unit of space, then hud_bar()'s frame and fill. Returns (label, frame, fill); set the
-    fill as for hud_bar()."""
+    `text`, a unit of space, then hud_bar()'s frame and fill, the name centred on the bar by its
+    ink (optical_drop() lowers it). Returns (label, frame, fill); set the fill as for hud_bar()."""
     height = height or units(1)
     lw, lh = label_box(text)
     box_h = max(lh, height)
     x, y = anchor(where, lw + UNIT + length, box_h, 0, 0, dx, dy)
-    name = text_inst(label, text, x, y, lw, box_h, halign="left", color=color, on=on,
-                     behaviors=anchored(where), weight=TEXT_WEIGHT.get("key", "medium"))
+    weight = TEXT_WEIGHT.get("key", "medium")
+    drop = optical_drop(text, TEXT_SIZE["body"], weight)
+    name = text_inst(label, text, x, y + drop, lw, box_h, halign="left", color=color, on=on,
+                     behaviors=anchored(where), weight=weight)
     return (name, *bar_at(frame_name, fill_name, x + lw + UNIT + length / 2, y + box_h / 2, length, height, inset, caps,
                           anchored(where)))
 
@@ -2307,7 +2361,7 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
     """A label in the band `band` of bands(), at its `align` side, sized as hud_text() sizes it.
     The title band takes TEXT_SIZE["title"] and the stage band text_size("display"), or the body
     size when the text is too wide; status and hint take the body size. The stage band centres it
-    vertically. A text the band cannot hold stops the run. anchored() holds title and status
+    vertically by its ink (optical_drop() lowers it). A text the band cannot hold stops the run. anchored() holds title and status
     labels to the top, hint labels to the bottom, and a left or right label to its side."""
     box = bands(screen, title).get(band)
     if box is None:
@@ -2324,12 +2378,13 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
         sys.exit(f"band_text({otype!r}): {longest or text!r} is {w} px wide and the {band} band {bw}; it holds about "
                  f"{chars} Chinese characters or {int(chars / 0.6)} letters, so shorten it")
     x = {"left": x0, "center": x0 + (bw - w) // 2, "right": x0 + bw - w}[align]
-    y = y0 + (bh - h) // 2 if band == "stage" else y0
+    weight = TEXT_WEIGHT.get("title", "medium") if band in ("title", "stage") else "regular"
+    drop = optical_drop((longest or "") + text, size, weight) if band == "stage" else 0
+    y = y0 + (bh - h) // 2 + drop if band == "stage" else y0
     edge = {"title": "top", "status": "top", "hint": "bottom"}.get(band)
     where = "-".join(side for side in (edge, None if align == "center" else align) if side) or "center"
     return text_inst(otype, text, x, y, w, h, size, align, color=color, on=on, ivars=ivars,
-                     behaviors={**anchored(where), **(behaviors or {})},
-                     weight=TEXT_WEIGHT.get("title", "medium") if band in ("title", "stage") else "regular")
+                     behaviors={**anchored(where), **(behaviors or {})}, weight=weight)
 
 
 def fit(w: float, h: float, screen: str = "stage", share: float = STAGE_SHARE, title: bool = True) -> tuple[int, int]:
@@ -2363,14 +2418,17 @@ SLIDER_REACH = math.ceil(TOUCH / 2 / UNIT) * UNIT   # px the knob's hit box reac
 
 def control_label(otype: str, text: str, col: int, row: int, cols: int | None, on: str) -> tuple[dict | None, int]:
     """The label of a control's row at cell (col, row): `cols` units wide or as wide as `text`,
-    TOUCH high. Returns (label, or None without text; x in px where the control starts)."""
+    TOUCH high, centred on the control by its ink (optical_drop() lowers it). Returns (label, or None without
+    text; x in px where the control starts)."""
     x = units(col)
     if not text:
         return None, x
     w = units(cols) if cols else label_box(text)[0]
     if label_box(text)[0] > w:
         sys.exit(f"{otype}: {text!r} needs {label_box(text)[0] // UNIT} units and label_cols is {cols}; widen it")
-    return text_inst(otype, text, x, units(row), w, TOUCH, color=text_on(on), on=on), x + w + UNIT
+    drop = optical_drop(text, TEXT_SIZE["body"])
+    return (text_inst(otype, text, x, units(row) + 2 * drop, w, TOUCH - 2 * drop, color=text_on(on), on=on),
+            x + w + UNIT)
 
 
 def control_frame(rel: str, w: int, h: int, pixel, tag: str = "") -> dict:
@@ -3330,7 +3388,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f513ab18d488 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 2fba28ea3703 ================
 
 
 # --- the game ---------------------------------------------------------------------------

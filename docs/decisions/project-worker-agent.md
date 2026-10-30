@@ -93,6 +93,16 @@ and `iteration-72/`.
 - The same definition written by `install.py` into a game project's
   `.claude/agents/`: it reaches a project that holds a copy of the skill and
   no plugin, but it is one more file `install.py` keeps current.
+- A sentence in `SKILL.md` that has the main agent run
+  `verify_change.py --status` when a worker returns, and send a line that
+  is not `ok:` back to the same worker, with the worker running `--status`
+  before it ends. Iteration 79 measured it on `fix-next-round` and
+  `fix-wasd-twitch`, two runs a cell, against the worker that starts its
+  judge in the foreground. Every run of both arms passed every assertion
+  and ended on `ok: looked`, and no main session ran `--status`, because
+  each worker's report already ended on that line. The sentence had no case
+  to act on, so it is not in `SKILL.md`. Measure it again when workers end
+  with a step not passed.
 
 ## Decision
 

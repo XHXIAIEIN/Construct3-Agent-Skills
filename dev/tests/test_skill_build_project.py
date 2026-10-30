@@ -651,7 +651,7 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
 
 def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path):
     """button() puts a label on its shape as one part: the shape at least button_size() of its
-    text, the label centred on the same box in a colour that reads on the fill, and linked as the
+    text, the label centred on the same box by its ink in a colour that reads on the fill, and linked as the
     shape's child in the layout's hierarchy, as the editor writes it, so the events that hide or
     move the button take the label along."""
     t = template_module()
@@ -661,7 +661,7 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     t.shape("resume-default-000.png", "rect", *t.button_size("继续"), "solid")
     shape, label = t.button("Resume", "resume-default-000.png", "ResumeLabel", "继续", 3, 10)
     assert (label["world"]["x"], label["world"]["y"], label["world"]["width"], label["world"]["height"]) == \
-        (96, 320, 160, 160)
+        (96, 328, 160, 152)                                 # shrunk from the top by twice optical_drop()
     assert label["properties"]["horizontal-alignment"] == "center" and label["properties"]["size"] == t.TEXT_SIZE["title"]
     assert (label["properties"]["font"], label["properties"]["bold"]) == ("Inter-Medium", False)
     assert t.contrast(tuple(round(c * 255) for c in label["properties"]["color"][:3]), t.PALETTE["solid"]) >= 3
@@ -684,6 +684,30 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     child = t.text_inst("PanelText", "", 0, 0, 96, 96)
     t.link(hidden, child)
     assert child["properties"]["initially-visible"] is False
+
+
+def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
+    """Center centres a Text's em box, where capitals, digits and Chinese sit high, so optical_drop()
+    lowers a label on or beside a shape: inside a button or a control's row by shrinking its box from
+    the top, so it stays inside; a bar's name and a stage label by moving the box. Short lowercase
+    letters sit centred and stay. A triangle is placed by its centroid, not its box."""
+    t = template_module()
+    t.ROOT = tmp_path
+    title, body = t.TEXT_SIZE["title"], t.TEXT_SIZE["body"]                   # 40 and 24 px high at 1080
+    assert [t.optical_drop(s, title) for s in ("Play", "开始游戏", "42", "menu")] == [4, 4, 4, 0]
+    assert t.optical_drop("Play", body) == 3
+    name = t.labelled_bar("HpName", "HP", "HpFrame", "HpFill", "top-left", 192)[0]
+    assert (name["world"]["y"], name["world"]["height"]) == (64 + 3, 32)
+    big, small = t.band_text("Big", "GO", "stage"), t.band_text("Small", "go", "stage")
+    assert big["world"]["y"] - small["world"]["y"] == t.optical_drop("GO", t.text_size("display")) == 9
+    t.toggle_types()
+    switch, label = t.toggle("sound", 2, 3, text="Sound")
+    assert (label["world"]["y"], label["world"]["height"]) == (t.units(3) + 6, t.TOUCH - 6)
+    frame = t.shape("tri-default-000.png", "triangle", 192, 192, "solid")
+    assert frame["originY"] == 2 / 3
+    tri = t.shape_inst("Tri", "tri-default-000.png", 2, 3)
+    assert tri["world"]["y"] - 2 / 3 * 192 == t.units(3) - 32                 # a sixth of its height higher
+    t.on_grid([tri], "layer Game")
 
 
 def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_the_hud(built, capsys):
@@ -844,7 +868,7 @@ def test_template_slider_is_a_row_a_finger_holds_with_its_knob_on_the_track(tmp_
     track_png = png_pixels(tmp_path / "images" / "slidertrack.png")
     assert [row[0][3] for row in track_png].count(255) == t.CONTROL_SIZE["bar"]  # the bar across the middle alone
     track, fill, knob, label, shown = t.slider("volume", 4, 5, t.units(24), value=50, text="Volume", label_cols=6)
-    assert t.box_of(label) == (128, 160, 320, 320)
+    assert t.box_of(label) == (128, 166, 320, 320)                            # lowered by its ink
     assert t.box_of(track) == (448, 160, 1216, 320)                            # label, a unit, the knob's reach
     assert (knob["world"]["x"], knob["world"]["y"], knob["world"]["width"]) == (832, 240, 160)
     assert knob["instanceVariables"] == {"name": "volume", "value": 50, "lo": 0, "hi": 100, "step": 1}
