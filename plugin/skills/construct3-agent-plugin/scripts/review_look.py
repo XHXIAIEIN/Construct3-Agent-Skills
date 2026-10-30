@@ -915,7 +915,9 @@ def brief(result: dict) -> str:
     if result.get("art_sheet") and shots:
         lines += [f"The last picture, {ART_SHEET}, is no screenshot: it shows each picture of the game on its own, "
                   "at its size and enlarged, the frames of one object side by side. Ask of it what a player would "
-                  "see once the pictures are on screen together, and answer no to a question about text or the HUD.",
+                  "see once the pictures are on screen together, and answer no to a question about text or the HUD. A "
+                  "button or a panel drawn without words gets its label from the game, so two of them that differ only "
+                  "in size are no fault.",
                   ""]
     lines += ["Open each screenshot with your image tool, one at a time:", ""]
     lines += [f"{n}. {layout}: {shot}" for n, (layout, shot) in enumerate(shots, 1)]
