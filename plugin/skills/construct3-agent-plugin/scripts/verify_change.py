@@ -52,6 +52,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import c3project as c3
+import open_in_editor as oe
 
 STEPS = ("checked", "reviewed", "opened", "previewed", "played", "looked")
 EDITOR_STEPS = ("opened", "previewed", "played", "looked")      # rerun only when the files changed
@@ -142,7 +143,7 @@ class Run:
         except (OSError, ValueError, AssertionError, AttributeError):
             self.record = {"steps": {}, "pending": [], "answered": []}
         self.digest, self.plans = files_digest(self.root), plans_digest(self.root)
-        self.env = dict(os.environ, CONSTRUCT3_RAG=str(project.rag), **{c3.IN_VERIFY: "1"},
+        self.env = dict(os.environ, CONSTRUCT3_RAG=str(project.rag), **{c3.IN_VERIFY: "1", oe.SHARED: str(self.root)},
                         PYTHONIOENCODING="utf-8")
         self.style = args.style or (self.root / c3.GENERATOR).is_file()
 
@@ -481,15 +482,21 @@ def main() -> int:
         run.record["pending"] = []
         print(f"answered: {len(pending)} question{'s' if len(pending) != 1 else ''} recorded"
               if pending else "answered: no question was waiting for an answer", flush=True)
-    for name, step in RUNNERS:
-        if STEPS.index(name) > STEPS.index(args.upto):
-            break
-        ended = step(run)
-        if ended:
-            run.save()
-            code, line = ended
-            print(line)
-            return code
+    try:
+        for name, step in RUNNERS:
+            if STEPS.index(name) > STEPS.index(args.upto):
+                break
+            ended = step(run)
+            if ended:
+                run.save()
+                code, line = ended
+                print(line)
+                return code
+    finally:
+        # The editor steps leave the browser running for each other
+        exe = args.browser or oe.browser_path()
+        if exe:
+            oe.close_shared(exe, oe.profile_folder(None, run.root, exe))
     run.save()
     print(handed_over(run, args.upto))
     return 0

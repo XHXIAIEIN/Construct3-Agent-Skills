@@ -641,3 +641,51 @@ def test_a_crash_report_while_building_the_preview_is_a_refusal_too(project):
 
 def test_the_report_goes_to_the_repository_skill_md_names():
     assert f"source: https://github.com/{oe.REPOSITORY}\n" in (SKILL / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_a_script_of_verify_change_leaves_the_browser_to_the_next(tmp_path, monkeypatch):
+    """With SHARED naming the project, a script leaves the browser running for the next one; without it, the
+    script closes the browser as it ends."""
+    project = tmp_path / "game"
+    project.mkdir()
+    assert not oe.sharing(project)
+    ended = []
+    fake = SimpleNamespace(leave=lambda: ended.append("leave"), close=lambda: ended.append("close"))
+    monkeypatch.setenv(oe.SHARED, str(project))
+    assert oe.sharing(project) and not oe.sharing(tmp_path / "other")
+    oe.Browser.end(fake)
+    monkeypatch.delenv(oe.SHARED)
+    oe.Browser.end(fake)
+    assert ended == ["leave", "close"]
+
+
+def test_the_next_script_takes_the_page_that_holds_the_same_files(tmp_path, monkeypatch):
+    """The page a script kept is taken while it holds the same files and still bears its mark; a page that
+    reloaded, or that holds other files, is closed and forgotten, so the next script opens the project again."""
+    class Page:
+        mark = ""
+
+        def __init__(self, url):
+            self.url, self.ws = url, SimpleNamespace(close=lambda: None)
+
+        def evaluate(self, expression):
+            return Page.mark
+
+    closed = []
+    devtools = SimpleNamespace(call=lambda method, **kw: {"targetInfos": [{"targetId": "T1"}]}
+                               if method == "Target.getTargets" else closed.append(kw["targetId"]))
+    browser = SimpleNamespace(profile=tmp_path, devtools=devtools, port=1)
+    monkeypatch.setattr(oe, "DevTools", Page)
+    monkeypatch.setattr(oe, "keep_active", lambda page: None)
+    kept = tmp_path / oe.SHARED_FILE
+    assert oe.kept_editor(browser, "k") is None
+    named = {"key": "k", "target": "T1", "editor": "e", "release": "r506", "result": {"opened": True}}
+    kept.write_text(json.dumps(named), encoding="utf-8")
+    Page.mark = "k"
+    target, page, opened = oe.kept_editor(browser, "k")
+    assert target == "T1" and page.url.endswith("/devtools/page/T1") and opened["release"] == "r506"
+    assert kept.is_file() and not closed
+    assert oe.kept_editor(browser, "other files") is None and closed == ["T1"] and not kept.exists()
+    kept.write_text(json.dumps(named), encoding="utf-8")
+    Page.mark = ""
+    assert oe.kept_editor(browser, "k") is None and closed == ["T1", "T1"] and not kept.exists()

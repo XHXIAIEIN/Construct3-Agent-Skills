@@ -29,7 +29,9 @@ summary.
   holds, and a summary line (`design:`, `look:`) with a questions block.
 - The editor steps take the time: the first open takes up to 40 seconds,
   and the look visits every layout. The checker and the design review read
-  the files in seconds.
+  the files in seconds. On a warm profile each editor script spends about
+  1 second starting the browser and loading the editor, and 4 seconds
+  opening the project, before its own preview work.
 - When no plan is kept, the run that asks the look questions also asks for
   one. Eval iterations 73 to 75 ran `fix-next-round` and `fix-wasd-twitch`
   through `construct3:project-worker` on Haiku 5.5, two runs a cell,
@@ -82,6 +84,15 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
   and scripts count, because the preview reads them. A kept plan changes
   nothing the game runs. The play step also compares a digest of the kept
   plans, so a changed plan plays again.
+- The editor scripts share one browser and one open project. The run sets
+  `CONSTRUCT3_SHARED_EDITOR` to the project, so each script leaves the
+  browser running and keeps the project's editor page, marked with a digest
+  of the packed files. The next script takes that page while it holds the
+  same files, and opens the project again otherwise; each still starts a
+  preview of its own. The run closes the browser as it ends. Over eight
+  eval projects, three calls each on a warm profile, a call that ran every
+  editor step took a median 33.6 seconds instead of 44.4, and each project
+  saved 10.1 to 11.4 seconds, with the same output.
 - A design question is answered with an explicit `--answered`, so a run
   that answers is visible in its transcript, and the eval can count one
   that skipped. An answer holds for the files it was asked about: a change

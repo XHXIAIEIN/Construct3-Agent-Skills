@@ -133,6 +133,10 @@ profile, named in the line with its pid: wait for it to end, or pass --profile f
 
 EDITOR = "https://editor.construct.net/"
 BETA = EDITOR + "beta"      # redirects to the latest beta release
+# verify_change.py sets SHARED to the project it checks. The scripts it runs then leave the browser running and
+# keep that project open in an editor page for the next script, which skips about 5 seconds of start and open;
+# verify_change.py closes the browser as it ends. SHARED_FILE in the profile names the kept page.
+SHARED, SHARED_FILE = "CONSTRUCT3_SHARED_EDITOR", "shared-editor.json"
 # Seconds a DevTools call may take. SETUP waits in the page up to 45 for the editor,
 # RESULT up to 30 for the drop and 45 for the answer; every other call answers at once.
 CALL, SETUP_WAIT, RESULT_WAIT = 10, 55, 85
@@ -801,6 +805,63 @@ class Browser:
             release(self.held)
             self.held = None
 
+    def leave(self) -> None:
+        """Let go of the browser and leave it running for the next run on the profile, which takes it over."""
+        if self.devtools:
+            self.devtools.ws.close()
+        if self.held:
+            release(self.held)
+            self.held = None
+
+    def end(self) -> None:
+        """leave() while verify_change.py shares the browser across the scripts it runs, else close()."""
+        self.leave() if os.environ.get(SHARED) else self.close()
+
+
+def sharing(project: Path) -> bool:
+    """Whether verify_change.py runs this script on the project and keeps it open for the next one."""
+    held = os.environ.get(SHARED)
+    return bool(held) and Path(held).resolve() == project.resolve()
+
+
+def kept_editor(browser: Browser, key: str) -> tuple[str, DevTools, dict] | None:
+    """The editor page that an earlier script of verify_change.py kept with the same files open, as its target,
+    a connection and what opening it gave; None after closing a kept page of other files, or one that no longer
+    holds the project."""
+    path = browser.profile / SHARED_FILE
+    if not path.is_file():
+        return None
+    kept = json.loads(path.read_text(encoding="utf-8"))
+    alive = {t["targetId"] for t in browser.devtools.call("Target.getTargets")["targetInfos"]}
+    if kept["target"] in alive and kept["key"] == key:
+        page = DevTools(f"ws://127.0.0.1:{browser.port}/devtools/page/{kept['target']}")
+        # A page that reloaded or crashed since no longer holds the mark its opening set
+        if page.evaluate("window.__c3kept || ''") == key:
+            keep_active(page)
+            return kept["target"], page, kept
+        page.ws.close()
+    path.unlink()
+    if kept["target"] in alive:
+        browser.devtools.call("Target.closeTarget", targetId=kept["target"])
+    return None
+
+
+def keep_editor(browser: Browser, key: str, target: str, page: DevTools, opened: dict) -> None:
+    """Mark the page as holding these files and name it in the profile for the next script."""
+    page.evaluate(f"window.__c3kept = {json.dumps(key)}")
+    (browser.profile / SHARED_FILE).write_text(json.dumps({"key": key, "target": target, **opened}), encoding="utf-8")
+
+
+def close_shared(exe: str, profile: Path) -> None:
+    """Close the browser that the scripts of verify_change.py left running on the profile, when one runs."""
+    (profile / SHARED_FILE).unlink(missing_ok=True)
+    if not Browser.devtools_url(profile / "DevToolsActivePort"):
+        return
+    try:
+        Browser(exe, profile, False).close()
+    except ProfileBusy:     # a run of the user's own holds it, and closes it as it ends
+        pass
+
 
 def keep_active(page) -> None:
     """Keep a page visible and focused while it is driven. A headed window covered by other
@@ -1085,28 +1146,40 @@ def open_one(browser: Browser, editor: str, project: Path, staged: Path, shot: P
     is opened in the latest beta instead. Once it opened, `then` previews it, given
     the browser and the editor's target and page, and its answer is the result's
     `preview`. A bundled addon the profile lacks is installed only with install, the user's word."""
-    staged.write_bytes(pack(project))
-    target, page = browser.page(editor)
+    data = pack(project)
+    staged.write_bytes(data)
+    keep = sharing(project)
+    key = f"{hashlib.sha256(data).hexdigest()[:16]} {editor} {pinned} {install}"
+    found = kept_editor(browser, key) if keep else None
+    target, page = found[:2] if found else browser.page(editor)
+    kept = False
     try:
-        load(page, editor)
-        saved, (major, minor) = saved_release(project), (page.evaluate(RELEASE_JS) + [0, 0])[:2]
-        if not pinned and major and saved > major * 100 + minor:
-            page.ws.close()
-            browser.devtools.call("Target.closeTarget", targetId=target)
-            editor = BETA
-            target, page = browser.page(editor)
+        if found:
+            editor, release, result = found[2]["editor"], found[2]["release"], found[2]["result"]
+            started = time.monotonic()
+        else:
             load(page, editor)
-        editor = page.evaluate("location.origin + location.pathname")
-        major, minor = (page.evaluate(RELEASE_JS) + [0, 0])[:2]
-        release = release_name(major * 100 + minor) if major else ""
-        set_up(page)
-        started = time.monotonic()
-        put_file(page, staged)
-        result = page.evaluate(f"({RESULT_JS})({json.dumps(install)})", wait=RESULT_WAIT)
+            saved, (major, minor) = saved_release(project), (page.evaluate(RELEASE_JS) + [0, 0])[:2]
+            if not pinned and major and saved > major * 100 + minor:
+                page.ws.close()
+                browser.devtools.call("Target.closeTarget", targetId=target)
+                editor = BETA
+                target, page = browser.page(editor)
+                load(page, editor)
+            editor = page.evaluate("location.origin + location.pathname")
+            major, minor = (page.evaluate(RELEASE_JS) + [0, 0])[:2]
+            release = release_name(major * 100 + minor) if major else ""
+            set_up(page)
+            started = time.monotonic()
+            put_file(page, staged)
+            result = page.evaluate(f"({RESULT_JS})({json.dumps(install)})", wait=RESULT_WAIT)
         if shot:
             shot.write_bytes(base64.b64decode(page.call("Page.captureScreenshot")["data"]))
         if isinstance(result, str):
             result = {"opened": False, "title": "", "dialogs": [], "warnings": [], "errors": [result]}
+        kept = keep and result["opened"]
+        if kept and not found:
+            keep_editor(browser, key, target, page, {"editor": editor, "release": release, "result": result})
         ran = None
         if result["opened"] and then and too_deep(browser.data):
             most = MAX_PATH - 1 - INDEXEDDB
@@ -1121,7 +1194,8 @@ def open_one(browser: Browser, editor: str, project: Path, staged: Path, shot: P
                 ran = {"started": False, "layout": None, "runtime": None, "errors": [f"the preview stopped answering: {e}"]}
     finally:
         page.ws.close()
-        browser.devtools.call("Target.closeTarget", targetId=target)
+        if not kept:
+            browser.devtools.call("Target.closeTarget", targetId=target)
         staged.unlink(missing_ok=True)
 
     status = ("opened" if result["opened"] else "addon" if result.get("addon")
@@ -1507,7 +1581,7 @@ def drive(exe: str, profile: Path, headed: bool, work: Callable[[Browser], T],
         print(f"{exe} could not be driven: {e}. Pass another browser with --browser.", file=sys.stderr)
     finally:
         if browser is not None:
-            browser.close()
+            browser.end()
     return None
 
 
@@ -1572,7 +1646,7 @@ def run(projects: list[Path], editor: str, exe: str, args, label: Callable[[str]
             for future in [pool.submit(one, i, pr) for i, pr in enumerate(projects)]:
                 future.result()
     finally:
-        browser.close()
+        browser.end()
     return sorted(results, key=lambda r: r["project"])
 
 
