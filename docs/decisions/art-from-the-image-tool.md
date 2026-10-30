@@ -123,17 +123,21 @@ Option 3.
   pictures share one style.
 - `scripts/art.py`, the entry point of both routes (`art-entry-point.md`),
   runs this route through `prepare_art.py`. It prints the next step only, so that no
-  picture is made before what it depends on. While `ART_STYLE` is empty, it
-  asks for that. With more than one sprite to make and no
+  picture is made before what it depends on. When the user gave a look,
+  it first asks for the look to be picked on the first play screen
+  (`look-picker.md`), which writes `ART_STYLE` and keeps the picked screen
+  as `art/look.png`. While `ART_STYLE` is empty, it asks for that. In
+  paper and ink, with more than one sprite to make and no
   `art/raw/_key.png`, it asks for the key picture: a line-up of four
   subjects, the first of each object before a second of one, shown to the
   user when they are there to choose one. Then it prints a prompt per
   picture still to make, the aspect ratio to ask for, and where to save it,
   `art/raw/`. A sprite is asked for on a flat key colour, magenta, or green
   for a subject in pink or purple, with no ground shadow and no text. Its
-  prompt gives the key picture as the reference image, which sets the
-  style and the palette and is not a picture to copy. A scene's prompt
-  does not, because the key picture's background is the key colour.
+  prompt gives `art/look.png` or the key picture as the reference image,
+  which sets the style and the palette and is not a picture to copy. A
+  scene's prompt does not, because the key picture's background is the key
+  colour.
 - `--list` warns of three kinds of subject and prints the prompts all the
   same:
   - a sprite's subject that names a background or a shadow;

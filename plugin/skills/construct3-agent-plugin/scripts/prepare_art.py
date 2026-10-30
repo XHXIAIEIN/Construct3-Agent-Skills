@@ -3,13 +3,16 @@ and fit of each picture it made.
 
 The generator's art() asks for each sprite by what it shows, in a box of whole
 units, and writes the list to art/wanted.json. art.py prints one step at a
-time for the pictures of the image route. While ART_STYLE is empty, it asks
-for ART_STYLE. While more than one sprite is to make, it asks for the key
-picture, a line-up of the game's subjects that sets the style. Then it prints
-a prompt per picture, which starts with ART_STYLE so that the pictures share
-one style. Each picture is saved as art/raw/<name>.png, .jpg or .webp, where
-<name> is the image's file name without .png, and the key picture as
-art/raw/_key.png: each sprite's prompt then gives it as the reference image.
+time for the pictures of the image route. When the user gave a look,
+USER_LOOK, it first asks for the look to be picked with pick_look.py, which
+writes ART_STYLE and keeps the picked first play screen as art/look.png. While
+ART_STYLE is empty, it asks for ART_STYLE. In paper and ink, while more than
+one sprite is to make, it asks for the key picture, a line-up of the game's
+subjects that sets the style. Then it prints a prompt per picture, which
+starts with ART_STYLE so that the pictures share one style. Each picture is
+saved as art/raw/<name>.png, .jpg or .webp, where <name> is the image's file
+name without .png, and the key picture as art/raw/_key.png: each sprite's
+prompt then gives art/look.png or the key picture as the reference image.
 
 The prompts come with warnings of subjects that will come out wrong. A subject
 must not name a background, a shadow, text, or a drawing style that ART_STYLE
@@ -130,6 +133,7 @@ TRIES = 3                                  # refusals before a picture keeps its
 STAND_IN = (f"{TRIES} times, so it keeps its stand-in. To try again, change its subject in art(), which starts the "
             f"count again")
 MARK = "c3-art"                            # the PNG text key check_look.py reads as a painting
+LOOK = "art/look.png"                      # the first play screen in the look the user picked, from pick_look.py
 
 
 class Unusable(Exception):
@@ -335,9 +339,14 @@ def warnings(items: list[dict], style: str) -> list[str]:
     return out
 
 
+def unpicked(root: Path, wanted: dict) -> bool:
+    """Whether the user gave a look, USER_LOOK, and its direction is not picked yet: no art/look.png."""
+    return bool(wanted.get("user_look", "").strip()) and not (root / LOOK).is_file()
+
+
 def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
-    """The next step only: ART_STYLE while it is empty, then the key picture while it is missing,
-    then a prompt per picture."""
+    """The next step only: the look picker while the user's look is unpicked, ART_STYLE while it is
+    empty, then in paper and ink the key picture while it is missing, then a prompt per picture."""
     style, items = wanted.get("style", ""), wanted["images"]
     refused = refusals(root, wanted)
     states = {item["file"]: state(root, item, refused) for item in items}
@@ -347,6 +356,11 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
         (f", stand-ins: {counts['stand-in']}" if counts["stand-in"] else "")
     making = [item for item in items if states[item["file"]] in ("make", "again")]
     sprites = [item for item in making if item["kind"] != "scene"]
+    if to_make and unpicked(root, wanted):
+        return [f"look: the user gave one, USER_LOOK, and it is not picked yet. Run python {skill}/scripts/"
+                f"pick_look.py, which has the first play screen drawn in three directions for the user to pick; the "
+                f"pick writes ART_STYLE and PALETTE, and keeps its screen as {LOOK}, the reference image of every "
+                f"prompt", f"{count}; next: python {skill}/scripts/pick_look.py"]
     if to_make and not style.strip():
         return ["style: none. Write ART_STYLE in tools/build_project.py: one sentence of art direction, agreed with "
                 f"the user, that fixes the {joined(list(DIMENSIONS), 'and')}, so that every picture shares it",
@@ -355,8 +369,11 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
                 f"art.py again"]
     out = ([f"style: {style}"] if style.strip() else []) + (style_warning(style) if making else []) + \
         warnings(making, style)
-    key_picture = raw_of(root, "_key.png")
-    if len(sprites) > 1 and key_picture is None:
+    # The user's look was picked on its first play screen, which every prompt then refers to; paper and
+    # ink has its key picture
+    picked = bool(wanted.get("user_look", "").strip())
+    key_picture = root / LOOK if picked else raw_of(root, "_key.png")
+    if not picked and len(sprites) > 1 and key_picture is None:
         shown = lineup(sprites)
         subjects = "; ".join(item["subject"].rstrip("。. ") for item in shown)
         name, key = key_for({"subject": subjects}, style)
@@ -371,9 +388,9 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
         if s in ("make", "again"):
             reference = key_picture is not None and item["kind"] != "scene"
             tried = f" again {refusal(len(refused[rel]['pictures']))}" if s == "again" else ""
+            given = f", {key_picture.relative_to(root).as_posix()} as the reference image" if reference else ""
             out.append(f"make {stem}{tried}: ratio {ratio(item['width'], item['height'])}, for a {item['width']}x"
-                       f"{item['height']} box" + (f", art/raw/{key_picture.name} as the reference image" if reference
-                                                  else "") + f" -> art/raw/{stem}.png")
+                       f"{item['height']} box{given} -> art/raw/{stem}.png")
             out.append(f"  \"{prompt(with_refusal(item, refused), style, reference)}\"")
         elif s == "stand-in":
             out.append(f"stand-in {stem}: refused {STAND_IN}")

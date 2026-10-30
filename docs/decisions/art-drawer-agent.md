@@ -29,7 +29,8 @@ files that script writes under `art/`, and the roles of `PALETTE` that a
 subject needs. It stops after three rounds, or once every question is
 answered no, and replies with the questions still answered yes.
 `art.py` names the type in its last line, and `project-worker` hands the
-brief to it as it hands a judge's brief.
+brief to it as it hands a judge's brief. `pick_look.py` hands it the first
+play screen in three looks the same way (`look-picker.md`).
 
 Both candidate models drew the trial's card game in one style
 (`art-drawn-in-code.md`, "A drawing run measured here"). The type names

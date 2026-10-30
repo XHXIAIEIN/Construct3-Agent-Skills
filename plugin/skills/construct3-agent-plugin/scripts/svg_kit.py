@@ -55,9 +55,14 @@ width, the corner radius and the weight of every icon drawn through it:
     icons = kit.icons(stroke=4, radius=4, weight="line")
     with icons.drawing("heart-default-000.png") as d:
         d.path("M 8 20 ...")        # a line 4 px wide in the picture's role
+
+A first play screen in a look of the picker (scripts/pick_look.py) is a
+drawing of the viewport's size, kit.screen(name), and its labels are
+d.text(..., kind=), one of the kinds of TEXT_SIZE.
 """
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -88,6 +93,7 @@ FILTERS = {
 EASES = {"linear": (0, 0, 1, 1), "ease": (0.25, 0.1, 0.25, 1), "ease-in": (0.42, 0, 1, 1),
          "ease-out": (0, 0, 0.58, 1), "ease-in-out": (0.42, 0, 0.58, 1)}
 WEIGHTS = ("line", "solid")                  # an icon drawn as a line, or filled
+PICKER = "pick-look"                         # .tmp/scripts/pick-look/, where a screen of the look picker is written
 
 
 def wanted(root: Path) -> dict:
@@ -162,12 +168,22 @@ class Kit:
             sys.exit(f"icons(weight={weight!r}): the weights are {', '.join(WEIGHTS)}")
         return Icons(self, stroke or self.line, self.unit / 8 if radius is None else radius, weight)
 
+    def screen(self, name: str) -> "Drawing":
+        """The first play screen in one look of the picker, a drawing of the viewport's size, written to
+        .tmp/scripts/pick-look/<name>.svg; its colours are the roles, which the picker sets per look."""
+        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
+            sys.exit(f"screen({name!r}): a screen's name is lowercase words joined by dashes, such as 'ink-wash'")
+        w, h = self.wanted["view"]
+        return Drawing(self, {"file": name + ".png", "width": w, "height": h, "kind": "screen"},
+                       c3.script_folder(self.root, PICKER))
+
 
 class Drawing:
     """One picture: shapes added in order, back to front, written to art/<name>.svg on exit."""
 
-    def __init__(self, kit: Kit, item: dict) -> None:
+    def __init__(self, kit: Kit, item: dict, folder: Path | None = None) -> None:
         self.kit, self.item = kit, item
+        self.folder = folder or kit.root / "art"
         self.w, self.h = item["width"], item["height"]
         self.unit, self.line, self.pixel_art = kit.unit, kit.line, kit.pixel_art
         self.prefix = stem_of(item["file"])
@@ -323,6 +339,21 @@ class Drawing:
                     self.rect(x + c, y + r, run - c, 1, legend[ch])
                 c = run
 
+    def text(self, x: float, y: float, words: str, kind: str, fill: str = "ink", anchor: str = "start") -> None:
+        """A label whose baseline starts at (x, y), in the size of the kind `kind` of TEXT_SIZE and the game's
+        font; `anchor` is "start", "middle" or "end". The look picker holds every label to its kind's size."""
+        sizes = self.kit.wanted.get("text_size")
+        if sizes is None:
+            sys.exit(f"{self.prefix}: art/wanted.json has no text_size, which the helpers of an older template do "
+                     f"not write: refresh them with the skill's install.py and run the generator")
+        if kind not in sizes:
+            sys.exit(f"{self.prefix}: text(kind={kind!r}): the kinds of TEXT_SIZE are {', '.join(sizes)}")
+        size = sizes[kind] * (1 if self.pixel_art else 4 / 3)        # pt to px; a Sprite Font's size is in px
+        words = words.replace("&", "&amp;").replace("<", "&lt;")
+        self.body.append("  " * self.depth + f'<text class="{kind}" x="{num(x)}" y="{num(y)}" '
+                         f'text-anchor="{anchor}" style="fill:{self.paint(fill)};font-size:{num(size)}px">'
+                         f"{words}</text>")
+
     class _Group:
         def __init__(self, d: "Drawing", attrs: str) -> None:
             self.d, self.attrs = d, attrs
@@ -354,7 +385,8 @@ class Drawing:
     def save(self) -> Path:
         if not self.body:
             sys.exit(f"{self.prefix}: the drawing is empty")
-        path = self.kit.root / "art" / f"{self.prefix}.svg"
+        path = self.folder / f"{self.prefix}.svg"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.svg(), encoding="utf-8", newline="\n")
         return path
 
