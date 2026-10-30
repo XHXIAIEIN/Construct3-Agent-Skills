@@ -38,7 +38,9 @@ Floor (what must hold), Reflex (the look a generator reaches for) and Finish
 
 `text`, `stacked`, `overlap`, `edge`, `frame` and `faint` are broken.
 `crowd` is ugly. `optical` and `unlimited` are fragile. A yes to questions
-1-3 (text, cover, edge) is broken, and a yes to the others is ugly.
+1-3 (text, cover, edge) is broken, and a yes to the others is ugly. A yes
+from before the change warns whatever its tier
+(`look-blocks-only-what-the-change-brought.md`).
 
 The review also looks past the start of each layout:
 

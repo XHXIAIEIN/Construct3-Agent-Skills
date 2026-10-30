@@ -2,8 +2,9 @@
 what the run prints. The browser is not started: the checks are pure functions
 of what LOOK_JS reads from the runtime, and a reviewer's reply is checked against the brief."""
 import json
+import subprocess
 
-from tests.skill_helpers import SKILL, INSTALLED, png, run, script_module
+from tests.skill_helpers import NEEDS_GIT, SKILL, INSTALLED, png, run, script_module
 
 LAYERS = {"Game": {"parallax": [1, 1], "shown": True, "view": [0, 0, 1280, 720]},
           "UI": {"parallax": [0, 0], "shown": True, "view": [0, 0, 1280, 720]}}
@@ -203,7 +204,7 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
                       + ["Big map 5: yes", "Shop 1: no", "Map 99: no", "I looked at every screenshot."])
     lines, code, verdict = rl.check_reply(REVIEWED, reply, "reply.md", None)
     assert code == 1 and verdict == {"complete": False, "yes": 2, "yeses": [
-        "Map 2, broken - top left: the score covers the timer", "Big map 5, ugly"]}
+        "Map 2, broken - top left: the score covers the timer", "Big map 5, ugly"], "before": []}
     assert lines == [
         f"reply: reply.md, against the brief of 2 screenshots and {asked} questions: {2 * asked} answers asked",
         "  missing: Map 3, 4; Big map 8",
@@ -217,7 +218,7 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
         "yes is; then check its reply again"]
     every_no = "\n".join(f"{shot} {q}: no" for shot in ("Map", "Big map") for q in range(1, asked + 1))
     lines, code, verdict = rl.check_reply(REVIEWED, every_no, "reply.md", None)
-    assert code == 0 and verdict == {"complete": True, "yes": 0, "yeses": []} and lines[-1] == rl.DONE
+    assert code == 0 and verdict == {"complete": True, "yes": 0, "yeses": [], "before": []} and lines[-1] == rl.DONE
     one_yes = every_no.replace("Map 2: no", "Map 2: yes - the coin: a grey box")
     lines, code, verdict = rl.check_reply(REVIEWED, one_yes, "r", None)
     assert code == 1 and verdict["yes"] == 1 and "  yes, broken: Map 2 - the coin: a grey box" in lines
@@ -234,6 +235,72 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
     lines, _, _ = rl.check_reply(REVIEWED, one_yes, "r", "python v.py")
     assert lines[-1].endswith("before, after and why; then run python v.py, which looks again; after three rounds with "
                               "a yes its look step passes, and the hand-over names each yes left"), lines[-1]
+
+
+def test_a_yes_the_screen_showed_before_the_change_fails_nothing():
+    """With a picture from before the change, a yes says new or before; a yes from before goes into the hand-over
+    and fails nothing, a new one is a fault to fix, and one that does not say is asked again. A screenshot without
+    a picture from before, a layout the change added, makes every yes new."""
+    result = {**REVIEWED, "before": {"commit": "a" * 40, "shots": {"Map": ".tmp/before/Map.png"}}}
+    asked = len(rl.questions(True, []))
+    every_no = "\n".join(f"{shot} {q}: no" for shot in ("Map", "Big map") for q in range(1, asked + 1))
+    from_before = every_no.replace("Map 4: no", "Map 4: yes, before - the player: a plain blue box")
+    lines, code, verdict = rl.check_reply(result, from_before, "r", "python v.py")
+    assert code == 0 and verdict == {"complete": True, "yes": 0, "yeses": [],
+                                     "before": ["Map 4, ugly - the player: a plain blue box"]}
+    assert "  yes from before, for the hand-over: Map 4 - the player: a plain blue box" in lines
+    assert lines[-1] == f"next: {rl.FROM_BEFORE}; run python v.py, which passes its look step on this reply"
+    assert rl.check_reply(result, from_before, "r", None)[0][-1] == f"next: {rl.FROM_BEFORE}; the look review is done"
+    new = from_before.replace("Map 3: no", "Map 3: yes (new) - top right: the score runs off the edge")
+    lines, code, verdict = rl.check_reply(result, new, "r", None)
+    assert code == 1 and verdict["yeses"] == ["Map 3, broken - top right: the score runs off the edge"]
+    assert verdict["before"] == ["Map 4, ugly - the player: a plain blue box"]
+    untold = every_no.replace("Map 5: no", "Map 5: yes - a glow")
+    lines, code, verdict = rl.check_reply(result, untold, "r", None)
+    assert code == 1 and not verdict["complete"] and "  yes without new or before: Map 5" in lines
+    assert lines[-1].endswith("and whether it is new or from before; then check its reply again")
+    added = every_no.replace("Big map 4: no", "Big map 4: yes, before - a grey box")
+    _, code, verdict = rl.check_reply(result, added, "r", None)
+    assert code == 1 and verdict["yeses"] == ["Big map 4, ugly - a grey box"] and verdict["before"] == []
+
+
+def test_the_brief_shows_each_screen_before_the_change():
+    plain = rl.brief(REVIEWED)
+    assert "before the change" not in plain and "Map 2: yes - <where on the screenshot>" in plain
+    result = {**REVIEWED, "before": {"commit": "a" * 40, "shots": {"Map": ".tmp/before/Map.png"}}}
+    told = rl.brief(result)
+    assert "1. Map: .tmp/look/Map.png (before the change: .tmp/before/Map.png)" in told
+    assert "2. Big map: .tmp/look/Big map.png\n" in told
+    assert "Map 2: yes, new - <where on the screenshot>" in told and "Map 3: yes, before - <where" in told
+    assert rl.read_reply("Map 4: yes, before - a box\nMap 5: Yes (NEW): a glow\nMap 6: yes - x", ["Map"], 8)[0] == {
+        ("Map", 4): (True, "a box", "before"), ("Map", 5): (True, "a glow", "new"), ("Map", 6): (True, "x", None)}
+
+
+@NEEDS_GIT
+def test_the_change_starts_where_the_agents_branch_left_the_users(tmp_path):
+    """The commit before the change: the newest of HEAD's history that the user's branch holds, HEAD while the
+    agents branch has no commit of its own or no other branch exists, and the project's folder of that commit
+    copied once into the review's folder."""
+    def git(*a):
+        subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+    assert rl.before_commit(tmp_path) is None
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "a@b.c")
+    git("config", "user.name", "a")
+    (tmp_path / "project.c3proj").write_text("{}", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "the user's")
+    start = rl.c3.git_out(tmp_path, "rev-parse", "HEAD")
+    assert rl.before_commit(tmp_path) == start
+    git("switch", "-qc", "agents")
+    assert rl.before_commit(tmp_path) == start
+    (tmp_path / "project.c3proj").write_text('{"name": "changed"}', encoding="utf-8")
+    git("commit", "-qam", "the agent's")
+    git("commit", "-q", "--allow-empty", "-m", "and another")
+    assert rl.before_commit(tmp_path) == start
+    copy = rl.before_copy(tmp_path, start)
+    assert copy == tmp_path / ".tmp" / "scripts" / "review-look" / "before" / start[:12] / "project"
+    assert (copy / "project.c3proj").read_text(encoding="utf-8") == "{}"
 
 
 def test_review_look_checks_a_saved_reply_without_a_browser(project):
@@ -261,7 +328,7 @@ def test_a_checked_reply_is_kept_on_the_run_it_answers(project):
     assert code == 0 and out.rstrip().splitlines()[-1] == rl.DONE, out
     result = json.loads((project / ".tmp" / "scripts" / "review-look" / "result.json").read_text(encoding="utf-8"))
     assert result["run"] == "r1" and result["reply"] == {"file": "reply.md", "complete": True, "yes": 0,
-                                                         "yeses": []}, result
+                                                         "yeses": [], "before": []}, result
     record = project / ".tmp" / "scripts" / "verify-change" / "result.json"
     record.parent.mkdir(parents=True, exist_ok=True)
     record.write_text(json.dumps({"steps": {"looked": {"state": "passed"}}}), encoding="utf-8")

@@ -62,17 +62,24 @@ the form of the answer, for a reviewer that has not seen the project, since
 the agent that built the game reads its pictures by what it meant to build.
 The last three lines are look:, next:, and brief:, which says who answers.
 
+With git, the brief also shows each layout as it was where the branch agents
+left the user's, and a yes the reviewer marks before fails nothing.
+
 --reply checks a reviewer's saved reply against the brief of the last run in
 --out, without a browser: every answer missing, each yes that does not say
-where, each line naming no screenshot of the brief, then every yes, worst first.
+where (or new or before), each line naming no screenshot of the brief, then
+every yes, worst first.
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import io
 import json
 import re
+import subprocess
 import sys
+import tarfile
 import time
 import unicodedata
 import uuid
@@ -145,8 +152,8 @@ OVERLAY = 0.5
 CROWD = 3
 # A line of a reviewer's reply: the screenshot's name, the question's number and yes or no, as the brief asks,
 # through the bullets, bold, "Q" and dashes a model adds; what follows a yes says where it is.
-ANSWER = re.compile(r"^\W*(?P<shot>.+?)\W+(?:q(?:uestion)?\s*)?(?P<q>\d+)\s*[:.)\-][\s*]*(?P<a>yes|no)\b(?P<rest>.*)$",
-                    re.I)
+ANSWER = re.compile(r"^\W*(?P<shot>.+?)\W+(?:q(?:uestion)?\s*)?(?P<q>\d+)\s*[:.)\-][\s*]*(?P<a>yes|no)\b"
+                    r"(?:[\s,;(*]*(?P<when>new|before)\b)?(?P<rest>.*)$", re.I)
 JOINED = re.compile(r"\s[·•|]\s")
 NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left", (1, 2): "right",
           (2, 0): "bottom-left", (2, 1): "bottom", (2, 2): "bottom-right"}
@@ -1190,12 +1197,74 @@ def pictures(result: dict) -> list[tuple[str, str]]:
     return shots + ([(ART_SHEET, result["art_sheet"])] if shots and result.get("art_sheet") else [])
 
 
+def before_commit(project: Path) -> str | None:
+    """The commit the change under review starts from: the newest commit of HEAD's history that another local
+    branch holds, where the branch agents left the user's branch (SKILL.md), else HEAD. None outside git or before
+    the first commit."""
+    head = c3.git_out(project, "rev-parse", "--verify", "-q", "HEAD^{commit}")
+    if not head:
+        return None
+    current = c3.git_out(project, "symbolic-ref", "-q", "HEAD") or ""
+    others = [r for r in (c3.git_out(project, "for-each-ref", "--format=%(refname)", "refs/heads") or "").split()
+              if r != current]
+    if not others:
+        return head
+    own = set((c3.git_out(project, "rev-list", "HEAD", "--not", *others) or "").split())
+    history = (c3.git_out(project, "rev-list", "--topo-order", "HEAD") or "").split()
+    return next((c for c in history if c not in own), head)
+
+
+def before_copy(project: Path, commit: str) -> Path | None:
+    """The project's folder as it was at commit, written once into .tmp/scripts/review-look/before/<commit>/;
+    None when the commit holds no project there."""
+    copy = c3.script_folder(project, "review-look") / "before" / commit[:12] / "project"
+    if (copy / "project.c3proj").is_file():
+        return copy
+    prefix = c3.git_out(project, "rev-parse", "--show-prefix")
+    if prefix is None:
+        return None
+    p = subprocess.run(["git", "-C", str(project), "archive", "--format=tar", f"{commit}:{prefix}"],
+                       capture_output=True, timeout=120)
+    if p.returncode:
+        return None
+    with tarfile.open(fileobj=io.BytesIO(p.stdout)) as tar:
+        tar.extractall(copy, filter="data")
+    return copy if (copy / "project.c3proj").is_file() else None
+
+
+def before_shots(project: Path, commit: str, key: dict, preview) -> dict:
+    """The screenshot of each layout before the change, by layout: the project at commit, previewed by
+    preview(copy, shots) once for each key (the layouts, the screen and the settle) and kept beside the copy."""
+    copy = before_copy(project, commit)
+    if copy is None:
+        return {"commit": commit, "shots": {}, "errors": [f"the commit {commit[:12]} holds no project.c3proj here"]}
+    kept = copy.parent / "result.json"
+    if kept.is_file():
+        old = json.loads(kept.read_text(encoding="utf-8"))
+        if old.get("key") == key:
+            return old
+    (copy.parent / "shots").mkdir(exist_ok=True)
+    ran = preview(copy, copy.parent / "shots")
+    layouts = (ran.get("preview") or {}).get("layouts", [])
+    got = {"commit": commit, "key": key, "shots": {d["layout"]: d["shot"] for d in layouts if shows_something(d)},
+           "errors": oe.report(ran) if ran["status"] != "opened" else (ran.get("preview") or {}).get("errors", [])}
+    if got["shots"]:
+        kept.write_text(json.dumps(got, ensure_ascii=False, indent=1), encoding="utf-8")
+    return got
+
+
+def befores(result: dict) -> dict[str, str]:
+    """The picture from before the change of each screenshot that has one, by layout."""
+    return (result.get("before") or {}).get("shots", {})
+
+
 def brief(result: dict) -> str:
     """The questions as a task for a reviewer that has not seen the project: the screenshots, the questions and
     the form of the answer, and nothing of what the game was meant to show."""
     layouts = (result.get("preview") or {}).get("layouts", [])
     shots = pictures(result)
     asked = questions(len(layouts) > 1, result.get("places", []))
+    before = befores(result)
     lines = ["# Look review", "",
              "You have not seen this game's project, its events or how it was built, and you do not need to. Judge "
              "only what the screenshots show. If a picture does not show it, answer no. Answer yes only for "
@@ -1208,21 +1277,39 @@ def brief(result: dict) -> str:
                   "button or a panel drawn without words gets its label from the game, so two of them that differ only "
                   "in size are no fault.",
                   ""]
-    lines += ["Open each screenshot with your image tool, one at a time:", ""]
-    lines += [f"{n}. {layout}: {shot}" for n, (layout, shot) in enumerate(shots, 1)]
+    if before:
+        lines += ["A screenshot that names a picture from before the change shows the same screen as it was before "
+                  "the change under review. Answer the questions about the screenshot, not about the picture from "
+                  "before. After each yes on such a screenshot, write new or before: before when the picture from "
+                  "before shows the same thing at the same place, new when it does not. A yes marked before does not "
+                  "fail the change, so mark before only when the picture from before shows the fault; if you are not "
+                  "sure, write new. A yes on a screenshot without a picture from before is new.", ""]
+    lines += ["Open each screenshot" + (" and its picture from before" if before else "")
+              + " with your image tool, one at a time:", ""]
+    lines += [f"{n}. {layout}: {shot}" + (f" (before the change: {before[layout]})" if layout in before else "")
+              for n, (layout, shot) in enumerate(shots, 1)]
     lines += ["", "Answer every question for every screenshot, yes or no:", ""]
     lines += [f"{n}. {q}" for n, q in enumerate(asked, 1)]
+    when = (" On a screenshot with a picture from before, a yes starts with new or before, then says where on the "
+            "screenshot the thing is and what looks wrong." if before else
+            " A yes says where on the screenshot the thing is and what looks wrong.")
     lines += ["", "Reply with one line per screenshot and question, and nothing else. Start each line with the "
-                  "screenshot's name and the question's number. A yes says where on the screenshot the thing is and "
-                  "what looks wrong; a no is the word alone. The form, not the content:", "", "```"]
+                  f"screenshot's name and the question's number.{when} A no is the word alone. The form, not the "
+                  "content:", "", "```"]
     first = shots[0][0] if shots else "Layout"
-    lines += [f"{first} 1: no", f"{first} 2: yes - <where on the screenshot>: <what looks wrong>", "...", "```", ""]
+    lines += [f"{first} 1: no"]
+    lines += ([f"{first} 2: yes, new - <where on the screenshot>: <what looks wrong>",
+               f"{first} 3: yes, before - <where on the screenshot>: <what looks wrong>"] if first in before else
+              [f"{first} 2: yes - <where on the screenshot>: <what looks wrong>"])
+    lines += ["...", "```", ""]
     return "\n".join(lines)
 
 
-def read_reply(reply: str, names: list[str], asked: int) -> tuple[dict[tuple[str, int], tuple[bool, str]], list[str]]:
-    """The answers of a reply by screenshot and question, each yes with what it says, and the answer lines that
-    name no screenshot or no question of the brief."""
+def read_reply(reply: str, names: list[str],
+               asked: int) -> tuple[dict[tuple[str, int], tuple[bool, str, str | None]], list[str]]:
+    """The answers of a reply by screenshot and question, each yes with what it says and whether it is new or from
+    before the change (None when it does not say), and the answer lines that name no screenshot or no question of
+    the brief."""
     exact = {n.lower(): n for n in names}
     # Longest first, so that a line about "Big map" is not taken for "Map"
     longest = sorted(names, key=len, reverse=True)
@@ -1236,7 +1323,8 @@ def read_reply(reply: str, names: list[str], asked: int) -> tuple[dict[tuple[str
         if name is None or not 1 <= int(m["q"]) <= asked:
             stray.append(line.strip())
             continue
-        answers[(name, int(m["q"]))] = (m["a"].lower() == "yes", m["rest"].strip(" -:*`"))
+        answers[(name, int(m["q"]))] = (m["a"].lower() == "yes", m["rest"].strip(" -:*`)"),
+                                        m["when"].lower() if m["when"] else None)
     return answers, stray
 
 
@@ -1252,6 +1340,7 @@ def spans(numbers: list[int]) -> str:
 
 
 DONE = "next: every question is answered no; the look review is done"
+FROM_BEFORE = "no yes is new, so the change made no fault to fix; name each yes from before in the hand-over"
 
 
 def verify_command(root: Path) -> str | None:
@@ -1273,25 +1362,36 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
     tiers = question_tiers(len(layouts) > 1, result.get("places", []))
     asked = len(tiers)
     answers, stray = read_reply(reply, names, asked)
+    before = befores(result)
     missing = [(n, [q for q in range(1, asked + 1) if (n, q) not in answers]) for n in names]
     missing = [(n, qs) for n, qs in missing if qs]
-    yeses = sorted([(n, q, said) for n in names for q in range(1, asked + 1)
-                    for yes, said in [answers.get((n, q), (False, ""))] if yes],
+    every = sorted([(n, q, said, when if n in before else "new") for n in names for q in range(1, asked + 1)
+                    for yes, said, when in [answers.get((n, q), (False, "", None))] if yes],
                    key=lambda y: TIERS.index(tiers[y[1] - 1]))
+    # A yes from before goes to the hand-over
+    yeses = [(n, q, said) for n, q, said, when in every if when != "before"]
+    from_before = [(n, q, said) for n, q, said, when in every if when == "before"]
     lines = [f"reply: {where}, against the brief of {len(names)} screenshot{'' if len(names) == 1 else 's'} and "
              f"{asked} questions: {len(names) * asked} answers asked"]
     if missing:
         lines.append("  missing: " + "; ".join(f"{n} {spans(qs)}" for n, qs in missing))
-    unsaid = [f"{n} {q}" for n, q, said in yeses if not said]
+    unsaid = [f"{n} {q}" for n, q, said, _ in every if not said]
     if unsaid:
         lines.append("  yes without where: " + ", ".join(unsaid))
+    untold = [f"{n} {q}" for n, q, _, when in every if when is None]
+    if untold:
+        lines.append("  yes without new or before: " + ", ".join(untold))
     lines += [f"  not in the brief: {line}" for line in stray]
     lines += [f"  yes, {tiers[q - 1]}: {n} {q}" + (f" - {said}" if said else "") for n, q, said in yeses]
+    lines += [f"  yes from before, for the hand-over: {n} {q}" + (f" - {said}" if said else "")
+              for n, q, said in from_before]
     lost = sum(len(qs) for _, qs in missing)
-    lines.append(f"answers: {len(answers)} of {len(names) * asked}, {len(yeses)} yes, {lost} missing")
-    if lost or unsaid:
+    lines.append(f"answers: {len(answers)} of {len(names) * asked}, {len(yeses)} yes"
+                 + (f" and {len(from_before)} from before" if from_before else "") + f", {lost} missing")
+    if lost or unsaid or untold:
         lines.append("next: give the reviewer the same brief again and have it answer the missing questions and say "
-                     "where each yes is; then check its reply again")
+                     "where each yes is" + (", and whether it is new or from before" if untold else "")
+                     + "; then check its reply again")
     elif yeses:
         lines.append("next: fix each yes, the broken ones first: name the layout and the object type at the place it "
                      "describes and change it. A yes with more than one right fix, such as cutting a text short or "
@@ -1301,12 +1401,16 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
                         f"and the hand-over names each yes left" if verify else
                         "then run review_look.py again and have its new brief answered"))
     elif verify:
-        lines.append(f"next: every question is answered no; run {verify}, which passes its look step on this reply")
+        lines.append(f"next: {FROM_BEFORE if from_before else 'every question is answered no'}; run {verify}, "
+                     f"which passes its "
+                     f"look step on this reply")
     else:
-        lines.append(DONE)
-    return lines, 1 if lost or yeses else 0, {"complete": not lost and not unsaid, "yes": len(yeses),
-                                              "yeses": [f"{n} {q}, {tiers[q - 1]}" + (f" - {said}" if said else "")
-                                                        for n, q, said in yeses]}
+        lines.append(f"next: {FROM_BEFORE}; the look review is done" if from_before else DONE)
+
+    def listed(found: list[tuple[str, int, str]]) -> list[str]:
+        return [f"{n} {q}, {tiers[q - 1]}" + (f" - {said}" if said else "") for n, q, said in found]
+    return lines, 1 if lost or yeses else 0, {"complete": not lost and not unsaid and not untold, "yes": len(yeses),
+                                              "yeses": listed(yeses), "before": listed(from_before)}
 
 
 def report(result: dict) -> list[str]:
@@ -1341,8 +1445,23 @@ def report(result: dict) -> list[str]:
                   for s in done.get("unseen", [])]
         lines += oe.runtime_lines(done["errors"])
     if any(shows_something(d) for d in ran["layouts"]):
+        lines += before_lines(result)
         lines += ask(total > 1, result.get("places", []))
     return lines
+
+
+def before_lines(result: dict) -> list[str]:
+    """Where the pictures from before the change came from, or why there are none."""
+    got = result.get("before")
+    if not got:
+        return []
+    shots = got.get("shots", {})
+    if shots:
+        return [f"before: {len(shots)} layout{'' if len(shots) == 1 else 's'} as at commit {got['commit'][:12]}, "
+                f"the start of the change, in {Path(next(iter(shots.values()))).parent}",
+                "before: a yes from before goes into the hand-over and fails nothing"]
+    return [f"before: no picture of commit {got['commit'][:12]}, the start of the change, so every yes counts as new: "
+            + "; ".join(got.get("errors") or ["it showed no layout"])]
 
 
 def finding_line(f: dict) -> str:
@@ -1485,6 +1604,12 @@ def main() -> int:
             sheet = c3.script_folder(project, "art") / "contact.png"
             if sheet.is_file():
                 result["art_sheet"] = str(sheet)
+            commit = before_commit(project)
+            if commit and any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
+                key = {"layouts": args.layouts, "settle": args.settle, "screen": shapes[0][1]}
+                result["before"] = before_shots(project, commit, key, lambda copy, into: oe.open_one(
+                    browser, editor, copy, oe.staged(copy, "review-look"), None, bool(args.release),
+                    review(args.layouts, args.settle, shapes[:1], into, ("demo",), set(), {})))
             if any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
                 result["brief"] = str(shots / "brief.md")
                 (shots / "brief.md").write_text(brief(result), encoding="utf-8")
