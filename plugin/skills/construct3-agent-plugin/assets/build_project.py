@@ -2961,7 +2961,7 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
 GAP_IN = max(1, UNIT // 4)                 # px between the parts of a group
 GAP_OUT = UNIT                             # px at least between the HUD and the playfield
 GROUP_RATIO = 1.5                          # least ratio of the gap between groups to the gap inside one
-OPTICAL_LIFT = 0.05                        # share of the area's height the playfield sits above centre
+OPTICAL_LIFT = 0                           # share of the area's height the playfield sits above its middle
 PLAYFIELD_MIN = 0.15                       # least share of the screen the playfield covers
 # Most items of the HUD one ninth of the screen holds, off its middle, while two corners stand empty.
 # An item is a group, or a part a label joins to another with " · " or " | ".
@@ -3537,7 +3537,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f3cae5e3de1d ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp b3a9e68371ed ================
 
 
 # --- the game ---------------------------------------------------------------------------

@@ -305,17 +305,13 @@
     },
     {
       "id": "layout.balance",
-      "status": "open",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, raised by OPTICAL_LIFT of that space's height; a centre more than a unit off prints a warning. The 5% lift is a rule of thumb that the official 2D game examples do not follow: their one-screen layouts centre their content a median 0% off the screen's middle, 44 of 81 within 3% of its height, 25 lower and 12 higher.",
+      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, and not raised: OPTICAL_LIFT is 0. A centre more than a unit off prints a warning. The official 2D game examples' one-screen layouts centre their content a median 0% off the screen's middle, 44 of 81 within 3% of its height, 25 lower and 12 higher, so the 5% lift of design guides was turned down.",
       "template": "OPTICAL_LIFT",
-      "value": "0.05",
+      "value": "0",
       "helpers": "play_area(), centred(), balanced()",
-      "options": [
-        "0.05: the board a little above the middle of the play area, where the eye puts the middle",
-        "0: the board exactly in the middle of the play area"
-      ],
-      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
     },
     {
       "id": "layout.fill",

@@ -712,12 +712,12 @@ def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
 
 def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_the_hud(built, capsys):
     """hud_stat() puts a value GAP_IN under its name as one group; play_area() is what the HUD leaves,
-    GAP_OUT clear of it; centred() puts the board in its middle on the grid, raised by OPTICAL_LIFT.
+    GAP_OUT clear of it; centred() puts the board in its middle on the grid, raised by OPTICAL_LIFT, 0.
     spaced() stops groups that sit closer than GROUP_RATIO times the gap inside one, the stand-in's
     old fault of a name far from its number and the number near the board; balanced() warns on a
     board off the middle of the play area."""
     t = template_module()
-    assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0.05)
+    assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0)
     assert t.GAP_OUT >= t.GROUP_RATIO * t.GAP_IN
     name, value = t.hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-left", longest="999")
     assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 194)
@@ -729,7 +729,7 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     area = t.play_area([name, value, t.hud_text("RoundText", "ROUND 1 / 6", "top-right")])
     assert area == (64, 194 + 32, 1920 - 128, 1016 - 226)
     assert t.play_area([t.hud_text("Hint", "Tap", "bottom")])[1::2] == (64, 1080 - 64 - 32 - 32 - 64)
-    assert t.centred(928, 544, area) == (512, 320) and t.centred(928, 544, area, lift=0) == (512, 352)
+    assert t.centred(928, 544, area) == (512, 352) and t.centred(928, 544, area, lift=0.05) == (512, 320)
     with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x790 px play area"):
         t.centred(2000, 100, area)
     board = t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)
@@ -760,7 +760,7 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     # The stand-in's board is where centred() puts it, under the tag and over the keys.
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     placed = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "Board")["world"]
-    assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 288, 928, 544)
+    assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 320, 928, 544)
 
 
 def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_empty(capsys):

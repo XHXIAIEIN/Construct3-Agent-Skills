@@ -95,7 +95,7 @@ the space the HUD leaves is the whole screen in nearly all of them.
 | Design audit | The checklist by area | Seven questions with tiers, the mechanical findings, and `check_look.py` | — |
 | Typography | Fonts, one typeface, no italic or black weights, more weights, display presence, 65-character measure, tabular figures, tracking, sentence case, orphans, hyphens, scale, button type | As in the landing page rows; tracking is `tracked()`, a quarter-em space, since the Text object has no letter spacing; tabular figures were left out because the Text object sets no font features (`look-from-aesthetics-skills.md`, option 8) | `type.two-families`, proposed. The measure is not taken: 19 of 139 of the examples' long wrapped texts run over 65 characters, and the template has no paragraph helper |
 | Color and surfaces | An approved palette, no background gradient, no purple-blue AI gradient, saturation under 80%, one accent, one grey family, tinted shadows, grain, one light direction, no stray dark section, imagery for empty sections | `PALETTE` by role; `colour.one-accent` rejected; `palette.greys` neutral; `shadow.form`: one direction for the whole scene; `avoid.same-decoration`; `depth.parallax-layers` rejected in paper and ink | None. A saturation cap fails paper and ink's adopted accents, three of them fully saturated, and a game's accents mark kinds of content. A grey family and tinted shadows are the user's look, with no measurement to set a threshold |
-| Layout | Break symmetry, no three equal cards, `100dvh`, grid, max width, variable heights, the radius formula, the spacing scale, overlap, more bottom padding, aligned rows, optical alignment | Grid on `UNIT`; `result_headline()` centred by measurement; `layout.focal` rejected because a grid of equal tiles is a sound game screen; `optical-label-centring.md` centres a label by its ink; `layout.balance`, open, raises the playfield 5% | None to the template. The examples centre their content, a median 0% off the middle with 44 of 81 within 3%, which `layout.balance` now cites; its value stays the user's to choose |
+| Layout | Break symmetry, no three equal cards, `100dvh`, grid, max width, variable heights, the radius formula, the spacing scale, overlap, more bottom padding, aligned rows, optical alignment | Grid on `UNIT`; `result_headline()` centred by measurement; `layout.focal` rejected because a grid of equal tiles is a sound game screen; `optical-label-centring.md` centres a label by its ink; `layout.balance` centres the playfield in what the HUD leaves | `OPTICAL_LIFT` set to 0, the user's choice: the examples centre their content, a median 0% off the middle with 44 of 81 within 3%. The rest is a web page's layout |
 | Interactivity and states | Eases and durations, scroll reveals, a floating nav, menu motion, reduced motion, hover, press, focus, loading, empty, error, dead links, current page, smooth scroll, transform only | As in the landing page rows B7 and B9 | `motion.duration-floor`, rejected, as above |
 | Content | Specific people, numbers and brands; no filler; specific CTAs and value; calm messages; active voice; no placeholder; sentence case | `look.worst-data` | `text.placeholder`, proposed. The rest is a page's copy |
 | Component patterns | No generic card, no one-sided border, fewer ghost buttons, no pill badges, no accordion FAQ, no carousel, no tower pricing, fewer modals, no avatar circles, no sun-moon toggle, no link-farm footer | `avoid.dashboard`, enforced: no rounded cards, no score pill, no soft shadow under every panel; `popup()` for a panel | None: the game's form of the same fault is held; the rest are web components |
@@ -135,9 +135,10 @@ user asked to fix, and no step of the pipeline makes them the work list.
    screen, and the layout files show that only the runtime can find it.
 3. **Reject a duration floor of 200 ms by measurement.** A game's feedback
    is faster than a web page's hover.
-4. **Add the examples' centring to `layout.balance`.** The rule said that no
-   measurement stood behind its 5% lift; the examples now stand against it.
-   Its value is the user's choice, so the template keeps 0.05.
+4. **Centre the playfield in what the HUD leaves, without a lift.**
+   `layout.balance` raised it by 5% of that space, a rule of thumb with no
+   measurement behind it, and the examples centre their content. The rule
+   was open, its value the user's choice.
 5. **Treat the yeses from before as the work list when the user asks to
    upgrade an existing game's look.** This changes what the skill and
    `verify_change.py` do, so it needs the user's word first.
@@ -153,11 +154,12 @@ Options 2, 3 and 4, in `assets/look-manifest.json`:
   `review_look.py` runs over the examples whose layouts hold such a text and
   shows that their events replace each one.
 - `motion.duration-floor`, rejected, with its measurement.
-- `layout.balance` keeps its options and its value, and its text cites the
-  examples' centring.
+- `layout.balance`, adopted: the user set `OPTICAL_LIFT` to 0 on
+  2026-10-31, so `centred()` puts the playfield in the middle of the play
+  area and `balanced()` warns on a centre off that middle.
 
 Option 1 is not taken, for the reason above. Option 5 waits for the user.
-Nothing enters the template, and no sub-agent's prompt changes.
+No sub-agent's prompt changes.
 
 ## Re-evaluate when
 
@@ -167,6 +169,6 @@ Nothing enters the template, and no sub-agent's prompt changes.
   layouts: adopt `text.placeholder` as a finding if none is left once the
   layout has run.
 - The user asks for an existing game's look to be upgraded: decide option 5.
-- The user decides `layout.balance`.
+- A user finds a centred playfield low on screenshots: the lift comes back as the user's look.
 - The template gets a menu moved by keys or a pad: it needs a focus state.
 - The example clone updates: rerun the measurements of the first table.

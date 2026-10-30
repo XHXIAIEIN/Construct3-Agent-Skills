@@ -174,19 +174,19 @@ from the boxes the generator writes.
 | `GAP_IN` | A quarter unit, 8 px at 32: between a value and its name. A line's box adds about a quarter of an em above and below its letters, so the gap a player sees is larger |
 | `GAP_OUT` | One unit: the least between the HUD and the playfield |
 | `GROUP_RATIO` | 1.5: the gap between two groups over the gap inside either, at least |
-| `OPTICAL_LIFT` | 0.05 of the play area's height: how far the playfield is raised above its middle |
+| `OPTICAL_LIFT` | 0: how far the playfield is raised above the middle of the play area, as a share of its height |
 
 - `hud_stat()` puts a value under its name as one group, each box one line
   high, so a caller does not place the second line with `dy`.
 - `play_area(hud)` is the viewport, `MARGIN` inside it, less the HUD's boxes
   and `GAP_OUT` around them; `centred(w, h, area)` puts a box in its middle
-  on the grid, raised by `OPTICAL_LIFT`.
+  on the grid, raised by `OPTICAL_LIFT`, 0, so not at all.
 - `spaced(groups)` stops the run when two groups sit closer than
   `GROUP_RATIO` times the gap inside either, with the helpers that fix it.
   It stops, as `no_overlap()` does, because the helpers always pass it and
   a failure is a placement made by hand.
 - `balanced(content, area)` prints a warning when the playfield's centre is
-  more than a unit from the lifted middle of the play area. It warns and
+  more than a unit from the middle of the play area. It warns and
   does not stop, because a game may hold its playfield off the middle on
   purpose, beside a panel or in a level wider than the screen, and the boxes
   do not say which.
@@ -206,8 +206,10 @@ A game screen fills more of the screen than a slide, so the band does not
 transfer, and the floor catches a board too small for the screen. The
 stand-in's board covers 24%.
 
-The 5% lift is a rule of thumb from design guides; no source found measures
-it. On the stand-in it raises the board one unit.
+The 5% lift of design guides was set first and turned down: the official
+examples centre their content, a median 0% off the middle
+([web-landing-and-redesign-skills.md](web-landing-and-redesign-skills.md)),
+and the user set `OPTICAL_LIFT` to 0 on 2026-10-31.
 
 The user found generated screens that gather their information in one
 place, such as a title and a subtitle, each joining two facts with a middle
@@ -363,8 +365,6 @@ template value it names drift apart.
   `readable-on-a-dark-background` asks for a navy backdrop, on which the
   labels' `ink` reads 1.4:1: `readable()` stops the generator, and the case
   grades what the model does with that stop.
-- `OPTICAL_LIFT` waits on the user's choice between 0.05 and 0, `open` in
-  the manifest.
 - `measure_layout.py` reads the layout files, so content an example creates
   at runtime is not counted; a measurement from previews would raise the
   low end of the coverage.
