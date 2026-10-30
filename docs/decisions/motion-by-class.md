@@ -110,9 +110,9 @@ judges both on a recording:
   tones down the shake, the camera and the squash and keeps the hit flash,
   and a held press for a destructive menu action, each until the examples
   are read for it.
-- `motion.stagger`, proposed: the examples' step of 0.1 s against Emil's
-  0.03 to 0.08 s, measured in
-  [emil-skills-for-a-game-screen.md](emil-skills-for-a-game-screen.md).
+- `motion.stagger`, proposed: a step between items that enter together.
+  The examples were read for it in `motion-atlas-layouts.md`: they step
+  0.1 to 0.25 s, slower than the 30 to 80 ms above.
 
 The five checks are in `check_look.py` under the ids of the table above.
 `references/motion-vocabulary.md` names each motion with its mechanism,

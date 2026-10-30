@@ -48,7 +48,7 @@ read below.
 | `apple-design` 16, wayfinding and confirmations | Every screen says how to get out; confirm only what cannot be undone | A screen's flow belongs to the design review; `menu.hold-to-confirm` holds the confirm | None for the look |
 | `apple-design` 17; `emil-design-eng`, debugging | Play motion slowed and frame by frame | `preview_project.py` slows a recording with `runtime.timeScale`, as [motion-by-class.md](motion-by-class.md) recorded the popup at 0.2 | None |
 | `find-animation-opportunities` | A four-question gate (frequency, purpose, speed, function), at most five to seven proposals, rejected candidates listed | `motion.frequency` holds the frequency question for the HUD; `references/motion-vocabulary.md` names each motion | None |
-| `remove-animations`, the gate and the reductions | Delete motion on keyboard and frequent actions; stagger at most 30 ms per item or 300 ms in all; loops on a persistent element run once | The world keeps its juice on every jump and hit ([motion-by-class.md](motion-by-class.md)). The examples stagger 0.1, 0.1, 0.15 s (quartiles, below) | `motion.stagger` rewritten with the measurement, still proposed |
+| `remove-animations`, the gate and the reductions | Delete motion on keyboard and frequent actions; stagger at most 30 ms per item or 300 ms in all; loops on a persistent element run once | The world keeps its juice on every jump and hit ([motion-by-class.md](motion-by-class.md)). The examples stagger a median 0.125 s, their menus 0.1 to 0.25 s ([motion-atlas-layouts.md](motion-atlas-layouts.md)) | None: `motion.stagger` holds the measured step and stays proposed |
 | `remove-animations`, hazards | A start state at opacity 0 that only the removed animation ended | Over the 422 examples without scripts, 603 object types start hidden and no action shows them, 38 of them on a HUD layer: managers, spawners and zones hidden on purpose. A check cannot tell those from a forgotten panel | None: no check |
 | `improve-animations` | Audit, vet, then self-contained plans with exact values and a feel check | `edit_sheet.py` takes a plan with the event's line; `verify_change.py` runs the checks and the look review in order | None: the workflow exists |
 | `animation-performance` | Composite-only properties, the main thread, CSS variables, blur under 20 px | A game draws to one canvas; none of these properties exist | None: not for a game screen |
@@ -57,14 +57,6 @@ read below.
 | `ask-sonner` | Sonner's API: 4 s default, three toasts at once, update by id | No helper shows a stack of messages | None: not for a game screen |
 | `pick-ui-library` | React libraries by task | A game uses Construct's plugins and behaviors | None: not for a game screen |
 | `write-swift` | Swift 6 language and concurrency | No mapping | None: not for a game screen |
-
-### The stagger in the examples
-
-A Wait, a Timer or a time whose expression multiplies `loopindex` or an
-index, over the event sheets of the 544 examples: 36 actions in 23
-projects, 29 with a constant step. The step is 0.1, 0.1 and 0.15 s at the
-quartiles, from 0.001 to 0.75 s. Some are waves of enemies rather than a
-menu, which the expressions alone do not tell apart.
 
 ### Counting numbers in the examples
 
@@ -79,19 +71,15 @@ Scripts and rows: `.local/docs/evidence/emil-skills-for-a-game-screen/`.
 1. **Adopt the web rules.** Faster exits, slack on a press, no slow loops:
    each contradicts what the examples do, measured above.
 2. **Nothing.** Leaves the count's moving digits, which no rule holds.
-3. **Two proposals.** `type.counting-digits` from the font's measured
-   widths, and the stagger's step measured on the examples. Chosen.
+3. **A proposal for the count.** `type.counting-digits`, from the
+   font's measured widths. Chosen.
 
 ## Decision
 
-Option 3. Both rules are `proposed`: the template and the checks are
-unchanged until the owner decides.
-
-- `type.counting-digits`: a number that `count_up()` counts is
-  left-aligned, so the digits before the one that changes stay, or set in
-  a font whose digits share one width.
-- `motion.stagger`: the examples' step of 0.1 s against Emil Kowalski's
-  0.03 to 0.08 s.
+Option 3. `type.counting-digits` is `proposed`, so the template and the
+checks are unchanged until the owner decides: a number that `count_up()`
+counts is left-aligned, so the digits before the one that changes stay,
+or set in a font whose digits share one width.
 
 ## Re-evaluate when
 
