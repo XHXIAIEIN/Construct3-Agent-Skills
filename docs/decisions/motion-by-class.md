@@ -106,10 +106,13 @@ judges both on a recording:
 - `motion.frequency`, proposed: on the HUD only, instant for what each
   action changes and the popup class for a moment of the session; the
   world keeps its juice. `count_up()` would change under it.
-- `motion.reduced`, `motion.stagger` and `menu.hold-to-confirm`, proposed:
-  a scale that tones down the shake, the camera and the squash and keeps
-  the hit flash, a stagger step of 0.03 to 0.08 s, and a held press for a
-  destructive menu action, each until the examples are read for it.
+- `motion.reduced` and `menu.hold-to-confirm`, proposed: a scale that
+  tones down the shake, the camera and the squash and keeps the hit flash,
+  and a held press for a destructive menu action, each until the examples
+  are read for it.
+- `motion.stagger`, proposed: a step between items that enter together.
+  The examples were read for it in `motion-atlas-layouts.md`: they step
+  0.1 to 0.25 s, slower than the 30 to 80 ms above.
 
 The five checks are in `check_look.py` under the ids of the table above.
 `references/motion-vocabulary.md` names each motion with its mechanism,
@@ -122,7 +125,7 @@ recipes.
 - The owner judges the popup and banner class and the popup's scale on a
   recording: write the pick into `TWEEN_STYLE` and `POPUP`, and set the two
   rules to adopted.
-- A read of the examples finds a reduced-motion setting, a stagger or a
-  held confirm.
+- A read of the examples finds a reduced-motion setting or a held
+  confirm.
 - A Construct release changes when a property tween releases another, which
   `motion.size-on-dying` relies on.

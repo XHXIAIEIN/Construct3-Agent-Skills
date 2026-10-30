@@ -18,6 +18,7 @@
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
     "Construct3-Agent-Skills/docs/decisions/look-picker.md",
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
+    "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
     "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
@@ -361,6 +362,62 @@
       "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
     },
     {
+      "id": "screen.menu-axis",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A title, menu or pause screen sets its texts and buttons on the vertical centre line: 51 of 63 texts on the official 2D game examples' title screens are centred within 2% of the width, and of the 10 such screens with two texts or more, 8 centre all and none centres none; 82 of 200 motion-design websites centre their headline or stack. The template's hud_header() holds a menu's title top left.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "screen.edge-inset",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "MARGIN about 3% of the viewport's shorter side: the text nearest the edge in the official 2D game examples sits a median 3% in, and 200 motion-design websites inset theirs a median 24 px, 2.7% of a 900 px viewport. MARGIN, a fifteenth of the shorter side in whole units, is 4.4% at 720, 5.9% at 1080 and 6.7% in pixel art.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "screen.transition",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A change of layout passes through a fade that covers the screen: 31 of the 51 official examples that go to another layout have an object type named as a fade, transition, curtain or wipe, and 41 of 200 motion-design websites wipe between pages, a median 0.8 s. The template's go_to_layout() cuts.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.scale-contrast",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A display size about 8 times the smallest label, as 200 motion-design websites set it (a median 8.4, 5.1 to 14.4 between the quartiles): a screen of the official 2D game examples shows its largest text a median 2 times its smallest, at most 5.3; a title image carries the larger contrast. display over tag is 4.3 at 1080, 6.4 at 720.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.small-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Labels at 11 px, a median 1.2% of the shorter side on motion-design websites: the smallest text of every official 2D game example is at least 1.78%, and type.min-size holds 1.75%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.mono-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Counters and labels in a monospaced face, as 37 of 200 motion-design websites set them: 4 of 81 official 2D game examples show a monospaced face on a screen.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.caps-menu",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A menu's texts in capitals: 46 of 59 lettered texts on the official 2D game examples' title screens are capitals, but the 9 screens set all in capitals belong to 4 of 11 examples, and play screens set 20 of 219; it is a game's style, not a rule. tracked() already sets a tag in tracked capitals.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "layout.corner-frame",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Small labels framing the content from the screen's corners, as 72 of 200 motion-design websites place them: of the official 2D game examples' 103 play screens, 50 hold a text in no corner, 31 in one, 19 in two and 3 in three or four. The template's play HUD holds three.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
       "id": "outline.width",
       "status": "adopted",
       "scope": "paper-and-ink",
@@ -442,6 +499,27 @@
       "scope": "every-look",
       "says": "At most one thing in an accent colour per screen, from web design systems, where the accent marks the one call to action: a game's accents mark kinds of content, every coin in reward and every hazard in danger, so a screen shows many.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "colour.dark-ground",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A dark ground, as 105 of 200 motion-design websites have: the official 2D game examples' play screens spread over every lightness, a median 0.37, 36 of 99 dark and 14 light. A look the user gives or picks sets canvas.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "colour.neutral-ground",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A neutral ground for every look, the hue left to the accents, as motion-design websites keep theirs (ground chroma a median 0.02): the official 2D game examples' play screens reach a median 0.055 and 0.19 at the third quartile. Paper and ink's grounds are grey already.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "colour.one-hue",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "One strong hue in the palette, as 113 of 200 motion-design websites have: a game's accent roles each mark a kind of thing, reward, danger, hover and press, so they need hues of their own.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {
       "id": "control.parts",
@@ -607,8 +685,29 @@
       "id": "motion.stagger",
       "status": "proposed",
       "scope": "every-look",
-      "says": "Items that enter together, the rows of a menu or the cards of a hand, start 0.03 to 0.08 s apart, and input does not wait for the last. Proposed until the official examples are read for a step.",
-      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+      "says": "Items that enter together, the rows of a menu or the cards of a hand, start a step apart, and input does not wait for the last. Motion-design websites step a median 70 ms, 60 to 80 ms between the quartiles; the official examples' waits of a constant times loopindex step a median 0.125 s, their menus 0.1 to 0.25 s. Proposed until the owner picks the step.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.ease-out-entrance",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Entrances in a strong ease-out, expo.out on 91 of 200 motion-design websites: 1181 of the official examples' 2196 tweens, in 138 examples, use easeinoutsine, and 3 an expo ease. TWEEN_STYLE keeps its classes (motion.tween-style).",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.text-reveal",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Headlines revealed by line, word or letter, as 78 of 200 motion-design websites do: one official example uses the Text typewriter action.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.pointer-drift",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "The scene tilting or drifting after the pointer, as 57 of 200 motion-design websites do: a touch screen has no pointer between touches, and a game's camera follows its play.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {
       "id": "menu.hold-to-confirm",
