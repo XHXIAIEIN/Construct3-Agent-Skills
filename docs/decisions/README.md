@@ -4,6 +4,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
 - [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
+- [SKILL.md Holds Facts and Tool Entries Inside 5000 Tokens](skill-body-budget.md) — 2026-10-30
 - [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
 - [Art Drawn in Code and Rendered in the Browser: The Route to Try Next](art-drawn-in-code.md) — 2026-10-28
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
@@ -23,7 +24,6 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A Check That Did Not Run Does Not Pass](not-checked-is-not-a-pass.md) — 2026-10-22
 - [Pixel Art Draws Its Text in a Baked Sprite Font](pixel-art-sprite-font.md) — 2026-10-22
 - [The Event Sheet Guides Live in Construct3-Cookbook](guides-in-cookbook.md) — 2026-10-21
-- [The Check Loop Stays Inside the First 5000 Tokens of SKILL.md](skill-body-budget.md) — 2026-10-21
 - [--attach Names the Browser; the Script Reads No Browser Folder of the User's](attach-names-the-browser.md) — 2026-10-16
 - [The Type the Editor Records for a Listed File](file-types-in-project-c3proj.md) — 2026-10-16
 - [An Entry of the Lookup Ends With Its Pitfalls File and the Built-In Preferred to Its Addon](lookup-pointers.md) — 2026-10-16

@@ -46,10 +46,9 @@ def test_skill_body_stays_within_what_is_loaded_on_activation():
 
 # After a compaction Claude Code re-attaches the most recent invocation of each skill with only its first
 # 5000 tokens, and the re-attached skills share 25,000 tokens, filled from the most recently invoked one
-# (https://code.claude.com/docs/en/skills, "Skill content lifecycle"). The sections through this one are
-# what every change needs after a compaction; the ones after it teach tools whose output teaches it again.
+# (https://code.claude.com/docs/en/skills, "Skill content lifecycle"). The whole body fits in them, so a
+# compaction loses none of it.
 RE_ATTACHED_TOKENS = 5000
-LAST_SECTION_EVERY_CHANGE_NEEDS = "## Check after every change"
 CHARS_PER_TOKEN = 2.7
 
 
@@ -57,20 +56,16 @@ def estimated_tokens(text: str) -> int:
     return round(len(text) / CHARS_PER_TOKEN)
 
 
-def test_the_check_loop_survives_a_compaction():
-    """The last section every change needs ends inside the first 5000 tokens of the body.
+def test_the_whole_body_survives_a_compaction():
+    """The body ends inside the first 5000 tokens.
     The count Claude Code cuts at is Claude's, whose tokenizer is not published, so the test estimates it.
     Anthropic's glossary gives about 3.5 English characters a token before Claude 4.7 and about 30 percent
     more tokens since (https://platform.claude.com/docs/en/about-claude/glossary, "Tokens"): 3.5 / 1.3 = 2.7.
     tiktoken's cl100k_base counts about a third fewer on this text and is printed beside the estimate when
-    it is importable, for comparison with earlier measurements. A fixed ratio miscounts a run of links or a
-    table of flags by some percent, so the budget holds a section's end, not the body's, and a failure names
-    the line of the cut and the sections after it (docs/decisions/skill-body-budget.md)."""
+    it is importable, for comparison with earlier measurements. A failure names the line of the cut and the
+    sections after it (docs/decisions/skill-body-budget.md)."""
     text = SKILL_MD.read_text(encoding="utf-8")
     body = text.split("---\n", 2)[2]
-    headings = [m.start() for m in re.finditer(r"^## ", body, re.M)]
-    start = body.index(LAST_SECTION_EVERY_CHANGE_NEEDS)
-    end = next((h for h in headings if h > start), len(body))
     cut = round(RE_ATTACHED_TOKENS * CHARS_PER_TOKEN)
     cut_line = text.count("\n", 0, len(text) - len(body) + cut) + 1
     lost = [line for line in body[cut:].splitlines() if line.startswith("## ")]
@@ -81,12 +76,12 @@ def test_the_check_loop_survives_a_compaction():
         compared = ""
     report = (f"the body is about {estimated_tokens(body)} tokens{compared}; the first {RE_ATTACHED_TOKENS} end at "
               f"line {cut_line}, and {', '.join(lost) or 'no section'} falls after them")
-    assert end <= cut, f"{LAST_SECTION_EVERY_CHANGE_NEEDS!r} ends about {estimated_tokens(body[:end])} tokens in: {report}"
+    assert len(body) <= cut, report
     print(report)
 
 
 def test_every_script_has_a_row_in_one_table_of_scripts():
-    """SKILL.md keeps the rows most changes use and references/scripts.md the others, so that the check loop
+    """SKILL.md keeps the rows most changes use and references/scripts.md the others, so that the body
     keeps its room (docs/decisions/skill-body-budget.md). A script with a row in neither is one no agent picks."""
     rows = {}
     for doc in (SKILL_MD, SKILL / "references" / "scripts.md"):

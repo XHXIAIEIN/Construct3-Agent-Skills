@@ -1,6 +1,6 @@
-# The Check Loop Stays Inside the First 5000 Tokens of SKILL.md
+# SKILL.md Holds Facts and Tool Entries Inside 5000 Tokens
 
-Date: 2026-10-21
+Date: 2026-10-30
 Schema: Construct 3 r495.2
 
 ## Problem
@@ -10,147 +10,87 @@ Code re-attaches the most recent invocation of each skill after the
 summary, keeping the first 5,000 tokens of each. Re-attached skills share a
 combined budget of 25,000 tokens", filled from the most recently invoked
 skill (<https://code.claude.com/docs/en/skills>, "Skill content
-lifecycle"). The body of `plugin/skills/construct3-agent-plugin/SKILL.md` ran
-past that budget, and "Check after every change" was its last section but
-one. So the first compaction of a long session dropped the six steps of
-the check loop, the `stop:` rule and the hand-over order, and kept the
-sections on looking an ACE up and reading a sheet. The recorded eval
-transcripts hold no compaction (`dev/evals/token_share.py`), so the evals
-never showed it.
+lifecycle"). The body of `plugin/skills/construct3-agent-plugin/SKILL.md`
+was about 5400 tokens. It held the check loop inside the first 5000 by
+order alone, and a one-sentence change above the loop could push its end
+past the cut.
 
-Moving the loop up fixed that, but left its end 9 tokens under the cut: a
-one-sentence change above it failed the test and had to be cut down to fit.
-The sections every activation needs had no room to grow.
+Much of the body told the agent to take steps that the scripts already
+name. `verify_change.py` ends with the next thing to do, `edit_sheet.py`
+ends with the `verify_change.py` command, and `search_guides.py` prints the
+`git clone` of a missing Cookbook. Anthropic reports that newer models need
+less of this: over 80% of the Claude Code system prompt was removed for
+Claude Opus 5 with no measurable loss on its coding evals
+(<https://x.com/addyosmani/status/2115688494865465370>).
 
 ## Evidence
 
-Three sources set the size of the body:
+The cut uses Claude's tokenizer, which is not published. Anthropic's
+glossary gives about 3.5 English characters a token before Claude 4.7 and
+about 30 percent more tokens since
+(<https://platform.claude.com/docs/en/about-claude/glossary>, "Tokens"),
+so the test estimates 2.7 characters a token. tiktoken's `cl100k_base`
+counts about a third fewer and is printed beside the estimate.
 
-- Anthropic's skill guidance: "Keep `SKILL.md` under 500 lines. Move
-  detailed reference material to separate files" (the page above, "Add
-  supporting files"), and reference files linked one level deep from
-  `SKILL.md`
-  (<https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices>,
-  "Avoid deeply nested references").
-- The Agent Skills specification, "Progressive disclosure": the full body
-  "< 5000 tokens recommended", resources loaded only when required
-  (<https://agentskills.io/specification>).
-- Claude Code's re-attach: the first 5000 tokens of the body after a
-  compaction.
+Iterations 80 and 81 ran a body cut to facts and tool entries against the
+full body: countdown-between-rounds, fix-wasd-twitch, lay-out-the-hud and
+find-in-a-long-sheet, two runs a cell. The cut body left out the check
+loop, the design reading, the `agents` branch and the hand-over wording,
+and stated the gotchas as facts.
 
-Which tokenizer the cut uses is not published. Two proxies were at hand:
+| | Opus 5.5 (80) | Haiku 5.5 (81) |
+|---|---|---|
+| Runs that passed everything, full / cut | 7 of 8 / 6 of 8 | 8 of 8 / 8 of 8 |
+| Change runs that reached the look check | 12 of 12 | 12 of 12 |
+| Change runs that committed on `agents`, full / cut | 6 of 6 / 0 of 6 | 6 of 6 / 0 of 6 |
+| Runs that read `design/thinking.md` on the two sheet cases, full / cut | 1 of 4 / 1 of 4 | 2 of 4 / 0 of 4 |
 
-- tiktoken's `cl100k_base`: about 4 characters a token on this file.
-  Claude Code's count is Claude's, not OpenAI's.
-- Anthropic's glossary
-  (<https://platform.claude.com/docs/en/about-claude/glossary>, "Tokens"):
-  on the models before Claude 4.7 a token is about 3.5 English characters,
-  and Claude 4.7 and later produce about 30 percent more tokens for the
-  same text. So about 2.7 characters a token on the models the user runs,
-  half again the cl100k count.
-
-A direct measurement, `claude -p` with and without the body and the
-difference of the usage, needs a signed-in CLI or an API key. Until one
-measures it, the test estimates at 2.7 characters a token, the
-conservative proxy, and prints the cl100k count beside it.
-
-The body's sections in tokens at 2.7 characters a token (cl100k in
-brackets), before and after the Scripts table was split:
-
-| Section | Before | After |
-|---------|--------|-------|
-| Before the first command | 993 | 993 |
-| Scripts | 2372 (1535) | 1017 (659) |
-| Check after every change | 1413 | 1413 |
-| Where the check loop ends | 4991 | 3636 |
-| The four sections that teach the tools | 2292 | 2292 |
-| The body | 7283 (4820) | 5928 (3944) |
-
-The table had a row for each of 25 scripts and assets, and most rows
-listed flags and outputs that the script's `--help` or its own output
-gives at the moment they matter: the `open_in_editor.py` row repeated the
-rule that the editor report goes out only at the user's word, which the
-script prints when it offers the report. Two earlier trims of this kind
-lost nothing in the evals (`project-tools-skill.md`, "What holds the design
-in place": iterations 35, 64 and 65). Fifteen rows name scripts a task
-needs now and then: the design checks, the look, sounds, a picture of a
-sheet, Advanced Random, export, packing, art, a new project, the install,
-the generator template and the runtime probe. Most of them are reached
-through a reference that names them already (`designing-a-game.md`,
-`generating-a-project.md`, `export-project.md`, `reading-the-runtime.md`);
-`review_look.py` is step 6 of the loop.
-
-Iteration 67 ran the split against the commit before it with Haiku, on
-`design-a-catch-game`, which needs `check_design.py`, a moved row, and on
-`add-countdown`, which needs only rows that stayed. Every run of both arms
-reached `check_design.py` through `designing-a-game.md`, and no run opened
-`references/scripts.md`. The pass rates of the two arms were equal per case,
-and the split lost no more calls (scored runs):
-
-| Case | with_skill lost calls | old_skill lost calls |
-|------|-----------------------|----------------------|
-| design-a-catch-game | 1 | 2, 3 |
-| add-countdown | 2, 2 | 2, 3 |
-
-The permutation test gave no verdict: three runs were void, two of them by
-a write `trace.py` read wrongly (`2>/dev/null)`, and paths in the text of
-an answer), one by a mistyped run folder, so a cell kept one run.
+The Opus difference is lay-out-the-hud. Three runs of both arms put the
+hearts 97 to 114 px down, and every Haiku run of both arms passed it. The
+check chain held without the loop because the scripts print each next
+step. The `agents` branch is a convention that nothing in the files or the
+output teaches, and it was lost on both models. Haiku skipped the design
+guide without its sentence.
 
 ## Options
 
-1. Bring the whole body under 5000 tokens, as the specification
-   recommends. By cl100k it is; by the 2.7 estimate the four sections
-   that teach the tools must move out as well, and every task that edits a
-   sheet then reads one more file first.
-2. Hold the end of "Check after every change", not the body's, inside 5000
-   tokens at 2.7 characters a token, with the loop right after the Scripts
-   table. What follows it teaches tools whose output teaches it again: a
-   lookup prints the `write:` line, a print the numbered events,
-   `edit_sheet.py --help` the plan, and a compacted session has run them
-   already.
-3. As 2, and cut every row of the Scripts table to what picks the script.
-   The loop ends at about 4120 tokens, all 25 names stay in the body.
-4. As 3, and move the rows of the scripts a task needs now and then to
-   `references/scripts.md`, one sentence under the table naming what they
-   are for. The loop ends at about 3640. An agent reads one more file
-   before it uses one of those scripts, and the body names them by task,
-   not by file. Guidance split over files reached fewer runs than one text
-   in earlier iterations, where a route table and a per-task dispatcher
-   were tried and taken back, so no step of the check loop depends on a
-   moved row: the one moved script the loop runs, `review_look.py`, is
-   named with its command in step 6.
-5. Measure Claude's count first and decide after. The measurement needs a
-   login this machine lacks.
+1. Keep the full body and hold only the end of the check loop inside 5000
+   tokens. The loop is text that the scripts repeat, and the sections above
+   it have no room to grow.
+2. Cut the body to facts and tool entries. It loses the `agents` branch and,
+   on a small model, the design reading.
+3. As 2, and keep as instructions the two rules that the files and the
+   output do not teach: the `agents` branch with `git init`, and reading
+   `design/thinking.md` with a `search_guides.py` run before an
+   interaction is designed.
 
 ## Decision
 
-Option 4. The order of `SKILL.md` is: what to do before the first command,
-the table of the scripts most changes use, the sentence that sends the
-others to `references/scripts.md` and links `export-project.md` and
-`reading-the-runtime.md` straight from the body, so no reference sits two
-links deep, then the check loop, the three sections on the tools and the
-generator. The moved rows keep their full wording, since that file is read
-only when a task needs it. About 1360 tokens are left above the loop.
+Option 3. `SKILL.md` gives where things are, the rules before the first
+edit (git and the design guide), the table of the scripts that most changes
+use, a short legend of `verify_change.py`'s output, the facts once written
+as gotchas, the sections on looking up an ACE, reading a sheet and changing
+it with a plan, and a table of the references and Cookbook pages. The body
+is about 4000 tokens at 2.7 characters a token (2691 by cl100k), so a
+compaction keeps all of it.
 
-`dev/tests/test_skill_spec.py` holds it:
-`test_the_check_loop_survives_a_compaction` fails when the end of "Check
-after every change" passes 5000 tokens at 2.7 characters a token, and
-names the line of the cut and the sections after it;
-`test_every_script_has_a_row_in_one_table_of_scripts` fails when a script
-has a row in neither table or in both. The 500-line test stays.
-`dev/AGENTS.md`, "Rules", says which table a new script goes in.
+`dev/tests/test_skill_spec.py` holds it.
+`test_the_whole_body_survives_a_compaction` fails when the body passes 5000
+tokens at 2.7 characters a token, and it names the line of the cut and the
+sections after it. `test_every_script_has_a_row_in_one_table_of_scripts`
+fails when a script has a row in neither table or in both. The 500-line
+test stays. `dev/AGENTS.md`, "Rules", says when a line is a fact and when it
+stays an instruction.
 
 ## Re-evaluate when
 
+- A case that the four cases above do not cover fails without an
+  instruction that the cut removed, such as one where the editor is open or
+  where the hand-over needs the events that changed. That line comes back.
+- A rule is added that the scripts do not print and the files do not show.
+  It goes in "Before the first edit".
 - A signed-in `claude` CLI or an API key is at hand: measure the body with
   `claude -p` twice, with and without it, and replace 2.7 with the measured
   ratio in the test and here.
-- An eval iteration with full cells runs on this text (`dev/AGENTS.md`,
-  "Evals"), above all a case that needs a moved script that no other
-  reference names, such as `advanced_random.py` or the sound scripts: a
-  run that never opens `references/scripts.md` and misses the script
-  brings its row back to the body.
 - The Claude Code page changes the 5000 or the 25,000, or names the
   tokenizer.
-- A compaction appears in a recorded transcript: `dev/evals/token_share.py`
-  can then show what was re-attached.

@@ -8,44 +8,38 @@ metadata:
 
 # Construct 3 project files
 
-Scripts for the JSON of a Construct 3 project saved as a folder: look an ACE
-up with the JSON to write, read a sheet as the editor words it, change it
-from a plan, check the project before the editor opens it, generate a whole
-project from Python, and open it in the editor to see that it opens. They
-read the Construct3-RAG schemas, so a name they accept exists and a name
-they reject does not. The checker reads the files alone; the editor also
-reads the expressions, so a project the checker passes is opened
-once before it is handed over.
+Scripts for the JSON of a Construct 3 project saved as a folder. They read
+the Construct3-RAG schemas, so a name they accept exists and a name they
+reject does not. The checker reads the files alone. The editor also reads
+the expressions, so it can refuse a project that the checker passes.
 
-## Before the first command
+## Where things are
 
-- Commands here are written from this skill's folder. From the project root,
-  put the folder this file is in before them, for example
+- Commands here are written from this skill's folder. From the project
+  root, the folder this file is in goes before them, for example
   `python .agents/skills/construct3-agent-plugin/scripts/check_project.py`.
   The scripts find the project from the current directory upward;
   `--project <folder>` names another one.
 - The scripts find the data folder through `--rag`, the `CONSTRUCT3_RAG`
   environment variable, or the `Construct3-RAG: <folder>` line in the
-  project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found`: fill
-  that line in with the Agent-Skills clone's `plugin/` folder.
-  Hourly at most, `check_project.py` asks GitHub whether the clone or the
-  Cookbook is behind; `CONSTRUCT3_RAG_OFFLINE=1` turns this off.
-- Loaded as the Claude Code plugin (the skill is named
-  `construct3:construct3-agent-plugin`): the game project needs no copy; run
-  the scripts from this folder. In the files of this skill, `Construct3-RAG/`
-  before `data/` stands for `${CLAUDE_PLUGIN_ROOT}/`;
-  `Construct3-Agent-Skills/docs/` paths, the records of the repository the
-  plugin is built in, are not in the plugin, so skip them. To hand a sheet change or a lookup to a sub-agent, start it as
-  `construct3:project-worker`, which has only the tools these scripts need.
-- Otherwise, reading this inside the clone while the work is in a game
-  project: install the skill there first,
-  `python scripts/install.py --project <game folder>`. It copies this folder
-  to the project's `.agents/skills/` and adds the Construct 3 block to its
-  `AGENTS.md` with the clone's path filled in (`--into .claude/skills` for
-  Claude Code, `.trae/skills` for TRAE). Tell the user in one sentence what
-  was installed. A line
-  `this copy of the construct3-agent-plugin skill differs from the clone's`:
-  run the command it prints, then repeat yours.
+  project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found` means
+  that line is empty; its value is the Agent-Skills clone's `plugin/`
+  folder. `CONSTRUCT3_RAG_OFFLINE=1` stops the hourly update check of
+  `check_project.py`.
+- As the Claude Code plugin, the skill is `construct3:construct3-agent-plugin`
+  and the scripts run from this folder, so the game project needs no copy.
+  In the files of this skill, `Construct3-RAG/` before `data/` stands for
+  `${CLAUDE_PLUGIN_ROOT}/`, and `Construct3-Agent-Skills/docs/` paths are not
+  in the plugin. The sub-agent `construct3:project-worker` has only the
+  tools these scripts need.
+- `python scripts/install.py --project <game folder>` copies this folder to
+  the project's `.agents/skills/` and adds the Construct 3 block to its
+  `AGENTS.md` (`--into .claude/skills` for Claude Code, `.trae/skills` for
+  TRAE). A copy that differs from the clone's prints the command that
+  refreshes it.
+
+## Before the first edit
+
 - The project has no `.git`: `git init` in it before the first edit, so that
   every change can be seen and undone.
 - Commit on the branch `agents`, never on the user's own branch: `git switch
@@ -54,6 +48,9 @@ once before it is handed over.
   the user reviews `agents` and merges it. At the hand-over, give the user
   the events that changed, not the JSON diff:
   `python scripts/print_sheet.py --since <the user's branch>`.
+- Before you design an interaction, read
+  `Construct3-Cookbook/guides/design/thinking.md` and run
+  `scripts/search_guides.py` with the interaction's words.
 
 ## Scripts
 
@@ -61,107 +58,58 @@ once before it is handed over.
 |--------|-----|
 | `scripts/lookup_ace.py OBJECT [WORD ...]` | The conditions, actions and expressions of a project object, `System`, a plugin or a behavior, with their parameters and the JSON to write; or an effect's parameters |
 | `scripts/lookup_script_api.py NAME ...` | The scripting API: an interface's members, or a member's declaration |
-| `scripts/search_guides.py WORD ...` | The pitfalls and official examples that hold the words: before writing an interaction, and for events that do not behave as expected |
+| `scripts/search_guides.py WORD ...` | The pitfalls and official examples that hold the words |
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet as the editor words it, under its event numbers; `--map` the layouts that run each sheet, `--find NAME` the events that use a name, `--since COMMIT` what changed |
 | `scripts/print_layout.py [LAYOUT ...]` | Layers and instances in Z order with box, size and text, `on no object` for a label off its button |
-| `scripts/edit_sheet.py SHEET PLAN.json` | Every change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |
-| `scripts/verify_change.py` | The check to run after every change. It runs the four scripts below and the look in order, each again only when the files changed; its last line is the one thing to do next. `--status` prints where the checks stand |
+| `scripts/edit_sheet.py SHEET PLAN.json` | A change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |
+| `scripts/verify_change.py` | Runs the four scripts below and the look in order, each again only when the files changed; its last line names the next step. `--status` prints where the checks stand |
 | `scripts/check_project.py` | Its first step: every project file against the schemas and the editor's load rules; it passes when the last line starts with `ok:`. Alone: `--style` for a project the agent wrote, `--review` for one someone asks about |
-| `scripts/review_design.py` | Its second step, `--check`: the full checker, then design findings and questions; read [references/design-review.md](references/design-review.md) before `--prepare` |
+| `scripts/review_design.py` | Its second step, `--check`: the full checker, then design findings and questions; [references/design-review.md](references/design-review.md) covers `--prepare` |
 | `scripts/open_in_editor.py` | Its editor step: `opened`, or `failed` with the editor's message; `--preview` also runs the game for a few seconds and prints its errors, `--install-addon` installs a custom addon first. The first run takes up to 40 seconds |
 | `scripts/preview_project.py PLAN.json` | Play the preview from a plan: tap, drag, press keys, wait `until` an expression holds, read the state, take screenshots. `--keep NAME` keeps a plan that passes; `verify_change.py` replays the kept ones |
 
-The scripts for a new game's design, the look, sounds, a picture of a
-sheet, Advanced Random, export, packing, art, a new project and the
-install, with the generator template and the runtime probe, are in
-[references/scripts.md](references/scripts.md): read it when a task needs
-one. Read [references/export-project.md](references/export-project.md)
-before the first export, and
-[references/reading-the-runtime.md](references/reading-the-runtime.md)
-before checking what an event did in the preview.
+[references/scripts.md](references/scripts.md) lists the scripts for a new
+game's design, the look, sounds, a picture of a sheet, Advanced Random,
+export, packing, art, a new project and the install, with the generator
+template and the runtime probe.
 
-Each prints its options and examples with `--help`. A harness cuts long
-tool output without saying where, so a script stops at about 10 000
-characters and its last line says how to get the rest; `--limit 0` prints
-everything.
+Each script prints its options and examples with `--help`. A script stops
+at about 10 000 characters and its last line says how to get the rest;
+`--limit 0` prints everything.
 
-## Check after every change
-
-After every change to the project, a plan of `edit_sheet.py`, a hand edit
-or a run of the generator, run `python scripts/verify_change.py` and do
-what its last line says. It runs the checks in order (the checker, the
-design review, the editor and its preview, the kept plays, the look),
-skips each one that passed on the files as they are, and stops at the
-first that finds something or asks you something. Once it opens the
-editor it takes minutes: give the command a timeout of 10 minutes.
-
-- A finding names its place, `sheet Game event 15 action 2`, and what to
-  write: fix every one in one plan, then run it again.
-- `stop:` names a finding that two changes left standing: do not change
-  that place again, fix the others, and give it to the user as the line
-  says.
-- Questions are yours to answer from `print_sheet.py`: change what you
-  answer yes about the events your change wrote, name any other yes in the
-  hand-over, then run it with `--answered`.
-
-Run it until its `ok:` line, then hand over what changed and what the
-plays played. Exit code 3 or a `skipped:` line is a check that did not
-run: run it once what it names is there. A step that could not run is one
-clause, such as "the preview has not run", with no clause on what it
-would have shown, and the user is not asked to run it for you. Show the
-user the editor screenshot it names; the browser runs headless. A project
-handed over as a file is packed after the last check, because
+`verify_change.py` takes minutes once it opens the editor. A finding names
+its place, `sheet Game event 15 action 2`, and what to write. `stop:` names
+a finding that two changes left standing. Exit code 3 or a `skipped:` line
+is a check that did not run; exit code 2 and `stopped at` give the cause.
 `pack_project.py` refuses files that the check has not passed.
 
-Exit code 2 and `stopped at`: the line says the cause and what to do. Read
-[references/checker-rules.md](references/checker-rules.md) when a finding
-needs explaining or the editor reports an error the checker let through.
+## Facts
 
-## Before you design an interaction
-
-Read `Construct3-Cookbook/guides/design/thinking.md` and run
-`scripts/search_guides.py` with the interaction's words. The design guide
-names the built-in to write before a variable or an *Every tick* (its
-Native first table), and what a new project takes instead of a superseded
-feature. Before events go into a sheet, read `design/style.md` beside it,
-the official sheets' shape. Without a Cookbook clone the
-scripts print the `git clone`: run it once the user agrees.
-
-## Gotchas
-
-- If the user has the project open in the Construct 3 editor, ask them to
-  save and close it before you change its files, and to open it again
-  after. The editor keeps the files as it loaded them, so a save there
-  writes each file edited in the editor over your change, with no warning.
-- Change an event sheet only through `edit_sheet.py`. The sheet's JSON is
-  indented seven to seventeen tabs deep, and an exact-match edit of several
-  lines there fails one time in three. Other project files are edited as
-  they are.
+- The Construct 3 editor keeps the files as it loaded them. A save there
+  writes each file edited in the editor over a change made on disk, with no
+  warning.
+- A sheet's JSON is indented seven to seventeen tabs deep, and an
+  exact-match edit of several lines there fails one time in three.
+  `edit_sheet.py` edits by event number instead.
 - `plugins/system.json` and `plugins/_common.json` run to thousands of
   lines, more than most file tools return at once, so an ACE below the cut
-  looks missing. Look an ACE up with `lookup_ace.py` instead.
+  looks missing there. `lookup_ace.py` reads the whole file.
 - *Pick nearest/furthest*, *Is overlapping* and *Set color* belong to every
-  world object, not to System or the plugin: look them up on an object of
-  the project, `Coin nearest`.
+  world object, not to System or the plugin: `lookup_ace.py Coin nearest`
+  finds them on an object of the project.
 - A trigger fires only in a sheet that the running layout runs, by its own
-  sheet or an include, so a sheet that no layout runs needs an include
-  before its triggers work.
+  sheet or an include.
 - In pixel art the labels are Sprite Fonts, which draw only the characters
-  baked into them. After you change a text by hand, run
-  `python scripts/bake_font.py`.
+  baked into them. `python scripts/bake_font.py` bakes the characters of a
+  changed text.
 - Art drawn in code with Pillow looks worse than the stand-in shapes and
-  mixes styles. When this session has an image generation tool, run
-  `python scripts/prepare_art.py --list` and follow its output; without
-  one, keep the stand-ins.
-- A handed-over change that came back with an editor or runtime error
-  twice, or a user asking how to report a problem with the skill: read
-  [references/reporting-a-problem.md](references/reporting-a-problem.md).
+  mixes styles. `python scripts/prepare_art.py --list` prepares art from an
+  image generation tool.
 
-## Look an ACE up before writing it
+## Look an ACE up
 
 An ACE missing from the schema does not exist, unless the lookup says it is
-deprecated: the editor still opens a project that uses it, and a new event
-should not. Ask for the object and the words of the ACE:
+deprecated: the editor still opens a project that uses it.
 
 ```bash
 python scripts/lookup_ace.py Coin tween two
@@ -177,15 +125,12 @@ action tween-two-properties - Tween (two properties) [behavior Tween, tween]  <i
     ease                   ease       The easing function to use.  (bare id of a built-in ease: noease, easeinoutsine, easeoutback ...)
 ```
 
-Copy the `write:` line and replace the values. Leave `"sid": <new sid>` out
-of a plan for `edit_sheet.py`, which gives every new entry one; in a hand
-edit it is a 15-digit number the project does not use yet. A combo item
-whose name differs from its id prints both, `id: name`: write the id, and
-give the user the name. An expression prints the way it is reached,
-`Coin.Tween.Progress(tags)`. What the line does not show is in
-`Construct3-Cookbook/guides/project-files/hand-editing.md`: read it before
-writing a function or custom action block or a call of one, a
-`projectfile` parameter, or a family's behavior through a member type.
+The `write:` line is the JSON with its values to replace. `edit_sheet.py`
+gives every new entry its sid, so a plan leaves `"sid"` out; in a hand edit
+it is a 15-digit number the project does not use yet. A combo item whose
+name differs from its id prints both, `id: name`: the id goes in the JSON,
+the name is what the editor shows. An expression prints the way it is
+reached, `Coin.Tween.Progress(tags)`.
 
 ## Read a sheet as events
 
@@ -201,26 +146,16 @@ python scripts/print_sheet.py Game
            -> System: Wait 1 seconds (use time scale: True)
 ```
 
-Read a sheet this way before an edit, and read what a plan prints after it:
-a wrong pick or a missing branch shows in ten lines of events and hides in
-three hundred lines of JSON. Read an official example the same way,
-`--project <Construct-Example-Projects>/example-projects/template-snake`. A
-long sheet prints in parts: run the command its last line gives, or ask for
-a range, `--events 40-80`, which starts with the events the range sits in.
-
 The numbers are the editor's: the margin of the event sheet and the
-**Where** column of its Find results. Talk to the user in these numbers, not
-in JSON line numbers, and read a screenshot or a pasted Find result back the
-same way.
-
-In a project of several sheets, find where a feature lives first: `--map`
-for the sheets, `--find NAME` for the events that use a name.
+**Where** column of its Find results. An official example prints the same
+way, `--project <Construct-Example-Projects>/example-projects/template-snake`.
+A long sheet prints in parts; `--events 40-80` starts with the events the
+range sits in.
 
 ## Change a sheet with a plan
 
-A plan holds the operations as JSON in a file of their own, which
-`edit_sheet.py` puts into the sheet. `python scripts/edit_sheet.py --help`
-gives every operation with its JSON: read it before the first plan.
+A plan holds the operations as JSON in a file of their own.
+`python scripts/edit_sheet.py --help` gives every operation with its JSON.
 
 ```json
 [
@@ -235,24 +170,23 @@ python scripts/edit_sheet.py Game plan.json
 ```
 
 Every number is an event number of the sheet as it prints now, whatever the
-operations above it do, so one print serves a whole plan. `"line"` is the
-line the print shows for that event, so a number from an older print is
-refused. Nothing is written unless the whole plan holds: the sheet it makes
-is checked as `check_project.py` checks, and a problem the plan would add is
-printed under its operation with the file left as it was. A pass ends with
-the changed events under their new numbers, the checker's last line and
-the `verify_change.py` command to run next.
-`--dry-run` does all of that and writes nothing.
+operations above it do. `"line"` is the line the print shows for that
+event, so a number from an older print is refused. Nothing is written
+unless the whole plan holds: a problem the plan would add is printed under
+its operation with the file left as it was. A pass ends with the changed
+events under their new numbers and the checker's last line. `--dry-run`
+writes nothing.
 
-## Generate a whole project
+## Where the rest is
 
-A new game starts as a design, checked and played as a prototype before any
-file is written: read
-[references/designing-a-game.md](references/designing-a-game.md) before its
-first project file. When the agent owns the project and the user reviews it
-in the editor, write it as one Python generator instead of JSON by hand,
-after reading
-[references/generating-a-project.md](references/generating-a-project.md).
-That file covers the generator's markers, the art, the look, which is
-the user's when the user gives one and paper and ink only when not, and
-the look checks.
+| File | Holds |
+|------|-------|
+| [references/designing-a-game.md](references/designing-a-game.md) | A new game as a design, checked and played as a prototype |
+| [references/generating-a-project.md](references/generating-a-project.md) | A project written as one Python generator: its markers, the art, the look and the look checks |
+| [references/checker-rules.md](references/checker-rules.md) | What each checker finding means, and editor errors the checker lets through |
+| [references/export-project.md](references/export-project.md) | Export |
+| [references/reading-the-runtime.md](references/reading-the-runtime.md) | What an event did in the preview |
+| [references/reporting-a-problem.md](references/reporting-a-problem.md) | A problem report about the skill |
+| `Construct3-Cookbook/guides/design/thinking.md` | The built-in to use before a variable or an *Every tick*, and what replaces a superseded feature |
+| `Construct3-Cookbook/guides/design/style.md` | How the official sheets are organised, named and commented |
+| `Construct3-Cookbook/guides/project-files/hand-editing.md` | Function and custom action blocks and their calls, `projectfile` parameters, a family's behavior through a member type |
