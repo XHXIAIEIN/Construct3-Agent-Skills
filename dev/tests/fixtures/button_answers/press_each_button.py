@@ -182,7 +182,7 @@ def module_restart() -> dict:
     return module("Restart", events=[
         event("Start the next round when the last coin is gone",
               [cmp2("Coin.Count", EQ, "0"), trigger_once()],
-              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), restart_layout()]),
+              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), *fade_to()]),
     ])
 
 
