@@ -269,8 +269,9 @@ bold that Inter lacks.
 - `hud_tag()` sets what the player is on, a round, a level or a mode, top
   left as a small dim tag in tracked capitals: `tracked()` spaces them by
   U+2005, and `tracked_expr()` does it to a text the events set.
-  `hud_header()` adds a title before a tag, on its baseline, for a menu or a
-  result screen.
+  `hud_header()` adds a title before a tag, on its baseline, for a menu. A
+  result screen takes `result_headline()`
+  (`title-and-result-screens.md`).
 - `hud_stat()` sets the count top right: its name small and dim over a
   large light number.
 - `hud_keys()` sets the controls bottom left: a key in a `LINE` px ink box

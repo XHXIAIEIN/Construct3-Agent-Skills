@@ -1742,6 +1742,16 @@ def test_template_header_keys_and_hints(tmp_path):
     assert gb[0] - tb[2] == round(0.6 * t.TEXT_SIZE["title"] * t.PX_PER_PT)
     assert tb[3] - gb[3] == round(0.24 * (t.TEXT_SIZE["title"] - t.TEXT_SIZE["tag"]) * t.PX_PER_PT) == 5
     assert len(t.hud_header("TitleText", "RoundTag", "Coins")) == 1          # no tag, no second Text
+    # A result screen's headline: display size, centred on the screen with its tag under it
+    head, under = t.result_headline("ResultTitle", "ResultTag", "Round clear", "Round · 03", longest="Game over")
+    hb, ub = t.box_of(head), t.box_of(under)
+    assert (head["properties"]["size"], under["properties"]["size"]) == (t.text_size("display"), t.TEXT_SIZE["tag"])
+    assert t.em_px(t.text_size("display")) / min(t.VIEW_W, t.VIEW_H) >= 0.06
+    assert head["properties"]["horizontal-alignment"] == under["properties"]["horizontal-alignment"] == "center"
+    assert abs((hb[0] + hb[2]) / 2 - t.VIEW_W / 2) <= 1 and abs((ub[0] + ub[2]) / 2 - t.VIEW_W / 2) <= 1
+    assert abs((hb[1] + ub[3]) / 2 - t.VIEW_H / 2) <= 1 and ub[1] - hb[3] == t.GAP_IN
+    assert t.LONGEST["ResultTitle"] == "Game over" and "Anchor" not in head.get("behaviors", {})
+    assert len(t.result_headline("ResultTitle", "ResultTag", "Game over")) == 1
     assert t.tracked_expr('"Round " & beat') == 'RegexReplace(uppercase("Round " & beat), "(.)(?=.)", "g", "$1 ")'
     round_ = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
     assert round_["properties"]["text"] == "\u2005".join("ROUND · 01 / 06")
