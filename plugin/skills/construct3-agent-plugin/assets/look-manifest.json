@@ -24,6 +24,7 @@
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
     "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
+    "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
@@ -184,6 +185,13 @@
       "source": "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md"
     },
     {
+      "id": "touch.spacing",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "At least 8 dp between two things the player taps, from app guidelines: of 295 tapped objects on a screen of the official 2D game examples, 215 lie under 8 dp from the next, 175 touching or overlapping it, and 9 of 16 examples set buttons, tabs, pickers or icons that close, as a colour picker or a pad of arrows. row() keeps one UNIT between boxes, 10.7 dp or more, unless a game asks for less.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
       "id": "hud.paper",
       "status": "adopted",
       "scope": "paper-and-ink",
@@ -337,6 +345,27 @@
       "scope": "every-look",
       "says": "Each size of TEXT_SIZE at least 1.2 times the next smaller, a modular scale: the step between the sizes of an official 2D game example's layout runs from 1.03 to 3, a quarter of the steps under 1.25, and 71 brands' design systems step a median 1.17; no ratio holds.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "type.line-height",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Lines of body text 1.5 to 1.75 times the letters apart, from web guidelines: 130 of the 137 texts of several lines in the official 2D game examples add no line height to the font's own, about 1.15 em, and none adds 0.3 em or more. text_inst() adds none either.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "type.measure",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A line of body text 65 to 75 characters long, from web guidelines: the texts of several lines in the official 2D game examples hold a median 43 characters a line, 32 to 50 for the middle half; 47 of 137 fall in 45 to 75. A game's text box is a card, a dialogue or a tip, not a column to read.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "type.body-16",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Body text at least 16 px on a phone, 4.4% of a 360 dp shorter side, from web guidelines: the smallest text of 45 of 105 official 2D game examples is smaller, down to 1.78%. type.min-size holds 1.75%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
     },
     {
       "id": "screen.title-name",

@@ -5,10 +5,14 @@ the next. The generator template's playfield checks take their thresholds from t
 sizes of a layout and how far apart they step, how near the edge the nearest text sits, and how
 many items the screen's texts gather in one ninth of it while its corners stand empty. With
 --screens, group the texts by kind of screen: title or menu, result, and play. Then measure the
-largest text of each kind and the title image of each title screen.
+largest text of each kind and the title image of each title screen. With --taps, measure the
+objects the player taps: the smaller side of each and the gap to the nearest other, in dp, the
+viewport's shorter side counting as 360 dp. With --lines, measure the texts that hold several
+lines: the line height they add as a share of their letters' height, and how many characters a
+line holds.
 
     python evals/measure_layout.py --examples <Construct-Example-Projects>/example-projects
-                                   [--text | --screens] [--out ROWS.json] [--rag FOLDER]
+                                   [--text | --screens | --taps | --lines] [--out ROWS.json] [--rag FOLDER]
 
 An example counts when its tags in data/c3-examples name a game ("Game template" or "Demo
 game") and not "3D". A layout counts when it is one screen, at most 5% larger than the viewport
@@ -20,13 +24,18 @@ Font, its character height times its scale, that shows a non-empty text; its dis
 edge counts on a layout of one screen or a layer that does not scroll, from the sides its
 letters align to. A screen is a layout whose name says what it is. On a layout of play, a layer
 whose name says so is a screen too. NO_SCREEN names the layouts and layers that are no screen.
-A title image is the image of the game's name that TITLE_IMAGES names for a title screen. Exit
+A title image is the image of the game's name that TITLE_IMAGES names for a title screen. A
+tapped object is an instance of a type, or a family's member, that a Touch or Mouse condition of
+the event sheets names, shown on a layout of one screen or a layer that does not scroll. A text
+of several lines is a Text that wraps, holds more than 60 characters and is at least 2.5 lines
+of 1.15 em high; a line holds its width over half an em of characters, Arial's mean width. Exit
 codes: 0 measured, 2 bad arguments.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -184,11 +193,13 @@ def measure_text(examples: Path, rag: Path) -> list[dict]:
     return rows
 
 
+def cuts(vals: list[float], ks: tuple = (0.05, 0.25, 0.5, 0.75)) -> str:
+    vals = sorted(vals)
+    return f"{len(vals)}, min {vals[0]:g} " + " ".join(
+        f"p{int(k * 100)} {vals[min(len(vals) - 1, int(k * len(vals)))]:g}" for k in ks)
+
+
 def report_text(rows: list[dict]) -> None:
-    def cuts(vals: list[float]) -> str:
-        vals = sorted(vals)
-        return f"{len(vals)}, min {vals[0]:g} " + " ".join(
-            f"p{int(k * 100)} {vals[min(len(vals) - 1, int(k * len(vals)))]:g}" for k in (0.05, 0.25, 0.5, 0.75))
     smallest: dict[str, float] = {}
     for r in rows:
         smallest[r["example"]] = min(smallest.get(r["example"], 1), *r["sizes"])
@@ -315,6 +326,103 @@ def share(rows: list[dict], key: str, test) -> str:
     return f"{n} of {len(rows)} ({100 * n / len(rows):.0f}%)"
 
 
+TAPPED = {"on-touched-object", "on-object-clicked", "is-touching-object", "on-tap-gesture-object"}
+
+
+def events_in(events: list):
+    """Every event, each followed by those inside it."""
+    for e in events:
+        yield e
+        yield from events_in(e.get("children", []))
+
+
+def tapped_types(folder: Path) -> set[str]:
+    """The object types that a Touch or Mouse condition names, a family's members for a family."""
+    named = {c["parameters"]["object"] for f in (folder / "eventSheets").glob("*.json")
+             for e in events_in(load(f).get("events", [])) for c in e.get("conditions", [])
+             if c.get("id") in TAPPED and "object" in c.get("parameters", {})}
+    families = {(fam := load(f))["name"]: set(fam.get("members", [])) for f in (folder / "families").glob("*.json")}
+    return set().union(*(families.get(n, {n}) for n in named))
+
+
+def measure_taps(examples: Path, rag: Path) -> list[dict]:
+    """One row per tapped object shown on a screen: its smaller side and the gap to the nearest
+    other tapped object of its layout, in dp; the gap is 0 when they touch or overlap, None when
+    it is alone."""
+    rows = []
+    for gid in games(rag):
+        proj = examples / gid / "project.c3proj"
+        if not proj.is_file():
+            continue
+        p = load(proj)
+        vw, vh = p["viewportWidth"], p["viewportHeight"]
+        dp = 360 / min(vw, vh)
+        taps = tapped_types(examples / gid)
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = load(f)
+            one_screen = lay["width"] <= 1.05 * vw and lay["height"] <= 1.05 * vh
+            boxes = []
+            for layer in layers_in(lay["layers"]):
+                fixed = layer.get("parallaxX", 1) == 0 and layer.get("parallaxY", 1) == 0
+                if not (layer.get("isInitiallyVisible", True) and (one_screen or fixed)):
+                    continue
+                for inst in layer["instances"]:
+                    w = inst.get("world")
+                    if inst["type"] in taps and w and not w.get("angle") \
+                            and inst.get("properties", {}).get("initially-visible") is not False \
+                            and (box := box_on_screen(w, vw, vh)):
+                        boxes.append((inst["type"], box))
+            for n, (otype, a) in enumerate(boxes):
+                gaps = [math.hypot(max(b[0] - a[2], a[0] - b[2], 0), max(b[1] - a[3], a[1] - b[3], 0))
+                        for m, (_, b) in enumerate(boxes) if m != n]
+                rows.append({"example": gid, "layout": lay["name"], "type": otype,
+                             "side": round(min(a[2] - a[0], a[3] - a[1]) * dp, 1),
+                             "gap": round(min(gaps) * dp, 1) if gaps else None})
+    return rows
+
+
+def report_taps(rows: list[dict]) -> None:
+    sides = [r["side"] for r in rows]
+    print(f"smaller side of a tapped object, dp: {cuts(sides)}; under 48 dp: {sum(s < 48 for s in sides)} of {len(sides)}")
+    near = [r for r in rows if r["gap"] is not None]
+    under = [r for r in near if r["gap"] < 8]
+    print(f"gap to the nearest other tapped object, dp: {cuts([r['gap'] for r in near])}; touching or overlapping: "
+          f"{sum(r['gap'] == 0 for r in near)}, under 8 dp: {len(under)} of {len(near)}")
+    named = sorted({r["example"] for r in under if re.search(r"button|btn|tab|picker|icon", r["type"], re.I)})
+    print(f"examples with a button, tab, picker or icon under 8 dp from another: {len(named)} of "
+          f"{len({r['example'] for r in near})} ({', '.join(named)})")
+
+
+def measure_lines(examples: Path, rag: Path) -> list[dict]:
+    """One row per text of several lines: the line height it adds over its letters' height, and
+    the characters a line holds."""
+    rows = []
+    for gid in games(rag):
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = load(f)
+            for layer in layers_in(lay["layers"]):
+                for inst in layer["instances"]:
+                    props, w = inst.get("properties", {}), inst.get("world")
+                    px = text_px(props)
+                    if not (px and w and "font" in props and props.get("wrapping") and len(str(props.get("text", ""))) > 60
+                            and abs(w["height"]) >= 2.5 * 1.15 * px):
+                        continue
+                    rows.append({"example": gid, "layout": lay["name"], "type": inst["type"],
+                                 "added": round(props.get("line-height", 0) / px, 3),
+                                 "chars": round(abs(w["width"]) / (0.5 * px))})
+    return rows
+
+
+def report_lines(rows: list[dict]) -> None:
+    added = [r["added"] for r in rows]
+    print(f"texts of several lines: {len(rows)} in {len({r['example'] for r in rows})} examples; line height added "
+          f"over the letters, share of their height: {cuts(added)}; none added: {added.count(0)}, 0.3 or more: "
+          f"{sum(a >= 0.3 for a in added)}")
+    chars = [r["chars"] for r in rows]
+    print(f"characters a line holds: {cuts(chars, (0.1, 0.25, 0.5, 0.75, 0.9))}; 45 to 75: "
+          f"{sum(45 <= c <= 75 for c in chars)}, over 75: {sum(c > 75 for c in chars)}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="example: python evals/measure_layout.py --examples ../Construct-Example-Projects/"
@@ -323,13 +431,16 @@ def main() -> int:
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--text", action="store_true", help="measure the layouts' texts, not their content")
     mode.add_argument("--screens", action="store_true", help="measure the texts and title images by kind of screen")
+    mode.add_argument("--taps", action="store_true", help="measure the size and spacing of the objects the player taps")
+    mode.add_argument("--lines", action="store_true", help="measure the line height and length of texts of several lines")
     ap.add_argument("--out", type=Path, help="write every measured layout here as JSON")
     ap.add_argument("--rag", type=Path, default=RAG, help="the Construct3-RAG folder, for the examples' tags")
     args = ap.parse_args()
     if not args.examples.is_dir():
         print(f"--examples {args.examples}: not a folder; pass <Construct-Example-Projects>/example-projects", file=sys.stderr)
         return 2
-    rows = (measure_text if args.text else measure_screens if args.screens else measure)(args.examples, args.rag)
+    rows = (measure_text if args.text else measure_screens if args.screens else measure_taps if args.taps
+            else measure_lines if args.lines else measure)(args.examples, args.rag)
     if not rows:
         print("no layout measured: check that --examples is the example-projects folder")
         return 0
@@ -337,6 +448,10 @@ def main() -> int:
         report_text(rows)
     elif args.screens:
         report_screens(rows)
+    elif args.taps:
+        report_taps(rows)
+    elif args.lines:
+        report_lines(rows)
     else:
         for key in ("covers", "focal"):
             vals = sorted(r[key] for r in rows)
