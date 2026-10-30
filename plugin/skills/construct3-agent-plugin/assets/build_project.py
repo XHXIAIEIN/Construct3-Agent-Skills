@@ -105,8 +105,8 @@ SHAPE_STYLE = {
 # time. hit_frame() draws it with the outline, so a white flash shows on the sheet.
 # A frame, not the object's colour: the colour multiplies the image and cannot turn it white.
 HIT_FLASH = {"role": "flash", "seconds": 0.08}
-# Squash and stretch by kind: the size set to a share of the image's size, held, then tweened
-# back. squash(obj, kind) plays one; hit() plays the hit's with its flash.
+# Squash and stretch by kind: the size set to a share of the object's rest size, held, then
+# tweened back. squash(obj, kind) plays one; hit() plays the hit's with its flash.
 # Squash the art, never the object that collides: a Platform or Solid object that grows sinks
 # into the floor. The art is a second object, origin at its feet with shape(..., oy=1), pinned
 # to an invisible collision mask.
@@ -1379,7 +1379,7 @@ def hit_flash(obj: str, frame: str = "hit") -> list:
             act("set-animation-frame", obj, {"frame-number": "0"})]
 
 
-SQUASHED: set[str] = set()                 # objects squash() acts on, checked in build_all()
+SQUASHED: set[str] = set()                 # objects squash() acts on; build_all() gives them their rest size
 # Behaviors whose object collides, by behaviorId; squash() stops the run on one
 COLLIDING = ("Platform", "EightDir", "Physics", "Car", "solid", "jumpthru")
 # Squash of a button under a finger, press(); a game tunes it as SQUASH["press"]
@@ -1388,9 +1388,11 @@ SQUASH_PRESS = {"width": 0.9, "height": 0.9, "hold": 0, "seconds": 0.1, "ease": 
 
 def squash(obj: str, kind: str, tween: str = "Tween", half: str = "both") -> list:
     """Actions of a squash of SQUASH ("hit", "land", "jump" or "press") on obj: stop its running
-    squash, set its size to the kind's share of its image size, hold, and tween back under the tag
+    squash, set its size to the kind's share of its rest size, hold, and tween back under the tag
     "squash". obj is the art, not the object that collides, and has the Tween behavior `tween`.
-    The tween ends at the image's size, the size shape_inst() places obj at.
+    The rest size is the size obj has when its first squash starts, kept in its instance variables
+    restWidth and restHeight, so a size set in the layout editor survives the squash.
+    A later resize that should last sets restWidth and restHeight too.
     The hold waits, so put the actions last in their block.
     half="down" gives the actions up to the hold, "back" the tween back; press() uses both halves.
 
@@ -1404,12 +1406,37 @@ def squash(obj: str, kind: str, tween: str = "Tween", half: str = "both") -> lis
     k = kinds[kind]
     SQUASHED.add(obj)
     down = [act("stop-tweens", obj, {"tags": q("squash")}, beh=tween),
-            act("set-size", obj, {"width": f"Self.ImageWidth * {k['width']:g}",
-                                  "height": f"Self.ImageHeight * {k['height']:g}"}),
+            {"type": "comment", "text": f"Squash {obj} from the size it rests at. A rest size of 0 is a first "
+                                        f"squash, so the size it has now is its rest size"},
+            *(set_ivar(obj, f"rest{side}", f"Self.rest{side} = 0 ? Self.{side} : Self.rest{side}")
+              for side in ("Width", "Height")),
+            act("set-size", obj, {"width": f"Self.restWidth * {k['width']:g}",
+                                  "height": f"Self.restHeight * {k['height']:g}"}),
             *([wait(f"{k['hold']:g}", use_timescale=False)] if k["hold"] else [])]
-    back = [tween2(obj, "squash", "size", "Self.ImageWidth", "Self.ImageHeight", f"{k['seconds']:g}", k["ease"],
+    back = [tween2(obj, "squash", "size", "Self.restWidth", "Self.restHeight", f"{k['seconds']:g}", k["ease"],
                    beh=tween)]
     return {"both": down + back, "down": down, "back": back}[half]
+
+
+def squash_types(types: dict, families: dict, layouts: dict) -> None:
+    """Gives each type or family squash() acts on the number instance variables restWidth and
+    restHeight, 0 on every instance, because an instance lists every instance variable of its type
+    and of its families."""
+    squashed = set()
+    for name in sorted(SQUASHED & (set(types) | set(families))):
+        item = types.get(name) or families[name]
+        ivars = item.setdefault("instanceVariables", [])
+        for side in ("Width", "Height"):
+            if not any(v["name"] == f"rest{side}" for v in ivars):
+                ivars.append(ivar_def(f"rest{side}", "number", f"{side} it rests at, the size squash() returns "
+                                                               f"to; 0 until its first squash keeps it."))
+        squashed |= set(families[name]["members"]) if name in families else {name}
+    for lay in layouts.values():
+        for layer_ in layers_in(lay["layers"]):
+            for inst in layer_["instances"]:
+                if inst["type"] in squashed:
+                    inst["instanceVariables"].setdefault("restWidth", 0)
+                    inst["instanceVariables"].setdefault("restHeight", 0)
 
 
 def squash_the_art(types: dict, families: dict) -> None:
@@ -3512,10 +3539,11 @@ def write_all(c3proj: Path) -> None:
     for lay in layouts.values():
         for layer_ in layers_in(lay["layers"]):
             layer_["instances"] = z_order(layer_["instances"])
-    # Sheet first: press() records its types, and press_types() gives them their variable
+    # Sheet first: press() and squash() record their types, which then get their variables
     sheet = build_event_sheet()
     write_texts(sheet, types)
     press_types(types, layouts)
+    squash_types(types, families, layouts)
     for name, t in types.items():
         write_json(f"objectTypes/{name}.json", t)
     for name, f in families.items():
@@ -3573,7 +3601,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 56886266e758 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f9cf13d14fb4 ================
 
 
 # --- the game ---------------------------------------------------------------------------

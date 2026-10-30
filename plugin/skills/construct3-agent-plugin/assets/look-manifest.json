@@ -644,7 +644,7 @@
       "id": "motion.squash",
       "status": "adopted",
       "scope": "paper-and-ink",
-      "says": "A squash sets a share of the image's size at once, holds it, and tweens back to the image's size: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
+      "says": "A squash sets a share of the object's rest size at once, holds it, and tweens back to the rest size, the size the instance has when its first squash starts, so a size set in the layout editor stays: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
       "template": "[(k['width'], k['height'], k['hold'], k['seconds'], k['ease']) for k in SQUASH.values()]",
       "value": "[(0.8, 1.2, 0, 0.25, 'easeoutback'), (1.2, 0.8, 0, 0.5, 'easeoutelastic'), (0.7, 1.3, 0.2, 0.75, 'easeoutelastic')]",
       "helpers": "squash(), hit()",
@@ -756,7 +756,7 @@
       "id": "motion.size-on-dying",
       "status": "adopted",
       "scope": "every-look",
-      "says": "An object that a size tween destroys is not squashed back to its image size by another event: a size tween stops the one running on that property, which then never destroys the instance. A squash in the same actions, or after On created or a tween's On finished, passes. The check warns, because an event's conditions may keep the squash off a dying instance.",
+      "says": "An object that a size tween destroys is not squashed back to its rest size by another event: a size tween stops the one running on that property, which then never destroys the instance. A squash in the same actions, or after On created or a tween's On finished, passes. The check warns, because an event's conditions may keep the squash off a dying instance.",
       "helpers": "squash(), tween2()",
       "confirm": "check_look.py: motion.size-on-dying (a warning)",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"

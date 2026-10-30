@@ -193,7 +193,7 @@ def test_a_finding_names_the_place_a_plan_changes(project):
     code, out = plan(project,
                      {"event": 3, "condition": 1, "set": {"isInverted": False}},
                      {"event": 6, "condition": 1, "set": {"parameters": {"type": "start"}}},
-                     {"event": 7, "action": 10, "set": {"behaviorType": "Tween"}},
+                     {"event": 7, "action": 13, "set": {"behaviorType": "Tween"}},
                      {"event": 9, "action": 2, "set": {"id": "set-text"}},
                      {"move": 8, "after": 7})
     assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
