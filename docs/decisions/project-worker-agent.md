@@ -106,9 +106,14 @@ before the first project file and keeps its files inside the project. When
 a script prints a `brief:` line, the prompt has the worker give the brief
 to `construct3:look-judge` as its whole task, without a model, because the
 judge has not seen the project (`look-judge-agent.md`). The worker starts
-the judge two layers below the main session. Claude Code allows three
-layers by default (<https://code.claude.com/docs/en/sub-agents>, "Let
-subagents spawn their own subagents").
+the judge in the foreground and waits for its reply. A sub-agent that starts
+another in the background can end first, and the other then runs to its end
+with no reader: on 2026-10-03 one ended 11 seconds after such a start, and
+the agent it started ran 4 more minutes and wrote about 94 000 output
+tokens. The worker starts the judge two layers below the main session.
+Claude Code allows three layers by default
+(<https://code.claude.com/docs/en/sub-agents>, "Let subagents spawn their
+own subagents").
 
 The eval iterations of the skill stay general-purpose: the first comparison
 above is small and ran off the owner's machine, and the runs of every

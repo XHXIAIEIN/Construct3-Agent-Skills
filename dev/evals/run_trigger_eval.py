@@ -13,7 +13,8 @@ Each run works in a copy of FOLDER of its own, made for it and removed after
 it, so that what one run writes is not what another one reads. Stopping a
 run stops every process the client started (taskkill /T on Windows, the
 process group elsewhere); a copy that cannot be removed afterwards, and a
-process that still holds the run's output, are printed.
+process that still holds the run's output, are printed. Ctrl+C stops every
+run in that way and drops the runs not yet started.
 
 A run counts as triggered when the stream shows the Skill tool called with
 this skill, or SKILL.md of this skill read, and the call's result is not an
@@ -104,11 +105,11 @@ def watch(cmd: list[str], copy: Path, env: dict[str, str], err: IO[str], client:
     after the run was stopped. The client runs in a process group of its own, so that stopping it at
     the timeout, or once the stream has answered, stops every process it started."""
     try:
-        proc = subprocess.Popen(cmd, cwd=copy, env=env, stdout=subprocess.PIPE, stderr=err, text=True,
-                                encoding="utf-8", errors="replace", start_new_session=os.name != "nt",
-                                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
+        proc = start_client(cmd, cwd=copy, env=env, stdout=subprocess.PIPE, stderr=err)
     except OSError as e:
         raise ClientError(f"{client} could not be started: {e}") from e
+    if proc is None:
+        return "client stopped", ""
     ended: dict = {}
 
     def read() -> None:
@@ -118,9 +119,11 @@ def watch(cmd: list[str], copy: Path, env: dict[str, str], err: IO[str], client:
             ended["error"] = e
     reader = threading.Thread(target=read, daemon=True)
     reader.start()
-    reader.join(timeout)
-    timed_out = reader.is_alive()
-    stop_tree(proc)
+    try:
+        reader.join(timeout)
+        timed_out = reader.is_alive()
+    finally:
+        end_client(proc)
     reader.join(STOP_WAIT)
     held = (f"{client} was stopped, and a process it started still held its output {STOP_WAIT} seconds later"
             if reader.is_alive() else "")
@@ -132,6 +135,39 @@ def watch(cmd: list[str], copy: Path, env: dict[str, str], err: IO[str], client:
 
 # Seconds to wait for a stopped run's processes to end and its output to close.
 STOP_WAIT = 5
+
+
+# The clients running now. Each runs in a process group of its own, which a Ctrl+C in this console does not
+# reach, so the main thread stops them with stop_all; after that, start_client starts none.
+RUNNING: set[subprocess.Popen] = set()
+RUNNING_LOCK = threading.Lock()
+STOPPING = threading.Event()
+
+
+def start_client(cmd: list[str], **popen: object) -> subprocess.Popen | None:
+    """cmd started in a process group of its own and recorded as running, or None once stop_all ran."""
+    with RUNNING_LOCK:
+        if STOPPING.is_set():
+            return None
+        proc = subprocess.Popen(cmd, text=True, encoding="utf-8", errors="replace", start_new_session=os.name != "nt",
+                                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0, **popen)
+        RUNNING.add(proc)
+    return proc
+
+
+def end_client(proc: subprocess.Popen) -> None:
+    stop_tree(proc)
+    with RUNNING_LOCK:
+        RUNNING.discard(proc)
+
+
+def stop_all() -> None:
+    """Stops every running client with what it started, and every client start_client would start later."""
+    STOPPING.set()
+    with RUNNING_LOCK:
+        running = list(RUNNING)
+    for proc in running:
+        stop_tree(proc)
 
 
 def stop_tree(proc: subprocess.Popen) -> None:
@@ -230,7 +266,13 @@ def main() -> int:
         # One run first: a client that cannot answer stops here, before the parallel runs
         run_once(args.client, queries[0]["query"], project, args.model, 1, args.timeout)
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            results = list(pool.map(rate, queries))
+            try:
+                results = list(pool.map(rate, queries))
+            except KeyboardInterrupt:
+                # Leaving the pool waits for its threads, and each waits for a client that the Ctrl+C missed.
+                stop_all()
+                pool.shutdown(cancel_futures=True)
+                raise
     except ClientError as e:
         print(f"no result written: {e}", file=sys.stderr)
         return 2

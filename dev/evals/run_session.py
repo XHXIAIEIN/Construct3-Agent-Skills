@@ -22,6 +22,10 @@ and timing.json the time and tokens of all the turns. The transcript is
 ~/.claude/projects/<project>/<session id>.jsonl; the script prints it with the
 trace.py command that reads it into the run folder.
 
+A turn that runs past --timeout ends the case, and the turns after it do not
+run. Stopping a turn, by the timeout or by Ctrl+C, stops every process the
+client started.
+
 exit codes: 0 every turn answered, 1 a turn ended in an error or a compaction
 did not run, 2 the client could not run: it is not installed, not signed in
 (run `claude` once and sign in), or printed no JSON result
@@ -58,11 +62,14 @@ def turn(client: list[str], prompt: str, project: Path, session: str | None, arg
                                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
     except OSError as e:
         raise ClientError(f"{client[0]} could not be started: {e}") from e
+    # The client runs in a process group of its own, which a Ctrl+C in this console does not reach, so the turn
+    # stops it on the way out.
     try:
         out, err = proc.communicate(timeout=args.timeout)
     except subprocess.TimeoutExpired:
+        return {"is_error": True, "timed_out": True, "result": f"timed out after {args.timeout} s"}
+    finally:
         stop_tree(proc)
-        return {"is_error": True, "result": f"timed out after {args.timeout} s"}
     try:
         result = json.loads(out.strip().splitlines()[-1])
     except (ValueError, IndexError):
@@ -130,6 +137,9 @@ def main() -> int:
                     record["turns"].append({"prompt": "/compact", "result": done.get("result"),
                                             "is_error": bool(done.get("is_error")),
                                             "compaction": compaction_of(transcript_of(session))})
+                    if done.get("timed_out"):
+                        print(f"turn {n + 1}: /compact timed out; the case stops")
+                        break
                 for name in case.get("between", []) if n == 1 else []:
                     make_fixtures.BETWEEN[name](project)
                     record["turns"].append({"between": name})
@@ -141,6 +151,10 @@ def main() -> int:
                                     "duration_ms": done.get("duration_ms"), "cost_usd": done.get("total_cost_usd")})
             print(f"turn {n + 1}: {'error' if done.get('is_error') else 'answered'} in "
                   f"{round((done.get('duration_ms') or 0) / 1000)} s")
+            if done.get("timed_out"):
+                # A later turn would resume a session that never finished its turn, or start one without it.
+                print(f"turn {n + 1} timed out; the case stops")
+                break
     except ClientError as e:
         print(e, file=sys.stderr)
         return 2

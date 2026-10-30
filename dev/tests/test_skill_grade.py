@@ -7,6 +7,7 @@ passes throughout. An add-countdown run is the stand-in game with the events it 
 """
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -999,6 +1000,11 @@ session = args[args.index("--resume") + 1] if "--resume" in args else None
 sheet = Path("eventSheets/Game.json").read_text(encoding="utf-8")
 with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
     log.write(json.dumps({"prompt": prompt, "resume": session, "inverted": "isInverted" in sheet}) + "\\n")
+if os.environ.get("FAKE_HANG"):
+    import subprocess, time
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    Path(os.environ["FAKE_HANG"]).write_text(str(child.pid), encoding="utf-8")
+    time.sleep(60)
 if os.environ.get("FAKE_SIGNED_OUT"):
     print(json.dumps({"is_error": True, "result": "Failed to authenticate: OAuth session expired"}))
     sys.exit(1)
@@ -1053,6 +1059,30 @@ def test_run_session_stops_when_the_client_is_signed_out(tmp_path: Path, monkeyp
     monkeypatch.setenv("FAKE_SIGNED_OUT", "1")
     code, out = run(tmp_path, EVALS / "run_session.py", str(run_dir), "--client", client)
     assert code == 2 and "is not signed in" in out, out
+
+
+def running(pid: int) -> bool:
+    if os.name == "nt":
+        listed = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True, timeout=60)
+        return str(pid) in listed.stdout
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def test_run_session_stops_the_case_and_the_client_tree_at_a_timeout(tmp_path: Path,
+                                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    """A turn past --timeout ends the case: no later turn starts a session without the first one's, and the
+    process the client started is stopped with it."""
+    run_dir, client = session_run(tmp_path, "with_compact")
+    monkeypatch.setenv("FAKE_LOG", str(tmp_path / "log.jsonl"))
+    monkeypatch.setenv("FAKE_HANG", str(tmp_path / "child.pid"))
+    code, out = run(tmp_path, EVALS / "run_session.py", str(run_dir), "--client", client, "--timeout", "3")
+    assert code == 1 and "turn 1 timed out; the case stops" in out, out
+    assert len((tmp_path / "log.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+    assert not running(int((tmp_path / "child.pid").read_text(encoding="utf-8")))
 
 
 @pytest.mark.parametrize(("answer", "passed"), [

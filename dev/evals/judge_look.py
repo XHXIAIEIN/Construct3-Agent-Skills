@@ -28,6 +28,9 @@ answer counts as unanswered, not as no. Several --labels files are read in turn,
 later one taking the place of the same answer in an earlier one. The whole score goes to
 REPLIES/score.json.
 
+A run that passes --timeout is stopped with every process its client started. Ctrl+C stops every
+run in that way and drops the runs not yet started.
+
 Exit codes: 0 done, 1 some run got no reply, 2 bad arguments, no labels, or no client.
 """
 from __future__ import annotations
@@ -97,14 +100,17 @@ def judge(client: str, model: str, place: Path, timeout: int) -> dict:
            "--safe-mode", "--tools", "Read", "--output-format", "json", "--no-session-persistence"]
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}     # set inside a session, it refuses a nested one
     start = time.monotonic()
-    proc = subprocess.Popen(cmd, cwd=place, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            encoding="utf-8", errors="replace", start_new_session=os.name != "nt",
-                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
+    proc = rte.start_client(cmd, cwd=place, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc is None:
+        return {"error": "stopped before it started"}
     try:
         out, err = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        rte.stop_tree(proc)
         return {"error": f"no reply in {timeout} s"}
+    finally:
+        rte.end_client(proc)
+    if rte.STOPPING.is_set():
+        return {"error": "stopped"}
     try:
         got = json.loads(out)
     except ValueError:
@@ -133,9 +139,15 @@ def run(args: argparse.Namespace, index: dict) -> int:
         return key, r, got
     failed = 0
     with ThreadPoolExecutor(args.jobs) as pool:
-        for key, r, got in pool.map(one, jobs):
-            failed += "error" in got
-            print(f"  {key} run {r}: {got.get('error') or str(got['seconds']) + ' s'}", flush=True)
+        try:
+            for key, r, got in pool.map(one, jobs):
+                failed += "error" in got
+                print(f"  {key} run {r}: {got.get('error') or str(got['seconds']) + ' s'}", flush=True)
+        except KeyboardInterrupt:
+            # Leaving the pool waits for its threads, and each waits for a client that the Ctrl+C missed.
+            rte.stop_all()
+            pool.shutdown(cancel_futures=True)
+            raise
     if failed:
         print(f"{failed} runs got no reply; their .json says why. Run again to retry only those.")
     return 1 if failed else 0
