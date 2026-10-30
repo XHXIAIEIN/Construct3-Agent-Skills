@@ -2109,6 +2109,41 @@ def face_of(kind: str) -> str:
     return face(TEXT_WEIGHT.get(kind, "regular"))
 
 
+LONGEST: dict[str, str] = {}               # the widest text each Text type shows: tools/texts.json
+
+
+def longest_text(otype: str, longest: str | None, size: float) -> None:
+    """Records `longest` as the widest text the Text type `otype` shows at runtime, keeping the widest of its
+    instances. The skill's review_look.py shows it in place of the text to find what a longer text cuts or
+    covers, and a type whose text the events set needs one."""
+    if longest and text_px(longest, size) >= text_px(LONGEST.get(otype, ""), size):
+        LONGEST[otype] = longest
+
+
+def write_texts(sheet: dict, types: dict) -> None:
+    """Writes tools/texts.json from LONGEST. Stops the run when the events set the text of a Text type that no
+    helper gave a `longest`: its box fits only the text it starts with."""
+    set_by: set[str] = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            if node.get("id") in ("set-text", "append-text", "typewriter-text"):
+                set_by.add(node.get("objectClass"))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+    walk(sheet)
+    open_ = sorted(n for n in set_by if n in types and types[n].get("plugin-id") in FONT_PLUGINS and n not in LONGEST)
+    if open_:
+        sys.exit(f"the events set the text of {', '.join(open_)}, and no helper says how long it gets: pass "
+                 f"longest=, the widest text it shows at runtime (\"Score: 999999\", the longest card name), to "
+                 f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
+                 f"that text")
+    write_json("tools/texts.json", {"longest": dict(sorted(LONGEST.items()))})
+
+
 def hud_text(otype: str, text: str, where: str, size: float | None = None, longest: str | None = None,
              bold: bool = False, color: str = "ink", on: str = "canvas_alt", dx: float = 0, dy: float = 0,
              ivars=None, behaviors=None, weight: str = "regular") -> dict:
@@ -2118,6 +2153,7 @@ def hud_text(otype: str, text: str, where: str, size: float | None = None, longe
     leftwards. Size TEXT_SIZE["body"], or text_size("display") for a banner; color, on and weight
     as for text_inst()."""
     size = size or TEXT_SIZE["body"]
+    longest_text(otype, longest, size)
     w, h = label_box(longest or text, size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
@@ -2315,6 +2351,7 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
                  f"role), in build_images()")
     w, h = DRAWN_AS[rel][1:3]
     size = size or label_size(longest or text, w, h)
+    longest_text(label, longest, size)
     need = button_size(longest or text, size)
     if w < need[0] or h < need[1]:
         sys.exit(f"button({otype!r}): the label {longest or text!r} needs a shape of {need[0]}x{need[1]} px and "
@@ -2388,6 +2425,7 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
     size = {"title": TEXT_SIZE["title"], "stage": text_size("display")}.get(band, TEXT_SIZE["body"])
     if label_box(longest or text, size)[0] > bw:
         size = TEXT_SIZE["body"]
+    longest_text(otype, longest, size)
     w, h = label_box(longest or text, size)
     if w > bw:
         chars = int(bw / em_px(size))
@@ -2526,6 +2564,7 @@ def slider(name: str, col: int, row: int, length: int, lo: float = 0, hi: float 
                        behaviors={"DragDrop": {"properties": {"axes": "horizontal-only", "enabled": True}}})
     parts = [track, fill, knob, *([label] if label else [])]
     widest = max((f"{v:g}" for v in (lo, hi, lo + step)), key=text_ems)
+    longest_text(SLIDER["value"], widest, TEXT_SIZE["body"])
     vw, vh = label_box(widest)[0], line_height()
     shown = None
     if value_at == "end":
@@ -2745,6 +2784,7 @@ def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None 
     at runtime, which the events set with tracked_expr(). One group of spaced() on its own:
         HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")], ...]"""
     size = text_size("tag")
+    longest_text(otype, longest and tracked(longest), size)
     w, h = text_width(tracked(longest or text), size), line_height(size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
@@ -2846,6 +2886,7 @@ def hud_stat(name_type: str, value_type: str, name: str, where: str, value: str 
     `ivars` and `behaviors` go on the value. Returns [name, value], one group for spaced():
         HUD = [hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"), ...]"""
     small, large = text_size("name"), text_size("number")
+    longest_text(value_type, longest, large)
     nw, vw = label_box(name, small)[0], label_box(longest or value, large)[0]
     nh, vh = line_height(small), line_height(large)
     gw = max(nw, vw)
@@ -3346,6 +3387,7 @@ def write_all(c3proj: Path) -> None:
             layer_["instances"] = z_order(layer_["instances"])
     # Sheet first: press() records its types, and press_types() gives them their variable
     sheet = build_event_sheet()
+    write_texts(sheet, types)
     press_types(types, layouts)
     for name, t in types.items():
         write_json(f"objectTypes/{name}.json", t)
@@ -3404,7 +3446,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 5f6c1ffde32b ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp b58f95a19e12 ================
 
 
 # --- the game ---------------------------------------------------------------------------

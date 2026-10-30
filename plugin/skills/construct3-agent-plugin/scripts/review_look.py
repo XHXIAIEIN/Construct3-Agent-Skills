@@ -2,7 +2,7 @@
 what the runtime shows wrong on it, and the questions to answer about the picture.
 
     python scripts/review_look.py [PATH ...] [--project FOLDER] [--layouts NAME ...] [--settle SECONDS]
-                                  [--viewport W H] [--release rNNN] [--browser EXE] [--shots DIR]
+                                  [--viewport W H] [--data STATE ...] [--release rNNN] [--browser EXE] [--shots DIR]
                                   [--out RESULT.json] [--headed] [--profile FOLDER]
     python scripts/review_look.py --reply REPLY [--project FOLDER] [--out RESULT.json]
 
@@ -12,69 +12,59 @@ SETTLE seconds, takes a screenshot, and reads every instance of the layout from
 the runtime. It prints one line per mechanical finding, each naming the layout,
 the object type, the instance's UID and what to change:
 
-  text      a visible Text whose text needs more room than its box: it is cut
-            or wraps beyond the box
-  stacked   two or more visible instances of one object type on the same box,
-            showing the same frame: instances created at runtime and never
-            moved apart. Instances that show different frames or animations
-            there, a fill under its rim, are layered on purpose and left out,
-            and so are Drawing Canvases, each drawing its own picture at
-            runtime over the canvas under it
+  text      a visible Text whose text needs more room than its box
+  stacked   instances of one object type on one box, showing one frame: created
+            at runtime and never moved apart. Different frames there (a fill
+            under its rim) and Drawing Canvases are left out
   overlap   two visible instances on a layer of parallax 0 (the HUD), or two
-            texts on any layer, one covering half of the other. A Text counts
-            by the part its text covers. Left out: an instance inside a larger
-            non-Text one (a label on its button, an icon on a panel), instances
-            of one hierarchy, a text and its shadow, an overlay over half the
-            screen
-  edge      a visible HUD instance that the edge of the screen cuts; one wholly
-            off screen waits there to move in and is left out
-  frame     every visible instance of a Sprite type shows the same frame of an
-            animation that has more, though a text instance variable differs
-            between them and no text on each tells them apart
+            texts on any layer, one covering half of the other. Left out: one
+            inside a larger non-Text one (a label on its button), one
+            hierarchy, a text and its shadow, an overlay over half the screen
+  edge      a visible HUD instance that the edge of the screen cuts
+  frame     every instance of a Sprite type shows one frame of an animation
+            that has more, though a text instance variable differs between them
   crowd     a ninth of the screen off its middle whose texts tell 3 items or more
-            while two corners hold no text: texts a group's gap apart are one
-            item, and each further part a text joins with " · " or " | " that
-            holds a word is one more. Left out: a count with no word, the one
-            text on an object (its label), a bar across two thirds of the
-            screen, a message over half of it, and the texts of a scrolling
-            layer of a layout larger than the screen
-  optical   a label, a text beside a shape in one row (a toggle's, a bar's
-            name) or a glyph alone on a shape, whose ink sits off the centre
-            of the shape's face by more than the larger of 1.5 px and
-            0.06 em: Center
-            centres a Text's em box, where capitals and Chinese sit high
+            while two corners hold no text; a label on its object, a bar along
+            an edge and a message over half the screen are left out
+  optical   a label, a text beside a shape in a row, or a glyph alone on a
+            shape, whose ink sits off the face's centre by more than the larger
+            of 1.5 px and 0.06 em
+  faint     a text that reads under text.contrast on what lies behind it on
+            screen: its strokes' core pixels against them with every text hidden
+  unlimited Texts that events set with no longest text in tools/texts.json
 
-A screenshot is not drawn yet when 99.9% or more of it is one colour, black
-or clear. It is taken again 1 s later, twice at most. A layout still of one
-colour is named as drawing nothing in view, and no question is asked about it.
+Each finding has its rule's tier (look.severity in assets/look-manifest.json):
+broken and ugly ones fail the review, fragile ones (optical, unlimited) warn.
+Then each layout is looked at in the other data states of --data, the Texts
+that events set showing their longest text (or a guess), nothing, or counts
+at 1, and, without --viewport, on two more screen shapes its orientations
+allow. There text, overlap, edge and crowd run again, printed with @ and
+where; what only a guessed text causes warns.
+
+A screenshot 99.9% of one colour, black or clear, is taken again 1 s later,
+twice at most; a layout still so draws nothing in view and gets no question.
 
 Then it prints the questions to answer from the screenshots, which the script
 cannot judge: each is answered yes or no, and each yes names the object to
-change. When the project has a design (--design, by default tools/design.json),
+change; a yes to the first three is broken, to the rest ugly. When the
+project has a design (--design, by default tools/design.json),
 one question lists the design's screen entries that play_design.py cannot
 measure: entries with other words before the first comma, and entries whose
 key names no object of the project.
 
 A layout reached by goToLayout starts without what the game's flow sets up
-before it, so a layout that needs a run in progress may show less than in
-play, or log errors that play does not: those are printed as `runtime:`
-lines. Check such a scene by playing to it with preview_project.py and a
-shot step.
+before it; play to such a scene with preview_project.py and a shot step.
 
 Screenshots go to --shots, by default .tmp/scripts/review-look/shots/ in the project,
 as <layout>.png; the whole result to --out, by default result.json beside that folder.
 Beside the screenshots it writes brief.md: the screenshots, the questions and
-the form of the answer, for a reviewer that has not seen the project. The
-agent that built the game reads its own pictures by what it meant to build.
-So an agent that can start a sub-agent gives it the brief and takes the
-answers from its reply, and one that cannot answers from the screenshots
-itself. The last three lines are look:, with the result and the screenshots,
-next:, and brief:, which says who answers the questions.
+the form of the answer, for a reviewer that has not seen the project, since
+the agent that built the game reads its pictures by what it meant to build.
+The last three lines are look:, next:, and brief:, which says who answers.
 
---reply checks a reviewer's reply, saved to a file, against the brief of the
-last run, read from --out: it opens no browser. It names every answer the
-reply lacks, each yes that does not say where it is, and each answer line
-that names no screenshot of the brief, then prints every yes to fix.
+--reply checks a reviewer's saved reply against the brief of the last run in
+--out, without a browser: every answer missing, each yes that does not say
+where, each line naming no screenshot of the brief, then every yes, worst first.
 """
 from __future__ import annotations
 
@@ -93,6 +83,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import c3project as c3
+import check_look as cl
 import game_model as gm
 import open_in_editor as oe
 import preview_project as play
@@ -100,22 +91,23 @@ import preview_project as play
 EPILOG = """examples:
   python scripts/review_look.py
   python scripts/review_look.py --layouts Menu Map --settle 2
-  python scripts/review_look.py --viewport 430 932
+  python scripts/review_look.py --viewport 430 932 --data demo
   python scripts/review_look.py --reply .tmp/scripts/review-look/reply.md
 
 output:
   opened   <project>  (<window title>, <the editor it opened in>)
   layout 'Map' (2 of 3): screenshot .tmp/scripts/review-look/shots/Map.png
-    text: Text Title uid 12 "Choose your path": the text needs 212x40 px and its box is 160x40 ...
-    stacked: Text CardName: 5 instances on one box at (300, 420) 120x30, uids 41, 42, 43 ...
-    optical: PlayLabel uid 7 "Play" on PlayButton uid 6: its ink sits 3.0 px above the centre of the shape's ...
+    broken text: Text Title uid 12 "Choose your path": the text needs 212x40 px and its box is 160x40 ...
+    broken stacked: Text CardName: 5 instances on one box at (300, 420) 120x30, uids 41, 42, 43 ...
+    broken edge @phone worst: ScoreText uid 9 "9999999": the right edge of the screen cuts it ...
+    fragile optical: PlayLabel uid 7 "Play" on PlayButton uid 6: its ink sits 3.0 px above the centre of the ...
     runtime: <an error the layout logged, with its event, and (N times) when it came more than once>
   layout 'Combat' (3 of 3): started, and its events went on to 'Map' before the screenshot; ...
   questions: answer every question yes or no for each screenshot above, through the brief as the last line ...
     1. Is any text cut off, broken onto a line of its own, too small or too faint to read, or partly hidden ...
     ...
-    7. Does the same decoration, not the HUD, appear on every screenshot?
-  look: 3 findings on 3 layouts, 0 runtime errors; full result in .tmp/scripts/review-look/result.json,
+    8. Does the same decoration, not the HUD, appear on every screenshot?
+  look: 3 findings to fix and 1 that warns on 3 layouts, 0 runtime errors; full result in .tmp/scripts/review-look/result.json,
     screenshots in .tmp/scripts/review-look/shots
   next: <what to do>
   brief: if you can start a sub-agent, give it .tmp/scripts/review-look/shots/brief.md as its whole task ...
@@ -125,12 +117,12 @@ output of --reply:
     missing: Map 3, 4; Combat 1-8
     yes without where: Map 5
     not in the brief: Shop 1: no
-    yes: Map 2 - top left: the score covers the timer
+    yes, broken: Map 2 - top left: the score covers the timer
   answers: 7 of 16, 2 yes, 9 missing
   next: <what to do>
 
-exit codes: 0 every layout was visited with no finding and no runtime error, or with --reply every answer is
-there and no; 1 a finding, a runtime error, or the project did not open, or with --reply an answer missing or
+exit codes: 0 every layout was visited with no broken or ugly finding and no runtime error, or with --reply
+every answer is there and no; 1 a broken or ugly finding, a runtime error, or the project did not open, or with --reply an answer missing or
 a yes; 2 the project or the editor could not be used, or with --reply the reply or the result of a run with a
 brief was not found; 3 no browser here, or the preview did not run, so no layout was looked at; 5 another run
 holds the browser profile, named in the line with its pid: wait for it to end, or pass --profile for a profile
@@ -163,9 +155,18 @@ CORNERS = ((0, 0), (0, 2), (2, 0), (2, 2))
 BLANK_TRIES = 3
 BLANK_WAIT = 1.0
 
+# How bad a fault is, worst first (docs/decisions/look-severity.md). broken: the player cannot read, reach or
+# tell apart what the screen shows, at some data or screen shape; ugly: it reads, but looks wrong, the looks a
+# generator reaches for by reflex among them; fragile: right as shown, one realistic step from broken, or a
+# finish of a pixel or two. broken and ugly fail the review; fragile is printed and warns.
+TIERS = ("broken", "ugly", "fragile")
+BLOCKING = ("broken", "ugly")
+TIER = {"text": "broken", "stacked": "broken", "overlap": "broken", "edge": "broken", "frame": "broken",
+        "faint": "broken", "crowd": "ugly", "unlimited": "fragile", "optical": "fragile"}
+
 # Each question asks what a player sees as a mistake, not a fact about the picture: worded as facts (two
 # outline weights, an object over another, anything the edge cuts), a judge answered yes on most screens
-# without a fault (docs/decisions/look-judge-calibration.md).
+# without a fault (docs/decisions/look-judge-calibration.md). A yes to each is of the tier beside it.
 QUESTIONS = (
     "Is any text cut off, broken onto a line of its own, too small or too faint to read, or partly hidden by "
     "another object?",
@@ -178,8 +179,34 @@ QUESTIONS = (
     "make them hard to pick out?",
     "Do two objects that stand for different things (two enemy types, two kinds of map node, two cards) look "
     "identical, with no label, colour or icon to tell them apart?",
+    "Does the screen look like an app's dashboard rather than a game: its parts set in rounded cards, a count in a "
+    "pill, a soft shadow under every panel?",
 )
+QUESTION_TIERS = ("broken", "broken", "broken", "ugly", "ugly", "ugly", "ugly")
 ACROSS = "Does the same decoration, not the HUD, appear on every screenshot?"
+
+# What the other data states set a Text that events set to, when nothing declares its longest text: the most a
+# counter shows, a long hyphenated name, a long Chinese one (docs/decisions/look-severity.md).
+DATA_STATES = ("demo", "worst", "empty", "one")
+WORST_NUMBER = "9999999"
+WORST_NAME = "Wolfeschlegel-Steinhausen"
+WORST_WIDE = "最长的名字也要放得下才行"
+# A count in a text: digits, each spaced from the next by one narrow space in a tracked() tag.
+COUNT = re.compile(r"\d(?:([   ])?\d)*")
+# Actions that set a Text's text, by their id in an event sheet.
+SETS_TEXT = ("set-text", "append-text", "typewriter-text")
+# The text of each Text type at its longest, which the generator template writes from its helpers' `longest`, and
+# a project of any other making may write by hand: {"longest": {"ScoreText": "999999"}}.
+DECLARED = Path("tools", "texts.json")
+
+# The shapes of screen each layout is looked at in without --viewport, besides the project's own, by the
+# orientations the project allows: Scale outer and Anchor put the HUD in another place on each. The shorter side
+# stays the project's.
+SHAPES = {"landscape": (("4x3", 4 / 3), ("16x9", 16 / 9), ("phone", 19.5 / 9)),
+          "portrait": (("3x4", 3 / 4), ("9x16", 9 / 16), ("phone", 9 / 19.5)),
+          "any": (("4x3", 4 / 3), ("16x9", 16 / 9), ("phone", 9 / 19.5))}
+# Rules that run again at each other data state and screen shape: what a longer text or another screen moves.
+AGAIN = ("text", "overlap", "edge", "crowd")
 
 # Evaluated where the game runs, after the probe: the layout, its layers and every
 # world instance on it, with what the checks need. A Sprite's frame is read twice,
@@ -746,13 +773,211 @@ def optical_findings(measured: list[dict]) -> list[dict]:
     return found
 
 
-def findings(snap: dict) -> list[dict]:
-    """Every mechanical finding on a layout read by LOOK_JS, each {rule, uids, line}."""
+def luminance(rgb) -> float:
+    """WCAG 2.2's relative luminance of an sRGB colour of 0-255 channels."""
+    lin = [c / 255 / 12.92 if c / 255 <= 0.04045 else ((c / 255 + 0.055) / 1.055) ** 2.4 for c in rgb]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def ratio(a, b) -> float:
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+# Share of the largest change in a clip from which a pixel is the core of a glyph's stroke, whose colour is the
+# text's own and not mixed with what is behind it by antialiasing.
+INK_CORE = 0.85
+
+
+def ink_colours(before: list, after: list) -> tuple[tuple, tuple] | None:
+    """(the text's colour, the colour behind it) over the core pixels of what differs between a clip with its
+    text and without: each the mean over those pixels. None when nothing differs."""
+    change = [max(abs(p - q) for p, q in zip(u[:3], v[:3])) for u, v in zip(before, after)]
+    top = max(change, default=0)
+    if top < INK_LEAST:
+        return None
+    core = [n for n, d in enumerate(change) if d >= INK_CORE * top]
+    return (tuple(sum(before[n][c] for n in core) / len(core) for c in range(3)),
+            tuple(sum(after[n][c] for n in core) / len(core) for c in range(3)))
+
+
+def legible_texts(instances: list[dict], layers: dict) -> list[dict]:
+    """The texts whose contrast faint_findings() measures: shown, sized, unturned, holding a word or a number."""
+    return [i for i in instances if sized(i) and not i.get("angle") and (i.get("text") or "").strip()
+            and i["layer"] in layers]
+
+
+def contrasts(win: oe.DevTools, session: str | None, texts: list[dict], layers: dict) -> dict[int, tuple]:
+    """{uid: (text colour, colour behind it)} of each text, measured in a clip of its drawn box as it is and
+    with every text hidden, so a text on a picture, a gradient or a panel is measured on what it lies on."""
+    clips = []
+    for t in texts:
+        ax, ay, sx, sy = layers[t["layer"]]["css"]
+        b = drawn(t)
+        x0, y0 = max(0.0, ax + sx * b[0]), max(0.0, ay + sy * b[1])
+        clips.append({"x": x0, "y": y0, "width": max(1.0, ax + sx * b[2] - x0),
+                      "height": max(1.0, ay + sy * b[3] - y0), "scale": 1})
+
+    def shoot(step) -> list:
+        win.evaluate(OPTICAL_JS.format(step=json.dumps(step)), wait=10, session=session)
+        return [c3.png_rgba(base64.b64decode(win.call("Page.captureScreenshot", format="png", clip=c)["data"]))
+                for c in clips] if step is not None else []
+    try:
+        shown, bare = shoot({}), shoot({"hide": [t["uid"] for t in texts]})
+    finally:
+        shoot(None)
+    out = {}
+    for t, (_, _, a), (_, _, b) in zip(texts, shown, bare):
+        found = ink_colours(a, b)
+        if found:
+            out[t["uid"]] = found
+    return out
+
+
+# Contrast a text needs, small and from LARGE_PX css px of em up, WCAG's 18 pt: the manifest's text.contrast;
+# and the share of it a measure may fall short by, for the antialiasing that mixes the core of a thin stroke
+CONTRAST = cl.rule_value("text.contrast")
+LARGE_PX = 24
+CONTRAST_SLACK = 0.9
+
+
+def faint_findings(texts: list[dict], measured: dict[int, tuple], layers: dict) -> list[dict]:
+    """A finding for each text whose colour, measured on what lies behind it, reads under text.contrast."""
+    found = []
+    for t in texts:
+        if t["uid"] not in measured:
+            continue
+        ink_rgb, behind = measured[t["uid"]]
+        em = (t.get("em") or 0) * layers[t["layer"]]["css"][3]
+        need = CONTRAST[1] if em >= LARGE_PX else CONTRAST[0]
+        got = ratio(ink_rgb, behind)
+        if got < CONTRAST_SLACK * need:
+            found.append({"rule": "faint", "uids": [t["uid"]], "line":
+                          f"{name(t)}: its letters, {'#%02x%02x%02x' % tuple(round(c) for c in ink_rgb)}, read "
+                          f"{got:.1f}:1 on {'#%02x%02x%02x' % tuple(round(c) for c in behind)} behind them, under "
+                          f"the {need:g}:1 a {'large ' if em >= LARGE_PX else ''}text needs: give it a colour of "
+                          f"PALETTE that reads on what lies behind it, or put a panel under it"})
+    return found
+
+
+def set_by_events(project: Path) -> set[str]:
+    """The object types whose text an event sheet's action sets."""
+    found: set[str] = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            if node.get("id") in SETS_TEXT and isinstance(node.get("objectClass"), str):
+                found.add(node["objectClass"])
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+    for sheet in sorted((project / "eventSheets").rglob("*.json")):
+        try:
+            walk(c3.load(sheet))
+        except ValueError:
+            continue
+    return found
+
+
+def declared(project: Path) -> dict[str, str]:
+    """The longest text of each Text type, from tools/texts.json; {} without one."""
+    try:
+        data = json.loads((project / DECLARED).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {k: v for k, v in (data.get("longest") or {}).items() if isinstance(v, str)}
+
+
+def wide(text: str) -> bool:
+    return any(unicodedata.east_asian_width(c) in ("W", "F") for c in text)
+
+
+def state_text(text: str, state: str, longest: str | None) -> str:
+    """What a Text that events set shows at a data state: worst, its declared longest, else its first count at
+    WORST_NUMBER and the rest at all nines, or a long name; empty, nothing; one, every count at 1."""
+    if state == "empty":
+        return ""
+    if state == "one":
+        return re.sub(COUNT, "1", text)
+    if longest:
+        return longest
+    if re.search(r"\d", text):
+        first = iter([True])
+
+        def nines(m: re.Match) -> str:
+            gap = m[1] or ""      # tracked() spaces each letter of a tag with a narrow space
+            digits = WORST_NUMBER if next(first, False) else "9" * len(m[0].replace(gap, "") if gap else m[0])
+            return gap.join(digits) if gap else digits
+        return re.sub(COUNT, nines, text)
+    if wide(text):
+        return WORST_WIDE
+    return f"{text} {text}" if len(text.split()) > 1 else WORST_NAME
+
+
+def state_texts(instances: list[dict], setters: set[str], longest: dict[str, str], state: str) -> dict[int, str]:
+    """{uid: text} for each shown Text whose type events set, at the data state."""
+    return {i["uid"]: state_text(i["text"], state, longest.get(i["type"])) for i in instances
+            if "textSize" in i and i["shown"] and i["type"] in setters and (i.get("text") or "").strip()}
+
+
+def unlimited_findings(instances: list[dict], setters: set[str], longest: dict[str, str]) -> list[dict]:
+    """One finding for the Text types shown that events set and nothing declares the longest text of."""
+    seen: dict[str, dict] = {}
+    for i in instances:
+        if "textSize" in i and i["shown"] and i["type"] in setters and i["type"] not in longest:
+            seen.setdefault(i["type"], i)
+    if not seen:
+        return []
+    return [{"rule": "unlimited", "uids": [i["uid"] for i in seen.values()], "line":
+             f"events set the text of {', '.join(seen)}, and nothing says how long it gets, so a box fits only "
+             f"what it shows now and the worst data guessed it: give each one's helper longest=, the widest text "
+             f"it shows, or declare it in {DECLARED.as_posix()}"}]
+
+
+def findings(snap: dict, only: tuple[str, ...] | None = None) -> list[dict]:
+    """Every mechanical finding on a layout read by LOOK_JS, each {rule, tier, uids, line}; with `only`, those
+    of these rules."""
     instances, layers = snap["instances"], snap["layers"]
     one_screen = all(s <= 1.05 * v for s, v in zip(snap["size"], snap["viewport"]))
-    return (text_findings(instances) + stacked_findings(instances) + overlap_findings(instances, layers)
-            + edge_findings(instances, layers) + frame_findings(instances)
-            + crowd_findings(instances, layers, one_screen))
+    run = {"text": lambda: text_findings(instances), "stacked": lambda: stacked_findings(instances),
+           "overlap": lambda: overlap_findings(instances, layers), "edge": lambda: edge_findings(instances, layers),
+           "frame": lambda: frame_findings(instances),
+           "crowd": lambda: crowd_findings(instances, layers, one_screen)}
+    return tiered([f for rule, find in run.items() if only is None or rule in only for f in find()])
+
+
+def tiered(found: list[dict], at: str | None = None) -> list[dict]:
+    """The findings with the tier of their rule, and where they arose when not on the shot as it is."""
+    return [{**f, "tier": TIER[f["rule"]], **({"at": at} if at else {})} for f in found]
+
+
+def guessed(found: list[dict], instances: list[dict], setters: set[str], longest: dict[str, str],
+            state: str) -> list[dict]:
+    """The findings of a data state, each that a worst text guessed for an undeclared type caused only warning:
+    the guess may be longer than anything the game shows."""
+    if state != "worst":
+        return found
+    types = {i["uid"]: i["type"] for i in instances}
+    return [{**f, "tier": "fragile", "line": f"{f['line']}; the worst text was guessed, as no longest is declared"}
+            if any(types.get(u) in setters - set(longest) for u in f["uids"]) else f for f in found]
+
+
+def ranked(found: list[dict]) -> list[dict]:
+    """The findings worst tier first, in their order within a tier, one of each rule and uids: the first that
+    arose, on the shot as it is before another data state or screen shape."""
+    seen, out = set(), []
+    for f in sorted(found, key=lambda f: TIERS.index(f["tier"])):
+        key = (f["rule"], tuple(f["uids"]))
+        if key not in seen:
+            seen.add(key)
+            out.append(f)
+    return out
+
+
+def blocking(found: list[dict]) -> list[dict]:
+    return [f for f in found if f["tier"] in BLOCKING]
 
 
 def file_name(layout: str) -> str:
@@ -776,8 +1001,86 @@ GO_JS = """(async () => {{ const runtime = c3probe.runtime, want = {name}, enter
   return {{entered, now: runtime.layout.name}}; }})()"""
 
 
-def review(only: list[str] | None, settle: float, viewport: list[int] | None, shots: Path):
-    """The `then` of open_in_editor.open_one: preview the project and visit its layouts."""
+def screen_shapes(view: list[int], orientation: str) -> list[tuple[str, list[int]]]:
+    """(name, [w, h]) of each screen a layout is looked at on: the project's own viewport, named "", then the
+    first two SHAPES of its orientations whose ratio is not the viewport's, at the viewport's shorter side."""
+    w, h = view
+    short, out = min(w, h), [("", list(view))]
+    for name, r in SHAPES.get(orientation, SHAPES["any"]):
+        if abs(r - w / h) > 0.03 * w / h and len(out) < 3:
+            out.append((name, [round(short * r), short] if r >= 1 else [short, round(short / r)]))
+    return out
+
+
+def shot_name(layout: str, shape: str, state: str) -> str:
+    """The file name of a layout's screenshot: Map.png, and Map@phone-worst.png at another shape or data state."""
+    at = "-".join(part for part in (shape, "" if state == "demo" else state) if part)
+    return f"{file_name(layout)}{'@' + at if at else ''}.png"
+
+
+def review(only: list[str] | None, settle: float, shapes: list[tuple[str, list[int]]], shots: Path,
+           states: tuple[str, ...], setters: set[str], longest: dict[str, str]):
+    """The `then` of open_in_editor.open_one: preview the project and visit its layouts on each screen shape, the
+    first being the project's own, at each data state."""
+    def visit(win: oe.DevTools, session: str | None, layout: str, shape: str, errors: list[str]) -> dict:
+        """One layout on the screen shape as it is: its screenshot, what LOOK_JS reads and the findings, then each
+        other data state's. The label centring and the text contrast are measured on the project's own shape."""
+        done: dict = {"layout": layout, "errors": list(errors)}
+        went = win.evaluate(GO_JS.format(name=json.dumps(layout), settle=settle), wait=settle + 20, session=session)
+        if went["now"] != layout:
+            done["left"] = went["now"] if layout in went["entered"] else None
+            win.evaluate("0", session=session)
+            done["errors"] += oe.runtime_errors(win)
+            return done
+        shot = shots / shot_name(layout, shape, "demo")
+        for tries in range(1, BLANK_TRIES + 1):
+            share = oe.blank(win)
+            if share is None or tries == BLANK_TRIES:
+                break
+            time.sleep(BLANK_WAIT)
+        shot.write_bytes(base64.b64decode(win.call("Page.captureScreenshot")["data"]))
+        if tries > 1:
+            done["blank"] = {"tries": tries, "share": share}
+        try:
+            snap = win.evaluate(LOOK_JS, wait=20, session=session)
+            found = tiered(findings(snap, AGAIN if shape else None), shape or None)
+            if not shape:
+                done["snapshot"] = snap
+                found += tiered(unlimited_findings(snap["instances"], setters, longest))
+                pairs = optical_pairs(snap["instances"], snap["layers"], snap["viewport"][1])
+                if pairs:
+                    measured = optical(win, session, pairs, snap["layers"])
+                    done["optical"] = [{"glyph": m["pair"]["glyph"]["uid"], "shape": m["pair"]["shape"]["uid"],
+                                        **{k: m[k] for k in ("ink", "line", "face", "offset")}} for m in measured]
+                    found += tiered(optical_findings(measured))
+                texts = legible_texts(snap["instances"], snap["layers"])
+                if texts:
+                    colours = contrasts(win, session, texts, snap["layers"])
+                    done["contrast"] = {str(u): [list(a), list(b)] for u, (a, b) in colours.items()}
+                    found += tiered(faint_findings(texts, colours, snap["layers"]))
+            done["states"] = {}
+            for state in [s for s in states if s != "demo"]:
+                set_to = state_texts(snap["instances"], setters, longest, state)
+                if not set_to:
+                    continue
+                path = shots / shot_name(layout, shape, state)
+                try:
+                    win.evaluate(OPTICAL_JS.format(step=json.dumps({"texts": set_to})), wait=10, session=session)
+                    path.write_bytes(base64.b64decode(win.call("Page.captureScreenshot")["data"]))
+                    again = win.evaluate(LOOK_JS, wait=20, session=session)
+                finally:
+                    win.evaluate(OPTICAL_JS.format(step="null"), wait=10, session=session)
+                done["states"][state] = {"shot": str(path), "texts": {str(u): t for u, t in set_to.items()}}
+                found += guessed(tiered(findings(again, AGAIN), " ".join(p for p in (shape, state) if p)),
+                                 snap["instances"], setters, longest, state)
+            done.update(shot=str(shot), findings=ranked(found))
+        except oe.DevToolsError as e:     # the layout's instances could not be read
+            done.update(shot=str(shot), findings=[])
+            done["errors"].append(f"its instances were not read: {str(e).splitlines()[0]}")
+        win.evaluate("0", session=session)
+        done["errors"] += oe.runtime_errors(win)
+        return done
+
     def run(browser: oe.Browser, target: str, page: oe.DevTools) -> dict:
         page.call("Storage.clearDataForOrigin", origin=play.PREVIEW, storageTypes="local_storage,indexeddb")
         started = oe.start_preview(browser, target, page)
@@ -786,9 +1089,10 @@ def review(only: list[str] | None, settle: float, viewport: list[int] | None, sh
         window, win = started
         visited: list[dict] = []
         try:
-            if viewport and play.emulate(win, viewport) != tuple(viewport):
+            own = shapes[0][1]
+            if play.emulate(win, own) != tuple(own):
                 return {"started": False, "layouts": [], "errors": [
-                    f"the preview window did not take the viewport {viewport[0]}x{viewport[1]} in {play.RESIZE} s"]}
+                    f"the preview window did not take the viewport {own[0]}x{own[1]} in {play.RESIZE} s"]}
             sessions, live, stalled = oe.attach(win, patience=30)
             if not live:
                 return {"started": False, "layouts": [], "errors": [
@@ -805,44 +1109,26 @@ def review(only: list[str] | None, settle: float, viewport: list[int] | None, sh
             if missing:
                 return {"started": False, "layouts": [], "errors": [
                     f"no layout {m!r}{c3.closest(m, names)}" for m in missing]}
-            for layout in [n for n in order if not only or n in only]:
-                done: dict = {"layout": layout, "errors": first_errors if layout == first else []}
-                went = win.evaluate(GO_JS.format(name=json.dumps(layout), settle=settle), wait=settle + 20,
-                                    session=session)
-                if went["now"] != layout:
-                    done["left"] = went["now"] if layout in went["entered"] else None
-                    win.evaluate("0", session=session)
-                    done["errors"] += oe.runtime_errors(win)
-                    visited.append(done)
+            for shape, size in shapes:
+                if shape and play.emulate(win, size) != tuple(size):
+                    for done in visited:
+                        done.setdefault("unseen", []).append(f"{shape} {size[0]}x{size[1]}")
                     continue
-                shot = shots / f"{file_name(layout)}.png"
-                for tries in range(1, BLANK_TRIES + 1):
-                    share = oe.blank(win)
-                    if share is None or tries == BLANK_TRIES:
-                        break
-                    time.sleep(BLANK_WAIT)
-                shot.write_bytes(base64.b64decode(win.call("Page.captureScreenshot")["data"]))
-                if tries > 1:
-                    done["blank"] = {"tries": tries, "share": share}
-                try:
-                    snap = win.evaluate(LOOK_JS, wait=20, session=session)
-                    done.update(shot=str(shot), findings=findings(snap), snapshot=snap)
-                    pairs = optical_pairs(snap["instances"], snap["layers"], snap["viewport"][1])
-                    if pairs:
-                        measured = optical(win, session, pairs, snap["layers"])
-                        done["optical"] = [{"glyph": m["pair"]["glyph"]["uid"], "shape": m["pair"]["shape"]["uid"],
-                                            **{k: m[k] for k in ("ink", "line", "face", "offset")}} for m in measured]
-                        done["findings"] += optical_findings(measured)
-                except oe.DevToolsError as e:     # the layout's instances could not be read
-                    done.update(shot=str(shot), findings=[])
-                    done["errors"].append(f"its instances were not read: {str(e).splitlines()[0]}")
-                win.evaluate("0", session=session)
-                done["errors"] += oe.runtime_errors(win)
-                visited.append(done)
+                for layout in [n for n in order if not only or n in only]:
+                    done = visit(win, session, layout, shape, first_errors if layout == first and not shape else [])
+                    if not shape:
+                        visited.append(done)
+                        continue
+                    kept = next(d for d in visited if d["layout"] == layout)
+                    kept.setdefault("shapes", {})[shape] = {k: done[k] for k in ("shot", "states", "left")
+                                                            if k in done}
+                    kept["findings"] = ranked(kept.get("findings", []) + done.get("findings", []))
+                    kept["errors"] += [e for e in done["errors"] if e not in kept["errors"]]
         finally:
             win.ws.close()
             browser.devtools.call("Target.closeTarget", targetId=window["targetId"])
-        return {"started": True, "runtime": "worker" if session else "page", "layouts": visited, "errors": []}
+        return {"started": True, "runtime": "worker" if session else "page", "layouts": visited, "errors": [],
+                "shapes": [{"name": n or "project", "size": s} for n, s in shapes], "states": list(states)}
     return run
 
 
@@ -873,6 +1159,12 @@ def questions(several: bool, places: list[str] = ()) -> list[str]:
     if several:
         out.append(ACROSS)
     return out
+
+
+def question_tiers(several: bool, places: list[str] = ()) -> list[str]:
+    """The tier of a yes to each of questions(): an object away from its place and a decoration on every screen
+    look wrong, as the questions about style do."""
+    return list(QUESTION_TIERS) + ["ugly"] * (bool(places) + several)
 
 
 def ask(several: bool, places: list[str] = ()) -> list[str]:
@@ -981,12 +1273,14 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
     that verify_change.py passes its look step on; verify is the command that goes on with the check chain."""
     layouts = (result.get("preview") or {}).get("layouts", [])
     names = [name for name, _ in pictures(result)]
-    asked = len(questions(len(layouts) > 1, result.get("places", [])))
+    tiers = question_tiers(len(layouts) > 1, result.get("places", []))
+    asked = len(tiers)
     answers, stray = read_reply(reply, names, asked)
     missing = [(n, [q for q in range(1, asked + 1) if (n, q) not in answers]) for n in names]
     missing = [(n, qs) for n, qs in missing if qs]
-    yeses = [(n, q, said) for n in names for q in range(1, asked + 1)
-             for yes, said in [answers.get((n, q), (False, ""))] if yes]
+    yeses = sorted([(n, q, said) for n in names for q in range(1, asked + 1)
+                    for yes, said in [answers.get((n, q), (False, ""))] if yes],
+                   key=lambda y: TIERS.index(tiers[y[1] - 1]))
     lines = [f"reply: {where}, against the brief of {len(names)} screenshot{'' if len(names) == 1 else 's'} and "
              f"{asked} questions: {len(names) * asked} answers asked"]
     if missing:
@@ -995,14 +1289,17 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
     if unsaid:
         lines.append("  yes without where: " + ", ".join(unsaid))
     lines += [f"  not in the brief: {line}" for line in stray]
-    lines += [f"  yes: {n} {q} - {said}" if said else f"  yes: {n} {q}" for n, q, said in yeses]
+    lines += [f"  yes, {tiers[q - 1]}: {n} {q}" + (f" - {said}" if said else "") for n, q, said in yeses]
     lost = sum(len(qs) for _, qs in missing)
     lines.append(f"answers: {len(answers)} of {len(names) * asked}, {len(yeses)} yes, {lost} missing")
     if lost or unsaid:
         lines.append("next: give the reviewer the same brief again and have it answer the missing questions and say "
                      "where each yes is; then check its reply again")
     elif yeses:
-        lines.append("next: fix each yes: name the layout and the object type at the place it describes, change it, "
+        lines.append("next: fix each yes, the broken ones first: name the layout and the object type at the place it "
+                     "describes and change it. A yes with more than one right fix, such as cutting a text short or "
+                     "wrapping it, or which corner a counter takes, is the user's to pick: ask before you spend a "
+                     "round on it. Note each fix as before, after and why for the hand-over, "
                      + (f"then run {verify}, which looks again; after three rounds with a yes its look step passes, "
                         f"and the hand-over names each yes left" if verify else
                         "then run review_look.py again and have its new brief answered"))
@@ -1010,7 +1307,9 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
         lines.append(f"next: every question is answered no; run {verify}, which passes its look step on this reply")
     else:
         lines.append(DONE)
-    return lines, 1 if lost or yeses else 0, {"complete": not lost and not unsaid, "yes": len(yeses)}
+    return lines, 1 if lost or yeses else 0, {"complete": not lost and not unsaid, "yes": len(yeses),
+                                              "yeses": [f"{n} {q}, {tiers[q - 1]}" + (f" - {said}" if said else "")
+                                                        for n, q, said in yeses]}
 
 
 def report(result: dict) -> list[str]:
@@ -1040,17 +1339,27 @@ def report(result: dict) -> list[str]:
                          f"it with preview_project.py and a shot step, and read that screenshot the same way")
         else:
             lines.append(f"layout {done['layout']!r} ({n} of {total}): not reached in 10 seconds")
-        lines += [f"  {f['rule']}: {f['line']}" for f in done.get("findings", [])]
+        lines += [finding_line(f) for f in done.get("findings", [])]
+        lines += [f"  unseen: the preview window did not take the screen {s}, so the layouts were not looked at on it"
+                  for s in done.get("unseen", [])]
         lines += oe.runtime_lines(done["errors"])
     if any(shows_something(d) for d in ran["layouts"]):
         lines += ask(total > 1, result.get("places", []))
     return lines
 
 
-def counts(result: dict) -> tuple[int, int, int]:
-    """Findings, runtime errors and layouts visited."""
+def finding_line(f: dict) -> str:
+    """A finding as the run prints it: its tier, its rule, where it arose when not on the shot as it is, and what
+    to change."""
+    return f"  {f['tier']} {f['rule']}{' @' + f['at'] if f.get('at') else ''}: {f['line']}"
+
+
+def counts(result: dict) -> tuple[int, int, int, int]:
+    """Findings that fail the review, findings that warn, runtime errors and layouts visited."""
     layouts = (result.get("preview") or {}).get("layouts", [])
-    return (sum(len(d.get("findings", [])) for d in layouts), sum(len(d["errors"]) for d in layouts), len(layouts))
+    found = [f for d in layouts for f in d.get("findings", [])]
+    return (len(blocking(found)), len(found) - len(blocking(found)), sum(len(d["errors"]) for d in layouts),
+            len(layouts))
 
 
 def unpreviewed(results: list[dict]) -> list[str]:
@@ -1063,11 +1372,13 @@ def look_line(results: list[dict], settle: float, out: Path, base: Path) -> str:
     if unpreviewed(results):
         return f"look: no layout was looked at, as the preview of {', '.join(unpreviewed(results))} did not run; " \
                f"full result in {out}"
-    found, errors, layouts = map(sum, zip(*(counts(r) for r in results)))
+    found, warned, errors, layouts = map(sum, zip(*(counts(r) for r in results)))
     unseen = "" if found or errors else (f"; each layout ran {settle:g} s after a jump to it, without play, so a "
                                          f"scene the game reaches only in play is unseen")
-    return (f"look: {found} finding{'' if found == 1 else 's'} on {layouts} layout{'' if layouts == 1 else 's'}, "
-            f"{errors} runtime error{'' if errors == 1 else 's'}{unseen}; full result in {out}, screenshots in {base}")
+    warns = f" and {warned} that warn{'s' if warned == 1 else ''}" if warned else ""
+    return (f"look: {found} finding{'' if found == 1 else 's'} to fix{warns} on {layouts} "
+            f"layout{'' if layouts == 1 else 's'}, {errors} runtime error{'' if errors == 1 else 's'}{unseen}; full "
+            f"result in {out}, screenshots in {base}")
 
 
 def reply_main(reply: Path, out: Path, limit: int, root: Path) -> int:
@@ -1109,7 +1420,11 @@ def main() -> int:
                     help="how long each layout runs before its screenshot, for its start events and tweens "
                          "(default 1)")
     ap.add_argument("--viewport", type=int, nargs=2, metavar=("W", "H"),
-                    help="CSS pixels of the preview window (default: the project's viewport size)")
+                    help="CSS pixels of the preview window, the one screen looked at (default: the project's "
+                         "viewport size, then two other shapes of screen its orientations allow)")
+    ap.add_argument("--data", nargs="+", choices=DATA_STATES, default=list(DATA_STATES), metavar="STATE",
+                    help="the data states to look at each layout in: demo as it starts, worst, empty, one "
+                         "(default: all four)")
     ap.add_argument("--release", metavar="rNNN", help="open in this release of the editor, as open_in_editor.py does")
     ap.add_argument("--browser", metavar="EXE",
                     help="the Chromium-based browser to start (default: Edge, Chrome or Chromium where installed)")
@@ -1159,10 +1474,14 @@ def main() -> int:
             shots = base if len(projects) == 1 else base / project.name
             shots.mkdir(parents=True, exist_ok=True)
             data = c3.load(project / "project.c3proj")
-            view = args.viewport or [data.get("viewportWidth"), data.get("viewportHeight")]
-            view = view if all(isinstance(n, int) and n > 0 for n in view) else None
+            own = [data.get("viewportWidth"), data.get("viewportHeight")]
+            own = own if all(isinstance(n, int) and n > 0 for n in own) else [1280, 720]
+            shapes = [("", args.viewport)] if args.viewport else screen_shapes(
+                own, (data.get("properties") or {}).get("orientations", "any"))
             result = oe.open_one(browser, editor, project, oe.staged(project, "review-look"), None,
-                                 bool(args.release), review(args.layouts, args.settle, view, shots))
+                                 bool(args.release), review(args.layouts, args.settle, shapes, shots,
+                                                            tuple(args.data), set_by_events(project),
+                                                            declared(project)))
             result["places"] = unmeasured(project, args.design)
             # Names this run, so that a reply checked against its brief is not taken for one of a later run
             result["run"] = uuid.uuid4().hex[:12]
@@ -1188,7 +1507,7 @@ def main() -> int:
         return oe.BUSY
     if results is None:
         return 2
-    found, errors, _ = map(sum, zip(*(counts(r) for r in results)))
+    found, _, errors, _ = map(sum, zip(*(counts(r) for r in results)))
     print(look_line(results, args.settle, out, base))
     if any(r["status"] != "opened" for r in results):
         print(oe.NEXT)
@@ -1198,9 +1517,10 @@ def main() -> int:
               "the preview stops again, run open_in_editor.py --preview, whose lines say why")
         return 3
     briefs = [r["brief"] for r in results if r.get("brief")]
-    print("next: fix every finding line; a runtime error on a layout reached straight away may need the run that "
-          "leads there, so play to it with preview_project.py before blaming the events. Then have the questions "
-          "answered and fix each yes. Run this again until it prints no finding and every answer is no.")
+    print("next: fix every broken finding, then every ugly one; a fragile one warns, so fix it or name it in the "
+          "hand-over. A runtime error on a layout reached straight away may need the run that leads there, so play "
+          "to it with preview_project.py before blaming the events. Then have the questions answered and fix each "
+          "yes. Run this again until it prints no finding to fix and every answer is no.")
     if briefs:
         reply = Path(briefs[0]).with_name("reply.md")
         print(f"brief: if you can start a sub-agent, give it {' and '.join(briefs)} as its whole task, save its reply "

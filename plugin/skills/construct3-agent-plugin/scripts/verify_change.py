@@ -348,11 +348,14 @@ def looked(run: Run) -> tuple[int, str] | None:
         rounds = run.record.get("look_rounds", 0) + bool(reply.get("yes"))
         if not reply.get("yes") or rounds >= LOOK_ROUNDS:
             run.record["look_rounds"] = 0
+            run.record["look_left"] = reply.get("yeses", []) if reply.get("yes") else []
             line = (f"look: {reply['file']} answers every question" + (
                 f" and still has {reply['yes']} yes after {rounds} rounds: name each in the hand-over"
                 if reply.get("yes") else " no"))
             run.keep("looked", "passed", line, 0)
             show("looked", "passed", line)
+            for left in run.record["look_left"]:
+                print(f"  left: {left}")
             return None
         run.record["look_rounds"] = rounds
         line = f"look: {reply['file']} has {reply['yes']} yes, round {rounds} of {LOOK_ROUNDS}"
@@ -397,12 +400,25 @@ def skipped(run: Run, step: str, out: str) -> str:
 RUNNERS = (("checked", checked), ("reviewed", reviewed), ("opened", opened), ("played", played), ("looked", looked))
 
 
+def look_warnings(run: Run) -> list[str]:
+    """What the look step leaves for the hand-over once it passed: each yes still there after its rounds, and the
+    fragile findings of the review it passed on, which warn and do not stop it."""
+    if not run.passed_here("looked"):
+        return []
+    layouts = (look_result(run).get("preview") or {}).get("layouts", [])
+    fragile = [f"{d['layout']}: {f['rule']}" for d in layouts for f in d.get("findings", []) if f.get("tier") == "fragile"]
+    return [f"look yes {y}" for y in run.record.get("look_left", [])] + [f"warns {w}" for w in fragile]
+
+
 def handed_over(run: Run, upto: str) -> str:
-    """The ok: line: the last step that passed on these files and the steps that did not run on them."""
+    """The ok: line: the last step that passed on these files, the steps that did not run on them, and what the
+    look left to name."""
     done = [s for s in STEPS[:STEPS.index(upto) + 1] if run.passed_here(s)]
     left = [s for s in STEPS if not run.passed_here(s)]
+    named = look_warnings(run)
     return (f"ok: {done[-1]} on these files"
             + (f"; not run: {', '.join(left)}" if left else "")
+            + (f"; name in the hand-over, with each fix as before, after and why: {'; '.join(named)}" if named else "")
             + f". Hand over with the events that changed: "
             + c3.script_command(run.root, "print_sheet.py", " --since <the user's branch>")
             + "; pack a project handed over as a file with pack_project.py")

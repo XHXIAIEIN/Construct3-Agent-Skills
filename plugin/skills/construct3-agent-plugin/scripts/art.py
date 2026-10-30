@@ -244,9 +244,52 @@ def baseline(root: Path, item: dict) -> tuple[int, int] | None:
     return max(y for _, y in shown), (min(xs) + max(xs)) // 2
 
 
+# art.alike: the cells a side a picture is averaged into, and the mean difference of their channels, of 1, under
+# which two pictures of one box look the same to a player
+ALIKE_CELLS = 16
+ALIKE = 0.03
+
+
+def signature(root: Path, item: dict) -> list[float]:
+    """The picture as ALIKE_CELLS x ALIKE_CELLS cells, each the mean of its pixels' red, green, blue and alpha, of 1,
+    the colour of a pixel weighted by its alpha so that a clear pixel's hidden colour counts for nothing."""
+    w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
+    sums = [[0.0] * 4 for _ in range(ALIKE_CELLS * ALIKE_CELLS)]
+    counts = [0] * len(sums)
+    for n, (r, g, b, a) in enumerate(px):
+        cell = (n // w * ALIKE_CELLS // h) * ALIKE_CELLS + n % w * ALIKE_CELLS // w
+        for c, v in enumerate((r * a / 255, g * a / 255, b * a / 255, a)):
+            sums[cell][c] += v / 255
+        counts[cell] += 1
+    return [v / max(1, counts[cell]) for cell, four in enumerate(sums) for v in four]
+
+
+def alike_findings(root: Path, done: list[dict]) -> list[tuple[str, str]]:
+    """art.alike: two pictures of one box for different subjects that look the same, cell by cell: two kinds a
+    player cannot tell apart. Two pictures of one object are poses of one subject and left out, unless both are
+    frames of its Default animation, which often holds kinds that events pick."""
+    def kinds(a: dict, b: dict) -> bool:
+        (ta, *ra), (tb, *rb) = a["file"].split("-"), b["file"].split("-")
+        return ta != tb or ra[:1] == rb[:1] == ["default"]
+    seen: list[tuple[dict, list[float]]] = []
+    found = []
+    for item in sorted(done, key=lambda i: i["file"]):
+        mine = signature(root, item)
+        for other, theirs in seen:
+            if (other["width"], other["height"]) != (item["width"], item["height"]) or                     other["subject"] == item["subject"] or not kinds(other, item):
+                continue
+            if sum(abs(u - v) for u, v in zip(mine, theirs)) / len(mine) < ALIKE:
+                found.append((item["file"], f"art.alike: {stem_of(item['file'])} and {stem_of(other['file'])} look "
+                                            f"the same, though one is {other['subject']!r} and the other "
+                                            f"{item['subject']!r}: give each a shape, a colour or a mark of its own"))
+                break
+        seen.append((item, mine))
+    return found
+
+
 def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str, str]]:
-    """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), and for the frames of one
-    animation whose box, feet or middle differ (art.frames)."""
+    """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), for the frames of one
+    animation whose box, feet or middle differ (art.frames), and for two kinds drawn alike (art.alike)."""
     found = []
     # A picture the PNG reader cannot read is the generator's to refuse, when art() takes it
     done = [i for i in done if c3.png_rgba((root / "art" / i["file"]).read_bytes())]
@@ -281,7 +324,7 @@ def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str,
             found.append((frames[0]["file"], f"art.frames: {name}: its frames stand on rows {min(feet)} to "
                                              f"{max(feet)} and are centred from x {min(middles)} to {max(middles)}; "
                                              f"draw them with one function from the same d.ground and centre"))
-    return found
+    return found + alike_findings(root, done)
 
 
 def counted(root: Path, found: list[tuple[str, str]]) -> tuple[list[str], list[str]]:

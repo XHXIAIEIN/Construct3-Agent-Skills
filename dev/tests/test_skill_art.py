@@ -163,3 +163,24 @@ def test_a_picture_lost_on_the_canvas_and_frames_that_drift_are_found(project):
         (project / "art" / COIN).write_bytes(pale[:-12] + bytes([n]) + pale[-11:])     # another version, as pale
         fix, kept = art.counted(project, found[:1])
     assert fix == [] and kept[0].endswith("still so after 3 versions: name it in the hand-over"), kept
+
+
+def test_two_kinds_drawn_alike_are_found_and_poses_of_one_are_not(project):
+    """art.alike: two pictures of one box for different subjects that look the same cell by cell; a colour of
+    its own tells one apart, and the frames of one animation are poses of one subject."""
+    wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
+    item = wanted["images"][0]
+    blob = lambda colour: png(32, 32, lambda x, y: colour if 6 <= x < 26 and 6 <= y < 26 else (0, 0, 0, 0))
+    kinds = [dict(item, file="goblin-default-000.png", width=32, height=32, subject="a goblin"),
+             dict(item, file="orc-default-000.png", width=32, height=32, subject="an orc"),
+             dict(item, file="slime-default-000.png", width=32, height=32, subject="a slime"),
+             dict(item, file="hero-walk-000.png", width=32, height=32, subject="the hero, walk 1"),
+             dict(item, file="hero-walk-001.png", width=32, height=32, subject="the hero, walk 2"),
+             dict(item, file="hero-default-000.png", width=32, height=32, subject="the hero, standing")]
+    for k, colour in zip(kinds, [(200, 40, 40, 255), (201, 40, 40, 255), (40, 160, 60, 255), (9, 9, 9, 255),
+                                 (9, 9, 9, 255), (9, 9, 9, 255)]):
+        (project / "art" / k["file"]).write_bytes(blob(colour))
+    found = art.alike_findings(project, kinds)
+    assert [line for _, line in found] == [
+        "art.alike: orc-default-000 and goblin-default-000 look the same, though one is 'a goblin' and the other "
+        "'an orc': give each a shape, a colour or a mark of its own"], found

@@ -15,6 +15,7 @@
     "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
+    "Construct3-Agent-Skills/docs/decisions/look-severity.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
@@ -101,7 +102,8 @@
       "template": "(text_contrast(17), text_contrast(18))",
       "value": "(4.5, 3)",
       "helpers": "readable(), hud_text()",
-      "source": "Construct3-Agent-Skills/docs/decisions/layout-by-name.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
+      "confirm": "review_look.py: faint, measured on what lies behind each text on screen"
     },
     {
       "id": "type.inter",
@@ -592,6 +594,83 @@
       "scope": "every-look",
       "says": "Characters, finished art, fonts, exact palettes and third-party effects of any existing game.",
       "source": "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
+    },
+    {
+      "id": "look.severity",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Every finding of the look review and every yes of its judge has a tier. broken: the player cannot read, reach or tell apart what the screen shows, at some data state or shape of screen. ugly: it reads but looks wrong, the looks of rules avoid.* among them. fragile: right as shown and one realistic step from broken, as a text with no declared limit, or a finish of a pixel or two, as a label 2 px off its centre. broken and ugly fail the look step and are fixed broken first; fragile warns and goes into the hand-over. A yes with more than one right fix is the user's to pick.",
+      "confirm": "review_look.py: the tier of each finding and yes",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "look.worst-data",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Each layout is looked at with the texts that events set shown at four data states: demo as it starts, worst (the declared longest text, else a count at 9999999, a long hyphenated name or a long Chinese one), empty and one. A text, overlap, edge or crowd finding that only a guessed worst text causes warns. A Text whose text the events set takes the longest text it shows, which the generator writes to tools/texts.json and requires.",
+      "template": "longest_text(), write_texts()",
+      "confirm": "review_look.py: @worst, @empty, @one; build_project.py stops on a Text the events set with no longest",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "look.screen-shapes",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Without --viewport each layout is looked at on three shapes of screen: the project's viewport and two that its orientations allow (landscape: 4:3 and a phone's 19.5:9; portrait: 3:4 and 9:19.5; any: 4:3 or 16:9 and a phone held upright), at the viewport's shorter side, because Scale outer and Anchor move the HUD on each. The text, overlap, edge and crowd findings run on each.",
+      "confirm": "review_look.py: @4x3, @16x9, @phone",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "art.alike",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Two drawn pictures of one box for different subjects differ, cell by cell over 16 x 16 cells, by more than 3% of a channel on average: kinds a player tells apart. Two pictures of one object are poses of it and are left out, unless both are frames of its Default animation.",
+      "template": "art()",
+      "confirm": "art.py: art.alike",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "avoid.dashboard",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A game's screen is the scene, not an app's dashboard.",
+      "before": "The play area and the HUD sit in rounded cards, the score in a pill, a soft shadow under every panel.",
+      "after": "The scene fills the screen; the HUD is text and flat shapes held to the edges, a panel only where a popup needs one.",
+      "why": "Of six mock-ups of one coin screen, the user read the three drawn as an app interface as a template and as AI-made.",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
+    },
+    {
+      "id": "avoid.style-mix",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Every picture on a screen is drawn in one style.",
+      "before": "Plain boxes beside finished art, a smooth shape among pixel art, four drawing styles on one screen.",
+      "after": "One route and one ART_STYLE for every picture; a stand-in waits as the template's shape until its picture comes.",
+      "why": "A small model's card game drew four styles at once, and the user rejected it.",
+      "confirm": "review_look.py: question 4",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
+    },
+    {
+      "id": "avoid.same-decoration",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "A decoration belongs to a screen, not to every screen.",
+      "before": "One ornament, frame or glow repeated on every layout.",
+      "after": "Each screen's decoration comes from what the screen is; the HUD is the one thing every screen repeats.",
+      "why": "The rejected card game repeated one decoration on every layout.",
+      "confirm": "review_look.py: the question across screenshots",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
+    },
+    {
+      "id": "avoid.kinds-alike",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Things that stand for different kinds look different.",
+      "before": "Every map node with the same icon; fifteen enemies drawn from one template.",
+      "after": "Each kind has a shape, a colour or a mark of its own, set from its kind where it is created.",
+      "why": "The rejected card game showed every map node with one icon, and a small model drew fifteen enemies from one template.",
+      "confirm": "review_look.py: frame, question 6; art.py: art.alike",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
     }
   ],
   "deliver": [
@@ -600,7 +679,7 @@
     "Keep SHAPE_STYLE and the helpers between the markers; a helper the game changes is defined again below the end marker. Give every sprite an art() in whole units, which draws its stand-in until its picture arrives, and place it with shape_inst() on a grid cell; create runtime objects at grid_random().",
     "Run art.py after the generator and do what its last line says. On the SVG route it writes a brief for the drawings still to make: give it to a construct3:art-drawer sub-agent as its whole task. On the image route, with an image tool in the session, make each picture with the prompt it prints, then run art.py again. Never compute a picture pixel by pixel in Python: with nothing to hold a style, it mixes styles on one screen.",
     "Keep PALETTE's roles, whatever their colours. In paper and ink: the player in ink, in the shape that subject.player-shape gives, and structure a rectangle in solid; a circle for what is collected, a triangle for what hurts. An area or a range is drawn as lines, zone() of a zone_image(), and a reach a dashed ring(); a slot is a disc of canvas_alt the size of what fills it; an area with a rule of its own is area() of a pattern(); the plain paper is the opaque Background layer's colour and no object, and backdrop() of the checker lies behind everything only where something is transparent, a mask or a background still to come. With USER_LOOK set, draw the stand-ins in the user's colours, and lay the areas and the backdrop in the user's look: area() and backdrop() take any Tiled Background type.",
-    "Place the HUD with hud_tag() for the round or the level and no game name, hud_stat() for the count under its name, and hud_keys() with hints() for the controls. Place any other label with hud_text(), hud_bar(), labelled_bar() or band_text(); each holds it to the screen's edges with the Anchor behavior. Place the playfield at centred(w, h, play_area(hud)), and pass the HUD's groups and the playfield to spaced(). An instance placed by anchor() or row() takes behaviors=anchored(where). Lay a popup's dim over screen_box(), on the popup's own layer. Leave FULLSCREEN and z_order() as they are: they fill the screen and order each layer for any game.",
+    "Place the HUD with hud_tag() for the round or the level and no game name, hud_stat() for the count under its name, and hud_keys() with hints() for the controls. Place any other label with hud_text(), hud_bar(), labelled_bar() or band_text(); each holds it to the screen's edges with the Anchor behavior. Give each Text whose text the events set longest=, the widest text it shows at runtime (look.worst-data). Place the playfield at centred(w, h, play_area(hud)), and pass the HUD's groups and the playfield to spaced(). An instance placed by anchor() or row() takes behaviors=anchored(where). Lay a popup's dim over screen_box(), on the popup's own layer. Leave FULLSCREEN and z_order() as they are: they fill the screen and order each layer for any game.",
     "Write BEATS for the game's zones or rounds, and read the curve the generator prints; measure every gap of a platformer level with jump().",
     "Give every object that can be hit a hit_frame() after its shape and the Tween behavior, and show a hit with hit(obj), last in its block; in paper and ink, never the Flash behavior.",
     "Squash a landing and a jump with squash(art, \"land\") and squash(art, \"jump\"), on the art pinned to the collision mask, never on the mask.",

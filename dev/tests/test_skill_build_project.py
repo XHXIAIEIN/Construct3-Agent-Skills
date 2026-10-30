@@ -1798,3 +1798,24 @@ def test_a_data_file_is_listed_with_the_type_the_editor_writes_for_its_extension
         template.general_file(name, "")
     assert [(e["name"], e["type"]) for e in template._general_files] == [
         ("Cards.json", "application/json"), ("notes.TXT", "text/plain"), ("photo.jpg", "application/octet-stream")]
+
+
+def test_template_declares_the_longest_text_of_each_text_the_events_set(built, tmp_path):
+    """tools/texts.json holds the widest text each helper's `longest` gave, which review_look.py shows in its
+    worst data; a Text whose text the events set with no `longest` stops the run."""
+    assert json.loads((built / "tools" / "texts.json").read_text(encoding="utf-8"))["longest"]["ScoreText"] == "999"
+    t = template_module()
+    t.ROOT = tmp_path
+    t.LONGEST.clear()
+    t.hud_text("Hint", "Tap", "bottom-left", longest="Tap and hold")
+    t.hud_text("Hint", "Tap", "bottom-left", longest="Hold")
+    assert t.LONGEST == {"Hint": "Tap and hold"}
+    sheet = {"events": [{"actions": [{"id": "set-text", "objectClass": "Hint"}, {"id": "set-text", "objectClass": "Log"},
+                                     {"id": "set-text", "objectClass": "Board"}]}]}
+    types = {"Hint": {"plugin-id": "Text"}, "Log": {"plugin-id": "Text"}, "Board": {"plugin-id": "Sprite"}}
+    with pytest.raises(SystemExit, match=r"the events set the text of Log, and no helper says how long it gets"):
+        t.write_texts(sheet, types)
+    del types["Log"]
+    t.write_texts(sheet, types)
+    assert json.loads((tmp_path / "tools" / "texts.json").read_text(encoding="utf-8")) == {
+        "longest": {"Hint": "Tap and hold"}}
