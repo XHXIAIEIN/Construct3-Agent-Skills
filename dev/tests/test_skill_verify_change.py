@@ -184,7 +184,7 @@ def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatc
     assert "  left: Game 4, ugly - the coin: a grey box" in out
     # The ok: line names what the look left: the yes after three rounds and the fragile findings, which warn
     assert out.splitlines()[-1].split(". Hand over")[0].endswith(
-        "name in the hand-over, with each fix as before, after and why: look yes Game 4, ugly - the coin: a grey "
+        "name in the hand-over, each fix in three parts, before, after and why: look yes Game 4, ugly - the coin: a grey "
         "box; warns Game: optical"), out
     record = json.loads((project / verify_change.RECORD).read_text(encoding="utf-8"))
     assert record["steps"]["looked"]["state"] == "passed" and record["look_rounds"] == 0

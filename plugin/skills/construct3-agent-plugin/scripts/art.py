@@ -244,15 +244,14 @@ def baseline(root: Path, item: dict) -> tuple[int, int] | None:
     return max(y for _, y in shown), (min(xs) + max(xs)) // 2
 
 
-# art.alike: the cells a side a picture is averaged into, and the mean difference of their channels, of 1, under
-# which two pictures of one box look the same to a player
+# art.alike: cells a side, and the mean channel difference, of 1, under which two pictures look the same
 ALIKE_CELLS = 16
 ALIKE = 0.03
 
 
 def signature(root: Path, item: dict) -> list[float]:
-    """The picture as ALIKE_CELLS x ALIKE_CELLS cells, each the mean of its pixels' red, green, blue and alpha, of 1,
-    the colour of a pixel weighted by its alpha so that a clear pixel's hidden colour counts for nothing."""
+    """The picture as ALIKE_CELLS x ALIKE_CELLS cells of mean RGBA, of 1, each colour weighted by its alpha: a
+    clear pixel's hidden colour counts for nothing."""
     w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
     sums = [[0.0] * 4 for _ in range(ALIKE_CELLS * ALIKE_CELLS)]
     counts = [0] * len(sums)
@@ -276,7 +275,8 @@ def alike_findings(root: Path, done: list[dict]) -> list[tuple[str, str]]:
     for item in sorted(done, key=lambda i: i["file"]):
         mine = signature(root, item)
         for other, theirs in seen:
-            if (other["width"], other["height"]) != (item["width"], item["height"]) or                     other["subject"] == item["subject"] or not kinds(other, item):
+            if (other["width"], other["height"]) != (item["width"], item["height"]) \
+                    or other["subject"] == item["subject"] or not kinds(other, item):
                 continue
             if sum(abs(u - v) for u, v in zip(mine, theirs)) / len(mine) < ALIKE:
                 found.append((item["file"], f"art.alike: {stem_of(item['file'])} and {stem_of(other['file'])} look "

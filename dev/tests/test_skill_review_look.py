@@ -232,7 +232,7 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
     lines, _, _ = rl.check_reply(REVIEWED, every_no, "reply.md", "python v.py")
     assert lines[-1] == "next: every question is answered no; run python v.py, which passes its look step on this reply"
     lines, _, _ = rl.check_reply(REVIEWED, one_yes, "r", "python v.py")
-    assert lines[-1].endswith("for the hand-over, then run python v.py, which looks again; after three rounds with "
+    assert lines[-1].endswith("before, after and why; then run python v.py, which looks again; after three rounds with "
                               "a yes its look step passes, and the hand-over names each yes left"), lines[-1]
 
 

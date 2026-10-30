@@ -174,7 +174,7 @@ the hand-over names it. A yes with more than one right fix, such as cutting
 a text short or wrapping it, is the user's to pick, so ask before you spend
 a round on it.
 
-Each layout is also looked at at three more data states and on two more
+Each layout is also looked at in three more data states and on two more
 shapes of screen (`look.worst-data`, `look.screen-shapes`): the Texts that
 events set show their longest text, nothing, and a count of one, and the
 screen takes the shapes the project's orientations allow, such as 4:3 and a
@@ -211,8 +211,8 @@ passes its look step only on a reply that `--reply` checked: one that
 answers every question, each yes saying where, with no yes. A yes fails the
 step: fix it and run `verify_change.py` again, which looks again. After
 three replies with a yes the step passes, and its `ok:` line names each yes
-left and each fragile finding, for the hand-over to give with each fix as
-before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
+left and each fragile finding, for the hand-over to give with each fix in
+three parts: before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
 a finding of it stops the step before the review. When `scripts/art.py`
 has written a contact sheet of the game's pictures, the brief shows it
 after the screenshots, under the same questions. A question answered from

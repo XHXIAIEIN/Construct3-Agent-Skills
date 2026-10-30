@@ -418,7 +418,8 @@ def handed_over(run: Run, upto: str) -> str:
     named = look_warnings(run)
     return (f"ok: {done[-1]} on these files"
             + (f"; not run: {', '.join(left)}" if left else "")
-            + (f"; name in the hand-over, with each fix as before, after and why: {'; '.join(named)}" if named else "")
+            + (f"; name in the hand-over, each fix in three parts, before, after and why: {'; '.join(named)}"
+               if named else "")
             + f". Hand over with the events that changed: "
             + c3.script_command(run.root, "print_sheet.py", " --since <the user's branch>")
             + "; pack a project handed over as a file with pack_project.py")

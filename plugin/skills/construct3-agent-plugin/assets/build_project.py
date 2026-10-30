@@ -2109,20 +2109,18 @@ def face_of(kind: str) -> str:
     return face(TEXT_WEIGHT.get(kind, "regular"))
 
 
-LONGEST: dict[str, str] = {}               # the widest text each Text type shows: tools/texts.json
+LONGEST: dict[str, str] = {}               # the widest text of each Text type
 
 
 def longest_text(otype: str, longest: str | None, size: float) -> None:
-    """Records `longest` as the widest text the Text type `otype` shows at runtime, keeping the widest of its
-    instances. The skill's review_look.py shows it in place of the text to find what a longer text cuts or
-    covers, and a type whose text the events set needs one."""
+    """Records `longest` as the widest text of the Text type `otype`, the widest of its instances."""
     if longest and text_px(longest, size) >= text_px(LONGEST.get(otype, ""), size):
         LONGEST[otype] = longest
 
 
 def write_texts(sheet: dict, types: dict) -> None:
-    """Writes tools/texts.json from LONGEST. Stops the run when the events set the text of a Text type that no
-    helper gave a `longest`: its box fits only the text it starts with."""
+    """Writes tools/texts.json, which review_look.py shows as the worst data. Stops on a Text the events set
+    that has no `longest`."""
     set_by: set[str] = set()
 
     def walk(node) -> None:
@@ -3446,7 +3444,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp b58f95a19e12 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp b518f4f92980 ================
 
 
 # --- the game ---------------------------------------------------------------------------

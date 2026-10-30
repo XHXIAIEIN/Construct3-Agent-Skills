@@ -599,7 +599,7 @@
       "id": "look.severity",
       "status": "enforced",
       "scope": "every-look",
-      "says": "Every finding of the look review and every yes of its judge has a tier. broken: the player cannot read, reach or tell apart what the screen shows, at some data state or shape of screen. ugly: it reads but looks wrong, the looks of rules avoid.* among them. fragile: right as shown and one realistic step from broken, as a text with no declared limit, or a finish of a pixel or two, as a label 2 px off its centre. broken and ugly fail the look step and are fixed broken first; fragile warns and goes into the hand-over. A yes with more than one right fix is the user's to pick.",
+      "says": "Every finding of the look review and every yes of its judge has a tier. broken: the player cannot read, reach or tell apart what the screen shows, at some data state or shape of screen. ugly: it reads but looks wrong, the looks of rules avoid.* among them. fragile: right as shown and one realistic step from broken, as a text with no declared limit, or a finish of a pixel or two, as a label 2 px off its centre. broken and ugly fail the look step and are fixed broken first; fragile warns and goes into the hand-over, each fix in three parts: before, after and why. A yes with more than one right fix is the user's to pick.",
       "confirm": "review_look.py: the tier of each finding and yes",
       "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
     },
@@ -631,13 +631,14 @@
     },
     {
       "id": "avoid.dashboard",
-      "status": "adopted",
+      "status": "enforced",
       "scope": "every-look",
       "says": "A game's screen is the scene, not an app's dashboard.",
       "before": "The play area and the HUD sit in rounded cards, the score in a pill, a soft shadow under every panel.",
       "after": "The scene fills the screen; the HUD is text and flat shapes held to the edges, a panel only where a popup needs one.",
-      "why": "Of six mock-ups of one coin screen, the user read the three drawn as an app interface as a template and as AI-made.",
-      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
+      "why": "Rounded cards, a score pill and a shadow under every panel read as an app template and as AI-made.",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
+      "confirm": "review_look.py: question 7"
     },
     {
       "id": "avoid.style-mix",
@@ -646,7 +647,7 @@
       "says": "Every picture on a screen is drawn in one style.",
       "before": "Plain boxes beside finished art, a smooth shape among pixel art, four drawing styles on one screen.",
       "after": "One route and one ART_STYLE for every picture; a stand-in waits as the template's shape until its picture comes.",
-      "why": "A small model's card game drew four styles at once, and the user rejected it.",
+      "why": "Several drawing styles on one screen read as unfinished, as parts taken from different places.",
       "confirm": "review_look.py: question 4",
       "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
     },
@@ -657,7 +658,7 @@
       "says": "A decoration belongs to a screen, not to every screen.",
       "before": "One ornament, frame or glow repeated on every layout.",
       "after": "Each screen's decoration comes from what the screen is; the HUD is the one thing every screen repeats.",
-      "why": "The rejected card game repeated one decoration on every layout.",
+      "why": "A decoration that repeats on every screen stops telling one screen from another.",
       "confirm": "review_look.py: the question across screenshots",
       "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
     },
@@ -666,9 +667,9 @@
       "status": "enforced",
       "scope": "every-look",
       "says": "Things that stand for different kinds look different.",
-      "before": "Every map node with the same icon; fifteen enemies drawn from one template.",
+      "before": "Every map node with the same icon; a set of enemies drawn from one template.",
       "after": "Each kind has a shape, a colour or a mark of its own, set from its kind where it is created.",
-      "why": "The rejected card game showed every map node with one icon, and a small model drew fifteen enemies from one template.",
+      "why": "A player cannot tell apart kinds that look the same, so a choice between them is a guess.",
       "confirm": "review_look.py: frame, question 6; art.py: art.alike",
       "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
     }

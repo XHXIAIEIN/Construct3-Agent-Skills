@@ -35,11 +35,11 @@ the object type, the instance's UID and what to change:
 
 Each finding has its rule's tier (look.severity in assets/look-manifest.json):
 broken and ugly ones fail the review, fragile ones (optical, unlimited) warn.
-Then each layout is looked at in the other data states of --data, the Texts
-that events set showing their longest text (or a guess), nothing, or counts
-at 1, and, without --viewport, on two more screen shapes its orientations
-allow. There text, overlap, edge and crowd run again, printed with @ and
-where; what only a guessed text causes warns.
+Each layout is also shown in the other data states of --data: the longest
+text (or a guess), no text, and counts of 1. Without --viewport, it is also
+shown on two more screen shapes that its orientations allow. There text,
+overlap, edge and crowd run again, printed with @ and where; what only a
+guessed text causes warns.
 
 A screenshot 99.9% of one colour, black or clear, is taken again 1 s later,
 twice at most; a layout still so draws nothing in view and gets no question.
@@ -155,10 +155,7 @@ CORNERS = ((0, 0), (0, 2), (2, 0), (2, 2))
 BLANK_TRIES = 3
 BLANK_WAIT = 1.0
 
-# How bad a fault is, worst first (docs/decisions/look-severity.md). broken: the player cannot read, reach or
-# tell apart what the screen shows, at some data or screen shape; ugly: it reads, but looks wrong, the looks a
-# generator reaches for by reflex among them; fragile: right as shown, one realistic step from broken, or a
-# finish of a pixel or two. broken and ugly fail the review; fragile is printed and warns.
+# The tiers of look.severity, worst first; broken and ugly fail the review, fragile warns.
 TIERS = ("broken", "ugly", "fragile")
 BLOCKING = ("broken", "ugly")
 TIER = {"text": "broken", "stacked": "broken", "overlap": "broken", "edge": "broken", "frame": "broken",
@@ -185,9 +182,9 @@ QUESTIONS = (
 QUESTION_TIERS = ("broken", "broken", "broken", "ugly", "ugly", "ugly", "ugly")
 ACROSS = "Does the same decoration, not the HUD, appear on every screenshot?"
 
-# What the other data states set a Text that events set to, when nothing declares its longest text: the most a
-# counter shows, a long hyphenated name, a long Chinese one (docs/decisions/look-severity.md).
+# The data states a layout is looked at in.
 DATA_STATES = ("demo", "worst", "empty", "one")
+# The worst text guessed for a Text with no declared longest: a count, a name, a Chinese name.
 WORST_NUMBER = "9999999"
 WORST_NAME = "Wolfeschlegel-Steinhausen"
 WORST_WIDE = "最长的名字也要放得下才行"
@@ -931,9 +928,9 @@ def unlimited_findings(instances: list[dict], setters: set[str], longest: dict[s
     if not seen:
         return []
     return [{"rule": "unlimited", "uids": [i["uid"] for i in seen.values()], "line":
-             f"events set the text of {', '.join(seen)}, and nothing says how long it gets, so a box fits only "
-             f"what it shows now and the worst data guessed it: give each one's helper longest=, the widest text "
-             f"it shows, or declare it in {DECLARED.as_posix()}"}]
+             f"events set the text of {', '.join(seen)}, and nothing says how long it gets, so each box fits only "
+             f"the text it starts with and its worst text is a guess. Give each one's helper longest=, the widest "
+             f"text it shows, or declare it in {DECLARED.as_posix()}"}]
 
 
 def findings(snap: dict, only: tuple[str, ...] | None = None) -> list[dict]:
@@ -1299,7 +1296,7 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
         lines.append("next: fix each yes, the broken ones first: name the layout and the object type at the place it "
                      "describes and change it. A yes with more than one right fix, such as cutting a text short or "
                      "wrapping it, or which corner a counter takes, is the user's to pick: ask before you spend a "
-                     "round on it. Note each fix as before, after and why for the hand-over, "
+                     "round on it. Write each fix in three parts for the hand-over: before, after and why; "
                      + (f"then run {verify}, which looks again; after three rounds with a yes its look step passes, "
                         f"and the hand-over names each yes left" if verify else
                         "then run review_look.py again and have its new brief answered"))
