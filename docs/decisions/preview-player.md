@@ -62,7 +62,9 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   with the scripting `runtime`, a `vars` object kept between steps and
   `wait`. They are the way out for what the step kinds do not cover, such as
   calling a function of the project to set a scene up.
-- The output is one line per step, then the runtime errors logged during it.
+- The output is one line per step, then the runtime errors and the failed
+  requests logged during it. A step also says when it changed the layout,
+  and fails when the game stopped ticking (`runtime-signals.md`).
   The result file, `.tmp/scripts/preview-project/result.json` or the one
   `--out` names, keeps every value read, and a failed step leaves a
   screenshot.

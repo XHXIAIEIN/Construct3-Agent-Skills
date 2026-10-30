@@ -498,7 +498,7 @@ RUNTIME = """globalThis.C3 = {Runtime: class {
   constructor() { this.n = 0; }
   Tick() { this.n++; }
   GetIRuntime() { const r = this; return {layout: {name: "Title"}, get tickCount() { return r.n; }, objects: {},
-    globalVars: {}}; }
+    globalVars: {}, addEventListener() {}}; }
 }};
 const runtime = new C3.Runtime();
 setInterval(() => runtime.Tick(), 16);

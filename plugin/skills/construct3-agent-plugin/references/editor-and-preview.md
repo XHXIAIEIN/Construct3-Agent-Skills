@@ -121,6 +121,28 @@ which cases to play and how to reach and read them to
   comment at `--mute-audio`; the user's rule, 2026-09-30, that a test must
   not play sound through their speakers]
 
+- A request of a preview's worker reaches only the worker's own DevTools
+  session, and only once `Network.enable` was sent there; the page's session
+  does not see it. The runtime's worker requests what the first layout loads
+  as it starts, so `open_in_editor.py --preview` and `preview_project.py`
+  attach each new worker held at its start (`waitForDebuggerOnStart`), turn
+  its requests on, then let it run, and print a `network:` line for each
+  response of HTTP 400 or more and each request with no response. A request
+  for a file the project lacks answers 404 from preview.construct.net. The
+  AJAX plugin also logs its failure as an error; a `fetch` in a script logs
+  nothing. [observed in a
+  converted game, r506.3 preview in Edge headless, 2026-10-31: a startup
+  AJAX request for a missing file came as HTTP 404 on the worker's session
+  only; a script's `fetch` in a page-hosted runtime on the page's]
+- A game whose events hold its thread, a While that never ends, does not
+  tick, and its page or worker answers no DevTools call; with the runtime
+  in a worker, the window still shows its last frame. `preview_project.py` reads the probe's
+  `ticks()` after each step: a step fails when the game did not answer in
+  5 seconds, or did not tick for more than 1 second. A layout that starts
+  with many objects holds the ticks for up to 0.3 s. [observed in a
+  converted game and 12 official examples, r506.3 preview in Edge headless
+  on a 143 Hz display, 2026-10-31; `Construct3-Agent-Skills/docs/decisions/runtime-signals.md`]
+
 ## Recording an effect's frames
 
 - A `record` step of `scripts/preview_project.py` takes one JPEG
@@ -167,7 +189,28 @@ which cases to play and how to reach and read them to
   the elements that hold it, as `scripts/screenshot_sheet.py` does.
   [observed in the r505 editor as a guest, 2026-10-14]
 
+- `Page.captureScreenshot` with a `clip` at `scale` 0.125 rounds the size
+  up: an empty grey 430x932 window came out 54x117 with a black last row, so
+  it read 99.15% one colour with a luminance deviation of 19, as if
+  something were drawn. Clip each side to its multiple of 8 below first, as
+  `open_in_editor.py` does before it judges a frame blank: 424x928 came out
+  53x116, all grey. [observed in an r506.3 preview in Edge headless,
+  2026-10-31]
+
 ## The browser and the files it is handed
+
+- When the browser cannot reach the editor, its page is
+  `chrome-error://chromewebdata/` and the page's text names the error code:
+  `DNS_PROBE_STARTED` or `DNS_PROBE_FINISHED_NXDOMAIN` in Edge for a name
+  that does not resolve (`ERR_NAME_NOT_RESOLVED` in Chrome),
+  `ERR_CONNECTION_REFUSED`, `ERR_CONNECTION_TIMED_OUT` after about 21
+  seconds, and `NET::ERR_CERT_AUTHORITY_INVALID` for a certificate it does
+  not trust, as a proxy that reads HTTPS gives. `open_in_editor.py` puts the
+  code and what to check for its kind in the line that says the editor did
+  not load. `--host-resolver-rules="MAP editor.construct.net ~NOTFOUND"` on
+  the browser's command line reproduces the first. [observed in Edge 156
+  headless, 2026-10-31, with that rule mapping the host to nowhere,
+  127.0.0.1:1, an unroutable address and a host with another certificate]
 
 - Edge started with `__COMPAT_LAYER` in its environment, the Windows
   application compatibility layer (`DetectorsAppHealth` where this was

@@ -37,6 +37,11 @@ declare const c3probe: {
   /** `names`: object types as the project spells them; every type with
    *  instances when left out. At most `max` instances per type (default 20). */
   snapshot(names?: string[], max?: number): Snapshot;
+  /** The ticks since the last call (or since the probe was left), the
+   *  seconds since then, and the longest gap between two ticks in that
+   *  time, the gap still open included, in seconds. A game whose events
+   *  hold its thread stops ticking; one held for good does not answer. */
+  ticks(): { ticks: number; seconds: number; longest: number };
 };
 
 interface Snapshot {
