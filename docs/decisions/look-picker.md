@@ -76,7 +76,9 @@ Option 3, `scripts/pick_look.py`, manifest rule `look.picker`.
   folder. `art.py`'s brief then names `art/look.png` as the look every
   drawing follows, and on the image route every sprite's prompt gives it
   as the reference image in place of the key picture. Until it exists,
-  both routes name the picker as the next step.
+  both routes name the picker as the next step. The look review puts it
+  beside the screenshot of the layout the game starts on and asks whether
+  the screenshot differs from it (`reference-pairs.md`).
 - A rule of status `open`, such as `subject.player-shape`, may be shown on
   the directions; the pick writes none of it, so it stays the owner's.
 - On the template's game, three directions drawn by hand passed the

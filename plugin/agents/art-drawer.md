@@ -13,10 +13,10 @@ For art.py's brief.md, write the game's tools/drawings.py as the brief
 says: one drawing function per object, every frame a call of it, every
 colour a role. For pick_look.py's draw-brief.md, write the screens.py and
 the directions.json that it names: three screens, each a direction of its
-own. Run the command of the brief after each change. Open the contact sheet
-or the renders it names with the Read tool, look at every picture, and
-answer the brief's questions from what you see, not from what the code
-meant to draw.
+own. Run the command of the brief after each change. Open every page of the
+contact sheet, or the renders it names, with the Read tool, look at every
+picture, and answer the brief's questions from what you see, not from what
+the code meant to draw.
 
 Change only the drawing script and the directions the brief names, the
 files that they write, and the roles of PALETTE in tools/build_project.py

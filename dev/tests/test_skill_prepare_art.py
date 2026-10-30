@@ -334,6 +334,61 @@ def test_prepare_art_cuts_out_a_picture_and_the_generator_takes_it(project):
     assert code == 0 and out.splitlines()[-1].startswith("ok: 4 images"), out
 
 
+def test_a_picture_made_from_another_prompt_is_to_make_again(project):
+    """The fitted picture records what it was made from: ART_STYLE with its prompt, and the reference image. A
+    change of either makes it restyle, until a new picture is fitted; a picture fitted before the record was kept
+    stays done."""
+    raw = project / "art" / "raw" / "coin-default-000.png"
+    picture(raw)
+    edit(project, "art/wanted.json", lambda wanted: wanted.update(style="Flat vector, thick dark outlines."))
+    code, out = tool(project, "art")
+    assert code == 0 and row(out, "coin-default-000")[2] == "done", out
+    fitted = project / "art" / "coin-default-000.png"
+    made = Image.open(fitted).info["c3-art-prompt"]
+
+    edit(project, "art/wanted.json", lambda wanted: wanted.update(style="Soft watercolour, no outlines."))
+    code, out = tool(project, "art")
+    assert row(out, "coin-default-000") == ["coin-default-000", "image", "restyle",
+                                            "make art/raw/coin-default-000.png again, its prompt changed; prompt "
+                                            "below"], out
+    lines = out.splitlines()
+    assert ("make coin-default-000 again, as ART_STYLE, the reference image or the subject changed since "
+            "art/coin-default-000.png was made: ratio 1:1, for a 160x160 box -> art/raw/coin-default-000.png") in lines
+    assert lines[-1].startswith("to make: 1, to prepare: 0, done: 0; next: make each with the image tool"), out
+
+    picture(raw, r=180)
+    os.utime(raw, (fitted.stat().st_mtime + 2,) * 2)
+    code, out = tool(project, "art")
+    assert code == 0 and row(out, "coin-default-000")[2] == "done", out
+    assert Image.open(fitted).info["c3-art-prompt"] not in ("", made)
+
+    # The user's look picked: art/look.png is the reference image of every sprite's prompt from then on
+    Image.new("RGB", (32, 18), (40, 40, 40)).save(project / "art" / "look.png")
+    edit(project, "art/wanted.json", lambda wanted: wanted.update(user_look="dark dungeon"))
+    code, out = tool(project, "art", "--status")
+    assert row(out, "coin-default-000")[2] == "restyle", out
+
+    Image.open(fitted).save(fitted)                                 # without the record
+    code, out = tool(project, "art", "--status")
+    assert row(out, "coin-default-000")[2] == "done", out
+
+
+def test_a_picture_saved_turned_is_fitted_upright(project):
+    """A JPEG from a phone is saved turned, with the turn in its EXIF orientation: it is fitted as it is shown."""
+    upright = Image.new("RGB", (300, 300), MAGENTA)
+    ImageDraw.Draw(upright).rectangle((120, 30, 180, 270), fill=RED, outline=OUTLINE, width=4)
+    exif = Image.Exif()
+    exif[0x0112] = 6                                                # shown turned 90 degrees clockwise
+    (project / "art" / "raw").mkdir()
+    upright.transpose(Image.Transpose.ROTATE_90).save(project / "art" / "raw" / "coin-default-000.jpg",
+                                                      exif=exif.tobytes(), quality=95)
+    edit(project, "art/wanted.json", lambda wanted: wanted.update(style="Flat vector, thick dark outlines."))
+    code, out = tool(project, "art")
+    assert code == 0, out
+    w, h = map(int, re.search(r"the subject (\d+)x(\d+) in it", out).groups())
+    assert w < h, out
+
+
 def test_prepare_art_scales_a_picture_without_new_colours():
     """LANCZOS gives a light rim and a key tint that no source pixel had."""
     truth = figure("magenta", spill=False)[0]

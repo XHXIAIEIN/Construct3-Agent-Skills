@@ -171,6 +171,18 @@ def stop_with_a_sentence(script: str, findings: Findings) -> None:
     sys.excepthook = stopped
 
 
+def png_text(data: bytes) -> dict[str, str]:
+    """The tEXt chunks of a PNG, by key."""
+    pos, out = 8, {}
+    while pos + 8 <= len(data):
+        n, tag = struct.unpack(">I", data[pos:pos + 4])[0], data[pos + 4:pos + 8]
+        if tag == b"tEXt":
+            key, _, value = data[pos + 8:pos + 8 + n].partition(b"\0")
+            out[key.decode("latin-1")] = value.decode("latin-1")
+        pos += 12 + n
+    return out
+
+
 def png_rgba(data: bytes) -> tuple[int, int, list[tuple]] | None:
     """Width, height and RGBA pixels of an 8-bit, non-interlaced PNG; None for another kind."""
     if data[:8] != b"\x89PNG\r\n\x1a\n":

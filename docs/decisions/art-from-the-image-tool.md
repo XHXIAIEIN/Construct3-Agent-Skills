@@ -184,6 +184,20 @@ Option 3.
   to the first. After three
   refusals a picture keeps its stand-in, and both runs say so, count it
   and go on. A new subject in `art()` starts the count again.
+- Each fitted picture records in a PNG text chunk, `c3-art-prompt`, a
+  fingerprint of what it was made from: its prompt, which starts with
+  `ART_STYLE` and names its subject, and the reference image, `art/look.png`
+  or the key picture. A fitted picture newer than its raw picture whose
+  record differs from the current prompt is in the state `restyle`: a
+  change of `ART_STYLE`, of the picked look or of the subject leaves no
+  picture of the old one counted as done, and its prompt is printed again.
+  A picture fitted before the record existed has nothing to compare and
+  stays done. The sentence a refusal adds and the key colour it names are
+  left out of the fingerprint, because they leave the picture's style as
+  it was.
+- A raw picture is turned upright by its EXIF orientation before it is
+  cut, as a phone or a camera saves a picture turned with the turn in a
+  tag.
 - Without an image tool, the stand-ins stay. `SKILL.md`, the reference on
   generating a project and the look manifest say that art is not drawn in
   code.

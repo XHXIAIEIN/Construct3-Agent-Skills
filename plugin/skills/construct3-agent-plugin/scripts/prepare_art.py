@@ -133,6 +133,7 @@ TRIES = 3                                  # refusals before a picture keeps its
 STAND_IN = (f"{TRIES} times, so it keeps its stand-in. To try again, change its subject in art(), which starts the "
             f"count again")
 MARK = "c3-art"                            # the PNG text key check_look.py reads as a painting
+MADE_FROM = "c3-art-prompt"                # the PNG text key that holds made_from() of the picture's prompt
 LOOK = "art/look.png"                      # the first play screen in the look the user picked, from pick_look.py
 
 
@@ -227,12 +228,32 @@ def with_refusal(item: dict, refused: dict) -> dict:
     return {**item, **{k: r[k] for k in ("tell", "key") if r.get(k)}} if r else item
 
 
-def state(root: Path, item: dict, refused: dict) -> str:
+def reference_image(root: Path, wanted: dict) -> Path | None:
+    """The reference image of every sprite's prompt: art/look.png once the user's look is picked, else in paper
+    and ink the key picture; None while there is neither."""
+    if wanted.get("user_look", "").strip():
+        return root / LOOK if (root / LOOK).is_file() else None
+    return raw_of(root, "_key.png")
+
+
+def made_from(root: Path, item: dict, wanted: dict) -> str:
+    """A fingerprint of what a picture is made from: its prompt, which starts with ART_STYLE, and the
+    reference image that a sprite's prompt gives. item is art()'s, without the tell of a refusal."""
+    reference = reference_image(root, wanted) if item["kind"] != "scene" else None
+    text = (prompt(item, wanted.get("style", ""), reference is not None) + "|"
+            + (fingerprint(reference) if reference else ""))
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def state(root: Path, item: dict, refused: dict, wanted: dict) -> str:
     """make: no picture yet; again: its pictures were refused, fewer than TRIES; stand-in: TRIES
-    were; prepare: a picture newer than its fitted art and not refused; done."""
+    were; prepare: a picture newer than its fitted art and not refused; restyle: fitted art made
+    from another ART_STYLE, reference image or subject; done."""
     raw, out = raw_of(root, item["file"]), root / "art" / item["file"]
     if out.exists() and (raw is None or out.stat().st_mtime >= raw.stat().st_mtime):
-        return "done"
+        # A picture fitted before its prompt was recorded has nothing to compare
+        made = c3.png_text(out.read_bytes()).get(MADE_FROM)
+        return "restyle" if made and made != made_from(root, item, wanted) else "done"
     r = refused.get(item["file"])
     if raw is not None and (r is None or fingerprint(raw) not in r["pictures"]):
         return "prepare"
@@ -349,12 +370,12 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
     empty, then in paper and ink the key picture while it is missing, then a prompt per picture."""
     style, items = wanted.get("style", ""), wanted["images"]
     refused = refusals(root, wanted)
-    states = {item["file"]: state(root, item, refused) for item in items}
+    states = {item["file"]: state(root, item, refused, wanted) for item in items}
     counts = Counter(states.values())
-    to_make = counts["make"] + counts["again"]
+    to_make = counts["make"] + counts["again"] + counts["restyle"]
     count = f"to make: {to_make}, to prepare: {counts['prepare']}, done: {counts['done']}" + \
         (f", stand-ins: {counts['stand-in']}" if counts["stand-in"] else "")
-    making = [item for item in items if states[item["file"]] in ("make", "again")]
+    making = [item for item in items if states[item["file"]] in ("make", "again", "restyle")]
     sprites = [item for item in making if item["kind"] != "scene"]
     if to_make and unpicked(root, wanted):
         return [f"look: the user gave one, USER_LOOK, and it is not picked yet. Run python {skill}/scripts/"
@@ -371,9 +392,8 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
         warnings(making, style)
     # The user's look was picked on its first play screen, which every prompt then refers to; paper and
     # ink has its key picture
-    picked = bool(wanted.get("user_look", "").strip())
-    key_picture = root / LOOK if picked else raw_of(root, "_key.png")
-    if not picked and len(sprites) > 1 and key_picture is None:
+    key_picture = reference_image(root, wanted)
+    if not wanted.get("user_look", "").strip() and len(sprites) > 1 and key_picture is None:
         shown = lineup(sprites)
         subjects = "; ".join(item["subject"].rstrip("。. ") for item in shown)
         name, key = key_for({"subject": subjects}, style)
@@ -385,9 +405,11 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
     for item in items:
         rel, s = item["file"], states[item["file"]]
         stem = stem_of(rel)
-        if s in ("make", "again"):
+        if s in ("make", "again", "restyle"):
             reference = key_picture is not None and item["kind"] != "scene"
-            tried = f" again {refusal(len(refused[rel]['pictures']))}" if s == "again" else ""
+            tried = (f" again {refusal(len(refused[rel]['pictures']))}" if s == "again" else
+                     f" again, as ART_STYLE, the reference image or the subject changed since art/{rel} was made"
+                     if s == "restyle" else "")
             given = f", {key_picture.relative_to(root).as_posix()} as the reference image" if reference else ""
             out.append(f"make {stem}{tried}: ratio {ratio(item['width'], item['height'])}, for a {item['width']}x"
                        f"{item['height']} box{given} -> art/raw/{stem}.png")
@@ -653,23 +675,26 @@ def clean(img):
     return Image.frombytes("RGBA", img.size, bytes(data))
 
 
-def save(img, path: Path) -> None:
+def save(img, path: Path, made: str = "") -> None:
+    """The picture as a PNG marked as a painting, and with `made`, the made_from() of its prompt."""
     from PIL import PngImagePlugin
     info = PngImagePlugin.PngInfo()
     info.add_text(MARK, "painted")
+    if made:
+        info.add_text(MADE_FROM, made)
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, pnginfo=info)
 
 
-def prepare(root: Path, item: dict, wanted: dict, raw: Path) -> list[str]:
-    """Fits the picture raw into the box of item; returns its line and any note on it. Raises
-    Unusable when the picture cannot be used."""
-    from PIL import Image
+def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[str]:
+    """Fits the picture raw into the box of item and records `made`, the made_from() of its prompt;
+    returns its line and any note on it. Raises Unusable when the picture cannot be used."""
+    from PIL import Image, ImageOps
     rel, w, h = item["file"], item["width"], item["height"]
     stem = stem_of(rel)
     try:
-        img = Image.open(raw)
-        img.load()
+        # Upright as the camera or the phone that saved it shows it
+        img = ImageOps.exif_transpose(Image.open(raw))
     except OSError as e:
         raise Unusable(f"Pillow cannot read it ({e}); save it again as PNG or JPEG")
     rw, rh = img.size
@@ -677,7 +702,7 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path) -> list[str]:
         s = max(w / rw, h / rh)
         big = img.convert("RGB").resize((max(w, round(rw * s)), max(h, round(rh * s))), Image.LANCZOS)
         left, top = (big.width - w) // 2, (big.height - h) // 2
-        save(big.crop((left, top, left + w, top + h)).convert("RGBA"), root / "art" / rel)
+        save(big.crop((left, top, left + w, top + h)).convert("RGBA"), root / "art" / rel, made)
         return [f"{stem}: {raw.name} {rw}x{rh} -> art/{rel} {w}x{h}, cropped to cover it"]
     s = min(1.0, min(WORK * max(w, h), 1024) / max(rw, rh))
     work = img if s == 1 else resample(img.convert("RGBA"), (max(1, round(rw * s)), max(1, round(rh * s))),
@@ -707,7 +732,7 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path) -> list[str]:
     oy = item.get("origin", [0.5, 0.5])[1]
     canvas.paste(subject, ((w - sw) // 2, h - sh if oy >= 0.75 else (h - sh) // 2))
     canvas = clean(canvas)
-    save(canvas, root / "art" / rel)
+    save(canvas, root / "art" / rel, made)
     flash = tuple(wanted.get("flash", (255, 255, 255)))
     hit = Image.new("RGBA", (w, h), (*flash, 255))
     hit.putalpha(canvas.getchannel("A"))
@@ -725,7 +750,7 @@ def fit(root: Path, item: dict, wanted: dict, refused: dict) -> tuple[list[str],
     rel = item["file"]
     raw = raw_of(root, rel)
     try:
-        lines = prepare(root, with_refusal(item, refused), wanted, raw)
+        lines = prepare(root, with_refusal(item, refused), wanted, raw, made_from(root, item, wanted))
         refused.pop(rel, None)
         return lines, True
     except Unusable as e:

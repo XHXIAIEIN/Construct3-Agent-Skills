@@ -147,10 +147,14 @@ picture takes one of two routes (`art.routes`):
 After the generator has run, run `python scripts/art.py` and do what its
 last line says. It runs the game's `tools/drawings.py`, renders every
 drawing, fits every picture of the image tool, runs the generator again so
-that `art()` takes them, and writes a contact sheet of every picture. For
-the drawings still to make, it writes a brief: give it as the whole task to
-a `construct3:art-drawer` sub-agent, which draws them all in one style with
-`scripts/svg_kit.py` and reads its own contact sheet before it returns.
+that `art()` takes them, and writes a contact sheet of every picture, in
+pages that a model reads at their own size. For the drawings still to make,
+it writes a brief: give it as the whole task to a `construct3:art-drawer`
+sub-agent, which draws them all in one style with `scripts/svg_kit.py` and
+reads every page of its contact sheet before it returns. A picture of the
+image tool made from another `ART_STYLE`, picked look or subject than the
+current ones is in the state `restyle`, and the table prints its prompt
+again.
 Without that agent type, draw them yourself as the brief says. Never compute
 a picture pixel by pixel in Python: with nothing to hold a style, it mixes
 styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md`).

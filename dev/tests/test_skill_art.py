@@ -3,6 +3,7 @@ the generator in place of the stand-ins. The browser is replaced by a renderer t
 in the colour of the picture's role, so the tests run without one."""
 import json
 import re
+import struct
 import sys
 
 import pytest
@@ -10,6 +11,7 @@ import pytest
 from tests.skill_helpers import SKILL, png, png_pixels, run, script_module, tool
 
 art = script_module("art")
+oe = script_module("open_in_editor")
 svg_kit = script_module("svg_kit")
 COIN = "coin-default-000.png"
 
@@ -18,15 +20,18 @@ class Painter:
     """Renders a page as one colour, the value its CSS gives the role --reward, over the drawing's box."""
 
     def __init__(self, root, exe):
-        self.pages = []
+        self.shots = []
 
     def shot(self, html, name, w, h=None):
-        self.pages.append(name)
+        self.shots.append(name)
         if h is None:
             return png(w, 8, lambda x, y: (255, 255, 255, 255))
         colour = re.search(r"--reward:#([0-9A-F]{6})", html)[1]
         rgb = tuple(int(colour[i:i + 2], 16) for i in (0, 2, 4))
         return png(w, h, lambda x, y: (*rgb, 255) if 8 <= x < w - 8 and 8 <= y < h - 8 else (0, 0, 0, 0))
+
+    def pages(self, html, name, w, tall):
+        return [png(w, 8, lambda x, y: (255, 255, 255, 255))] * 2
 
     def close(self):
         pass
@@ -75,7 +80,9 @@ def test_a_drawing_is_rendered_with_its_hit_frame_and_the_generator_takes_it(pro
     assert (project / "images" / COIN).read_bytes() == (project / "art" / COIN).read_bytes()
     svg = (project / "art" / "coin-default-000.svg").read_text(encoding="utf-8")
     assert 'filter="url(#coin-default-000-grain)"' in svg and "fill:var(--reward)" in svg
-    assert (project / ".tmp" / "scripts" / "art" / "contact.png").is_file()
+    sheets = project / ".tmp" / "scripts" / "art"
+    assert [p.name for p in art.sheet_pages(project)] == ["contact-1.png", "contact-2.png"]
+    assert f"contact sheet: 2 pages, {sheets / 'contact-1.png'}, {sheets / 'contact-2.png'}" in out, out
     code, out = main(monkeypatch, capsys, project, "--status")
     assert re.search(r"^coin-default-000\s+svg\s+done\s+-$", out, re.M), out
 
@@ -271,7 +278,42 @@ def test_a_reference_pair_fits_the_references_and_the_screenshot_into_the_screen
     shot = tmp_path / "Map.png"
     shot.write_bytes(png(16, 9, lambda x, y: (0, 0, 0, 255)))
     renderer = Measurer()
-    data, refs, own = art.reference_pair(renderer, [shot, shot], shot, "game: Map")
+    data, refs, own = art.reference_pair(renderer, [("reference: Map.png", shot), ("picked look: look.png", shot)],
+                                         shot, "game: Map")
     assert data == b"pair" and refs == [[{"hex": "#000000", "share": 1.0}], [{"hex": "#000001", "share": 1.0}]]
     assert own == [{"hex": "#000002", "share": 1.0}]
     assert renderer.asked == [("pair-game-Map", 2 * (1067 + 12) + 12, None, 3)]
+
+
+def test_the_contact_sheet_is_cut_into_pages_between_rows_and_a_heading_keeps_its_row():
+    """A page ends halfway between two rows, never inside a figure, and is no taller than asked unless one row
+    is; a heading goes onto the page of the row under it."""
+    blocks = [[24, 50, True], [70, 600, False], [100, 600, False], [624, 1100, False],
+              [1130, 1156, True], [1176, 1700, False], [1724, 2000, False]]
+    spans = art.page_spans(blocks, 2024, 800)
+    assert spans == [(0, 612), (612, 1115), (1115, 1712), (1712, 2024)]
+    assert all(bottom - top <= 800 for top, bottom in spans)
+    assert art.page_spans(blocks, 2024, 1200) == [(0, 1115), (1115, 2024)]
+    assert art.page_spans(blocks, 2024, 4000) == [(0, 2024)]
+
+
+@pytest.mark.skipif(not oe.browser_path(), reason="the contact sheet is rendered in Edge, Chrome or Chromium; "
+                                                  "install one")
+def test_every_page_of_the_contact_sheet_fits_what_a_model_reads_at_its_own_size(tmp_path):
+    """Rendered in the machine's browser: forty pictures and a tall scene make several pages, each SHEET_W wide
+    and no more than PAGE_H high."""
+    (tmp_path / "art").mkdir()
+    done = [{"file": f"thing{n // 4}-default-{n % 4:03d}.png", "width": 128, "height": 128} for n in range(40)]
+    done.append({"file": "hall-default-000.png", "width": 1080, "height": 4000})
+    for item in done:
+        (tmp_path / "art" / item["file"]).write_bytes(png(item["width"] // 8, item["height"] // 8,
+                                                          lambda x, y: (200, 60, 60, 255)))
+    roles = {"canvas": (245, 240, 230), "ink": (33, 33, 33), "line": (120, 120, 120), "dim": (90, 90, 90)}
+    renderer = art.Renderer(tmp_path, oe.browser_path())
+    try:
+        pages = renderer.pages(art.contact_page(tmp_path, {"palette": roles, "pixel_art": False}, done), "contact",
+                               art.SHEET_W, art.PAGE_H)
+    finally:
+        renderer.close()
+    sizes = [struct.unpack(">II", page[16:24]) for page in pages]
+    assert len(sizes) >= 3 and all(w == art.SHEET_W and h <= art.PAGE_H for w, h in sizes), sizes
