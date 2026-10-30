@@ -175,13 +175,15 @@ than the median fade in on 17, equal on 62 and longer on 13.
 
 Option 3. The manifest gains three rules:
 
-- `text.no-emoji`, proposed: no Text shows an emoji. An emoji draws from
-  the device's emoji font, so its picture differs between systems and from
-  `ART_STYLE`, and a Sprite Font draws nothing for it (`type.pixel-font`).
-  An icon is art in its own box. No string of the 544 examples holds one.
-  Enforced, it would be a finding of `check_look.py` on a layout's text or
-  a Set text action, at the tier `ugly`, as question 4 of `review_look.py` asks of an object
-  drawn in a style of its own.
+- `text.no-emoji`, enforced since the owner chose it on 2026-10-31: no
+  Text shows an emoji. An emoji draws from the device's emoji font, so its
+  picture differs between systems and from `ART_STYLE`, and a Sprite Font
+  draws nothing for it (`type.pixel-font`). An icon is art in its own box.
+  No string of the 544 examples holds one. The generator's
+  `check_texts()` stops the run on an emoji in a layout's Text or in a text
+  the events set, naming each: one regular expression of Unicode's
+  Emoji_Presentation characters and U+FE0F, so an arrow that names a key
+  passes. A text that someone edits by hand after the run is not checked.
 - `art.icon`, proposed: the game's icons are drawn from its look by the art
   route, as every studio game draws them. The splash loader stays, as every
   studio game keeps it. `web-landing-and-redesign-skills.md` leaves a
@@ -213,8 +215,11 @@ The template, `pick_look.py` and the sub-agents' prompts stay as they are.
 
 ## Re-evaluate when
 
-- The owner decides `text.no-emoji` or `art.icon`: the rule becomes
-  adopted or enforced, with its check and its test.
+- The owner decides `art.icon`: the rule becomes adopted, with its art
+  and its test.
+- A game's text needs a symbol the regular expression misses, or shows an
+  emoji after a hand edit: move the check into `check_look.py`, which
+  reads the project's files.
 - The owner takes proposal 1 or 2: the questions or the reply change, and
   both judges answer the regression set again.
 - A generated game shows an emoji, a glyph icon or Construct's icons on a

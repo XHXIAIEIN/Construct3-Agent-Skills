@@ -336,6 +336,55 @@ def test_template_deals_the_coins_of_each_beat_round_after_round(built):
     assert 'Set beat to (beat + 1) % tokencount(ROUND_COINS, ",")' in out
 
 
+def test_template_fades_between_layouts(built):
+    """screen.transition: the round restarts through fade_to(), so the Game layout gets an opaque
+    cover on a top layer of parallax 0 and the sheet a group that fades it away on start and hides
+    it after; a layout with no sheet gets no cover."""
+    t = template_module()
+    game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
+    top = game["layers"][-1]
+    assert (top["name"], top["parallaxX"], [i["type"] for i in top["instances"]]) == ("Fade", 0, ["Fade"])
+    cover = top["instances"][0]
+    assert cover["world"]["color"][3] == 1 and "Tween" in cover["behaviors"]
+    assert (cover["world"]["width"], cover["world"]["height"]) == t.screen_box()[2:]
+    objects = json.loads((built / "layouts" / "Objects.json").read_text(encoding="utf-8"))
+    assert all(layer["name"] != "Fade" for layer in objects["layers"])
+    fade = json.loads((built / "objectTypes" / "Fade.json").read_text(encoding="utf-8"))
+    assert fade["plugin-id"] == "TiledBg" and (built / "images" / "fade.png").is_file()
+    code, out = tool(built, "print_sheet", "Game")
+    assert "Fade the cover away as the layout starts" in out and "Hide the cover once it has faded away" in out
+    acts = t.fade_to("Menu")
+    assert [a["id"] for a in acts] == ["set-visible", "tween-one-property", "wait", "go-to-layout"]
+    assert acts[1]["parameters"]["time"] == f"{t.FADE['seconds']:g}" and acts[2]["parameters"]["use-timescale"] is False
+    assert t.fade_to()[-1]["id"] == "restart-layout"
+
+
+def test_template_stops_on_an_emoji_and_warns_of_a_shifting_count(tmp_path, capsys):
+    """text.no-emoji: an emoji in a layout's Text or in a text the events set stops the run, naming
+    it; an arrow or a Chinese character does not. type.counting-digits: a counted Text that is not
+    left-aligned warns."""
+    t = template_module()
+    t.ROOT = tmp_path
+    lay = t.layout("Game", [t.layer("UI", parallax=0)], sheet="Game")
+    lay["layers"][0]["instances"] += [t.text_inst("Hint", "← 移动 →", 0, 0, 320, 64),
+                                      t.text_inst("Lives", "Lives", 0, 64, 320, 64, halign="right")]
+    plain = {"name": "Game", "events": [*t.event("Show", [t.on_start()], [t.set_text("Lives", '"x 3"')])]}
+    t.check_texts(plain, {"Game": lay})
+    with pytest.raises(SystemExit, match="the events: Lives"):
+        t.check_texts({"name": "Game", "events": [*t.event("Show", [t.on_start()],
+                                                            [t.set_text("Lives", '"❤️ x 3"')])]},
+                      {"Game": lay})
+    lay["layers"][0]["instances"].append(t.text_inst("Star", "⭐", 0, 128, 64, 64))
+    with pytest.raises(SystemExit, match="layout Game: Star"):
+        t.check_texts(plain, {"Game": lay})
+    lay["layers"][0]["instances"].pop()
+    capsys.readouterr()
+    t.counting("Lives", "lives")
+    t.check_texts(plain, {"Game": lay})
+    assert "counting() counts Lives, which is not left-aligned" in capsys.readouterr().out
+    t.COUNTED.discard("Lives")
+
+
 def test_template_measures_a_gap_against_the_players_reach():
     """The reach from PLATFORM's properties: 650 px/s, gravity 1500, no sustain, 330 px/s rise
     141 px and stay 0.87 s in the air, 286 px or 8.9 units across; a gap is easy to half of it,
@@ -646,7 +695,7 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     assert t.z_order(ordered) == ordered
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [],
-         ["RoundTag", "ScoreLabel", "ScoreText", "KeyBox", "KeyText", "KeyVerb"]]
+         ["RoundTag", "ScoreLabel", "ScoreText", "KeyBox", "KeyText", "KeyVerb"], ["Fade"]]
 
 
 def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path):

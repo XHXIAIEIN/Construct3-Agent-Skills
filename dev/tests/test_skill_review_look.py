@@ -592,6 +592,18 @@ def test_a_text_measured_on_what_lies_behind_it_is_faint_under_text_contrast():
     assert rl.TIER["faint"] == "broken"
 
 
+def test_a_text_still_showing_a_placeholder_is_broken():
+    """text.placeholder: a shown Text that still reads as the Text object's default or as Lorem ipsum after the
+    layout has run is a broken finding; a hidden one, or a word that only holds "text", is not."""
+    shown = [text(1, "ScoreText", [0, 0, 100, 20], " Text ", [40, 16]),
+             text(2, "Hint", [0, 30, 300, 80], "Lorem ipsum dolor sit amet.", [200, 40]),
+             text(3, "Help", [0, 90, 300, 120], "Tap the text to read it", [200, 20])]
+    hidden = {**text(4, "End", [0, 130, 100, 150], "Text", [40, 16]), "shown": False}
+    found = rl.placeholder_findings([*shown, hidden])
+    assert [f["uids"] for f in found] == [[1], [2]] and "still shows a placeholder" in found[0]["line"]
+    assert rl.TIER["placeholder"] == "broken"
+
+
 def test_each_reference_goes_with_the_layout_it_is_named_after_or_with_the_start(tmp_path):
     """A reference whose file name is a layout's name, as spelt or as its screenshot's file, pairs with that layout;
     any other with the layout the game starts on, or the first one looked at when that one shows nothing."""
