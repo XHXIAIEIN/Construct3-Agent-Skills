@@ -52,6 +52,11 @@ step. The `agents` branch is a convention that nothing in the files or the
 output teaches, and it was lost on both models. Haiku skipped the design
 guide without its sentence.
 
+Iteration 84 ran the body with those two rules kept against the full one on
+Haiku 5.5. Every change run of both arms committed on `agents`, and the
+runs passed alike: the one failed run gave the right events in Chinese,
+which the grader does not read.
+
 ## Options
 
 1. Keep the full body and hold only the end of the check loop inside 5000
