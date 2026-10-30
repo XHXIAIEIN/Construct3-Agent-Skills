@@ -25,8 +25,8 @@ its picture, fits every picture of art/raw/ newer than its fitted copy, runs
 tools/build_project.py when it wrote a picture, so that art() takes them, and
 writes a contact sheet of every picture at its size and enlarged, on the
 game's canvas, frames of one object side by side, in pages of at most
-1600x2240 px that a model reads at their own size:
-.tmp/scripts/art/contact-1.png and on.
+1600x2240 px that a model reads without scaling them down:
+.tmp/scripts/art/contact-N.png, N from 1.
 
 When drawings are still to make, it writes .tmp/scripts/art/brief.md, the
 whole task of the construct3:art-drawer sub-agent: the pictures, the kit, the
@@ -74,9 +74,9 @@ SIZE = re.compile(r"<svg\b[^>]*?\bwidth=\"(\d+(?:\.\d+)?)\"[^>]*?\bheight=\"(\d+
 SCALE = 4                                    # the contact sheet's largest enlargement; a small picture is at least doubled
 LARGE = 256                                  # px: a picture larger than this shows once, without its enlargement
 SHEET_W = 1600                               # px: the contact sheet's width
-# px: a page of the contact sheet at most. Claude reads an image at up to 2576 px on its long side and 4784
-# tiles of 28 px, and scales a larger one down: 1600 x 2240 is 58 x 80 tiles, read at its own size
-PAGE_H = 2240
+PAGE_H = 2240                                # px: the most a page of the contact sheet is high
+# Claude scales an image down above 2576 px on its long side or 4784 tiles of 28 px; 1600x2240 is 4640 tiles
+HEADING_H = 160                              # px: room for an object's heading above a scene on its page
 RENDER_WAIT = 10                             # seconds a drawing may take to render
 EDGE_CONTRAST = 3                            # art.contrast: what the edge of a picture reads against the canvas
 EDGE_SHARE = 0.5                             # the share of the edge that must read so
@@ -490,9 +490,9 @@ def objects(items: list[dict]) -> dict[str, list[dict]]:
 
 
 def page_spans(blocks: list[list], height: int, tall: int) -> list[tuple[int, int]]:
-    """The rows (top, bottom) of each page of a page `height` px high, at most `tall` px each, from its blocks
-    [top, bottom, heading]: a page ends halfway between two rows of blocks, and a heading stays with the row
-    under it."""
+    """The (top, bottom) rows of each page, at most `tall` px high, of a contact sheet `height` px high, from its
+    blocks [top, bottom, is_heading]. A page ends halfway between two rows of blocks, and a heading stays with
+    the row under it."""
     bands: list[list] = []
     for top, bottom, heading in sorted(blocks):
         if bands and (top < bands[-1][1] or bands[-1][2]):
@@ -525,8 +525,7 @@ def contact_page(root: Path, wanted: dict, done: list[dict]) -> str:
             src = (root / "art" / item["file"]).as_uri()
             w, h = item["width"], item["height"]
             if max(w, h) > LARGE:                  # a scene or a panel: once, at most half the sheet's width
-                # and short enough to share a page with its object's heading
-                f = min(1, SHEET_W / 2 / w, (PAGE_H - 160) / h)
+                f = min(1, SHEET_W / 2 / w, (PAGE_H - HEADING_H) / h)
                 shown = f"<img src=\"{src}\" width=\"{round(w * f)}\" height=\"{round(h * f)}\" style=\"{pixel}\">"
             else:
                 k = max(2, min(SCALE, 512 // max(w, h)))
@@ -586,9 +585,9 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str) -> str:
         "- Fill most of the box: a picture is fitted to nothing, it is the box.",
         "",
         f"Then run python {skill}/scripts/art.py --project {root.as_posix()}, which runs your script, renders the "
-        f"drawings, runs the generator and writes the contact sheet in pages, "
-        f"{(c3.script_folder(root, FOLDER) / 'contact-1.png').as_posix()} and on, which its output lists. Open every "
-        f"page with the Read tool and answer each question below, yes or no, over all the pages together:",
+        f"drawings, runs the generator and writes the contact sheet as pages "
+        f"{(c3.script_folder(root, FOLDER) / 'contact-N.png').as_posix()}, N from 1, which its output lists. Open "
+        f"every page with the Read tool and answer each question below, yes or no, over all the pages together:",
         *(f"{i}. {q}" for i, q in enumerate(LOOK, 1)),
         "",
         "Fix every yes in the drawings and run art.py again: three rounds at most. Reply with the questions still "

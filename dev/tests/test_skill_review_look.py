@@ -511,7 +511,7 @@ def test_the_brief_asks_about_the_art_sheet_after_the_screenshots():
               "art_sheets": ["art/contact-1.png", "art/contact-2.png"]}
     text = rl.brief(result)
     assert "1. Game: shots/Game.png\n2. Art sheet 1: art/contact-1.png\n3. Art sheet 2: art/contact-2.png" in text
-    assert "The last pictures, Art sheet 1 and on, are no screenshots" in text
+    assert "The last pictures, Art sheet 1 to Art sheet 2, are no screenshots" in text
     reply = [f"Game {q}: no" for q in range(1, 8)] + [f"Art sheet 1 {q}: no" for q in range(1, 8)]
     lines, _, verdict = rl.check_reply(result, "\n".join(reply), "r.md", None)
     assert "  missing: Art sheet 2 1-7" in lines and not verdict["complete"], lines

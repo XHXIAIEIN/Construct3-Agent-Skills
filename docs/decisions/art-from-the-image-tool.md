@@ -188,16 +188,16 @@ Option 3.
   fingerprint of what it was made from: its prompt, which starts with
   `ART_STYLE` and names its subject, and the reference image, `art/look.png`
   or the key picture. A fitted picture newer than its raw picture whose
-  record differs from the current prompt is in the state `restyle`: a
-  change of `ART_STYLE`, of the picked look or of the subject leaves no
-  picture of the old one counted as done, and its prompt is printed again.
-  A picture fitted before the record existed has nothing to compare and
-  stays done. The sentence a refusal adds and the key colour it names are
-  left out of the fingerprint, because they leave the picture's style as
-  it was.
-- A raw picture is turned upright by its EXIF orientation before it is
-  cut, as a phone or a camera saves a picture turned with the turn in a
-  tag.
+  record differs from the current prompt is in the state `restyle`, and
+  its prompt is printed again. So a change of `ART_STYLE`, of the picked
+  look or of the subject puts each picture made before it in `restyle`. A
+  fitted picture without a record has nothing to compare, so it stays
+  done. The sentence that a refusal adds and the key colour that it names
+  are left out of the fingerprint, because they do not change the
+  picture's style.
+- A raw picture is turned upright by its EXIF orientation tag before it is
+  cut, because a phone or a camera can save a picture unturned and record
+  the turn in the tag.
 - Without an image tool, the stand-ins stay. `SKILL.md`, the reference on
   generating a project and the look manifest say that art is not drawn in
   code.

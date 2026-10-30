@@ -4,11 +4,11 @@ Date: 2026-10-31
 
 ## Problem
 
-`art.py` wrote the contact sheet of a game's pictures as one PNG 1600 px
-wide and as high as the page. On the card games of the art-route runs it
-measured 1600x7430 (3.6 MB) and 1600x5973. A model scales such a picture
-down before it reads it, so the art agent and the look judge judged
-pictures that the sheet had enlarged four times at about 1.4 times.
+A contact sheet of one PNG 1600 px wide and as high as its page reaches
+thousands of px on a game with many pictures: 7430 px on the card game of
+the art-route runs. A model scales an image taller than 2576 px down before
+it reads it. The art agent and the look judge then see each picture at the
+sheet's scale, not at the enlarged size that the sheet gives it.
 
 ## Evidence
 
@@ -38,11 +38,12 @@ pictures that the sheet had enlarged four times at about 1.4 times.
 
 Option 3.
 
-- `art.py` lays the sheet out as before, measures the box of each heading
-  and figure in the browser, and cuts the page into pages of at most
-  `PAGE_H` = 2240 px, halfway between two rows of pictures, a heading
-  together with the row under it. It writes them as
-  `.tmp/scripts/art/contact-1.png` and on, still PNG, and lists them.
+- `art.py` lays the sheet out and measures the box of each heading and
+  figure in the browser. It cuts the sheet into pages of at most `PAGE_H`
+  = 2240 px, halfway between two rows of pictures, and a heading stays
+  with the row under it. It writes the pages as PNG files
+  `.tmp/scripts/art/contact-N.png`, where N counts from 1, and lists
+  them.
 - A scene or a panel on the sheet is at most half the sheet's width and
   `PAGE_H` less 160 px high, so that it shares a page with its heading.
 - The art agent's brief asks it to open every page and to answer the

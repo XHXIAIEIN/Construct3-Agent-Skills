@@ -148,7 +148,7 @@ After the generator has run, run `python scripts/art.py` and do what its
 last line says. It runs the game's `tools/drawings.py`, renders every
 drawing, fits every picture of the image tool, runs the generator again so
 that `art()` takes them, and writes a contact sheet of every picture, in
-pages that a model reads at their own size. For the drawings still to make,
+pages that a model reads without scaling them down. For the drawings still to make,
 it writes a brief: give it as the whole task to a `construct3:art-drawer`
 sub-agent, which draws them all in one style with `scripts/svg_kit.py` and
 reads every page of its contact sheet before it returns. A picture of the

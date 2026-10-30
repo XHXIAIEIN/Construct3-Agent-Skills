@@ -238,7 +238,7 @@ def reference_image(root: Path, wanted: dict) -> Path | None:
 
 def made_from(root: Path, item: dict, wanted: dict) -> str:
     """A fingerprint of what a picture is made from: its prompt, which starts with ART_STYLE, and the
-    reference image that a sprite's prompt gives. item is art()'s, without the tell of a refusal."""
+    reference image that a sprite's prompt gives. item is art()'s, without the sentence a refusal adds."""
     reference = reference_image(root, wanted) if item["kind"] != "scene" else None
     text = (prompt(item, wanted.get("style", ""), reference is not None) + "|"
             + (fingerprint(reference) if reference else ""))
@@ -251,7 +251,7 @@ def state(root: Path, item: dict, refused: dict, wanted: dict) -> str:
     from another ART_STYLE, reference image or subject; done."""
     raw, out = raw_of(root, item["file"]), root / "art" / item["file"]
     if out.exists() and (raw is None or out.stat().st_mtime >= raw.stat().st_mtime):
-        # A picture fitted before its prompt was recorded has nothing to compare
+        # A picture without the record has nothing to compare
         made = c3.png_text(out.read_bytes()).get(MADE_FROM)
         return "restyle" if made and made != made_from(root, item, wanted) else "done"
     r = refused.get(item["file"])

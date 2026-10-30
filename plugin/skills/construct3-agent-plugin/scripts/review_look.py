@@ -1357,11 +1357,11 @@ def brief(result: dict) -> str:
              "what a player would see as a mistake: art layered on purpose is none, such as a character in "
              "front of the ground or scenery that runs past the edge of the screen.", ""]
     if result.get("art_sheets") and shots:
-        lines += [f"The last pictures, {ART_SHEET} 1 and on, are no screenshots: they are the pages of one sheet "
-                  "that shows each picture of the game on its own, at its size and enlarged, the frames of one object "
-                  "side by side. Ask of them what a player would see once the pictures are on screen together, taking "
-                  "all the pages as one: a yes about two pictures on two pages goes on the page of either. Answer no "
-                  "to a question about text or the HUD. A button or a panel drawn without words gets its label from "
+        lines += [f"The last pictures, {ART_SHEET} 1 to {ART_SHEET} {len(result['art_sheets'])}, are no "
+                  "screenshots: they are the pages of one sheet that shows each picture of the game on its own, at its "
+                  "size and enlarged, the frames of one object side by side. Take the pages as one sheet. Ask what a "
+                  "player would see once the pictures are on screen together. A yes about two pictures on two pages "
+                  "goes on the page of either. Answer no to a question about text or the HUD. A button or a panel drawn without words gets its label from "
                   "the game, so two of them that differ only in size are no fault.",
                   ""]
     if before:
@@ -1372,11 +1372,11 @@ def brief(result: dict) -> str:
                   "fail the change, so mark before only when the picture from before shows the fault; if you are not "
                   "sure, write new. A yes on a screenshot without a picture from before is new.", ""]
     if pairs:
-        lines += ["A screenshot that names a pair picture belongs to a game whose look the user gave. The pair shows "
-                  "on the left the user's references, each captioned reference, or the look the user picked, "
-                  "captioned picked look: the game's first play screen as drawn for the pick. The screenshot is on "
-                  "the right, with the colours measured from each picture under it, commonest first. A reference need "
-                  "not show the same objects, layout or text. "
+        lines += ["A screenshot that names a pair picture belongs to a game whose look the user gave. On the left, "
+                  "the pair shows the user's references, each captioned reference, and the look the user picked, "
+                  "captioned picked look, as far as there are any. The picked look is the game's first play screen as "
+                  "drawn for the pick. The screenshot is on the right. The colours measured from each picture stand "
+                  "under it, commonest first. A reference need not show the same objects, layout or text. "
                   + " ".join(f"Question {asked.index(q) + 1} asks about the look of the {what} alone, and a yes to "
                              f"it names what differs." for q, what in ((REFERENCE, "references"),
                                                                        (PICKED, "picked look")) if q in asked), ""]
