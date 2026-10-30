@@ -131,17 +131,19 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 
 - Keep `SKILL.md` under 500 lines, the limit of Anthropic's skill guidance
   (<https://code.claude.com/docs/en/skills>, "Add supporting files").
-- Keep everything through the section "Check after every change" inside the
-  first 5000 tokens of the body. After a compaction, Claude Code re-attaches
-  each invoked skill with only its first 5000 tokens (the same page, "Skill
-  content lifecycle"). So the check loop comes before the sections that
-  teach the tools, and the tools' output teaches them again.
+- Keep the whole body inside its first 5000 tokens. After a compaction,
+  Claude Code re-attaches each invoked skill with only its first 5000 tokens
+  (the same page, "Skill content lifecycle").
   `dev/tests/test_skill_spec.py` holds both limits, and
   `docs/decisions/skill-body-budget.md` gives the token estimate and its
   source.
 - Put into `SKILL.md` only what every activation needs and no script says at
   the moment it matters, because every run reads all of it before its first
-  command.
+  command. Write a fact or a tool entry, not an instruction to follow a step
+  that a script's last line already names: iterations 80 and 81 left out the
+  check loop and the runs still reached the look check. A rule the agent
+  cannot learn from the files or the output, such as the `agents` branch,
+  stays an instruction (`docs/decisions/skill-body-budget.md`).
 - Name every script in one of two tables, which a test holds. A script that
   most changes use gets a row in the table of scripts in `SKILL.md`. Any
   other script gets its row in `references/scripts.md`, and the sentence

@@ -11,7 +11,7 @@ and a project that may have changed since the summary's last check. A
 summary can carry a stale fact as well as drop one: "the checker passed"
 holds for the files it checked, not for the files as they are now.
 
-`skill-body-budget.md` keeps the check loop inside the 5000 tokens that
+`skill-body-budget.md` keeps the whole body inside the 5000 tokens that
 Claude Code re-attaches after a compaction. Claude Code's skill page states
 that rule for a skill "invoked", through the Skill tool
 (<https://code.claude.com/docs/en/skills>, "Skill content lifecycle"). The
