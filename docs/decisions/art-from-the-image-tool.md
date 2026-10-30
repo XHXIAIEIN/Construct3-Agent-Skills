@@ -121,7 +121,8 @@ Option 3.
   prompts.
 - `ART_STYLE`, one sentence of art direction, leads every prompt, so the
   pictures share one style.
-- `scripts/prepare_art.py --list` prints the next step only, so that no
+- `scripts/art.py`, the entry point of both routes (`art-entry-point.md`),
+  runs this route through `prepare_art.py`. It prints the next step only, so that no
   picture is made before what it depends on. While `ART_STYLE` is empty, it
   asks for that. With more than one sprite to make and no
   `art/raw/_key.png`, it asks for the key picture: a line-up of four

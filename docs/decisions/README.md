@@ -3,11 +3,12 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [The Art of a Generated Game Is Drawn by a Sub-Agent on a Fixed Model](art-drawer-agent.md) — 2026-10-30
+- [Art Drawn in Code as SVG: The Route Without an Image Tool](art-drawn-in-code.md) — 2026-10-30
 - [One Script Moves Every Picture of a Generated Game](art-entry-point.md) — 2026-10-30
 - [The Look Manifest Owns Every Look Rule](look-manifest-owns-the-rules.md) — 2026-10-30
 - [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
 - [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
-- [Art Drawn in Code and Rendered in the Browser: The Route to Try Next](art-drawn-in-code.md) — 2026-10-28
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
 - [A game project's scratch goes in `.tmp/` by use, its products in `.build/`](scratch-and-build-folders.md) — 2026-10-28
 - [A User's Own Pitfalls Sit Beside the Cookbook's](own-pitfalls-folder.md) — 2026-10-27

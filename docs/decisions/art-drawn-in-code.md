@@ -1,6 +1,6 @@
-# Art Drawn in Code and Rendered in the Browser: The Route to Try Next
+# Art Drawn in Code as SVG: The Route Without an Image Tool
 
-Date: 2026-10-28
+Date: 2026-10-30
 Schema: Construct 3 r506.3
 
 ## Problem
@@ -83,7 +83,7 @@ at its box size needs no cut-out and no resample.
    stand-ins that read as a sketch. The frames of one object from an image
    tool keep their drift.
 2. **Code drawn and rendered in the browser, as a second source for
-   `art()`.** Chosen to prototype.
+   `art()`.** Chosen.
 3. **SVG Picture objects at runtime.** They have no frames and no collision
    polygon, so they suit a backdrop or a decoration at most.
 4. **Drawing Canvas at runtime.** The editor shows an empty layout, and the
@@ -100,49 +100,75 @@ at its box size needs no cut-out and no resample.
 
 ## Decision
 
-Option 2, as a prototype. The skill, the template and `SKILL.md` stay as
-they are until the prototype passes the run under "Re-evaluate when". Until
-then, the rule of `assets/look-manifest.json` that art is not drawn in code
-holds. The prototype has this shape:
+Option 2, as the second route of `art()` and its default, which the owner
+chose on 2026-10-30 (`art-entry-point.md` gives the entry point):
 
-- `art()` takes a drawing beside a picture: `art/<file>.svg`, or a page that
-  draws on a canvas. A script renders it in headless Chrome at its box size
-  on a clear background to `art/<file>.png`. The PNG then takes the
-  picture's path, with the stand-in's box, origin and collision polygon, so
-  the layouts and the events stay as they were.
-- A style module is written from `PALETTE` and `SHAPE_STYLE`: the colours by
-  role, the line width, the shadow and the outline. A drawing names roles,
-  never colour literals, so a game's drawings share one medium. The hit,
-  hover and pressed frames are the same drawing with one role swapped.
-- A character is one drawing function with pose parameters, and its frames
-  are calls of it.
-- The module carries helpers for strokes, washes and outlines, so a drawing
-  is more than plain shapes. They load from the project or the user's
-  cache, never from the network at render time.
-- Pixel art draws on the pixel grid at the game's size, without smoothing.
-- Every drawing goes on a contact sheet at its size and enlarged. The model
-  reads it with the look questions of `review_look.py` before the
-  hand-over.
+- `ART_ROUTE = "svg"` in the template, and `art(..., route=)` for one
+  object. The game's `tools/drawings.py` draws `art/<name>.svg` with
+  `scripts/svg_kit.py`, and `scripts/art.py` renders each drawing in
+  headless Edge or Chrome at its box size on a clear background, with its
+  hit frame, then runs the generator, which takes the PNG with the
+  stand-in's box, origin and collision polygon.
+- svg_kit writes each role of `PALETTE` as a CSS variable that `art.py`
+  sets when it renders, so a drawing names roles, never colours; `shade()`
+  and `light()` mix a role towards ink or canvas. The hit frame is the
+  same drawing with the picture's role in the flash colour. `art.py`
+  refuses a drawing that names a colour (rule `art.roles`).
+- Every id in a drawing starts with the drawing's name (rule `art.ids`):
+  measured on 2026-10-30 in Chrome 152, two inline SVGs on one page that
+  both define `id="g"` both paint with the first one's gradient.
+- The kit carries textures as SVG filters of its own, a paper grain, a
+  hand-drawn edge and a watercolour wash, and `stroke()`, a brush line that
+  thickens in the middle. They need no library, so nothing loads from the
+  network and no licence is added.
+- A character is one drawing function with pose parameters, its frames
+  calls of it from the same `d.ground`; `art.py` finds frames of one
+  animation whose box, feet or middle differ (rule `art.frames`).
+- Pixel art draws `pixels()` on the grid at the game's size with
+  `crispEdges`, in roles alone, and no texture.
+- `art.py` writes a contact sheet of every picture at its size and
+  enlarged. The `construct3:art-drawer` sub-agent reads it against five
+  questions before it returns (`art-drawer-agent.md`), and the look review
+  shows it after the screenshots under the same questions.
 
-The image-tool route stays as it is, for painted and illustrated styles
-that code does not reach.
+The image-tool route stays, for painted and illustrated styles that code
+does not reach.
+
+### A drawing run measured here
+
+A card game of 14 pictures (two scenes, five cards, four enemies, three
+buttons), whose stand-ins a Haiku run had replaced with pictures computed
+in Pillow, was drawn again from `art.py`'s brief by one agent on each
+candidate model, with its art direction and subjects unchanged:
+
+| Model | Rounds | Tokens | Seconds | Left as yes |
+|-------|--------|--------|---------|-------------|
+| Opus | 2 | 157 032 | 530 | none |
+| Sonnet | 3 | 179 029 | 554 | the three buttons differ only in width |
+
+Both drew every picture in one style: an ink outline, a shade and a
+highlight per form, the grain texture and brush strokes, and the four
+enemies apart by shape. Both added the colours the subjects needed as new
+roles of `PALETTE`. Both met the cards' role, `canvas`, whose flash is the
+same white, so a card's hit frame shows no change; `art.py` says so in a
+note. The drawings and the contact sheets are in
+`.local/docs/evidence/art-route/`.
 
 ## Open
 
-- Whether a small model draws as well in SVG is unknown. The card game's
-  four styles came from a small model.
-- Which stroke library to use, under which licence, and whether the plugin
-  may carry it or it goes to the user's cache, as the fonts do
-  (`paper-and-ink-look.md`).
-- How long a drawing takes to render, and whether the tests can render
-  without Chrome on the machine.
+- Which model the art sub-agent runs. The owner picks after the runs
+  above; until then it names Opus.
+- Whether a stroke library such as a freehand-stroke one should replace
+  the kit's own `stroke()`, under which licence, and whether the plugin may
+  carry it or it goes to the user's cache, as the fonts do.
 
 ## Re-evaluate when
 
-- A small model runs the card-game case with the prototype. Adopt the route
-  when the look judge finds one style on every screen and tells the enemies
-  apart, and the frames of each object share their box and baseline.
-  Otherwise record what failed here and keep the stand-ins.
+- A small model runs the card-game case of `dev/evals/evals.json`
+  (`card-game-art`) with the route. Keep the route as the default when the
+  look judge finds one style on every screen and tells the enemies apart,
+  and the frames of each object share their box and baseline. Otherwise
+  record what failed here and keep the stand-ins for that case.
 - A client's image tool returns frames of one object without drift. Then
   drawn characters matter only for the clients without one.
 - Construct gives SVG Picture animation frames or a collision polygon.

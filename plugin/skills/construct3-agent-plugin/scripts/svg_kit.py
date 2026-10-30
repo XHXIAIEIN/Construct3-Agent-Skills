@@ -26,8 +26,8 @@ renders, so a game's drawings share its colours, and a hit frame is the same
 drawing with the picture's role in the flash colour. shade() and light() mix a
 role towards ink or canvas for the dark and lit sides of a form.
 
-Every drawing is the box that art() gave it, in px. `d.ground` is the line its
-feet stand on when its origin is at its feet, so the frames of one object share
+Every drawing is the box that art() gave it, in px. `d.ground`, the bottom of
+the box, is the line its feet stand on, so the frames of one object share
 their box and baseline when they come from one function. In pixel art the
 drawing is on the pixel grid at the game's size: pixels() lays rows of
 characters, one per pixel, and every edge stays hard.
@@ -115,8 +115,7 @@ class Drawing:
         self.w, self.h = item["width"], item["height"]
         self.unit, self.line, self.pixel_art = kit.unit, kit.line, kit.pixel_art
         self.prefix = stem_of(item["file"])
-        ox, oy = item.get("origin", [0.5, 0.5])
-        self.ground = self.h if oy >= 0.75 else self.h * oy
+        self.ground = self.h
         self.body: list[str] = []
         self.defs: dict[str, str] = {}
         self.depth = 0
