@@ -2188,8 +2188,8 @@ def longest_text(otype: str, longest: str | None, size: float) -> None:
 
 
 def write_texts(sheet: dict, types: dict) -> None:
-    """Writes tools/texts.json, which review_look.py shows as the worst data. Stops on a Text the events set
-    that has no `longest`."""
+    """Writes tools/texts.json, which review_look.py shows as the worst data. Warns of a Text the events set
+    that has no `longest`: review_look.py then guesses its worst text."""
     set_by: set[str] = set()
 
     def walk(node) -> None:
@@ -2204,10 +2204,10 @@ def write_texts(sheet: dict, types: dict) -> None:
     walk(sheet)
     open_ = sorted(n for n in set_by if n in types and types[n].get("plugin-id") in FONT_PLUGINS and n not in LONGEST)
     if open_:
-        sys.exit(f"the events set the text of {', '.join(open_)}, and no helper says how long it gets: pass "
-                 f"longest=, the widest text it shows at runtime (\"Score: 999999\", the longest card name), to "
-                 f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
-                 f"that text")
+        print(f"warning: the events set the text of {', '.join(open_)}, and no helper says how long it gets: "
+              f"pass longest=, the widest text it shows at runtime (\"Score: 999999\", the longest card name), to "
+              f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
+              f"that text")
     write_json("tools/texts.json", {"longest": dict(sorted(LONGEST.items()))})
 
 
@@ -3513,7 +3513,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 612ca732b823 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 2d6fc905c788 ================
 
 
 # --- the game ---------------------------------------------------------------------------

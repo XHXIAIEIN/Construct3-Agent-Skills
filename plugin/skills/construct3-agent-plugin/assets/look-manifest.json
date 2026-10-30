@@ -726,9 +726,9 @@
       "id": "look.worst-data",
       "status": "enforced",
       "scope": "every-look",
-      "says": "Each layout is looked at with the texts that events set shown at four data states: demo as it starts, worst (the declared longest text, else a count at 9999999, a long hyphenated name or a long Chinese one), empty and one. A text, overlap, edge or crowd finding that only a guessed worst text causes warns. A Text whose text the events set takes the longest text it shows, which the generator writes to tools/texts.json and requires.",
+      "says": "Each layout is looked at with the texts that events set shown at four data states: demo as it starts, worst (the declared longest text, else a count at 9999999, a long hyphenated name or a long Chinese one), empty and one. A text, overlap, edge or crowd finding that only a guessed worst text causes warns. A Text whose text the events set takes the longest text it shows, which the generator writes to tools/texts.json; without it the generator warns and the review reports it as unlimited, a fragile finding.",
       "template": "longest_text(), write_texts()",
-      "confirm": "review_look.py: @worst, @empty, @one; build_project.py stops on a Text the events set with no longest",
+      "confirm": "review_look.py: @worst, @empty, @one, unlimited; build_project.py warns of a Text the events set with no longest",
       "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
     },
     {
