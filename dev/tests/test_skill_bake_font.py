@@ -125,6 +125,20 @@ def test_template_draws_pixel_art_text_in_sprite_fonts_sized_by_the_font(tmp_pat
     assert t.text_type("Score")["plugin-id"] == "Text"
 
 
+def test_template_lowers_a_sprite_font_label_by_whole_font_pixels(tmp_path, monkeypatch):
+    """A Sprite Font cell holds its baseline as far above its bottom as the deepest ASCII descender, so
+    optical_drop() is the cell's centre less the centre of "H" in font pixels, times the scale."""
+    cache = pixel_cache(tmp_path, monkeypatch)
+    font = cache / f"{FONT}.bdf"
+    # "g" hangs 2 px below the baseline, so "H", 6 px high, fills the cell's top 6 rows and sits 1 px
+    # above the cell's centre
+    font.write_text(font.read_text(encoding="utf-8").replace("ENCODING 103\nDWIDTH 5 0\nBBX 4 6 0 0",
+                                                             "ENCODING 103\nDWIDTH 5 0\nBBX 4 6 0 -2"), encoding="utf-8")
+    t = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
+    assert [t.optical_drop("Play", size) for size in (8, 16)] == [1, 2]
+    assert t.optical_drop("menu", 16) == 0
+
+
 def test_pixel_art_game_bakes_its_fonts_and_check_look_finds_a_character_left_out(tmp_path, monkeypatch):
     """The stand-in game at 320x180 with the font in the cache: its labels are Sprite Fonts, the run
     bakes them and passes its check, and check_look.py names a character that a later edit leaves

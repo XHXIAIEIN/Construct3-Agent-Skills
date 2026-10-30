@@ -38,6 +38,11 @@ the object type, the instance's UID and what to change:
             text on an object (its label), a bar across two thirds of the
             screen, a message over half of it, and the texts of a scrolling
             layer of a layout larger than the screen
+  optical   a label, a text beside a shape in one row (a toggle's, a bar's
+            name) or a glyph alone on a shape, whose ink sits off the centre
+            of the shape's face by more than the larger of 1.5 px and
+            0.06 em: Center
+            centres a Text's em box, where capitals and Chinese sit high
 
 A screenshot is not drawn yet when 99.9% or more of it is one colour, black
 or clear. It is taken again 1 s later, twice at most. A layout still of one
@@ -79,6 +84,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -102,13 +108,14 @@ output:
   layout 'Map' (2 of 3): screenshot .tmp/scripts/review-look/shots/Map.png
     text: Text Title uid 12 "Choose your path": the text needs 212x40 px and its box is 160x40 ...
     stacked: Text CardName: 5 instances on one box at (300, 420) 120x30, uids 41, 42, 43 ...
+    optical: PlayLabel uid 7 "Play" on PlayButton uid 6: its ink sits 3.0 px above the centre of the shape's ...
     runtime: <an error the layout logged, with its event, and (N times) when it came more than once>
   layout 'Combat' (3 of 3): started, and its events went on to 'Map' before the screenshot; ...
   questions: answer every question yes or no for each screenshot above, through the brief as the last line ...
     1. Is any text cut off, broken onto a line of its own, too small or too faint to read, or partly hidden ...
     ...
     7. Does the same decoration, not the HUD, appear on every screenshot?
-  look: 2 findings on 3 layouts, 0 runtime errors; full result in .tmp/scripts/review-look/result.json,
+  look: 3 findings on 3 layouts, 0 runtime errors; full result in .tmp/scripts/review-look/result.json,
     screenshots in .tmp/scripts/review-look/shots
   next: <what to do>
   brief: if you can start a sub-agent, give it .tmp/scripts/review-look/shots/brief.md as its whole task ...
@@ -182,9 +189,10 @@ LOOK_JS = r"""(async () => {
   const shown = layer => [layer, ...layer.parentLayers()].every(l => l.isVisible && l.opacity > 0);
   const layers = {};
   for (const layer of layout.allLayers()) {
-    const v = layer.getViewport();
+    const v = layer.getViewport(), a = layer.layerToCssPx(0, 0), b = layer.layerToCssPx(1000, 1000);
     layers[layer.name] = {parallax: [layer.parallaxX, layer.parallaxY], shown: shown(layer),
-                          view: [v.left, v.top, v.right, v.bottom]};
+                          view: [v.left, v.top, v.right, v.bottom],
+                          css: [a[0], a[1], (b[0] - a[0]) / 1000, (b[1] - a[1]) / 1000]};
   }
   // A Sprite whose animation is not set yet throws on animationName.
   const frameOf = i => { try { return typeof i.animationFrame === 'number' ? `${i.animationName}/${i.animationFrame}`
@@ -208,6 +216,8 @@ LOOK_JS = r"""(async () => {
       r.text = String(i.text ?? '');
       r.textSize = [i.textWidth, i.textHeight];
       r.align = [i.horizontalAlign, i.verticalAlign];
+      // A Text's size is in points; a Sprite Font's one line is its em
+      r.em = typeof i.sizePt === 'number' ? i.sizePt * 4 / 3 : i.textHeight;
     }
     if (frameOf(i) !== undefined) {
       r.animation = i.animationName;
@@ -501,6 +511,241 @@ def crowd_findings(instances: list[dict], layers: dict, one_screen: bool) -> lis
     return found
 
 
+def centred(a, b, axis: int) -> bool:
+    """Whether box a's centre lies on box b's, across (axis 0) or down (axis 1): within TOLERANCE px
+    or a tenth of b's extent, so a label laid on a shape's face counts though a shadow widens the
+    shape's box."""
+    lo, hi = b[axis], b[axis + 2]
+    return abs((a[axis] + a[axis + 2]) / 2 - (lo + hi) / 2) <= max(TOLERANCE, (hi - lo) / 10)
+
+
+def optical_pairs(instances: list[dict], layers: dict, height: float) -> list[dict]:
+    """What the layout centres on a shape, each {kind, glyph, shape, axes}, where `glyph` is the
+    text or the non-text instance centred on `shape`. The kinds:
+        label   the one text inside a shape, on each axis where its alignment centres it and its
+                box is centred
+        beside  a text in a row with a shape (a toggle's, a checkbox's, a bar's name), centred
+                down, a unit apart or less, its box overlapping the shape's by half or more down
+        glyph   a non-text instance of half the shape's area or less, alone on it and centred
+                both ways"""
+    unit = 8 if height <= 360 else 32
+    shown = [i for i in instances if sized(i) and not i.get("angle") and i["layer"] in layers]
+    texts = [i for i in shown if (i.get("text") or "").strip()]
+    shapes = [i for i in shown if "textSize" not in i and area(i["box"]) <= OVERLAY * area(layers[i["layer"]]["view"])]
+    pairs = []
+    for t in texts:
+        h_align, v_align = t.get("align") or ("left", "top")
+        on = [o for o in shapes if o["layer"] == t["layer"] and inside(drawn(t), o["box"])]
+        if on:
+            o = min(on, key=lambda o: area(o["box"]))
+            axes = [axis for axis, align in ((0, h_align), (1, v_align))
+                    if align == "center" and centred(t["box"], o["box"], axis)]
+            if axes and sum(inside(drawn(x), o["box"]) for x in texts) == 1:
+                pairs.append({"kind": "label", "glyph": t, "shape": o, "axes": axes})
+            continue
+        if v_align != "center":
+            continue
+        a = t["box"]
+        beside = [(max(o["box"][0] - a[2], a[0] - o["box"][2]), o) for o in shapes if o["layer"] == t["layer"]
+                  and min(a[3], o["box"][3]) - max(a[1], o["box"][1]) >= min(a[3] - a[1], o["box"][3] - o["box"][1]) / 2
+                  and -TOLERANCE <= max(o["box"][0] - a[2], a[0] - o["box"][2]) <= unit + TOLERANCE
+                  and centred(a, o["box"], 1)]
+        if beside:
+            pairs.append({"kind": "beside", "glyph": t, "shape": min(beside, key=lambda g: g[0])[1], "axes": [1]})
+    for g in shapes:
+        on = [o for o in shapes if o is not g and o["layer"] == g["layer"] and inside(g["box"], o["box"])
+              and area(g["box"]) <= area(o["box"]) / 2]
+        if not on:
+            continue
+        o = min(on, key=lambda o: area(o["box"]))
+        alone = not any(x is not g and x is not o and inside(drawn(x), o["box"]) for x in shown)
+        if alone and centred(g["box"], o["box"], 0) and centred(g["box"], o["box"], 1):
+            pairs.append({"kind": "glyph", "glyph": g, "shape": o, "axes": [0, 1]})
+    return pairs
+
+
+# One step of the shots of optical(), with the time scale at 0 so that nothing moves between them.
+# `step` sets the texts of {uid: text} and hides the uids of `hide`; null restores the texts, the
+# visibility and the time scale. The layout's events still run at time scale 0 and can destroy an
+# instance between two steps.
+OPTICAL_JS = """(async () => {{ const runtime = c3probe.runtime, step = {step};
+  const kept = globalThis.c3optical ??= {{shown: new Map(), texts: new Map(), timeScale: runtime.timeScale}};
+  runtime.timeScale = 0;
+  if (step === null) {{
+    for (const [uid, text] of kept.texts) {{ const i = runtime.getInstanceByUid(uid); if (i) i.text = text; }}
+    for (const [uid, shown] of [...kept.shown].reverse()) {{
+      const i = runtime.getInstanceByUid(uid); if (i) i.isVisible = shown; }}
+    runtime.timeScale = kept.timeScale;
+    delete globalThis.c3optical;
+  }} else {{
+    for (const [uid, text] of Object.entries(step.texts ?? {{}})) {{
+      const i = runtime.getInstanceByUid(Number(uid));
+      if (i) {{ if (!kept.texts.has(i.uid)) kept.texts.set(i.uid, i.text); i.text = text; }} }}
+    for (const uid of step.hide ?? []) {{
+      const i = runtime.getInstanceByUid(uid);
+      if (i && !kept.shown.has(uid)) {{ kept.shown.set(uid, i.isVisible); i.isVisible = false; }} }}
+  }}
+  await new Promise(r => setTimeout(r, 200));
+  return true; }})()"""
+
+
+def reference(text: str) -> str | None:
+    """The characters of a text whose ink sets the line it is centred by: its capitals and digits,
+    else its wide letters (Chinese, Japanese, Korean); None for a text of neither, which is centred
+    by all its ink. Capitals stand on the baseline at cap height and an ideograph sits as high as a
+    capital, so a descender or a short letter does not move the line: "Play" is centred as "P" is."""
+    caps = "".join(c for c in text if c.isascii() and (c.isupper() or c.isdigit()))
+    wide = "".join(c for c in text if unicodedata.east_asian_width(c) in ("W", "F")
+                   and unicodedata.category(c).startswith("L"))
+    return caps or wide or None
+
+
+# Least change of a colour channel, of 255, that counts as ink; and the share of the largest change in
+# a clip below which a pixel is the antialiased fringe of a glyph, not its ink.
+INK_LEAST = 16
+INK_SHARE = 0.3
+
+
+def within(w: int, n: int, region) -> bool:
+    """Whether pixel n of a clip w px wide lies in the box `region` of the clip."""
+    return region[0] <= n % w < region[2] and region[1] <= n // w < region[3]
+
+
+def ink(w: int, before: list, after: list, region) -> tuple[list[float], tuple[float, float]] | None:
+    """Box and centroid, weighted by the change, of the pixels in `region` that differ between two
+    shots of a clip w px wide: what was hidden between them. None when nothing changed there."""
+    change = [max(abs(p - q) for p, q in zip(u[:3], v[:3])) if within(w, n, region) else 0
+              for n, (u, v) in enumerate(zip(before, after))]
+    top = max(change, default=0)
+    if top < INK_LEAST:
+        return None
+    cut = max(INK_LEAST, INK_SHARE * top)
+    xs, ys, sx, sy, total = [], [], 0.0, 0.0, 0.0
+    for n, d in enumerate(change):
+        if d >= cut:
+            x, y = n % w, n // w
+            xs.append(x)
+            ys.append(y)
+            sx, sy, total = sx + d * (x + 0.5), sy + d * (y + 0.5), total + d
+    return [min(xs), min(ys), max(xs) + 1, max(ys) + 1], (sx / total, sy / total)
+
+
+def face(w: int, shape: list, bare: list, region) -> list[float] | None:
+    """The box, in px of the clip, of a shape's face in the box `region` of the clip: of the pixels
+    that differ between the shot with the shape and the one without it, those in the colour most of
+    them show. A shadow, an outline and the antialiased edge are left out, so a label is measured
+    against the face it sits on."""
+    changed = [n for n, (u, v) in enumerate(zip(shape, bare))
+               if within(w, n, region) and max(abs(p - q) for p, q in zip(u[:3], v[:3])) >= INK_LEAST]
+    if not changed:
+        return None
+    colours: dict[tuple, int] = {}
+    for n in changed:
+        key = tuple(c // 8 for c in shape[n][:3])
+        colours[key] = colours.get(key, 0) + 1
+    mode = max(colours, key=colours.get)
+    held = [n for n in changed if all(abs(c // 8 - m) <= 2 for c, m in zip(shape[n][:3], mode))]
+    xs, ys = [n % w for n in held], [n // w for n in held]
+    return [min(xs), min(ys), max(xs) + 1, max(ys) + 1]
+
+
+def optical(win: oe.DevTools, session: str | None, pairs: list[dict], layers: dict) -> list[dict]:
+    """Measures each pair of optical_pairs() by hide-and-diff, in shots of each pair's clip: as it
+    is, with each text set to its reference(), with the glyphs hidden, and with their shapes hidden
+    too. Returns {pair, ink, line, face, offset} for each pair whose glyph and face were both found:
+    the glyph's ink, the ink of its reference and the shape's face(), each a box in layer px. The
+    offset [dx, dy] runs from the face's centre to the glyph's: across, to the centre of a text's ink;
+    down, to the centre of its reference's ink; both ways, to a glyph's centroid."""
+    clips = []
+    for p in pairs:
+        ax, ay, sx, sy = layers[p["glyph"]["layer"]]["css"]
+        box = [min(p["glyph"]["box"][0], p["shape"]["box"][0]), min(p["glyph"]["box"][1], p["shape"]["box"][1]),
+               max(p["glyph"]["box"][2], p["shape"]["box"][2]), max(p["glyph"]["box"][3], p["shape"]["box"][3])]
+        x0, y0 = max(0.0, ax + sx * box[0] - 2), max(0.0, ay + sy * box[1] - 2)
+        clips.append({"x": x0, "y": y0, "width": ax + sx * box[2] + 2 - x0, "height": ay + sy * box[3] + 2 - y0,
+                      "scale": 1})
+
+    def shoot(step) -> list[tuple[int, int, list]]:
+        win.evaluate(OPTICAL_JS.format(step=json.dumps(step)), wait=10, session=session)
+        return [c3.png_rgba(base64.b64decode(win.call("Page.captureScreenshot", format="png", clip=c)["data"]))
+                for c in clips] if step is not None else []
+    texts = {p["glyph"]["uid"]: reference(p["glyph"]["text"]) for p in pairs if p["kind"] != "glyph"}
+    try:
+        shots = [shoot({}), shoot({"texts": {u: t for u, t in texts.items() if t}}),
+                 shoot({"hide": [p["glyph"]["uid"] for p in pairs]}), shoot({"hide": [p["shape"]["uid"] for p in pairs]})]
+    finally:
+        shoot(None)
+    measured = []
+    for p, c, *taken in zip(pairs, clips, *shots):
+        (w, _, shown), (_, _, ref), (_, _, bare), (_, _, empty) = taken
+        ax, ay, sx, sy = layers[p["glyph"]["layer"]]["css"]
+        k = w / c["width"]
+
+        def layer_px(box):
+            return [(c["x"] + box[0] / k - ax) / sx, (c["y"] + box[1] / k - ay) / sy,
+                    (c["x"] + box[2] / k - ax) / sx, (c["y"] + box[3] / k - ay) / sy]
+
+        def clip_px(box):
+            return [(ax + sx * box[0] - c["x"]) * k, (ay + sy * box[1] - c["y"]) * k,
+                    (ax + sx * box[2] - c["x"]) * k, (ay + sy * box[3] - c["y"]) * k]
+        region = clip_px(p["glyph"]["box"])
+        found, line, under = ink(w, shown, bare, region), ink(w, ref, bare, region),             face(w, bare, empty, clip_px(p["shape"]["box"]))
+        if not (found and line and under):
+            continue
+        f = layer_px(under)
+        if p["kind"] == "glyph":
+            cx, cy = found[1]
+            across = down = layer_px([cx, cy, cx, cy])
+        else:
+            across, down = layer_px(found[0]), layer_px(line[0])
+        measured.append({"pair": p, "ink": layer_px(found[0]), "line": layer_px(line[0]), "face": f,
+                         "offset": [(across[0] + across[2] - f[0] - f[2]) / 2, (down[1] + down[3] - f[1] - f[3]) / 2]})
+    return measured
+
+
+# Px, and share of the text's em, by which the ink of a label may sit off the centre of the face it is
+# centred on, the larger of the two: past it the label looks set high or to one side. The runtime
+# centres a Text's em box, where capitals and Chinese sit about a tenth of an em high.
+OPTICAL_PX = 1.5
+OPTICAL_EM = 0.06
+
+
+def optical_findings(measured: list[dict]) -> list[dict]:
+    """A finding for each measured pair whose glyph sits off its face's centre, on an axis the pair
+    centres, by more than the larger of OPTICAL_PX and OPTICAL_EM of the text's em; a glyph's em
+    is its box's shorter side. A label inside its shape is lowered by shrinking its box, so it stays
+    inside; a text beside a shape by moving its box, which keeps it a line high."""
+    found = []
+    for m in measured:
+        p = m["pair"]
+        g, o = p["glyph"], p["shape"]
+        em = g.get("em") or min(g["box"][2] - g["box"][0], g["box"][3] - g["box"][1])
+        limit = max(OPTICAL_PX, OPTICAL_EM * em)
+        off = [(axis, m["offset"][axis]) for axis in p["axes"] if abs(m["offset"][axis]) > limit]
+        if not off:
+            continue
+        where = " and ".join(f"{abs(d):.1f} px {('left of', 'right of', 'above', 'below')[2 * axis + (d > 0)]}"
+                             for axis, d in off)
+        if p["kind"] == "glyph":
+            move = " and ".join(f"{max(1, round(abs(d)))} px {('right', 'left', 'down', 'up')[2 * axis + (d > 0)]}"
+                                for axis, d in off)
+            fix = (f"move it {move}, so the centre of its area, not of its box, sits on the shape's centre; or "
+                   f"set its image's origin at that centre")
+        elif p["kind"] == "label":
+            fix = "; ".join(f"move its ink {('right', 'left', 'down', 'up')[2 * axis + (d > 0)]} "
+                            f"{max(1, round(abs(d)))} px by shrinking its box from the "
+                            f"{('left', 'right', 'top', 'bottom')[2 * axis + (d > 0)]} by "
+                            f"{2 * max(1, round(abs(d)))} px" for axis, d in off)
+        else:
+            fix = "; ".join(f"move its ink {('right', 'left', 'down', 'up')[2 * axis + (d > 0)]} "
+                            f"{max(1, round(abs(d)))} px by moving its box as far" for axis, d in off)
+        what = {"label": "on", "beside": "beside", "glyph": "on"}[p["kind"]]
+        found.append({"rule": "optical", "uids": [g["uid"], o["uid"]], "line":
+                      f"{name(g)} {what} {name(o)}: its {'area' if p['kind'] == 'glyph' else 'ink'} sits {where} "
+                      f"the centre of the shape's face, which a player sees as off centre: {fix}"})
+    return found
+
+
 def findings(snap: dict) -> list[dict]:
     """Every mechanical finding on a layout read by LOOK_JS, each {rule, uids, line}."""
     instances, layers = snap["instances"], snap["layers"]
@@ -582,6 +827,12 @@ def review(only: list[str] | None, settle: float, viewport: list[int] | None, sh
                 try:
                     snap = win.evaluate(LOOK_JS, wait=20, session=session)
                     done.update(shot=str(shot), findings=findings(snap), snapshot=snap)
+                    pairs = optical_pairs(snap["instances"], snap["layers"], snap["viewport"][1])
+                    if pairs:
+                        measured = optical(win, session, pairs, snap["layers"])
+                        done["optical"] = [{"glyph": m["pair"]["glyph"]["uid"], "shape": m["pair"]["shape"]["uid"],
+                                            **{k: m[k] for k in ("ink", "line", "face", "offset")}} for m in measured]
+                        done["findings"] += optical_findings(measured)
                 except oe.DevToolsError as e:     # the layout's instances could not be read
                     done.update(shot=str(shot), findings=[])
                     done["errors"].append(f"its instances were not read: {str(e).splitlines()[0]}")

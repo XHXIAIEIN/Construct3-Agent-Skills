@@ -152,8 +152,11 @@ instances from the runtime. Its finding lines are measured, each naming the layo
 type and the UID: a text its box cuts (`text`), instances of one type on one
 box (`stacked`), overlaps on the HUD and texts over texts (`overlap`), a HUD
 instance the screen's edge cuts (`edge`), a type whose kinds show one
-frame (`frame`), and texts gathered in one ninth of the screen while two
-corners stand empty (`crowd`). None of them fires on the official examples.
+frame (`frame`), texts gathered in one ninth of the screen while two
+corners stand empty (`crowd`), and a label or glyph whose ink sits off the
+centre of the shape it is centred on (`optical`). Except `optical`, none
+of them fires on the official examples. The generator's helpers centre their
+labels by ink, and `optical` reports a label placed off the centre by hand.
 Fix every one.
 
 The script asks what a measurement cannot judge, in one list of yes/no
