@@ -472,7 +472,7 @@ def test_a_watched_preview_reports_each_workers_requests_and_lets_it_start_once(
 @pytest.mark.parametrize("code, says", [
     ("DNS_PROBE_FINISHED_NXDOMAIN", "host name did not resolve"), ("ERR_NAME_NOT_RESOLVED", "host name did not resolve"),
     ("ERR_PROXY_CONNECTION_FAILED", "the proxy did not connect"), ("ERR_CERT_AUTHORITY_INVALID", "a certificate"),
-    ("ERR_CONNECTION_REFUSED", "the connection was refused"), ("ERR_CONNECTION_TIMED_OUT", "the connection timed out"),
+    ("ERR_CONNECTION_REFUSED", "the connection failed"), ("ERR_CONNECTION_TIMED_OUT", "the connection timed out"),
     ("", "check the network connection and --release")])
 def test_an_editor_the_browser_could_not_reach_is_named_by_the_browsers_error(code, says):
     """The browser's error page shows its error code; the message carries it and what to check for its kind."""

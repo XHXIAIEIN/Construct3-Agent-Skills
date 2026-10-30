@@ -24,9 +24,10 @@ browser, or with --steps, it writes the project as a .c3p and prints the same
 check as steps for a browser tool of the agent.
 
 --preview runs a preview, F5 in the editor, for some seconds and prints the layout
-it started on, the uncaught exceptions and the console errors, each with its event.
---state then prints the global variables, every object type's instance count and
-the named types' instances with their inspector values, named in --locale. On
+it started on, each uncaught exception and console error with its event, and
+each failed request.
+--state then prints the global variables, every object type's count and the
+named types' instances with their inspector values, named in --locale. On
 Windows the preview needs the profile within about 190 characters; a deeper
 project is refused with how to pass --profile.
 
@@ -111,7 +112,6 @@ output, one entry per addon with --install-addon, then one per project:
     preview: layout '<name>', runtime in the worker, 600 ticks in 4.2 s, 1 error      with --preview
     editor: <the crash report the editor showed while it built the preview>
     runtime: <the first line of each distinct error, and (N times) when it came more than once; --out keeps each with its stack>
-    network: HTTP 404 https://preview.construct.net/level3.json (Fetch)      a request that failed, an error too
     globals: Score 0, Lives 3                                                         with --state
     objects: Player 1, Enemy 6, Coin 12
     Player: 1 instance                                                                with --state Player
@@ -127,8 +127,7 @@ output, one entry per addon with --install-addon, then one per project:
 
 exit codes: 0 every project opened, and with --preview ran without errors; 1 at least one did not, or an
 --install-addon was refused; 2 no project
-found, the editor did not load (the line names the browser's error, such as ERR_NAME_NOT_RESOLVED, and what to
-check), or --locale has no language pack; 3 no browser here, or --steps: the steps
+found, the editor did not load, or --locale has no language pack; 3 no browser here, or --steps: the steps
 for a browser tool were printed instead, the project is not opened yet; 5 another run holds the browser
 profile, named in the line with its pid: wait for it to end, or pass --profile for a profile of this run's own
 """
@@ -364,14 +363,14 @@ class EditorNotLoaded(Exception):
 # shows. Edge shows DNS_PROBE_FINISHED_NXDOMAIN for a name that does not resolve, Chrome ERR_NAME_NOT_RESOLVED.
 UNREACHED = (
     (("DNS_PROBE_", "ERR_NAME_"), "the editor's host name did not resolve: check that this machine is online, "
-                                  "and its DNS server or its proxy, the system's setting or HTTPS_PROXY"),
+                                  "then its DNS server and its proxy (the system's setting or HTTPS_PROXY)"),
     (("ERR_PROXY_", "ERR_TUNNEL_"), "the proxy did not connect: check the system's proxy setting or HTTPS_PROXY"),
     (("ERR_CERT_", "ERR_SSL_"), "the answer came with a certificate the browser does not trust, as from a proxy or an "
                                 "antivirus that reads HTTPS: have the user trust that certificate in the system, or "
                                 "use a network without it"),
     (("ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_FAILED",
       "ERR_ADDRESS_UNREACHABLE", "ERR_NETWORK_ACCESS_DENIED", "ERR_BLOCKED"),
-     "the connection was refused: a firewall, a proxy or a filter of the network blocks the editor's host; check "
+     "the connection failed: a firewall, a proxy or a filter of the network blocks the editor's host; check "
      "them, or use another network"),
     (("ERR_TIMED_OUT", "ERR_CONNECTION_TIMED_OUT"), "the connection timed out: run again, and if it times out again, "
                                                     "check the network connection and the proxy"),

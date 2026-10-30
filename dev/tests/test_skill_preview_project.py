@@ -374,7 +374,8 @@ def test_preview_project_fails_a_step_in_which_the_game_stopped_ticking(monkeypa
                                [ticked("Game", pp.STALL + 1.5), ticked("Game")], "Game")
     assert [(d["ok"], d["said"]) for d in played] == [
         (False, "held 0.1 s; the game did not tick for 2.5 s during the step, as when a long loop in its events or a "
-                "script holds its thread; the window then: 01-failed.png")]
+                "script holds its thread; find the loop, and spread its work over ticks or end it sooner; the window then: "
+                "01-failed.png")]
 
 
 def test_preview_project_fails_a_step_after_which_the_game_does_not_answer(monkeypatch, tmp_path):

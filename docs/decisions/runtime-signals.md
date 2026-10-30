@@ -64,15 +64,16 @@ come while the worker starts.
 ## Decision
 
 - Requests: `open_in_editor.py --preview` and `preview_project.py` turn on
-  the Network domain of the preview window as it opens, and attach each new
-  worker held at its start (`waitForDebuggerOnStart`), turn its requests
-  on, then let it run. A response of HTTP 400 or more and a request that got
-  no response print a `network:` line at the step it came in, with the URL,
-  and count as errors: the run fails, as it does on a runtime error. A
-  request the page cancelled, as a reload does, is not one. A worker's
-  startup request for a missing file came in each of 12 runs, 5 held and 7
-  not held; the hold keeps that order on a machine where the worker starts
-  faster than the run turns its requests on.
+  the Network domain of the preview window as it opens. Each new worker is
+  attached held at its start (`waitForDebuggerOnStart`), its requests are
+  turned on, and then it runs. A response of HTTP 400 or more, or a request
+  that got no response, prints a `network:` line with its URL at the step it
+  came in. It counts as an error, so the run fails as on a runtime error. A
+  request the page cancelled, as a reload does, is not a failure.
+- The hold is for the order, not for a measured miss: a worker's startup
+  request for a missing file came in each of 12 runs, 5 held and 7 not. On
+  a machine where the worker starts faster than the run turns its requests
+  on, the hold keeps them.
 - Blank: a frame is blank when 99.9% or more of it is one colour and the
   standard deviation of its luminance is under 2. Every screenshot prints
   both numbers. The window is read at an eighth of its size, each side cut
@@ -86,10 +87,11 @@ come while the worker starts.
   four times the longest one measured, or when the game's page or worker
   did not answer in 5 seconds. A `record` line gives the ticks a second and
   the longest gap over the steps it covered.
-- Editor: on the browser's error page the run reads the error code and
-  names it with the advice for its kind: a name that does not resolve, a
-  proxy, a certificate, a refused connection, a timeout, no connection. An
-  HTTP 404 from the editor names `--release`.
+- Editor: on the browser's error page the run reads the error code. The
+  line that says the editor did not load names the code and the advice for
+  its kind: a name that does not resolve, a proxy, a certificate, a failed
+  connection, a timeout, no connection. An HTTP 404 from the editor names
+  `--release`.
 
 ## Re-evaluate when
 

@@ -233,8 +233,8 @@ def png_rgba(data: bytes) -> tuple[int, int, list[tuple]] | None:
 # screenshots the scripts took of games, at an eighth of their size: the most one-coloured one that
 # showed something was 99.03%, a layout holding one coin, with a deviation of 7.9 or more for each at
 # 99% and above; a layout that drew only a 4 px bar was 99.99% with 0.3, and an empty one 100% with 0.
-# The share alone takes a 20 x 20 ship sprite alone on a 430 x 932 screen, 76 of its pixels drawn,
-# for nothing drawn: 99.98%, with a deviation of 2.6.
+# The share alone takes a 20 x 20 ship sprite alone on a 430 x 932 screen, 76 screen pixels drawn,
+# for nothing drawn: 99.98% at an eighth of the size, with a deviation of 2.6.
 BLANK = 0.999
 SPREAD = 2.0
 

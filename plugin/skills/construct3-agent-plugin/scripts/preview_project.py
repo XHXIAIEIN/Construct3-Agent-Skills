@@ -47,9 +47,8 @@ Steps, each an object with one of these keys, and "note" for a label:
   js CODE                       run JavaScript against the runtime and print what it returns
   state [TYPE ...]              the globals, every type's count, the named types' instances with
                                 their inspector values, named in --locale
-  shot NAME                     a screenshot, NN-NAME.png in --shots, with the share of it that is one
-                                colour and how far its luminance deviates; named as not drawn yet when
-                                both say it shows nothing
+  shot NAME                     a screenshot, NN-NAME.png in --shots; named as not drawn yet when it
+                                is one colour and flat
   record NAME, watch, fps       record from here to the next record step or the end: NN-NAME.mp4 with
                                 ffmpeg or .gif with Pillow, the frames, a contact sheet of up to 12
                                 numbered frames to judge the motion from, and NN-NAME.html to review
@@ -72,12 +71,8 @@ The game starts on the layout the editor opens on, as with F5. A game that reloa
 its page goes on in the new page: the step the reload broke off runs again, except
 a js step whose code had started, which fails.
 
-After each step the run reads the layout and the ticks: a step that changes the layout says
-so, and a step fails when the game stopped ticking for more than 1 second, or stopped answering.
-A request that failed prints a network: line at the step it came in, and counts as an error.
-
 The browser runs headless and silent; --headed shows it. A step that fails leaves
-NN-failed.png and the trail of layouts the game went through. Screenshots and recordings go to --shots, by default
+NN-failed.png. Screenshots and recordings go to --shots, by default
 .tmp/scripts/preview-project/shots/ in the project, and the whole result to --out,
 by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
@@ -86,10 +81,9 @@ A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the proj
 committed with the change it checks; it needs an until after an input or wait. --all
 replays each kept plan from a first launch, into .tmp/scripts/preview-project/plans.json.
 
-The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "first_layout",
-"runtime", "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps":
-[{"step", "line", "ok", "said", "errors", "layout", "ticks": {"ticks", "seconds", "longest"},
-"value" of a js step, "state" of a state step, "reloaded"}]}.
+The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
+"viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
+"line", "ok", "said", "errors", "layout", "value" of a js step, "state" of a state step, "reloaded"}]}.
 """
 from __future__ import annotations
 
@@ -126,14 +120,10 @@ output:
     1 until runtime.objects.Enemy.getAllInstances().length >= 3: true after 1.4 s
     2 drag Piece 0 to BattleSlot 1: (120, 712) to (215, 388) in 0.4 s
       runtime: <an error the game logged during the step, with its event, and (N times) when it came more than once>
-      network: HTTP 404 https://preview.construct.net/level3.json (Fetch)      <a request that failed>
-    3 key ShiftLeft+ArrowRight: held 0.5 s; layout 'Menu' -> 'Game'
+    3 key ShiftLeft+ArrowRight: held 0.5 s
     4 state Piece: <as open_in_editor.py --state prints it>
-    5 shot after-merge: shots/05-after-merge.png (99.20% one colour, luminance deviation 9.1)
-    6 until <...>: FAILED, still false after 10 s; the window then: shots/06-failed.png (...)
-      trail: 'Menu' at the start, 'Game' after step 3
+    5 shot after-merge: shots/05-after-merge.png
     recorded merge: 95 frames in 3.4 s, shots/02-merge.mp4
-      the game ticked 490 times in 3.4 s, 144 a second, at most 21 ms apart
       sheet shots/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
       2 at 35 ms (largest change), ..., 10 at 3380 ms (end)
         <how to judge the motion from the sheet>
@@ -149,9 +139,10 @@ output:
   replayed: 1 of 2 kept plans pass with 2 until checks, no runtime errors
 
 exit codes: 0 every step ran and the game logged no error (--all: in every kept plan); 1 a step failed, the
-game logged an error, or the project did not open; 2 the plan, the project, the editor or --locale could not be
-used, or --all found no kept plan; 3 no browser here; 5 another run holds the browser profile, named in the line
-with its pid: wait for it to end, or pass --profile for a profile of this run's own
+game logged an error or a request failed, or the project did not open; 2 the plan, the project, the editor
+or --locale could not be used, or --all found no kept plan; 3 no browser here; 5 another run holds the
+browser profile, named in the line with its pid: wait for it to end, or pass --profile for a profile of
+this run's own
 """
 
 STEPS = ("tap", "hold", "drag", "move", "key", "wait", "until", "js", "state", "shot", "record")
@@ -174,7 +165,8 @@ ANSWER = 5
 # while screenshots were taken one after another as a record step takes them 0.014 s.
 STALL = 1.0
 FROZEN = (f"the game stopped answering for {ANSWER} s: an endless loop in its events or a script holds its thread, "
-          f"such as a While whose condition stays true or a function that calls itself")
+          f"such as a While whose condition stays true or a function that calls itself; find the loop and give it "
+          f"an end")
 # Where the editor serves a preview, and where a game's saves live.
 PREVIEW = "https://preview.construct.net"
 # The page that reviews a recording, its timeline put where it says TIMELINE.
@@ -1168,7 +1160,8 @@ def play_steps(game: Game, steps: list[dict], shots: Path, layout: str | None = 
                 layout = pulse["layout"]
             if ok and pulse["longest"] > STALL:
                 ok, said = False, (f"{said}; the game did not tick for {pulse['longest']:.1f} s during the step, "
-                                   f"as when a long loop in its events or a script holds its thread")
+                                   f"as when a long loop in its events or a script holds its thread; find the loop, and spread its work "
+                                   f"over ticks or end it sooner")
         done = {"step": n, "line": step_line(n, step), "ok": ok, "said": said, **extra, "layout": layout}
         if pulse:
             done["ticks"] = {k: round(pulse[k], 3) for k in ("ticks", "seconds", "longest")}
