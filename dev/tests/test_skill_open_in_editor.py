@@ -84,6 +84,20 @@ def test_a_c3p_in_the_build_folder_keeps_its_scratch_in_the_project(tmp_path):
     assert not (root / ".build" / ".tmp").exists()
 
 
+def test_a_project_inside_another_folders_tmp_keeps_its_scratch_in_its_own_tmp(tmp_path):
+    """A test project in another repository's .tmp/ wrote the scratch of the editor steps into that
+    repository's .tmp/scripts/, while verify_change.py read the look result from the project's own
+    .tmp/, so its look step asked again on every run. The folder that holds project.c3proj stops the
+    search; a folder in that project's .build/ or .tmp/ still maps to the project."""
+    project = tmp_path.resolve() / ".tmp" / "demo"
+    (project / ".build").mkdir(parents=True)
+    (project / "project.c3proj").write_text("{}", encoding="utf-8")
+    scripts = project / ".tmp" / "scripts" / "open-in-editor"
+    for folder in (project, project / ".build", project / ".tmp" / "scripts"):
+        assert oe.scratch(folder) == scripts, folder
+    assert not (tmp_path / ".tmp" / "scripts").exists()
+
+
 def test_open_in_editor_refuses_the_profile_another_run_holds(project, tmp_path):
     """Two runs 0.5 s apart on one profile took over each other's browser, and the second failed
     with "Target.closeTarget: No target with given id found", blaming the network with exit 2
