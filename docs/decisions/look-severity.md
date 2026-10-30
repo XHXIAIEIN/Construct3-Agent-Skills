@@ -46,10 +46,13 @@ The review also looks past the start of each layout:
   text, then no text, then every count at 1. The text, overlap, edge and
   crowd rules run again in each state. The generator writes each Text's
   longest text to `tools/texts.json` from its helper's `longest=`, and it
-  stops on a Text that events set with no `longest`. In a project of other
-  making the worst text is a guess: a count at 9999999, a long hyphenated
-  name or a long Chinese one. A finding that only a guess causes warns,
-  because a guessed name can be longer than any text the game shows.
+  warns of a Text that events set with no `longest`. Without `longest`, as in
+  a project of other making, the worst text is a guess: a count at 9999999, a
+  long hyphenated name or a long Chinese one. The review reports such a Text
+  as `unlimited`, and a finding that only a guess causes warns, because a
+  guessed name can be longer than any text the game shows. The generator
+  goes on, as the owner chose, so a missing `longest` costs a guessed worst
+  text and not the build.
 - **Screen shapes.** Without `--viewport`, each layout is also looked at on
   two shapes that the project's orientations allow, at the viewport's
   shorter side, such as 4:3 and a phone's 19.5:9 for landscape. Scale outer
