@@ -4,8 +4,8 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
 - [Layout, Type, Colour and Motion Rules of Motion-Design Websites, Measured on Game Screens](motion-atlas-layouts.md) — 2026-10-31
-- [ui-ux-pro-max's Data Describes a Game's Store Page, and Its Web Rules Fail on Game Screens](ui-ux-pro-max-data.md) — 2026-10-31
 - [Title and Result Screens Get Their Own Type Rules](title-and-result-screens.md) — 2026-10-31
+- [ui-ux-pro-max's Data Describes a Game's Store Page, and Its Web Rules Fail on Game Screens](ui-ux-pro-max-data.md) — 2026-10-31
 - [What a Web Landing Page Skill and a Redesign Skill Add to the Game's Look](web-landing-and-redesign-skills.md) — 2026-10-31
 - [The Art of a Generated Game Is Drawn by a Sub-Agent on a Fixed Model](art-drawer-agent.md) — 2026-10-30
 - [Art Drawn in Code as SVG: The Route Without an Image Tool](art-drawn-in-code.md) — 2026-10-30
