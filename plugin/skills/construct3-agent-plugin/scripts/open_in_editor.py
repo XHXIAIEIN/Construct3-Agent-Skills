@@ -950,10 +950,8 @@ def put_file(page: DevTools, path: Path) -> None:
 NETWORK = "network: "
 
 
-def message_text(event: dict, urls: dict[tuple, str] | None = None) -> str | None:
-    """An uncaught exception or a console.error of a Runtime event, a response of HTTP 400 or more, or a
-    request that got no response, else None. `urls` gives each request's URL by (session, request id),
-    since a request that failed is reported without it."""
+def message_text(event: dict) -> str | None:
+    """An uncaught exception or a console.error of a Runtime event, else None."""
     p = event["params"]
     if event["method"] == "Runtime.exceptionThrown":
         d = p["exceptionDetails"]
@@ -962,12 +960,20 @@ def message_text(event: dict, urls: dict[tuple, str] | None = None) -> str | Non
         args = [str(a.get("value", a.get("description", ""))) for a in p["args"]]
         styles = args[0].count("%c") if args else 0     # the runtime styles its messages: "%cEvent sheet 1", css
         return " ".join([args[0].replace("%c", ""), *args[1 + styles:]]) if args else ""
+    return None
+
+
+def request_text(event: dict, urls: dict[tuple, str]) -> str | None:
+    """A response of HTTP 400 or more, or a request that got no response, of a Network event, else None.
+    `urls` gives each request's URL by (session, request id), since a request that failed is reported
+    without it."""
+    p = event["params"]
     if event["method"] == "Network.responseReceived" and p["response"]["status"] >= 400:
         return f"{NETWORK}HTTP {p['response']['status']} {p['response']['url']} ({p.get('type', 'Other')})"
     # A request the page cancelled, as a reload or an AbortController does, is not a failure
     if event["method"] == "Network.loadingFailed" and not p.get("canceled") and p["errorText"] != "net::ERR_ABORTED":
         why = p.get("blockedReason") or (p.get("corsErrorStatus") or {}).get("corsError")
-        url = (urls or {}).get((event.get("sessionId"), p["requestId"]), "a request")
+        url = urls.get((event.get("sessionId"), p["requestId"]), "a request")
         return f"{NETWORK}{p['errorText']}{f' {why}' if why else ''} {url} ({p.get('type', 'Other')})"
     return None
 
@@ -1054,7 +1060,7 @@ def runtime_errors(win: DevTools) -> list[str]:
         return e.get("sessionId"), e["params"]["requestId"]
 
     urls = {key(e): e["params"]["request"]["url"] for e in win.events if e["method"] == "Network.requestWillBeSent"}
-    errors = [text[:600] for text in (message_text(e, urls) for e in win.events) if text]
+    errors = [text[:600] for text in (message_text(e) or request_text(e, urls) for e in win.events) if text]
     ended = {key(e) for e in win.events if e["method"] in ("Network.loadingFinished", "Network.loadingFailed")}
     win.events[:] = [e for e in win.events if e["method"].startswith("Target.")
                      or e["method"] == "Network.requestWillBeSent" and key(e) not in ended]
