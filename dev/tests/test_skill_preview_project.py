@@ -432,15 +432,20 @@ def test_preview_project_replays_the_kept_plans_and_names_the_one_that_fails_now
     logged = {**ok, "errors": ["Event sheet 1, event 4, action 2: TypeError\n    at stack"]}
     result = {"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e", "preview": {
         "plans": {"merge": done([ok, bad], 3), "hint": done([ok]), "buy": done([logged])}}}
-    lines, failed = pp.replay_report(result, {"old": ["step 1 has none of tap, hold"]})
+    until = {"merge": 1, "hint": 2, "buy": 1}
+    lines, failed = pp.replay_report(result, {"old": ["step 1 has none of tap, hold"]}, until)
     assert failed == 3
     assert lines[1:] == [
         "  FAIL  buy (tools/plans/buy.json): runtime: Event sheet 1, event 4, action 2: TypeError",
-        "  ok    hint: 1 step in 2.0 s",
+        "  ok    hint: 1 step, 2 until checks in 2.0 s",
         "  FAIL  merge (tools/plans/merge.json): 2 until vars.merged: FAILED, still false after 10 s",
         "  FAIL  old (tools/plans/old.json): the plan is refused: step 1 has none of tap, hold",
-        "  replayed: 1 of 4 kept plans pass, 1 runtime error",
+        "  replayed: 1 of 4 kept plans pass with 2 until checks, 1 runtime error",
     ], lines
+    # a plan kept before --keep needed an until step passes on anything, and says so
+    lines, failed = pp.replay_report(result, {}, {**until, "hint": 0})
+    assert "  ok    hint: 1 step, no until after an input or wait, so it checks nothing, in 2.0 s" in lines, lines
+    assert lines[-1] == "  replayed: 1 of 3 kept plans pass with 0 until checks, 1 runtime error", lines
 
 
 def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(project, tmp_path):
@@ -452,6 +457,20 @@ def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(pro
     assert pp.kept_plans(project) == [kept]
     code, out = run(project, SCRIPT, "plan.json", "--keep", "a b")
     assert code == 2 and "--keep takes a NAME of letters, digits, - and _" in out, out
+    # a plan of keys and reads passes whatever the game does, so it is refused before the editor opens; so is
+    # one whose only until reads the start, as runs of fix-wasd-twitch wrote it once a plan needed an until
+    reads = tmp_path / "reads.json"
+    for steps in ([{"key": "KeyW", "seconds": 1}, {"js": "runtime.objects.Player.getFirstInstance().y"}],
+                  [{"until": "runtime.objects.Player.getFirstInstance() !== null"}, {"key": "KeyW", "seconds": 1},
+                   {"js": "runtime.objects.Player.getFirstInstance().y"}]):
+        reads.write_text(json.dumps({"steps": steps}), encoding="utf-8")
+        code, out = run(project, SCRIPT, str(reads), "--keep", "walk")
+        assert code == 2 and "not kept: no until step comes after an input or a wait" in out, out
+        assert "--keep walk" in out, out
+    assert not (project / "tools" / "plans" / "walk.json").exists()
+    assert pp.checks({"steps": [{"until": "a"}, {"key": "KeyW"}, {"until": "b"}, {"js": "1"}, {"until": "c"}]}) == 2
+    assert pp.checks({"steps": [{"wait": 3}, {"until": "vars.timer === 0"}]}) == 1
+    assert pp.checks({"steps": [{"until": "a"}, {"js": "b"}]}) == 0
     code, out = run(project, SCRIPT)
     assert code == 2 and "give a PLAN.json to play, or --all" in out, out
     kept.unlink()

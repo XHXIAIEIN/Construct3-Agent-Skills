@@ -76,9 +76,9 @@ by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
-committed with the change it checks. --all replays every kept plan from a first
-launch and names each one that fails; its result goes to plans.json in
-.tmp/scripts/preview-project/.
+committed with the change it checks; one with no until after an input or wait checks
+nothing and is not kept. --all replays every kept plan from a first launch and names
+each that fails, into .tmp/scripts/preview-project/plans.json.
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
 "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
@@ -135,9 +135,9 @@ output:
     ran: 5 of 5 steps in 9.6 s, 1 runtime error
 
 --all prints one line per kept plan instead of its steps:
-    ok    merge-two-pieces: 6 steps in 4.1 s
+    ok    merge-two-pieces: 6 steps, 2 until checks in 4.1 s
     FAIL  hint-after-idle (tools/plans/hint-after-idle.json): step 3 until ...: FAILED, false after 10 s
-  replayed: 1 of 2 kept plans pass, no runtime errors
+  replayed: 1 of 2 kept plans pass with 2 until checks, no runtime errors
 
 exit codes: 0 every step ran and the game logged no error (--all: in every kept plan); 1 a step failed, the
 game logged an error, or the project did not open; 2 the plan, the project, the editor or --locale could not be
@@ -1110,6 +1110,17 @@ def kept_plans(project: Path) -> list[Path]:
     return sorted(folder.glob("*.json")) if folder.is_dir() else []
 
 
+# The steps after which the game has done something a check can read: an input, or time passing.
+DOING = ("tap", "hold", "drag", "key", "wait")
+
+
+def checks(plan: dict) -> int:
+    """The until steps after the first input or wait: the only steps that fail when the game does not do what
+    the change should make it do. An until before them reads the start, such as an instance that exists."""
+    first = next((i for i, step in enumerate(plan["steps"]) if any(k in step for k in DOING)), len(plan["steps"]))
+    return sum("until" in step for step in plan["steps"][first + 1:])
+
+
 def keep(plan: Path, project: Path, name: str) -> Path:
     """The plan copied as it was written into the project's kept plans."""
     to = project / KEPT / f"{name}.json"
@@ -1129,15 +1140,15 @@ def play_all(plans: dict[str, dict], shots: Path, project: Path) -> Callable[[oe
     return run
 
 
-def replay_report(result: dict, refused: dict[str, list[str]],
+def replay_report(result: dict, refused: dict[str, list[str]], until: dict[str, int],
                   label: Callable[[str], str] = oe.key_name) -> tuple[list[str], int]:
     """One line per kept plan, ok or FAIL with the step that failed or the first runtime error, and how many
-    failed."""
+    failed; `until` holds each plan's until checks."""
     if result["status"] != "opened":
         return oe.report(result, label), len(refused) + 1
     lines = oe.opened_lines(result)
     ran = (result.get("preview") or {}).get("plans", {})
-    failed, errors = 0, 0
+    failed, errors, held = 0, 0, 0
     for name in sorted(set(ran) | set(refused)):
         where = (KEPT / f"{name}.json").as_posix()
         if name in refused:
@@ -1160,11 +1171,14 @@ def replay_report(result: dict, refused: dict[str, list[str]],
             lines.append(f"  FAIL  {name} ({where}): {why}")
             lines += logged[1 if not bad else 0:][:3]
         else:
-            lines.append(f"  ok    {name}: {done['planned']} step{'s' if done['planned'] != 1 else ''} in "
-                         f"{done['seconds']:.1f} s")
+            held += until[name]
+            lines.append(f"  ok    {name}: {done['planned']} step{'s' if done['planned'] != 1 else ''}, "
+                         + (f"{until[name]} until check{'s' if until[name] != 1 else ''}" if until[name] else
+                            "no until after an input or wait, so it checks nothing,")
+                         + f" in {done['seconds']:.1f} s")
     total = len(ran) + len(refused)
-    lines.append(f"  replayed: {total - failed} of {total} kept plans pass, {errors or 'no'} runtime "
-                 f"error{'' if errors == 1 else 's'}")
+    lines.append(f"  replayed: {total - failed} of {total} kept plans pass with {held} until "
+                 f"check{'' if held == 1 else 's'}, {errors or 'no'} runtime error{'' if errors == 1 else 's'}")
     return lines, failed
 
 
@@ -1200,7 +1214,7 @@ def replay(args: argparse.Namespace, project: Path, exe: str, editor: str) -> in
         result = {"status": "opened", "project": str(project), "title": "not opened: every kept plan is refused",
                   "editor": "-", "preview": {"plans": {}}}
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
-    lines, failed = replay_report(result, refused)
+    lines, failed = replay_report(result, refused, {name: checks(plan) for name, plan in plans.items()})
     print_report(lines, args.limit, out, shots)
     if result["status"] != "opened":
         print(oe.NEXT)
@@ -1265,6 +1279,14 @@ def main() -> int:
         return 2
     if problems:
         print("\n".join([f"{args.plan}: {p}" for p in problems] + ["See --help for the steps."]), file=sys.stderr)
+        return 2
+    if args.keep and not checks(plan):
+        print(f"{args.plan}: not kept: no until step comes after an input or a wait, so the plan passes whatever "
+              f"the game does, and a replay of it after a later change shows nothing. An until before the first "
+              f"input reads the start, and a js, state or shot step prints what it reads and checks nothing. Write "
+              f"what the change must make true as an until step after the input, such as "
+              f"{{\"until\": \"runtime.objects.Player.getFirstInstance().x > 200\", \"timeout\": 2}}, then run "
+              f"this again with --keep {args.keep}", file=sys.stderr)
         return 2
     project = c3.find_project(args.project)
     if not project:

@@ -132,7 +132,11 @@ about the editor or the preview goes to `editor-and-preview.md`.
    [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
    on `record` and the review page]
 8. **Keep the plan, and replay every kept plan after each change.** Once a
-   plan passes, run it again with `--keep NAME`. It is copied to
+   plan passes, run it again with `--keep NAME`. Only an `until` step after
+   an input or a wait fails when the game does not do what the change
+   should make it do, so a plan without one is refused: an `until` before
+   the first input reads the start, and a `js` or `state` step prints a
+   value and checks nothing. The plan is copied to
    `tools/plans/NAME.json` in the project, beside the generator and the
    design, and is committed with the change it checks; the editor ignores
    the folder. After every later change, `preview_project.py --all` plays
