@@ -22,6 +22,7 @@
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
+    "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
@@ -732,6 +733,14 @@
       "source": "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md"
     },
     {
+      "id": "look.references",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "The user's reference pictures for the look are PNG, JPEG or WebP files in art/references/ of the project. pick_look.py names them in the draw brief with the colours measured from each. The two directions from the user's look take their colours from these. review_look.py puts the references beside each screenshot that has some, in a pair picture with the colours measured from each side. It asks the look judge whether the screenshot looks like another game, and a yes is ugly. A reference whose file name is a layout's name goes with that layout, every other with the layout the game starts on. With USER_LOOK empty, the user took paper and ink over the references, so no pair is made.",
+      "confirm": "review_look.py: reference lines, question 8",
+      "source": "Construct3-Agent-Skills/docs/decisions/reference-pairs.md"
+    },
+    {
       "id": "look.worst-data",
       "status": "enforced",
       "scope": "every-look",
@@ -803,7 +812,7 @@
     }
   ],
   "deliver": [
-    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK. After the generator's first run and before any art, run pick_look.py and do what its last line says (look.picker): the art agent draws the first play screen in three directions, the user picks one, and the pick writes USER_LOOK, PALETTE's values by role, canvas and canvas_alt the backdrop's, and ART_STYLE. The rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink, with no picker.",
+    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, and save the reference pictures in art/references/ (look.references). After the generator's first run and before any art, run pick_look.py and do what its last line says (look.picker): the art agent draws the first play screen in three directions, the user picks one, and the pick writes USER_LOOK, PALETTE's values by role, canvas and canvas_alt the backdrop's, and ART_STYLE. The rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink, with no picker.",
     "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, ART_ROUTE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
     "Keep SHAPE_STYLE and the helpers between the markers; a helper the game changes is defined again below the end marker. Give every sprite an art() in whole units, which draws its stand-in until its picture arrives, and place it with shape_inst() on a grid cell; create runtime objects at grid_random().",
     "Run art.py after the generator and do what its last line says. On the SVG route it writes a brief for the drawings still to make: give it to a construct3:art-drawer sub-agent as its whole task. On the image route, with an image tool in the session, make each picture with the prompt it prints, then run art.py again. Never compute a picture pixel by pixel in Python: with nothing to hold a style, it mixes styles on one screen.",

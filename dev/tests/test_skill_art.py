@@ -232,3 +232,46 @@ def test_an_eased_gradient_runs_between_two_roles_on_its_curve(project):
         d.gradient("sky", "canvas", "ink")
     with pytest.raises(SystemExit, match="the curves are linear, ease"):
         d.gradient("dusk", "canvas", "ink", ease="bounce")
+
+
+def test_the_users_references_are_the_pictures_of_art_references_measured_on_one_page(tmp_path):
+    """PNG, JPEG and WebP are references, embedded as data URLs, as a file: picture would taint the canvas that
+    measures them; any other file there is named as not read."""
+    folder = tmp_path / "art" / "references"
+    assert art.references(tmp_path) == ([], [])
+    folder.mkdir(parents=True)
+    for name in ("b.JPG", "a.png", "c.webp", "d.bmp"):
+        (folder / name).write_bytes(png(4, 2, lambda x, y: (255, 0, 0, 255)))
+    refs, unread = art.references(tmp_path)
+    assert [p.name for p in refs] == ["a.png", "b.JPG", "c.webp"] and [p.name for p in unread] == ["d.bmp"]
+    assert art.png_size(refs[0]) == (4, 2)
+    page = art.measure_page([[("reference: a.png", refs[0]), ("reference: b.JPG", refs[1])], [("game: <Map>", refs[0])]],
+                            320, 180)
+    assert page.count("<img data-measure src=\"data:image/png;base64,") == 2 and "data:image/jpeg;base64," in page
+    assert "height:75px" in page and "game: &lt;Map&gt;" in page and "%%" not in art.MEASURE_JS
+
+
+class Measurer:
+    """Stands for the browser: the shot of a page, and the colours its script would have measured."""
+
+    def __init__(self):
+        self.page = self
+        self.asked = []
+
+    def shot(self, html, name, w, h=None):
+        self.asked.append((name, w, h, html.count("<img data-measure")))
+        return b"pair"
+
+    def evaluate(self, script):
+        assert script == "window.palettes"
+        return [[{"hex": f"#00000{n}", "share": 1.0}] for n in range(self.asked[-1][3])]
+
+
+def test_a_reference_pair_fits_the_references_and_the_screenshot_into_the_screenshots_shape(tmp_path):
+    shot = tmp_path / "Map.png"
+    shot.write_bytes(png(16, 9, lambda x, y: (0, 0, 0, 255)))
+    renderer = Measurer()
+    data, refs, own = art.reference_pair(renderer, [shot, shot], shot, "game: Map")
+    assert data == b"pair" and refs == [[{"hex": "#000000", "share": 1.0}], [{"hex": "#000001", "share": 1.0}]]
+    assert own == [{"hex": "#000002", "share": 1.0}]
+    assert renderer.asked == [("pair-game-Map", 2 * (1067 + 12) + 12, None, 3)]

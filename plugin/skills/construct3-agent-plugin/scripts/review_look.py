@@ -52,11 +52,14 @@ one question lists the design's screen entries that play_design.py cannot
 measure: entries with other words before the first comma, and entries whose
 key names no object of the project.
 
+The user's references for the look (art/references/, PNG, JPEG or WebP) go
+beside the screenshot of the layout they are named after, else of the first,
+in <layout>@reference.png with their measured colours, under one more question.
+
 A layout reached by goToLayout starts without what the game's flow sets up
 before it; play to such a scene with preview_project.py and a shot step.
 
-Screenshots go to --shots, by default .tmp/scripts/review-look/shots/ in the project,
-as <layout>.png; the whole result to --out, by default result.json beside that folder.
+Screenshots go to --shots as <layout>.png, the whole result to --out.
 Beside the screenshots it writes brief.md: the screenshots, the questions and
 the form of the answer, for a reviewer that has not seen the project, since
 the agent that built the game reads its pictures by what it meant to build.
@@ -89,6 +92,7 @@ from pathlib import Path
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import art
 import c3project as c3
 import check_look as cl
 import game_model as gm
@@ -188,6 +192,12 @@ QUESTIONS = (
 )
 QUESTION_TIERS = ("broken", "broken", "broken", "ugly", "ugly", "ugly", "ugly")
 ACROSS = "Does the same decoration, not the HUD, appear on every screenshot?"
+# Asked when art/references/ holds the user's references, which the pair picture shows beside a screenshot
+# It names the dimensions of prepare_art.DIMENSIONS, so that a yes names one
+REFERENCE = ("Beside the user's reference in its pair picture, does the screenshot look like another game: other "
+             "colours, another light, another way of rendering or outlining, other proportions or another view? Other "
+             "objects, another layout or other text is no difference. A picture without a pair picture: no.")
+REFERENCE_AT = len(QUESTIONS) + 1
 
 # The data states a layout is looked at in.
 DATA_STATES = ("demo", "worst", "empty", "one")
@@ -1154,9 +1164,9 @@ def unmeasured(project: Path, design: Path | None) -> list[str]:
     return out
 
 
-def questions(several: bool, places: list[str] = ()) -> list[str]:
+def questions(several: bool, places: list[str] = (), referenced: bool = False) -> list[str]:
     """The questions the script cannot answer, about every screenshot."""
-    out = list(QUESTIONS)
+    out = list(QUESTIONS) + [REFERENCE] * referenced
     if places:
         out.append(f"On a screenshot that shows it, does an object sit away from the place given for it: "
                    f"{'; '.join(places)}?")
@@ -1165,18 +1175,18 @@ def questions(several: bool, places: list[str] = ()) -> list[str]:
     return out
 
 
-def question_tiers(several: bool, places: list[str] = ()) -> list[str]:
-    """The tier of a yes to each of questions(): an object away from its place and a decoration on every screen
-    look wrong, as the questions about style do."""
-    return list(QUESTION_TIERS) + ["ugly"] * (bool(places) + several)
+def question_tiers(several: bool, places: list[str] = (), referenced: bool = False) -> list[str]:
+    """The tier of a yes to each of questions(): a screen in another look than the user's references, an object
+    away from its place and a decoration on every screen look wrong, as the questions about style do."""
+    return list(QUESTION_TIERS) + ["ugly"] * (referenced + bool(places) + several)
 
 
-def ask(several: bool, places: list[str] = ()) -> list[str]:
+def ask(several: bool, places: list[str] = (), referenced: bool = False) -> list[str]:
     """The questions, put to the agent about every screenshot."""
     lines = ["questions: answer every question yes or no for each screenshot above, through the brief as the last "
              "line says, or with your image tool, one screenshot at a time, and check the answers with --reply as "
              "that line says. For each yes, name the layout, the object type to change and what to change:"]
-    return lines + [f"  {n}. {q}" for n, q in enumerate(questions(several, places), 1)]
+    return lines + [f"  {n}. {q}" for n, q in enumerate(questions(several, places, referenced), 1)]
 
 
 def shows_something(done: dict) -> bool:
@@ -1253,6 +1263,55 @@ def before_shots(project: Path, commit: str, key: dict, preview) -> dict:
     return got
 
 
+def paired(refs: list[Path], layouts: list[str], first: str | None) -> dict[str, list[Path]]:
+    """The references of each layout: one whose file name without the extension is a layout's name goes with
+    that layout, and every other with the layout the game starts on, the screen pick_look.py draws, or else with the
+    first layout looked at."""
+    named = {k: layout for layout in layouts for k in (layout.lower(), file_name(layout).lower())}
+    start = first if first in layouts else (layouts[0] if layouts else None)
+    out: dict[str, list[Path]] = {}
+    for ref in refs:
+        layout = named.get(ref.stem.lower(), start)
+        if layout:
+            out.setdefault(layout, []).append(ref)
+    return out
+
+
+def reference_pairs(project: Path, exe: str, result: dict, shots: Path) -> dict:
+    """The pair picture of each screenshot that has references, <layout>@reference.png in shots, with the colours
+    measured from each side, by layout."""
+    refs, _ = art.references(project)
+    layouts = {d["layout"]: d["shot"] for d in (result.get("preview") or {}).get("layouts", []) if shows_something(d)}
+    out = {}
+    renderer = art.Renderer(project, exe, "review-look")
+    try:
+        first = c3.load(project / "project.c3proj").get("firstLayout")
+        for layout, given in paired(refs, list(layouts), first).items():
+            data, colours, own = art.reference_pair(renderer, given, Path(layouts[layout]), f"game: {layout}")
+            pair = shots / f"{file_name(layout)}@reference.png"
+            pair.write_bytes(data)
+            out[layout] = {"pair": str(pair), "colours": own,
+                           "references": [{"file": str(r), "colours": c} for r, c in zip(given, colours)]}
+    finally:
+        renderer.close()
+    return out
+
+
+def paired_pictures(result: dict) -> dict[str, str]:
+    """The pair picture of each screenshot that has the user's references, by layout."""
+    return {layout: p["pair"] for layout, p in (result.get("references") or {}).items()}
+
+
+def reference_lines(result: dict, layout: str) -> list[str]:
+    """The pair picture of a layout's screenshot and the colours measured on each side of it."""
+    got = (result.get("references") or {}).get(layout)
+    if not got:
+        return []
+    return ([f"  reference: pair picture {got['pair']}, the user's references beside the screenshot"]
+            + [f"    colours of {Path(r['file']).name}: {art.colours(r['colours'])}" for r in got["references"]]
+            + [f"    colours of the screenshot: {art.colours(got['colours'])}"])
+
+
 def befores(result: dict) -> dict[str, str]:
     """The picture from before the change of each screenshot that has one, by layout."""
     return (result.get("before") or {}).get("shots", {})
@@ -1263,7 +1322,8 @@ def brief(result: dict) -> str:
     the form of the answer, and nothing of what the game was meant to show."""
     layouts = (result.get("preview") or {}).get("layouts", [])
     shots = pictures(result)
-    asked = questions(len(layouts) > 1, result.get("places", []))
+    pairs = paired_pictures(result)
+    asked = questions(len(layouts) > 1, result.get("places", []), bool(pairs))
     before = befores(result)
     lines = ["# Look review", "",
              "You have not seen this game's project, its events or how it was built, and you do not need to. Judge "
@@ -1284,9 +1344,16 @@ def brief(result: dict) -> str:
                   "before shows the same thing at the same place, new when it does not. A yes marked before does not "
                   "fail the change, so mark before only when the picture from before shows the fault; if you are not "
                   "sure, write new. A yes on a screenshot without a picture from before is new.", ""]
+    if pairs:
+        lines += [f"A screenshot that names a pair picture belongs to a game whose look the user gave by "
+                  f"references. The pair shows the user's references on the left and the screenshot on the right, "
+                  f"with the colours measured from each under it, commonest first. A reference need not show the "
+                  f"same objects, layout or text. Question {REFERENCE_AT} asks about the look alone, and a yes to it "
+                  f"names what differs.", ""]
     lines += ["Open each screenshot" + (" and its picture from before" if before else "")
-              + " with your image tool, one at a time:", ""]
+              + (" and its pair picture" if pairs else "") + " with your image tool, one at a time:", ""]
     lines += [f"{n}. {layout}: {shot}" + (f" (before the change: {before[layout]})" if layout in before else "")
+              + (f" (pair picture: {pairs[layout]})" if layout in pairs else "")
               for n, (layout, shot) in enumerate(shots, 1)]
     lines += ["", "Answer every question for every screenshot, yes or no:", ""]
     lines += [f"{n}. {q}" for n, q in enumerate(asked, 1)]
@@ -1359,7 +1426,7 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
     that verify_change.py passes its look step on; verify is the command that goes on with the check chain."""
     layouts = (result.get("preview") or {}).get("layouts", [])
     names = [name for name, _ in pictures(result)]
-    tiers = question_tiers(len(layouts) > 1, result.get("places", []))
+    tiers = question_tiers(len(layouts) > 1, result.get("places", []), bool(paired_pictures(result)))
     asked = len(tiers)
     answers, stray = read_reply(reply, names, asked)
     before = befores(result)
@@ -1393,6 +1460,9 @@ def check_reply(result: dict, reply: str, where: str, verify: str | None) -> tup
                      "where each yes is" + (", and whether it is new or from before" if untold else "")
                      + "; then check its reply again")
     elif yeses:
+        if paired_pictures(result) and any(q == REFERENCE_AT for _, q, _ in yeses):
+            lines.append(f"  a yes to question {REFERENCE_AT} is fixed in the look, not in one object: PALETTE, "
+                         f"ART_STYLE and the drawings, toward the colours measured from the references")
         lines.append("next: fix each yes, the broken ones first: name the layout and the object type at the place it "
                      "describes and change it. A yes with more than one right fix, such as cutting a text short or "
                      "wrapping it, or which corner a counter takes, is the user's to pick: ask before you spend a "
@@ -1440,13 +1510,20 @@ def report(result: dict) -> list[str]:
                          f"it with preview_project.py and a shot step, and read that screenshot the same way")
         else:
             lines.append(f"layout {done['layout']!r} ({n} of {total}): not reached in 10 seconds")
+        lines += reference_lines(result, done["layout"])
         lines += [finding_line(f) for f in done.get("findings", [])]
         lines += [f"  unseen: the preview window did not take the screen {s}, so the layouts were not looked at on it"
                   for s in done.get("unseen", [])]
         lines += oe.runtime_lines(done["errors"])
+    lines += [f"reference: {f} is not read, so no pair picture shows it: save it as PNG, JPEG or WebP"
+              for f in result.get("unread_references", [])]
+    if result.get("unpaired_references"):
+        lines.append(f"reference: USER_LOOK is empty, so the game takes paper and ink, and no pair picture is made "
+                     f"for the {result['unpaired_references']} pictures in {art.REFERENCES.as_posix()}/. If the "
+                     f"user wants their look, run pick_look.py again")
     if any(shows_something(d) for d in ran["layouts"]):
         lines += before_lines(result)
-        lines += ask(total > 1, result.get("places", []))
+        lines += ask(total > 1, result.get("places", []), bool(paired_pictures(result)))
     return lines
 
 
@@ -1548,8 +1625,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, help="write the result, every instance read included, as JSON "
                                              "(default: result.json in .tmp/scripts/review-look/)")
     ap.add_argument("--design", type=Path, metavar="DESIGN.json",
-                    help="the game's design; a screen entry that play_design.py does not measure becomes a question "
-                         "(default: tools/design.json in the project, when there is one)")
+                    help="the game's design (default: tools/design.json in the project, when there is one)")
     ap.add_argument("--headed", action="store_true", help="show the browser window")
     ap.add_argument("--profile", type=Path, metavar="FOLDER",
                     help="keep the browser profile in FOLDER/editor-<browser> instead of .tmp/browsers/")
@@ -1610,6 +1686,14 @@ def main() -> int:
                 result["before"] = before_shots(project, commit, key, lambda copy, into: oe.open_one(
                     browser, editor, copy, oe.staged(copy, "review-look"), None, bool(args.release),
                     review(args.layouts, args.settle, shapes[:1], into, ("demo",), set(), {})))
+            refs, unread = art.references(project)
+            if unread:
+                result["unread_references"] = [str(p) for p in unread]
+            # The user picked paper and ink over the look of the references, so the screen is meant to differ
+            if refs and (project / c3.GENERATOR).is_file() and not cl.user_look(project):
+                result["unpaired_references"] = len(refs)
+            elif refs and any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
+                result["references"] = reference_pairs(project, exe, result, shots)
             if any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
                 result["brief"] = str(shots / "brief.md")
                 (shots / "brief.md").write_text(brief(result), encoding="utf-8")

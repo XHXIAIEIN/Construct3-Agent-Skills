@@ -167,6 +167,111 @@ class Renderer:
         self.browser.close()
 
 
+# --- the user's references ---------------------------------------------------------------------
+REFERENCES = Path("art", "references")      # the pictures the user gave for the game's look
+REFERENCE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+COLOURS = 8                                  # colours measured from a picture, commonest first
+MEASURE_PX = 96                              # px: the long side a picture is measured at
+BIN_BITS = 3                                 # bits kept of each channel when colours are counted
+PAIR_H = 600                                 # px: the height of a pair's pictures
+
+# The commonest colours of every img[data-measure], as swatches under it and in window.palettes, on load
+# A file: picture taints the canvas, so the pictures are data: URLs
+MEASURE_JS = """addEventListener('load', () => {
+  window.palettes = [...document.querySelectorAll('img[data-measure]')].map(img => {
+    const s = Math.min(1, %(px)d / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * s)), h = Math.max(1, Math.round(img.naturalHeight * s));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data, bins = new Map(), cut = 8 - %(bits)d;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;
+      const k = (d[i] >> cut) << 16 | (d[i + 1] >> cut) << 8 | d[i + 2] >> cut, b = bins.get(k) || [0, 0, 0, 0];
+      b[0] += d[i]; b[1] += d[i + 1]; b[2] += d[i + 2]; b[3]++; bins.set(k, b); n++;
+    }
+    const hex = v => Math.round(v).toString(16).padStart(2, '0').toUpperCase();
+    const top = [...bins.values()].sort((a, b) => b[3] - a[3]).slice(0, %(k)d)
+      .map(b => ({hex: '#' + hex(b[0] / b[3]) + hex(b[1] / b[3]) + hex(b[2] / b[3]), share: b[3] / n}));
+    const row = img.parentElement.querySelector('.swatches');
+    for (const t of top) {
+      const s = row.appendChild(document.createElement('span'));
+      s.style.background = t.hex; s.style.flexGrow = Math.max(t.share, 0.04);
+      s.textContent = t.hex + ' ' + (t.share < .005 ? '<1' : Math.round(t.share * 100)) + '%%';
+      s.style.color = parseInt(t.hex.slice(1, 3), 16) * .3 + parseInt(t.hex.slice(3, 5), 16) * .59
+        + parseInt(t.hex.slice(5), 16) * .11 > 140 ? '#111' : '#EEE';
+    }
+    return top;
+  });
+});""" % {"px": MEASURE_PX, "bits": BIN_BITS, "k": COLOURS}
+
+PAIR_CSS = ("html,body{margin:0;background:#202020;color:#EEE;font:14px system-ui,sans-serif}"
+            ".pair{display:flex;gap:12px;padding:12px}.side{display:flex;flex-direction:column;gap:8px}"
+            "figure{margin:0;display:flex;flex-direction:column;gap:4px}"
+            "img{object-fit:contain;display:block}"
+            ".swatches{display:flex;height:22px;font-size:11px;line-height:22px;overflow:hidden}"
+            ".swatches span{padding:0 3px;white-space:nowrap;overflow:hidden}")
+
+
+def references(root: Path) -> tuple[list[Path], list[Path]]:
+    """The user's reference pictures in art/references/ by name, and the files there that are no picture this
+    script can measure."""
+    folder = root / REFERENCES
+    files = sorted(p for p in folder.iterdir() if p.is_file()) if folder.is_dir() else []
+    return ([p for p in files if p.suffix.lower() in REFERENCE_TYPES],
+            [p for p in files if p.suffix.lower() not in REFERENCE_TYPES])
+
+
+def data_url(path: Path) -> str:
+    kind = REFERENCE_TYPES[path.suffix.lower()]
+    return f"data:{kind};base64,{base64.b64encode(path.read_bytes()).decode()}"
+
+
+def png_size(path: Path) -> tuple[int, int]:
+    """Width and height from a PNG's header."""
+    return struct.unpack(">II", path.read_bytes()[16:24])
+
+
+def measure_page(sides: list[list[tuple[str, Path]]], w: int, h: int) -> str:
+    """A page with the pictures of each side in a column, (caption, file) each, fitted together into a box w x h
+    px with the colours measured from each under it."""
+    def side(pictures: list[tuple[str, Path]]) -> str:
+        each = (h - 30 * (len(pictures) - 1)) // len(pictures)
+        return "<div class=\"side\">" + "".join(
+            f"<figure><img data-measure src=\"{data_url(file)}\" style=\"width:{w}px;height:{each}px\">"
+            f"<div class=\"swatches\"></div><figcaption>{html_text(caption)}</figcaption></figure>"
+            for caption, file in pictures) + "</div>"
+    return (f"<!doctype html><html><head><meta charset=\"utf-8\"><style>{PAIR_CSS}</style>"
+            f"<script>{MEASURE_JS}</script></head><body><div class=\"pair\">{''.join(map(side, sides))}</div>"
+            f"</body></html>")
+
+
+def html_text(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def measure(renderer: Renderer, sides: list[list[tuple[str, Path]]], name: str, w: int, h: int) -> tuple[bytes, list]:
+    """The page of measure_page() as a PNG, and the colours measured from each picture, in the order of the
+    pictures: [{"hex", "share"}, ...] each."""
+    shot = renderer.shot(measure_page(sides, w, h), name, len(sides) * (w + 12) + 12)
+    return shot, renderer.page.evaluate("window.palettes")
+
+
+def reference_pair(renderer: Renderer, refs: list[Path], shot: Path, caption: str) -> tuple[bytes, list, list]:
+    """The user's references on the left and a screenshot on the right, each fitted into a box of the screenshot's
+    shape PAIR_H px high: the pair as a PNG, the colours measured from each reference, and from the screenshot."""
+    sw, sh = png_size(shot)
+    w = round(PAIR_H * sw / sh)
+    sides = [[(f"reference: {p.name}", p) for p in refs], [(caption, shot)]]
+    data, palettes = measure(renderer, sides, "pair-" + re.sub(r"[^\w-]+", "-", caption), w, PAIR_H)
+    return data, palettes[:-1], palettes[-1]
+
+
+def colours(palette: list[dict]) -> str:
+    """Measured colours as the scripts print them: #RRGGBB and its share, commonest first."""
+    return ", ".join(f"{c['hex']} {c['share']:.0%}" if c["share"] >= 0.005 else f"{c['hex']} <1%" for c in palette)
+
+
 def pixels_of(data: bytes, pixel_art: bool) -> tuple[int, int, list[tuple]]:
     w, h, px = c3.png_rgba(data)
     if pixel_art:
