@@ -67,7 +67,6 @@ import ast
 import fnmatch
 import json
 import re
-import struct
 import sys
 from pathlib import Path
 
@@ -81,16 +80,7 @@ import c3project as c3
 
 def painted_mark(path: Path) -> bool:
     """Whether the PNG carries the text chunk scripts/art.py writes into a picture."""
-    data = path.read_bytes()
-    pos = 8
-    while pos + 8 <= len(data):
-        n, tag = struct.unpack(">I", data[pos:pos + 4])[0], data[pos + 4:pos + 8]
-        if tag == b"tEXt" and data[pos + 8:pos + 8 + n].startswith(b"c3-art\0"):
-            return True
-        if tag == b"IDAT":
-            return False
-        pos += 12 + n
-    return False
+    return "c3-art" in c3.png_text(path.read_bytes())
 
 
 def check_alpha(root: Path, painted: list[str], out: list[str], soft: bool = False) -> int:

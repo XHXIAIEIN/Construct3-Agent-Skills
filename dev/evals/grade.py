@@ -1971,7 +1971,25 @@ def grade_card_game_art(run: Path) -> list[tuple[bool, str]]:
     cards = sorted(rel for rel in items if re.search(r"card", rel, re.I) and items[rel]["kind"] != "scene")
     results.append(drawn_as_svg(project, enemies + cards))
     results.append(no_pixel_scripts(project))
+    results.append(looked_no(project, (4, 6)))
     return results
+
+
+def looked_no(project: Path, questions: tuple[int, ...]) -> tuple[bool, str]:
+    """Whether the run's reply to the brief of review_look.py, beside the brief, answers each of `questions` no on
+    every picture of the brief, read as review_look.py --reply reads it."""
+    folder = project / ".tmp" / "scripts" / "review-look"
+    reply, result = folder / "shots" / "reply.md", folder / "result.json"
+    if not (reply.is_file() and result.is_file()):
+        return False, f"no reply to the look review's brief in {folder}: the run did not have the look judged"
+    import review_look as rl
+    _, _, verdict = rl.check_reply(json.loads(result.read_text(encoding="utf-8")), reply.read_text(encoding="utf-8"),
+                                   str(reply), None)
+    # Each yes reads "<picture> <question>, <tier> - <what>"
+    yeses = [y for y in verdict["yeses"] + verdict["before"] if int(y.split(",")[0].rsplit(" ", 1)[1]) in questions]
+    return verdict["complete"] and not yeses, (f"yes to {', '.join(yeses)}" if yeses else
+                                               f"every answer to questions {questions} no" if verdict["complete"] else
+                                               "the reply leaves answers out")
 
 
 GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_load_errors,

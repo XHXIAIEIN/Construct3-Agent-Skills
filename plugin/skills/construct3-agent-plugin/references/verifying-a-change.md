@@ -221,12 +221,15 @@ new yes the step passes, and its `ok:` line names each yes left and each
 fragile finding, for the hand-over to give with each fix in three parts:
 before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
 a finding of it stops the step before the review. When `scripts/art.py`
-has written a contact sheet of the game's pictures, the brief shows it
-after the screenshots, under the same questions. When there are references,
+has written a contact sheet of the game's pictures, the brief shows its
+pages after the screenshots, under the same questions. When there are references,
 the brief names a pair picture, `<layout>@reference.png`, beside each
 screenshot that has references, and the run prints the colours measured on
-each side. A yes to that question is fixed in `PALETTE`, `ART_STYLE` and
-the drawings, toward the references' colours. A question answered from
+each side. When the user picked a look with `scripts/pick_look.py`, the
+pair picture of the layout the game starts on also holds `art/look.png`, under a
+question of its own. A yes to either question is fixed in `PALETTE`,
+`ART_STYLE` and the drawings, toward the references' colours or the picked
+look. A question answered from
 memory of the events, not from the picture, is not answered.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up

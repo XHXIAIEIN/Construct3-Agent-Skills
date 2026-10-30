@@ -127,7 +127,8 @@ chose on 2026-10-30 (`art-entry-point.md` gives the entry point):
 - Pixel art draws `pixels()` on the grid at the game's size with
   `crispEdges`, in roles alone, and no texture.
 - `art.py` writes a contact sheet of every picture at its size and
-  enlarged. The `construct3:art-drawer` sub-agent reads it against five
+  enlarged, in pages (`contact-sheet-pages.md`). The
+  `construct3:art-drawer` sub-agent reads it against five
   questions before it returns (`art-drawer-agent.md`), and the look review
   shows it after the screenshots under the same questions.
 

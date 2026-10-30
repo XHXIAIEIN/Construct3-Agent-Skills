@@ -69,6 +69,14 @@ Option 3, manifest rule `look.references`.
   question 8, an ugly yes. In a generated game whose `USER_LOOK` is empty,
   the user picked paper and ink over the references, so the script makes no
   pair and says why.
+- When the user picked a look with `pick_look.py`, `art/look.png` goes
+  into the pair picture of the layout the game starts on, after the
+  references, with its colours measured. `art/look.png` is the first play
+  screen drawn in the picked direction. One more question, also an ugly
+  yes, asks whether the screenshot differs from it in its colours, light,
+  rendering, outlining, proportions or view, and a yes names where. The
+  question holds the built screen to the look the user chose. It is also
+  asked when the user gave the look in words alone.
 - A yes to question 8 is marked new or before like any other
   (`look-blocks-only-what-the-change-brought.md`), so a change that leaves
   the drift as it was fails nothing.

@@ -24,7 +24,9 @@ A run runs tools/drawings.py when it is there, renders every drawing newer than
 its picture, fits every picture of art/raw/ newer than its fitted copy, runs
 tools/build_project.py when it wrote a picture, so that art() takes them, and
 writes a contact sheet of every picture at its size and enlarged, on the
-game's canvas, frames of one object side by side: .tmp/scripts/art/contact.png.
+game's canvas, frames of one object side by side, in pages of at most
+1600x2240 px that a model reads without scaling them down:
+.tmp/scripts/art/contact-N.png, N from 1.
 
 When drawings are still to make, it writes .tmp/scripts/art/brief.md, the
 whole task of the construct3:art-drawer sub-agent: the pictures, the kit, the
@@ -72,6 +74,9 @@ SIZE = re.compile(r"<svg\b[^>]*?\bwidth=\"(\d+(?:\.\d+)?)\"[^>]*?\bheight=\"(\d+
 SCALE = 4                                    # the contact sheet's largest enlargement; a small picture is at least doubled
 LARGE = 256                                  # px: a picture larger than this shows once, without its enlargement
 SHEET_W = 1600                               # px: the contact sheet's width
+PAGE_H = 2240                                # px: the most a page of the contact sheet is high
+# Claude scales an image down above 2576 px on its long side or 4784 tiles of 28 px; 1600x2240 is 4640 tiles
+HEADING_H = 160                              # px: room for an object's heading above a scene on its page
 RENDER_WAIT = 10                             # seconds a drawing may take to render
 EDGE_CONTRAST = 3                            # art.contrast: what the edge of a picture reads against the canvas
 EDGE_SHARE = 0.5                             # the share of the edge that must read so
@@ -141,6 +146,19 @@ class Renderer:
 
     def shot(self, html: str, name: str, w: int, h: int | None = None) -> bytes:
         """The page as a PNG, `w` px wide and `h` high, or as high as the page with h None."""
+        h = self.load(html, name, w, h)
+        return self.capture(w, 0, h)
+
+    def pages(self, html: str, name: str, w: int, tall: int) -> list[bytes]:
+        """The page as PNGs `w` px wide and at most `tall` high, cut between its headings and figures."""
+        height = self.load(html, name, w)
+        blocks = self.page.evaluate(
+            "[...document.querySelectorAll('h2, figure')].map(e => { const r = e.getBoundingClientRect(); "
+            "return [Math.floor(r.top + scrollY), Math.ceil(r.bottom + scrollY), e.tagName == 'H2']; })")
+        return [self.capture(w, top, bottom - top) for top, bottom in page_spans(blocks, height, tall)]
+
+    def load(self, html: str, name: str, w: int, h: int | None = None) -> int:
+        """Loads the page `w` px wide and `h` high, or as high as the page with h None; returns its height."""
         path = self.folder / "render" / f"{name}.html"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(html, encoding="utf-8")
@@ -159,8 +177,12 @@ class Renderer:
             h = int(self.page.evaluate("Math.ceil(document.documentElement.scrollHeight)"))
             self.page.call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1,
                            mobile=False)
+        return h
+
+    def capture(self, w: int, top: int, h: int) -> bytes:
+        """The loaded page's rows top to top + h as a PNG."""
         shot = self.page.call("Page.captureScreenshot", format="png", captureBeyondViewport=True,
-                              clip={"x": 0, "y": 0, "width": w, "height": h, "scale": 1})
+                              clip={"x": 0, "y": top, "width": w, "height": h, "scale": 1})
         return base64.b64decode(shot["data"])
 
     def close(self) -> None:
@@ -257,12 +279,14 @@ def measure(renderer: Renderer, sides: list[list[tuple[str, Path]]], name: str, 
     return shot, renderer.page.evaluate("window.palettes")
 
 
-def reference_pair(renderer: Renderer, refs: list[Path], shot: Path, caption: str) -> tuple[bytes, list, list]:
-    """The user's references on the left and a screenshot on the right, each fitted into a box of the screenshot's
-    shape PAIR_H px high: the pair as a PNG, the colours measured from each reference, and from the screenshot."""
+def reference_pair(renderer: Renderer, refs: list[tuple[str, Path]], shot: Path,
+                   caption: str) -> tuple[bytes, list, list]:
+    """The user's references, (caption, file) each, on the left and a screenshot on the right, each fitted into a
+    box of the screenshot's shape PAIR_H px high: the pair as a PNG, the colours measured from each reference, and
+    from the screenshot."""
     sw, sh = png_size(shot)
     w = round(PAIR_H * sw / sh)
-    sides = [[(f"reference: {p.name}", p) for p in refs], [(caption, shot)]]
+    sides = [refs, [(caption, shot)]]
     data, palettes = measure(renderer, sides, "pair-" + re.sub(r"[^\w-]+", "-", caption), w, PAIR_H)
     return data, palettes[:-1], palettes[-1]
 
@@ -465,6 +489,32 @@ def objects(items: list[dict]) -> dict[str, list[dict]]:
     return out
 
 
+def page_spans(blocks: list[list], height: int, tall: int) -> list[tuple[int, int]]:
+    """The (top, bottom) rows of each page, at most `tall` px high, of a contact sheet `height` px high, from its
+    blocks [top, bottom, is_heading]. A page ends halfway between two rows of blocks, and a heading stays with
+    the row under it."""
+    bands: list[list] = []
+    for top, bottom, heading in sorted(blocks):
+        if bands and (top < bands[-1][1] or bands[-1][2]):
+            bands[-1] = [bands[-1][0], max(bands[-1][1], bottom), heading]
+        else:
+            bands.append([top, bottom, heading])
+    cuts = [(a[1] + b[0]) // 2 for a, b in zip(bands, bands[1:])] + [height]
+    spans, start, last = [], 0, 0
+    for cut in cuts:
+        if cut - start > tall and last > start:
+            spans.append((start, last))
+            start = last
+        last = cut
+    return spans + [(start, height)]
+
+
+def sheet_pages(root: Path) -> list[Path]:
+    """The pages of the contact sheet, in order."""
+    folder = c3.script_folder(root, FOLDER)
+    return sorted(folder.glob("contact-[0-9]*.png"), key=lambda p: int(p.stem.split("-")[1]))
+
+
 def contact_page(root: Path, wanted: dict, done: list[dict]) -> str:
     roles = hexes(wanted["palette"])
     pixel = "image-rendering:pixelated;" if wanted["pixel_art"] else ""
@@ -474,8 +524,8 @@ def contact_page(root: Path, wanted: dict, done: list[dict]) -> str:
         for item in items:
             src = (root / "art" / item["file"]).as_uri()
             w, h = item["width"], item["height"]
-            if max(w, h) > LARGE:                  # a scene or a panel: once, at most the sheet's half width
-                f = min(1, SHEET_W / 2 / w)
+            if max(w, h) > LARGE:                  # a scene or a panel: once, at most half the sheet's width
+                f = min(1, SHEET_W / 2 / w, (PAGE_H - HEADING_H) / h)
                 shown = f"<img src=\"{src}\" width=\"{round(w * f)}\" height=\"{round(h * f)}\" style=\"{pixel}\">"
             else:
                 k = max(2, min(SCALE, 512 // max(w, h)))
@@ -502,7 +552,7 @@ LOOK = (
 )
 
 
-def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path | None) -> str:
+def brief(root: Path, wanted: dict, items: list[dict], skill: str) -> str:
     lines = [
         "# Draw the art of a Construct 3 game as SVG",
         "",
@@ -535,9 +585,9 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path |
         "- Fill most of the box: a picture is fitted to nothing, it is the box.",
         "",
         f"Then run python {skill}/scripts/art.py --project {root.as_posix()}, which runs your script, renders the "
-        f"drawings, runs the generator and writes the contact sheet"
-        + (f" {sheet.as_posix()}" if sheet else "") + ". Open the contact sheet with the Read tool and answer each "
-        "question below, yes or no:",
+        f"drawings, runs the generator and writes the contact sheet as pages "
+        f"{(c3.script_folder(root, FOLDER) / 'contact-N.png').as_posix()}, N from 1, which its output lists. Open "
+        f"every page with the Read tool and answer each question below, yes or no, over all the pages together:",
         *(f"{i}. {q}" for i, q in enumerate(LOOK, 1)),
         "",
         "Fix every yes in the drawings and run art.py again: three rounds at most. Reply with the questions still "
@@ -571,13 +621,14 @@ def table(rows: list[tuple[str, str, str, str]]) -> list[str]:
 NEXT = {"draw": "draw art/{stem}.svg", "redraw": "draw art/{stem}.svg again, as its line above says",
         "render": "run art.py", "make": "make art/raw/{stem}.png, prompt below",
         "again": "make art/raw/{stem}.png again, prompt below", "prepare": "run art.py",
+        "restyle": "make art/raw/{stem}.png again, its prompt changed; prompt below",
         "stand-in": "keeps its stand-in: change its subject in art() to try again", "done": "-"}
 
 
 def states(root: Path, wanted: dict) -> dict[str, str]:
     refused = image_route.refusals(root, wanted)
-    return {item["file"]: (svg_state if item.get("route") == "svg" else image_route.state)(root, item, refused)
-            for item in wanted["images"]}
+    return {item["file"]: svg_state(root, item, refused) if item.get("route") == "svg"
+            else image_route.state(root, item, refused, wanted) for item in wanted["images"]}
 
 
 def main() -> int:
@@ -649,7 +700,7 @@ def main() -> int:
             finally:
                 renderer.close()
         raw = [item for item in wanted["images"] if item.get("route") != "svg"
-               and image_route.state(root, item, refused) == "prepare"]
+               and image_route.state(root, item, refused, wanted) == "prepare"]
         if raw:
             try:
                 import PIL  # noqa: F401
@@ -660,7 +711,7 @@ def main() -> int:
                 lines, ok = image_route.fit(root, item, wanted, refused)
                 out += lines
                 wrote += ok
-                failed += not ok and image_route.state(root, item, refused) != "stand-in"
+                failed += not ok and image_route.state(root, item, refused, wanted) != "stand-in"
         image_route.keep_refusals(root, refused)
         if wrote:
             ran, last = run_generator(root)
@@ -674,29 +725,32 @@ def main() -> int:
     out += table(rows)
     images = [item for item in wanted["images"] if item.get("route") != "svg"]
     prompts = []
-    if any(now[item["file"]] in ("make", "again") for item in images):
+    if any(now[item["file"]] in ("make", "again", "restyle") for item in images):
         (root / "art" / "raw").mkdir(parents=True, exist_ok=True)      # where the pictures are saved
         prompts = image_route.list_prompts(root, {**wanted, "images": images}, skill)
         out += prompts[:-1]
     done = [item for item in wanted["images"] if now[item["file"]] == "done"]
     folder = c3.script_folder(root, FOLDER)
-    sheet = folder / "contact.png"
     if done and wrote:
         import open_in_editor as oe
         exe = args.browser or oe.browser_path()
-        sheet.unlink(missing_ok=True)
+        for old in folder.glob("contact*.png"):
+            old.unlink()
         folder.mkdir(parents=True, exist_ok=True)
         if exe:
             try:
                 renderer = Renderer(root, exe)
                 try:
-                    sheet.write_bytes(renderer.shot(contact_page(root, wanted, done), "contact", SHEET_W))
+                    for n, data in enumerate(renderer.pages(contact_page(root, wanted, done), "contact", SHEET_W,
+                                                            PAGE_H), 1):
+                        (folder / f"contact-{n}.png").write_bytes(data)
                 finally:
                     renderer.close()
             except (oe.DevToolsError, OSError) as e:
                 out.append(f"contact sheet: not made, {Path(exe).name} could not be driven: {e}")
-    if done and sheet.exists():
-        out.append(f"contact sheet: {sheet}")
+    sheets = sheet_pages(root) if done else []
+    if sheets:
+        out.append(f"contact sheet: {len(sheets)} page{'s' * (len(sheets) > 1)}, " + ", ".join(map(str, sheets)))
     fix, kept = counted(root, look_findings(root, wanted, done)) if done else ([], [])
     out += fix + kept
     drawings = [item for item in wanted["images"] if item.get("route") == "svg"
@@ -710,7 +764,7 @@ def main() -> int:
     elif drawings:
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "brief.md").write_text(brief(root, wanted, [i for i in wanted["images"] if i.get("route") == "svg"],
-                                               skill, sheet), encoding="utf-8")
+                                               skill), encoding="utf-8")
         out.append(f"{count}; next: start a construct3:art-drawer sub-agent with {folder / 'brief.md'} as its whole "
                    f"task, or draw them as that brief says yourself; then run {c3.script_command(root, 'art.py')}")
     elif prompts:
@@ -723,7 +777,7 @@ def main() -> int:
     else:
         kept = counts.get("stand-in", 0)
         out.append(f"ok: {counts.get('done', 0)} pictures from art/" + (f", {kept} keep their stand-in" if kept else "")
-                   + (f"; read the contact sheet {sheet}" if done and sheet.exists() else ""))
+                   + ("; read every page of the contact sheet, listed above" if sheets else ""))
     shown = c3.fitting(out, args.limit)
     for line in out[:shown]:
         print(line)

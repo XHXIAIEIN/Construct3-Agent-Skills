@@ -1461,6 +1461,24 @@ def test_make_fixtures_lays_out_the_checker_fix_seeds(tmp_path: Path) -> None:
                   if a.get("callFunction") == "Pulse") == ['["0"]', "[true]"]
 
 
+def test_the_look_judges_reply_beside_the_brief_grades_the_art_questions(tmp_path):
+    """card-game-art's last assertion reads the run's reply to review_look.py's brief: a yes to question 4 or 6 on
+    a screenshot or a page of the art sheet fails it, a yes to another question does not, and no reply fails it."""
+    folder = tmp_path / ".tmp" / "scripts" / "review-look"
+    assert grader.looked_no(tmp_path, (4, 6)) == (False, f"no reply to the look review's brief in {folder}: the run "
+                                                         f"did not have the look judged")
+    (folder / "shots").mkdir(parents=True)
+    (folder / "result.json").write_text(json.dumps({"places": [], "art_sheets": ["c-1.png", "c-2.png"], "preview": {
+        "layouts": [{"layout": "Battle", "shot": "Battle.png"}]}}), encoding="utf-8")
+    pictures = ["Battle", "Art sheet 1", "Art sheet 2"]
+    answers = {f"{p} {q}": "no" for p in pictures for q in range(1, 8)}
+    for changed, ok in (({}, True), ({"Battle 5": "yes - the backdrop: a glow"}, True),
+                        ({"Art sheet 2 6": "yes - the bat and the slime: one shape"}, False)):
+        reply = {**answers, **changed}
+        (folder / "shots" / "reply.md").write_text("\n".join(f"{k}: {v}" for k, v in reply.items()), encoding="utf-8")
+        assert grader.looked_no(tmp_path, (4, 6))[0] is ok, (changed, grader.looked_no(tmp_path, (4, 6)))
+
+
 def test_the_look_of_the_references_is_missing_from_the_fixture_and_read_from_its_colours(
         tmp_path: Path, generated: Callable) -> None:
     """On the fixture as laid out the checker and the rerun pass, and the plum, the amber, the ink outline and

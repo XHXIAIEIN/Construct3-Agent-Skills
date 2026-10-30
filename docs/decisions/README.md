@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [The Contact Sheet Comes in Pages a Model Reads at Their Own Size](contact-sheet-pages.md) — 2026-10-31
 - [Emil Kowalski's Other Skills Checked Against a Game Screen](emil-skills-for-a-game-screen.md) — 2026-10-31
 - [An Export Passes Only When Its Game Boots](export-boots-the-game.md) — 2026-10-31
 - [The Game's Look: What impeccable Adds to the Review and the Manifest](look-from-impeccable.md) — 2026-10-31

@@ -505,14 +505,20 @@ def test_review_look_finds_a_label_or_glyph_off_the_centre_of_its_face():
 
 
 def test_the_brief_asks_about_the_art_sheet_after_the_screenshots():
-    """The contact sheet of art.py is one more picture under the same questions, last, and a reply must answer it."""
+    """Each page of the contact sheet of art.py is one more picture under the same questions, last, and a reply
+    must answer every page."""
     result = {"preview": {"layouts": [{"layout": "Game", "shot": "shots/Game.png"}]}, "places": [],
-              "art_sheet": "art/contact.png"}
+              "art_sheets": ["art/contact-1.png", "art/contact-2.png"]}
     text = rl.brief(result)
-    assert "1. Game: shots/Game.png\n2. Art sheet: art/contact.png" in text
-    assert "The last picture, Art sheet, is no screenshot" in text
-    lines, _, verdict = rl.check_reply(result, "\n".join(f"Game {q}: no" for q in range(1, 8)), "r.md", None)
-    assert "  missing: Art sheet 1-7" in lines and not verdict["complete"], lines
+    assert "1. Game: shots/Game.png\n2. Art sheet 1: art/contact-1.png\n3. Art sheet 2: art/contact-2.png" in text
+    assert "The last pictures, Art sheet 1 to Art sheet 2, are no screenshots" in text
+    reply = [f"Game {q}: no" for q in range(1, 8)] + [f"Art sheet 1 {q}: no" for q in range(1, 8)]
+    lines, _, verdict = rl.check_reply(result, "\n".join(reply), "r.md", None)
+    assert "  missing: Art sheet 2 1-7" in lines and not verdict["complete"], lines
+    lines, _, verdict = rl.check_reply(result, "\n".join(reply + ["Art sheet 2 4: yes - the bat: drawn in another "
+                                                                  "line weight"] + [f"Art sheet 2 {q}: no" for q in
+                                                                                    (1, 2, 3, 5, 6, 7)]), "r.md", None)
+    assert verdict["complete"] and verdict["yeses"] == ["Art sheet 2 4, ugly - the bat: drawn in another line weight"]
 
 
 def test_each_finding_has_a_tier_and_only_broken_and_ugly_ones_fail():
@@ -612,6 +618,9 @@ def test_each_reference_goes_with_the_layout_it_is_named_after_or_with_the_start
     assert rl.paired(refs, layouts, "Title") == {"Title": [refs[0]], "Map": [refs[1]], "Level:2": [refs[2]]}
     assert rl.paired(refs[:1], layouts, "Gone") == {"Title": [refs[0]]}
     assert rl.paired(refs, [], "Title") == {}
+    look = tmp_path / "look.png"
+    assert rl.paired(refs[:1], layouts, "Title", look) == {"Title": [refs[0], look]}
+    assert rl.paired([], layouts, "Map", look) == {"Map": [look]}
 
 
 PAIRED = {"places": [], "brief": ".tmp/look/brief.md", "preview": {"started": True, "errors": [], "layouts": [
@@ -627,7 +636,7 @@ def test_a_screenshot_with_references_shows_its_pair_and_asks_whether_it_looks_l
     colours measured on each side printed under the screenshot's line."""
     text = rl.brief(PAIRED)
     assert "1. Game: .tmp/look/Game.png (pair picture: .tmp/look/Game@reference.png)\n" in text
-    assert f"Question {rl.REFERENCE_AT} asks about the look alone" in text
+    assert "Question 8 asks about the look of the references alone" in text and rl.PICKED not in text
     assert f"{len(rl.QUESTIONS) + 1}. {rl.REFERENCE}\n" in text
     assert rl.question_tiers(False, [], True)[-1] == "ugly" and len(rl.questions(False, [], True)) == 8
     reply = "\n".join(f"Game {q}: no" for q in range(1, 8)) + "\nGame 8: yes - whole screen: green, not warm paper"
@@ -653,3 +662,32 @@ def test_a_game_that_took_paper_and_ink_over_the_references_gets_no_pair():
     assert any(line.startswith("reference: USER_LOOK is empty, so the game takes paper and ink, and no pair picture "
                                "is made for the 2 pictures in art/references/") for line in lines), lines
     assert not any(rl.REFERENCE in line for line in lines)
+
+
+def test_the_picked_look_goes_beside_the_first_play_screen_under_a_question_of_its_own():
+    """art/look.png, the first play screen in the look the user picked, is in the pair picture of the start layout's
+    screenshot, and one more question asks where the screenshot differs from it; a yes is fixed in the look."""
+    picked = {**PAIRED, "references": {"Game": {
+        "pair": ".tmp/look/Game@reference.png", "colours": [{"hex": "#57AA54", "share": 0.85}],
+        "references": [{"file": "art/references/market.jpg", "colours": [{"hex": "#F3E9D5", "share": 0.53}]},
+                       {"file": "art/look.png", "colours": [{"hex": "#202830", "share": 0.6}], "picked": True}]}}}
+    assert rl.compared(picked) == (True, True)
+    text = rl.brief(picked)
+    assert f"8. {rl.REFERENCE}\n9. {rl.PICKED}\n" in text
+    assert "captioned picked look" in text and "Question 9 asks about the look of the picked look alone" in text
+    assert rl.question_tiers(False, [], *rl.compared(picked))[-2:] == ["ugly", "ugly"]
+    reply = "\n".join([f"Game {q}: no" for q in range(1, 9)] + ["Game 9: yes - the cards: soft shading, flat in the look"])
+    lines, code, verdict = rl.check_reply(picked, reply, "r.md", None)
+    assert code == 1 and verdict["yeses"] == ["Game 9, ugly - the cards: soft shading, flat in the look"], lines
+    assert ("  a yes to question 9 is fixed in the look, not in one object: PALETTE, ART_STYLE and the drawings, "
+            "toward the picked look, art/look.png") in lines
+    lines = rl.report({"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e",
+                       "warnings": [], **picked})
+    assert ("  reference: pair picture .tmp/look/Game@reference.png, the user's references and the picked look "
+            "beside the screenshot") in lines and "    colours of the picked look look.png: #202830 60%" in lines
+    assert lines[-1] == f"  9. {rl.PICKED}" and rl.PICKED.isascii()
+
+    alone = {**picked, "references": {"Game": {**picked["references"]["Game"],
+                                               "references": picked["references"]["Game"]["references"][1:]}}}
+    assert rl.compared(alone) == (False, True) and rl.questions(False, [], *rl.compared(alone))[-1] == rl.PICKED
+    assert rl.REFERENCE not in rl.brief(alone)
