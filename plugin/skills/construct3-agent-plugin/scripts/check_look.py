@@ -28,7 +28,8 @@ layouts and event sheets the editor would load and checks:
                         hit_flash(). A rule of paper and ink, the fallback
                         look, so not checked when USER_LOOK in
                         tools/build_project.py names a look the user gave
-  motion.squash-art     a squash, a size set to a share of the image's size,
+  motion.squash-art     a squash, a size set to a share of the rest size that
+                        the template's squash() keeps or of the image's size,
                         acts on the drawn art, not on an object whose
                         behavior collides
   motion.panel-from-zero
@@ -44,7 +45,7 @@ layouts and event sheets the editor would load and checks:
   motion.hud-ease-in    a warning: a HUD object fades in with an ease-in;
                         a fader or a dim that covers the viewport is left out
   motion.size-on-dying  a warning: an object that a size tween destroys is
-                        squashed back to its image size by another event,
+                        squashed back to its rest size by another event,
                         whose size tween stops the destroying one
   screen.fill           a warning, not a finding: the project fills the
                         screen, Scale outer or Integer scale outer, not a
@@ -211,6 +212,8 @@ def rule_value(rule: str, **view: int):
 
 # The behaviors that make an object collide, so a squash of its size moves its collision box.
 COLLIDING = rule_value("motion.squash-art")
+# The size a squash starts from and returns to: the rest size that squash() keeps, or the image's
+REST_SIZE = re.compile(r"\b(ImageWidth|ImageHeight|restWidth|restHeight)\b")
 
 
 def colliding_items(root: Path) -> dict[str, list[str]]:
@@ -231,7 +234,7 @@ def check_squash(root: Path, out: list[str]) -> None:
         sheet = c3.load(path)
         for a in actions_of(sheet.get("events", [])):
             obj = a.get("objectClass")
-            if a.get("id") == "set-size" and obj in colliding and "ImageWidth" in str(a.get("parameters", {})):
+            if a.get("id") == "set-size" and obj in colliding and REST_SIZE.search(str(a.get("parameters", {}))):
                 out.append(f"motion.squash-art: sheet {sheet.get('name', path.stem)}: {obj} is squashed but has "
                            f"{', '.join(colliding[obj])}, so its collision box grows into the floor; squash its art, "
                            f"a second object drawn with shape(..., oy=1) and pinned to {obj}")
@@ -304,7 +307,7 @@ def check_motion(root: Path, out: list[str], warned: list[str]) -> int:
     for path in json_files(root, "eventSheets"):
         sheet = c3.load(path)
         name = sheet.get("name", path.stem)
-        # object: (size property, action list) of a tween that destroys it, and of a tween back to its image size
+        # object: (size property, action list) of a tween that destroys it, and of a tween back to its rest size
         dying: dict[str, set[tuple[str, int]]] = {}
         squashed: dict[str, set[tuple[str, int]]] = {}
         for n, (conds, acts, above) in enumerate(action_lists(sheet.get("events", []))):
@@ -334,7 +337,7 @@ def check_motion(root: Path, out: list[str], warned: list[str]) -> int:
                 if prop in SIZE_PROPERTIES:
                     if p.get("destroy-on-complete") == "yes":
                         dying.setdefault(obj, set()).add((prop, n))
-                    elif ("Image" in str(p.get("end-value", "")) + str(p.get("end-x", ""))
+                    elif (REST_SIZE.search(str(p.get("end-value", "")) + str(p.get("end-x", "")))
                           and not any(c.get("id") in FRESH for c in conds)
                           and not any(params_of(b).get(CREATES.get(b.get("id"), "")) == obj for b in before)):
                         squashed.setdefault(obj, set()).add((prop, n))
@@ -360,7 +363,7 @@ def check_motion(root: Path, out: list[str], warned: list[str]) -> int:
         for obj in sorted(dying):
             for prop in sorted({p for p, n in dying[obj] for q, m in squashed.get(obj, ()) if q == p and m != n}):
                 warned.append(f"warning: motion.size-on-dying: sheet {name}: {obj} is destroyed by a {prop} tween, "
-                              f"and another event tweens its {prop} back to its image size. A {prop} tween stops "
+                              f"and another event tweens its {prop} back to its rest size. A {prop} tween stops "
                               f"the one running on that property, which then never destroys the instance; destroy it "
                               f"with a Timer or a Wait, or keep the squash off a dying instance")
     return read

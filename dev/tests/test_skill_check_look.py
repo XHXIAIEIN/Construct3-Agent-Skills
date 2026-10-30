@@ -125,5 +125,5 @@ def test_check_look_names_the_motion_that_breaks_the_hud_or_a_tween(project):
             "the number it shows, without Stop 'count' first") in out
     assert out.count("motion.value-restart") == 1                   # the count after its Stop passes
     assert ("warning: motion.size-on-dying: sheet Game: Coin is destroyed by a size tween, and another event "
-            "tweens its size back to its image size") in out
+            "tweens its size back to its rest size") in out
     assert out.splitlines()[-1].startswith("2 findings:"), out

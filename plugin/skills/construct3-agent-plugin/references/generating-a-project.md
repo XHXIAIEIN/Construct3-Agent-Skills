@@ -419,9 +419,12 @@ parameters are in the template.
 - A hit shows as a colour: `hit_frame(file)` draws the shape's second frame
   in the `flash` role, tagged `hit`, and `hit_flash(obj)` gives the actions
   that show it for `HIT_FLASH["seconds"]` and return to frame 0.
-  `squash(obj, kind)` sets the share of the image's size that `SQUASH`
+  `squash(obj, kind)` sets the share of the object's rest size that `SQUASH`
   gives for `"hit"`, `"land"` or `"jump"`, and `SQUASH_PRESS` for `"press"`
-  unless `SQUASH` has one, holds it and tweens back, and `hit(obj)` gives
+  unless `SQUASH` has one, holds it and tweens back. The rest size is the
+  size the instance has when its first squash starts, kept in its instance
+  variables `restWidth` and `restHeight`, so a size the user sets in the
+  layout editor stays. `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
   `Collect` does; the object needs the Tween behavior. In paper and ink the
   Flash behavior stops the run (`motion.hit`). A squash acts on the art,

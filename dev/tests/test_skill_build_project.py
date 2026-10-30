@@ -351,9 +351,12 @@ def test_template_measures_a_gap_against_the_players_reach():
 
 def test_stand_in_project_holds_a_string_variable_as_the_editor_writes_it(built):
     coin = json.loads((built / "objectTypes" / "Coin.json").read_text(encoding="utf-8"))
-    assert [(v["name"], v["type"]) for v in coin["instanceVariables"]] == [("value", "number"), ("kind", "string")]
+    # restWidth and restHeight are the rest size that the coin's hit() squashes from
+    assert [(v["name"], v["type"]) for v in coin["instanceVariables"]] == [
+        ("value", "number"), ("kind", "string"), ("restWidth", "number"), ("restHeight", "number")]
     objects = json.loads((built / "layouts" / "Objects.json").read_text(encoding="utf-8"))
-    assert objects["layers"][0]["instances"][0]["instanceVariables"] == {"value": 1, "kind": "gold"}
+    assert objects["layers"][0]["instances"][0]["instanceVariables"] == {"value": 1, "kind": "gold", "restWidth": 0,
+                                                                         "restHeight": 0}
 
 
 def test_stand_in_project_writes_containers_where_the_editor_reads_them(project):
@@ -1418,23 +1421,32 @@ def test_template_art_shows_the_stand_in_until_its_picture_is_there(tmp_path):
 
 
 def test_template_squashes_the_art_on_a_hit_a_landing_and_a_jump():
-    """A squash stops the one the object is in, sets a share of the image's size, holds it for a
-    jump, and tweens back under "squash"; one acting on an object that collides stops the run."""
+    """A squash stops the one the object is in, keeps the size it rests at from its first squash,
+    sets a share of that size, holds it for a jump, and tweens back to it under "squash"; one
+    acting on an object that collides stops the run."""
     t = template_module()
-    stop, squash, back = t.squash("Coin", "hit")
+    stop, note, rest_w, rest_h, squash, back = t.squash("Coin", "hit")
+    assert note["text"].startswith("Squash Coin from the size it rests at")
     assert stop == {**stop, "id": "stop-tweens", "behaviorType": "Tween", "parameters": {"tags": '"squash"'}}
-    assert squash["parameters"] == {"width": "Self.ImageWidth * 0.8", "height": "Self.ImageHeight * 1.2"}
-    assert (back["parameters"]["tags"], back["parameters"]["end-x"], back["parameters"]["time"],
-            back["parameters"]["ease"]) == ('"squash"', "Self.ImageWidth", "0.25", "easeoutback")
-    _, land, back = t.squash("PlayerArt", "land")
-    assert land["parameters"]["width"] == "Self.ImageWidth * 1.2" and back["parameters"]["ease"] == "easeoutelastic"
-    _, jump, hold, back = t.squash("PlayerArt", "jump")
+    assert [(a["id"], a["parameters"]) for a in (rest_w, rest_h)] == [
+        ("set-instvar-value", {"instance-variable": "restWidth",
+                               "value": "Self.restWidth = 0 ? Self.Width : Self.restWidth"}),
+        ("set-instvar-value", {"instance-variable": "restHeight",
+                               "value": "Self.restHeight = 0 ? Self.Height : Self.restHeight"})]
+    assert squash["parameters"] == {"width": "Self.restWidth * 0.8", "height": "Self.restHeight * 1.2"}
+    assert (back["parameters"]["tags"], back["parameters"]["end-x"], back["parameters"]["end-y"],
+            back["parameters"]["time"], back["parameters"]["ease"]) == \
+        ('"squash"', "Self.restWidth", "Self.restHeight", "0.25", "easeoutback")
+    *_, land, back = t.squash("PlayerArt", "land")
+    assert land["parameters"]["width"] == "Self.restWidth * 1.2" and back["parameters"]["ease"] == "easeoutelastic"
+    *_, jump, hold, back = t.squash("PlayerArt", "jump")
     assert (jump["parameters"]["height"], hold["parameters"]["seconds"], back["parameters"]["time"]) == \
-        ("Self.ImageHeight * 1.3", "0.2", "0.75")
+        ("Self.restHeight * 1.3", "0.2", "0.75")
     with pytest.raises(SystemExit, match=r"squash\('PlayerArt', 'spin'\): the kinds are hit, land, jump, press"):
         t.squash("PlayerArt", "spin")
     # Two events can share a squash: the actions up to the hold, and the tween back.
-    assert [a["id"] for a in t.squash("PlayerArt", "jump", half="down")] == ["stop-tweens", "set-size", "wait"]
+    assert [a.get("id") for a in t.squash("PlayerArt", "jump", half="down")] == [
+        "stop-tweens", None, "set-instvar-value", "set-instvar-value", "set-size", "wait"]
     assert [a["id"] for a in t.squash("PlayerArt", "jump", half="back")] == ["tween-two-properties"]
     with pytest.raises(SystemExit, match=r"half is both, down or back"):
         t.squash("PlayerArt", "jump", half="up")
@@ -1442,6 +1454,28 @@ def test_template_squashes_the_art_on_a_hit_a_landing_and_a_jump():
     with pytest.raises(SystemExit, match=r"squash\('Player'\): Player has Platform and collides, .* squash its art"):
         t.squash("Player", "land")
         t.squash_the_art({"Player": {"behaviorTypes": [t.beh_def("Platform"), t.beh_def("Tween")]}}, {})
+
+
+def test_template_gives_a_squashed_type_or_family_its_rest_size():
+    """build_all() gives each type or family that squash() acts on restWidth and restHeight, and
+    every instance of it, a family's members included, the value 0: no squash yet."""
+    t = template_module()
+    t.squash("Button", "press")
+    t.squash("Gems", "hit")
+    types = {name: t.sprite_type(name, []) for name in ("Button", "Ruby", "Coin")}
+    families = {"Gems": t.family("Gems", "Sprite", ["Ruby"])}
+    insts = {name: t.sprite_inst(name, 0, 0, 96, 96) for name in ("Button", "Ruby", "Coin")}
+    lay = t.layout("Menu", [t.layer("UI", parallax=0)], sheet=None)
+    lay["layers"][0]["instances"] += list(insts.values())
+    t.squash_types(types, families, {"Menu": lay})
+    t.squash_types(types, families, {"Menu": lay})
+    for item in (types["Button"], families["Gems"]):
+        assert [(v["name"], v["type"]) for v in item["instanceVariables"]] == [("restWidth", "number"),
+                                                                               ("restHeight", "number")]
+    assert types["Ruby"]["instanceVariables"] == [] and types["Coin"]["instanceVariables"] == []
+    assert insts["Button"]["instanceVariables"] == insts["Ruby"]["instanceVariables"] == {"restWidth": 0,
+                                                                                          "restHeight": 0}
+    assert insts["Coin"]["instanceVariables"] == {}
 
 
 def test_template_presses_a_button_down_while_the_finger_holds_it():
@@ -1455,13 +1489,14 @@ def test_template_presses_a_button_down_while_the_finger_holds_it():
     assert note["text"] == "Press Restart down under the finger"
     assert down["conditions"] == [{**down["conditions"][0], "id": "on-touched-object", "objectClass": "Touch",
                                    "parameters": {"object": "Restart", "type": "start"}}]
-    assert [a["id"] for a in down["actions"]] == ["set-boolean-instvar", "stop-tweens", "set-size"]
+    assert [a.get("id") for a in down["actions"]] == ["set-boolean-instvar", "stop-tweens", None, "set-instvar-value",
+                                                  "set-instvar-value", "set-size"]
     assert down["actions"][0]["parameters"] == {"instance-variable": "pressed", "value": "true"}
-    assert down["actions"][2]["parameters"] == {"width": "Self.ImageWidth * 0.9", "height": "Self.ImageHeight * 0.9"}
+    assert down["actions"][5]["parameters"] == {"width": "Self.restWidth * 0.9", "height": "Self.restHeight * 0.9"}
     assert [(c["id"], c.get("parameters")) for c in up["conditions"]] ==         [("on-any-touch-end", None), ("is-boolean-instance-variable-set", {"instance-variable": "pressed"})]
     assert up["actions"][0]["parameters"] == {"instance-variable": "pressed", "value": "false"}
     back = up["actions"][1]["parameters"]
-    assert (back["property"], back["end-x"], back["time"], back["ease"]) == ("size", "Self.ImageWidth", "0.1",
+    assert (back["property"], back["end-x"], back["time"], back["ease"]) == ("size", "Self.restWidth", "0.1",
                                                                              "easeoutsine")
     act_on_it = up["children"][0]
     assert act_on_it["conditions"][0]["id"] == "is-touching-object" and         act_on_it["conditions"][0]["parameters"] == {"object": "Restart"}
@@ -1476,7 +1511,7 @@ def test_template_presses_a_button_down_while_the_finger_holds_it():
     assert restart["instanceVariables"] == {"pressed": False} and coin["instanceVariables"] == {}
     assert types["Coin"]["instanceVariables"] == []
     t.SQUASH["press"] = {"width": 0.8, "height": 0.8, "hold": 0, "seconds": 0.2, "ease": "easeoutback"}
-    assert t.press("Restart", [])[1]["actions"][2]["parameters"]["width"] == "Self.ImageWidth * 0.8"
+    assert t.press("Restart", [])[1]["actions"][5]["parameters"]["width"] == "Self.restWidth * 0.8"
 
 
 def test_template_counts_a_number_up_from_the_number_it_shows():
@@ -1562,10 +1597,11 @@ def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     show, pause, back = t.hit_flash("Coin")
     assert (show["parameters"], back["parameters"]) == ({"frame-number": '"hit"'}, {"frame-number": "0"})
     assert pause["parameters"] == {"seconds": "0.08", "use-timescale": False}
-    assert [a["id"] for a in t.hit("Coin")] == ["stop-tweens", "set-size", "tween-two-properties",
-                                                "set-animation-frame", "wait", "set-animation-frame"]
+    assert [a.get("id") for a in t.hit("Coin")] == ["stop-tweens", None, "set-instvar-value", "set-instvar-value",
+                                                "set-size", "tween-two-properties", "set-animation-frame", "wait",
+                                                "set-animation-frame"]
     code, out = tool(built, "print_sheet")
-    assert 'Coin: Set size to (Self.ImageWidth * 0.8, Self.ImageHeight * 1.2)' in out
+    assert 'Coin: Set size to (Self.restWidth * 0.8, Self.restHeight * 1.2)' in out
     assert 'Coin: Set animation frame to "hit"' in out and "System: Wait 0.08 seconds (use time scale: False)" in out, out
     t.ROOT = tmp_path
     with pytest.raises(SystemExit, match=r"hit_frame\('ball.png'\): draw the frame first"):
