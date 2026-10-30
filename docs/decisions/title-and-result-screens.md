@@ -1,6 +1,6 @@
 # Title and Result Screens Get Their Own Type Rules
 
-Date: 2026-10-30
+Date: 2026-10-31
 
 ## Problem
 
@@ -40,40 +40,45 @@ No title image has another object drawn over 5% of it, apart from the
 screen's fades and the image's own shine. One logo draws its mascot over
 its letters inside the image.
 
-The template has no title screen. `hud_header()` names a menu or a result
-screen in `text_size("title")`: 30 pt at 1080, 3.7% of the shorter side,
-capitals 2.7%. Its largest kind, `display`, is 64 pt: 7.9%, capitals 5.7%.
-So a generated result screen's title is smaller than the largest text of
-every example result screen but one, and that one's BBCode sets a larger
-size. Every example title image's capitals are larger than `display`'s.
+The template has no title screen. `hud_header()` names a menu in
+`text_size("title")`: 30 pt at 1080, 3.7% of the shorter side, capitals
+2.7%. A result screen's title at that size is smaller than the largest
+text of every example result screen but one, and that one's BBCode sets a
+larger size. The template's largest kind, `display`, is 64 pt: 7.9% at
+1080, capitals 5.7%. Every example title image's capitals are larger.
 
 ## Options
 
-1. **Change the template.** A centred result headline in `display` and a
-   title screen helper with a name image. This changes what every
-   generated game shows, so it is a product choice for the owner.
-2. **Record the rules as proposed.** The manifest holds the evidence; the
-   template keeps its values until the user chooses.
-3. **Leave the screens alone.** The measured gap stays unrecorded.
+1. **A result headline in `display`, centred.** It falls inside the
+   examples' range, and a result screen has one moment to state.
+2. **A title screen helper with a name image.** It needs the art route to
+   draw the name, and the template has no title screen to put it on.
+3. **Leave both screens alone.** A generated result screen keeps a title
+   smaller than the examples'.
 
 ## Decision
 
-Option 2. The manifest holds three rules of scope every-look:
+The owner chose option 1; option 2 waits. The manifest holds three rules
+of scope every-look:
 
+- `screen.result-headline`, adopted: `result_headline()` sets a result
+  screen's moment in one line at `text_size("display")`, centred on the
+  screen, with an optional small tag under it. That is 7.9% of the
+  shorter side at 1080; pixel art's `display` is two units, 4.4% at 360.
+  A menu keeps `hud_header()`.
 - `screen.title-name`, proposed: a title screen names the game in its
   largest letters, drawn as an image by the art route: capitals 7 to 35%
   of the shorter side, about 18% at the median, and 1.6 to 12.6 times the
   size of the screen's largest text.
-- `screen.result-headline`, proposed: a result screen states the moment in
-  one line at `display` size, at least 6% of the shorter side, and keeps
-  to one text size where it can.
 - `screen.object-over-name`, rejected: an object of the layout drawn over
   the game's name. No example does it; where a subject crosses the
   letters, the image draws it, so it belongs to the art.
 
 ## Re-evaluate when
 
-- The user chooses the result headline or a title screen: the rule's
-  status becomes adopted, and the template and its test change with it.
+- The owner chooses a title screen: `screen.title-name` becomes adopted,
+  and the template and its test change with it.
+- A result screen needs a second line at `display` size, such as two
+  players' scores.
 - The example clone updates: rerun `measure_layout.py --screens`, and read
   any new title image into `TITLE_IMAGES`.

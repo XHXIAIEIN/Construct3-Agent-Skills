@@ -7,6 +7,7 @@
     "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
     "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
     "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
+    "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md",
     "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
     "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
@@ -15,15 +16,20 @@
     "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
     "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
+    "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
     "Construct3-Agent-Skills/docs/decisions/look-picker.md",
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
+    "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
     "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
     "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
+    "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md",
     "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
+    "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md",
+    "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
@@ -164,6 +170,23 @@
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
+      "id": "text.no-emoji",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "No Text shows an emoji, and the generator stops on one in a layout's Text or a text the events set: an emoji draws from the device's emoji font, so its picture differs between systems and from ART_STYLE, and a Sprite Font draws nothing for it. An icon is art in its own box. No string of the layouts and event sheets of the 544 official examples holds an emoji; the 13 strings with a symbol hold arrows naming keys in instructions and a Sprite Font's own drawn heart.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
+      "template": "EMOJI",
+      "helpers": "check_texts()"
+    },
+    {
+      "id": "type.counting-digits",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A number that count_up() counts is left-aligned, so the digits before the one that changes stay put, or set in a font whose digits share one width. Inter's digits are 0.42 to 0.66 em wide, the 1 the narrowest, and Construct's Text has no tabular figures, so a centred or right-aligned count shifts its other digits on every tick of its 0.5 s; check_texts() warns of a counted Text that is not left-aligned. One official example counts a number, centred and padded to three digits.",
+      "helpers": "count_up(), counting(), check_texts()",
+      "source": "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md"
+    },
+    {
       "id": "lines.areas",
       "status": "adopted",
       "scope": "paper-and-ink",
@@ -182,6 +205,13 @@
       "value": "math.ceil(48 * min(VIEW_W, VIEW_H) / 360 / UNIT) * UNIT",
       "helpers": "shape(), button()",
       "source": "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md"
+    },
+    {
+      "id": "touch.spacing",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "At least 8 dp between two things the player taps, from app guidelines: of 295 tapped objects on a screen of the official 2D game examples, 215 lie under 8 dp from the next, 175 touching or overlapping it, and 9 of 16 examples set buttons, tabs, pickers or icons that close, as a colour picker or a pad of arrows. row() keeps one UNIT between boxes, 10.7 dp or more, unless a game asks for less.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
     },
     {
       "id": "hud.paper",
@@ -277,17 +307,13 @@
     },
     {
       "id": "layout.balance",
-      "status": "open",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, raised by OPTICAL_LIFT of that space's height; a centre more than a unit off prints a warning. The 5% lift is a rule of thumb with no measurement found behind it.",
+      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, and not raised: OPTICAL_LIFT is 0. A centre more than a unit off prints a warning. The official 2D game examples' one-screen layouts centre their content a median 0% off the screen's middle, 44 of 81 within 3% of its height, 25 lower and 12 higher, so the 5% lift of design guides was turned down.",
       "template": "OPTICAL_LIFT",
-      "value": "0.05",
+      "value": "0",
       "helpers": "play_area(), centred(), balanced()",
-      "options": [
-        "0.05: the board a little above the middle of the play area, where the eye puts the middle",
-        "0: the board exactly in the middle of the play area"
-      ],
-      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
     },
     {
       "id": "layout.fill",
@@ -339,6 +365,42 @@
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
+      "id": "type.two-families",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "The texts of a screen use at most two type families: of the official 2D game examples' 109 layouts that hold a Text, 95 use one face and 14 two, none three. One family alone, the web rule, fails 13% of them. Paper and ink's FONT holds weights of one family.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
+    },
+    {
+      "id": "text.placeholder",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "No Text shows the Text object's default text or Lorem ipsum once its layout has run. 21 of the official 2D game examples' 448 Texts hold one in the layout files and events set them at runtime, so only the runtime can judge it. review_look.py reports a shown text that still reads so after the layout has run, a broken finding.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
+      "confirm": "review_look.py: placeholder"
+    },
+    {
+      "id": "type.line-height",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Lines of body text 1.5 to 1.75 times the letters apart, from web guidelines: 130 of the 137 texts of several lines in the official 2D game examples add no line height to the font's own, about 1.15 em, and none adds 0.3 em or more. text_inst() adds none either.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "type.measure",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A line of body text 65 to 75 characters long, from web guidelines: the texts of several lines in the official 2D game examples hold a median 43 characters a line, 32 to 50 for the middle half; 47 of 137 fall in 45 to 75. A game's text box is a card, a dialogue or a tip, not a column to read.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "type.body-16",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Body text at least 16 px on a phone, 4.4% of a 360 dp shorter side, from web guidelines: the smallest text of 45 of 105 official 2D game examples is smaller, down to 1.78%. type.min-size holds 1.75%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
       "id": "screen.title-name",
       "status": "proposed",
       "scope": "every-look",
@@ -347,10 +409,10 @@
     },
     {
       "id": "screen.result-headline",
-      "status": "proposed",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "A result screen states the moment in one line at text_size(\"display\"), at least 6% of the shorter side, and keeps to one text size where it can: the official 2D game examples' result screens show their largest text at a median 8.3% of the shorter side, a quarter at 6.25% or less, and 21 of 23 use one size. hud_header() sets it at text_size(\"title\"), 3.7%, under all of them but one.",
-      "template": "hud_header()",
+      "says": "A result screen states the moment in one line at text_size(\"display\"), centred on the screen, with at most a small tag under it: the official 2D game examples' result screens show their largest text at a median 8.3% of the shorter side, a quarter at 6.25% or less, and 21 of 23 use one size. display is 64 pt, 7.9% at 1080; in pixel art it is two units, 4.4% at 360. A menu keeps hud_header().",
+      "template": "result_headline()",
       "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
     },
     {
@@ -359,6 +421,94 @@
       "scope": "every-look",
       "says": "An object of the layout drawn over the game's name, as a poster's subject crosses its title: no official 2D game example's title image has another object over 5% of it, apart from fades and its own shine; one logo draws its mascot over its letters inside the image, so a subject that crosses the name belongs to the art.",
       "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
+    },
+    {
+      "id": "screen.menu-axis",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A title, menu or pause screen sets its texts and buttons on the vertical centre line: hud_header() centres its title at the top with the tag under it, button(..., \"center\", row) puts a button on the cell nearest the line, and the run warns of an instance of a layout or layer named title, menu or pause that sits more than half a unit off it. 51 of 63 texts on the official 2D game examples' title screens are centred within 2% of the width, and of the 10 such screens with two texts or more, 8 centre all and none centres none; 82 of 200 motion-design websites centre their headline or stack. A settings screen, rows of a name beside its control, is left out.",
+      "template": "hud_header()",
+      "helpers": "hud_header(), button(), on_axis()",
+      "confirm": "build_project.py: a warning",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "screen.edge-inset",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "MARGIN about 3% of the viewport's shorter side: the text nearest the edge in the official 2D game examples sits a median 3% in, and 200 motion-design websites inset theirs a median 24 px, 2.7% of a 900 px viewport. MARGIN, a fifteenth of the shorter side in whole units, is 4.4% at 720, 5.9% at 1080 and 6.7% in pixel art.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "screen.transition",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A change of layout passes through a cover over the whole screen: fade_to() fades it in over FADE's 0.3 s, then goes to the layout or restarts this one, and every layout the sheet runs opens under it and fades it away. 31 of the 51 official examples that go to another layout have an object type named as a fade, transition, curtain or wipe, and 41 of 200 motion-design websites wipe between pages, a median 0.8 s. A layout with no sheet gets no cover, since nothing would fade it away.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
+      "template": "FADE",
+      "helpers": "fade_to(), add_fade()",
+      "value": "{'seconds': 0.3, 'ease': 'easeinoutsine', 'role': 'ink'}"
+    },
+    {
+      "id": "type.scale-contrast",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A display size about 8 times the smallest label, as 200 motion-design websites set it (a median 8.4, 5.1 to 14.4 between the quartiles): a screen of the official 2D game examples shows its largest text a median 2 times its smallest, at most 5.3; a title image carries the larger contrast. display over tag is 4.3 at 1080, 6.4 at 720.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.small-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Labels at 11 px, a median 1.2% of the shorter side on motion-design websites: the smallest text of every official 2D game example is at least 1.78%, and type.min-size holds 1.75%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.mono-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Counters and labels in a monospaced face, as 37 of 200 motion-design websites set them: 4 of 81 official 2D game examples show a monospaced face on a screen.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.caps-menu",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A menu's texts in capitals: 46 of 59 lettered texts on the official 2D game examples' title screens are capitals, but the 9 screens set all in capitals belong to 4 of 11 examples, and play screens set 20 of 219; it is a game's style, not a rule. tracked() already sets a tag in tracked capitals.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "layout.corner-frame",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Small labels framing the content from the screen's corners, as 72 of 200 motion-design websites place them: of the official 2D game examples' 103 play screens, 50 hold a text in no corner, 31 in one, 19 in two and 3 in three or four. The template's play HUD holds three.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.caps-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No label in capitals, from web design skills, where tracked capital labels read as a generated page: 138 of the 323 labels of 20 characters or fewer in the official 2D game examples are capitals, in 18 of 113 examples, \"GAME OVER\", \"START\" and \"SCORE:\" among them, and a pixel font often holds capitals only.",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
+    },
+    {
+      "id": "type.no-index-numbers",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No zero-padded number, from web design skills, where 01 / 02 / 03 marks reads as a generated page: 28 of 113 official 2D game examples call zeropad() in their events, on a score's fixed digits or a clock's seconds in all but at most 4, and 16 of their layouts' texts start padded, \"Score: 000\" or \"00:00\".",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
+    },
+    {
+      "id": "hud.tag-plain",
+      "status": "proposed",
+      "scope": "paper-and-ink",
+      "says": "The fallback's tag, hud_tag(), is tracked() capitals with parts joined by \" · \" and the round padded to two digits, \"ROUND · 01 / 06\": the three devices frontend-design names as template chrome. Of the official 2D game examples' 679 texts, none spaces its letters apart and 2 join parts with a bar, none with a middle dot; at most 4 of 113 examples pad a level, round or wave. Changing the tag also changes the items layout.spread counts, which splits a label at \" · \".",
+      "options": [
+        "keep the tag as it is: the user chose it on screenshots",
+        "drop the middle dot and the padding, keep the tracked capitals: \"ROUND 1 / 6\"",
+        "a plain tag in sentence case at the tag size: \"Round 1 of 6\""
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
     },
     {
       "id": "outline.width",
@@ -444,6 +594,27 @@
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
+      "id": "colour.dark-ground",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A dark ground, as 105 of 200 motion-design websites have: the official 2D game examples' play screens spread over every lightness, a median 0.37, 36 of 99 dark and 14 light. A look the user gives or picks sets canvas.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "colour.neutral-ground",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A neutral ground for every look, the hue left to the accents, as motion-design websites keep theirs (ground chroma a median 0.02): the official 2D game examples' play screens reach a median 0.055 and 0.19 at the third quartile. Paper and ink's grounds are grey already.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "colour.one-hue",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "One strong hue in the palette, as 113 of 200 motion-design websites have: a game's accent roles each mark a kind of thing, reward, danger, hover and press, so they need hues of their own.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
       "id": "control.parts",
       "status": "enforced",
       "scope": "every-look",
@@ -479,7 +650,7 @@
       "id": "motion.squash",
       "status": "adopted",
       "scope": "paper-and-ink",
-      "says": "A squash sets a share of the image's size at once, holds it, and tweens back to the image's size: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
+      "says": "A squash sets a share of the object's rest size at once, holds it, and tweens back to the rest size, the size the instance has when its first squash starts, so a size set in the layout editor stays: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
       "template": "[(k['width'], k['height'], k['hold'], k['seconds'], k['ease']) for k in SQUASH.values()]",
       "value": "[(0.8, 1.2, 0, 0.25, 'easeoutback'), (1.2, 0.8, 0, 0.5, 'easeoutelastic'), (0.7, 1.3, 0.2, 0.75, 'easeoutelastic')]",
       "helpers": "squash(), hit()",
@@ -591,7 +762,7 @@
       "id": "motion.size-on-dying",
       "status": "adopted",
       "scope": "every-look",
-      "says": "An object that a size tween destroys is not squashed back to its image size by another event: a size tween stops the one running on that property, which then never destroys the instance. A squash in the same actions, or after On created or a tween's On finished, passes. The check warns, because an event's conditions may keep the squash off a dying instance.",
+      "says": "An object that a size tween destroys is not squashed back to its rest size by another event: a size tween stops the one running on that property, which then never destroys the instance. A squash in the same actions, or after On created or a tween's On finished, passes. The check warns, because an event's conditions may keep the squash off a dying instance.",
       "helpers": "squash(), tween2()",
       "confirm": "check_look.py: motion.size-on-dying (a warning)",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
@@ -604,11 +775,46 @@
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
     },
     {
+      "id": "motion.duration-floor",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No tween shorter than 0.2 s, from web design skills: 183 of the 1275 tween times the official 2D game examples write as numbers are under 0.2 s, and a game's feedback, the hit flash of 0.08 s and the press of 0.1 s, is faster than a page's hover.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
+    },
+    {
       "id": "motion.stagger",
       "status": "proposed",
       "scope": "every-look",
-      "says": "Items that enter together, the rows of a menu or the cards of a hand, start 0.03 to 0.08 s apart, and input does not wait for the last. Proposed until the official examples are read for a step.",
-      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+      "says": "Items that enter together, the rows of a menu or the cards of a hand, start a step apart, and input does not wait for the last. Motion-design websites step a median 70 ms, 60 to 80 ms between the quartiles; the official examples' waits of a constant times loopindex step a median 0.125 s, their menus 0.1 to 0.25 s. Proposed until the owner picks the step.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.ease-out-entrance",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Entrances in a strong ease-out, expo.out on 91 of 200 motion-design websites: 1181 of the official examples' 2196 tweens, in 138 examples, use easeinoutsine, and 3 an expo ease. TWEEN_STYLE keeps its classes (motion.tween-style).",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.text-reveal",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Headlines revealed by line, word or letter, as 78 of 200 motion-design websites do: one official example uses the Text typewriter action.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.pointer-drift",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "The scene tilting or drifting after the pointer, as 57 of 200 motion-design websites do: a touch screen has no pointer between touches, and a game's camera follows its play.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.exit-faster",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A HUD object leaves faster than it enters, from web motion guides: of the 92 HUD objects of the official examples that fade both ways, 62 fade out in the same median time as in, 17 faster and 13 slower; fades in and out both take 0.5 s at the median.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
     },
     {
       "id": "menu.hold-to-confirm",
@@ -675,6 +881,13 @@
       "template": "art()",
       "confirm": "art.py: art.frames",
       "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.icon",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "The game's icons, icons/icon-16.png to icon-512.png, are drawn from its look by the art route, not left as Construct's: each of the 29 studio examples draws its own, while 54 of the 113 official 2D game examples keep Construct's. The splash loader stays, as all 29 studio examples keep it.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
     },
     {
       "id": "juice.functions",

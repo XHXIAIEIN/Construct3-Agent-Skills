@@ -118,7 +118,7 @@ def test_every_file_of_the_clone_the_skill_names_exists():
 
 
 # Browser flags, named where the skill says how the browser is started or starts itself again
-OTHER_PROGRAMS = {"--mute-audio", "--user-data-dir", "--edge-skip-compat-layer-relaunch"}
+OTHER_PROGRAMS = {"--mute-audio", "--user-data-dir", "--edge-skip-compat-layer-relaunch", "--host-resolver-rules"}
 
 
 def test_every_flag_the_skill_names_is_one_its_script_takes(tmp_path):

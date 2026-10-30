@@ -48,7 +48,7 @@ taken where the official examples measure otherwise
   (`motion.popup`, open). Never from 0 (`motion.panel-from-zero`, a
   finding).
 - **Pop in** - Appears with an overshoot, as if it bounced into place. Set
-  the size to a share of the image's size, then tween back with
+  the size to a share of its size at rest, then tween back with
   `easeoutback` over about 0.3 s, which bounces once like something hard;
   *Ping pong* makes a pop that returns. For a world object or the subject of
   a moment. [`Construct3-Cookbook/guides/recipes/feel.md`, "Squash, pop,
@@ -65,8 +65,9 @@ taken where the official examples measure otherwise
 
 ## Impact
 
-- **Squash and stretch** - The size jumps to a share of the image's size,
-  holds, and tweens back. `squash(art, kind)` with `SQUASH`: a hit 0.8 x
+- **Squash and stretch** - The size jumps to a share of the object's size
+  at rest, holds, and tweens back to it. Not to the image's size, which
+  undoes a size set in the layout editor. `squash(art, kind)` with `SQUASH`: a hit 0.8 x
   1.2, back in 0.25 s `easeoutback`; a landing 1.2 x 0.8, back in 0.5 s
   `easeoutelastic`; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s
   `easeoutelastic` (`motion.squash`). On the art, never on an object that

@@ -2,7 +2,7 @@
 to run next, from the current directory."""
 from pathlib import Path
 
-from tests.skill_helpers import REPO, SKILL, new_project, script_module
+from tests.skill_helpers import REPO, SKILL, new_project, png, script_module
 
 c3 = script_module("c3project")
 PRINT_SHEET = c3.quoted((SKILL / "scripts" / "print_sheet.py").as_posix())
@@ -101,3 +101,18 @@ def test_a_guide_is_cited_by_its_cookbook_path_without_a_clone(tmp_path, monkeyp
     rag = tmp_path / "Construct3-RAG"
     rag.mkdir()
     assert c3.guide_path(rag, "behaviors/timer.md") == "Construct3-Cookbook/guides/behaviors/timer.md"
+
+
+def test_a_screenshot_is_blank_only_when_its_share_of_one_colour_and_its_luminance_both_say_so():
+    """At an eighth of a 430 x 932 window: an empty screen is one colour and flat. A small sprite alone leaves
+    99.9% of it one colour, which the share alone took for nothing drawn, but its luminance deviates; a faint
+    speck does not, and stays blank."""
+    def screen(drawn, ink=(0, 0, 0, 255)):
+        return png(54, 116, lambda x, y: ink if drawn(x, y) else (209, 209, 209, 255))
+    assert c3.fill(screen(lambda x, y: False)) == (1.0, 0.0)
+    assert c3.blank_share(screen(lambda x, y: False)) == 1.0
+    sprite = screen(lambda x, y: 26 <= x < 28 and 58 <= y < 61)
+    share, spread = c3.fill(sprite)
+    assert share > c3.BLANK and spread > c3.SPREAD and c3.blank_share(sprite) is None, (share, spread)
+    speck = screen(lambda x, y: (x, y) == (26, 58), (180, 180, 180, 255))
+    assert c3.is_blank(*c3.fill(speck)) and c3.blank_share(speck) is not None

@@ -1,4 +1,5 @@
 """open_in_editor.py: handing the project to the editor."""
+import base64
 import itertools
 import json
 import re
@@ -14,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.skill_helpers import DATA, REPO, SKILL, INSTALLED, SHEET, edit, run, script_module
+from tests.skill_helpers import DATA, REPO, SKILL, INSTALLED, SHEET, edit, png, run, script_module
 
 # The result of a project the editor opened, before a preview or the TypeScript definitions.
 OPENED = {"project": "Game", "status": "opened", "title": "Game - Construct 3",
@@ -411,12 +412,103 @@ def test_open_in_editor_reports_the_crash_report_the_preview_left_in_the_editor(
     monkeypatch.setattr(oe, "start_preview", lambda b, target, page: ({"targetId": "preview"}, Win()))
     monkeypatch.setattr(oe, "attach", lambda win, patience=0: ([None], [None], False))
     monkeypatch.setattr(oe.time, "sleep", lambda seconds: None)
-    ran = oe.preview(browser, ("editor", Page()), 4)
+    ran = oe.preview(browser, ("editor", Page()), 0.2)
     assert ran["started"] and ran["editor"] == crash and ran["errors"] == [], ran
     lines = opened_with({"ticks": 389, "wallTime": 2.7, "editor": crash})
     assert lines[1:] == ["  preview: layout 'Game', runtime in the worker, 389 ticks in 2.7 s, 1 error",
                          f"  editor: {crash}"], lines
     assert oe.failed({"status": "opened", "preview": {"errors": [], "editor": crash}})
+
+
+def test_a_request_that_failed_is_a_network_line_named_by_its_url():
+    """A response of HTTP 400 or more, and a request that got no response, named by the URL its start gave. A
+    request the page cancelled is no failure. A request still running keeps its URL for the call that sees it
+    fail, and the rest of the events go."""
+    def sent(n, url, session=None):
+        return {"method": "Network.requestWillBeSent", **({"sessionId": session} if session else {}),
+                "params": {"requestId": n, "request": {"url": url}}}
+
+    attached = {"method": "Target.attachedToTarget", "params": {"sessionId": "w"}}
+    win = SimpleNamespace(events=[
+        attached, sent("1", "https://preview.construct.net/level3.json", "w"), sent("2", "https://nonexistent.invalid/a.png"),
+        sent("3", "https://preview.construct.net/b.png"),
+        {"method": "Network.responseReceived", "sessionId": "w", "params": {
+            "requestId": "1", "type": "Fetch", "response": {"status": 404, "url": "https://preview.construct.net/level3.json"}}},
+        {"method": "Network.loadingFinished", "sessionId": "w", "params": {"requestId": "1"}},
+        {"method": "Network.loadingFailed", "params": {"requestId": "3", "type": "Image", "errorText": "net::ERR_ABORTED",
+                                                       "canceled": True}}])
+    assert oe.runtime_errors(win) == ["network: HTTP 404 https://preview.construct.net/level3.json (Fetch)"]
+    win.events.append({"method": "Network.loadingFailed", "params": {"requestId": "2", "type": "Fetch",
+                                                                     "errorText": "net::ERR_NAME_NOT_RESOLVED"}})
+    failed = oe.runtime_errors(win)
+    assert failed == ["network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Fetch)"]
+    assert win.events == [attached]
+    assert oe.runtime_lines([*failed, "TypeError: x is null", *failed]) == [
+        "  network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Fetch) (2 times)",
+        "  runtime: TypeError: x is null"]
+
+
+def test_a_watched_preview_reports_each_workers_requests_and_lets_it_start_once():
+    """A worker of a watched window reports its requests only once its own session turned them on, so it
+    waits until serve() has; serve() starts it, once. An unwatched window's workers report none."""
+    class Window:
+        def __init__(self, network):
+            self.network, self.calls = network, []
+            self.events = [{"method": "Target.attachedToTarget", "params": {
+                "sessionId": "w1", "waitingForDebugger": True, "targetInfo": {"type": "worker"}}}]
+
+        def call(self, method, session=None, **params):
+            self.calls.append((method, session))
+
+    win = Window(True)
+    oe.serve(win)
+    oe.serve(win)
+    assert win.calls == [("Network.enable", "w1"), ("Runtime.runIfWaitingForDebugger", "w1")]
+    win = Window(False)
+    oe.serve(win)
+    assert win.calls == [("Runtime.runIfWaitingForDebugger", "w1")]
+
+
+@pytest.mark.parametrize("code, says", [
+    ("DNS_PROBE_FINISHED_NXDOMAIN", "host name did not resolve"), ("ERR_NAME_NOT_RESOLVED", "host name did not resolve"),
+    ("ERR_PROXY_CONNECTION_FAILED", "the proxy did not connect"), ("ERR_CERT_AUTHORITY_INVALID", "a certificate"),
+    ("ERR_CONNECTION_REFUSED", "the connection failed"), ("ERR_CONNECTION_TIMED_OUT", "the connection timed out"),
+    ("", "check the network connection and --release")])
+def test_an_editor_the_browser_could_not_reach_is_named_by_the_browsers_error(code, says):
+    """The browser's error page shows its error code; the message carries it and what to check for its kind."""
+    class Page:
+        def evaluate(self, expression, wait=None):
+            return ["chrome-error://chromewebdata/", "complete", 0] if expression.startswith("[location.href") else code
+
+    with pytest.raises(oe.EditorNotLoaded) as e:
+        oe.load(Page(), oe.EDITOR)
+    assert str(e.value).startswith(f"{oe.EDITOR} could not be reached{', ' + code if code else ''}: ")
+    assert says in str(e.value), e.value
+
+
+def test_an_editor_that_answered_404_names_the_release():
+    class Page:
+        def evaluate(self, expression, wait=None):
+            return [oe.EDITOR + "r999/", "complete", 404]
+
+    with pytest.raises(oe.EditorNotLoaded, match="answered HTTP 404: --release names no release of the editor"):
+        oe.load(Page(), oe.EDITOR + "r999/")
+
+
+def test_a_window_is_read_for_blank_to_a_multiple_of_8_on_each_side():
+    """At an eighth of its size a side that is not a multiple of 8 adds a row the window fills only in part."""
+    clips = []
+
+    class Window:
+        def evaluate(self, expression, wait=None):
+            return [430, 932]
+
+        def call(self, method, **params):
+            clips.append(params["clip"])
+            return {"data": base64.b64encode(png(53, 116, lambda x, y: (209, 209, 209, 255))).decode()}
+
+    assert oe.fill(Window()) == (1.0, 0.0) and oe.blank(Window()) == 1.0
+    assert (clips[0]["width"], clips[0]["height"], clips[0]["scale"]) == (424, 928, 0.125)
 
 
 # A player read by --state: a Sprite with the Platform behavior, as the probe returns it

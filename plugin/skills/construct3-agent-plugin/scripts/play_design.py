@@ -824,7 +824,7 @@ def main() -> int:
         print(e, file=sys.stderr)
         return oe.BUSY
     except oe.EditorNotLoaded as e:
-        print(f"the editor did not load: {e}. Check the network connection and run again.", file=sys.stderr)
+        print(f"the editor did not load: {e}.", file=sys.stderr)
         return 2
     except (oe.DevToolsError, OSError) as e:
         print(f"{exe} could not be driven: {e}. Pass another browser with --browser.", file=sys.stderr)

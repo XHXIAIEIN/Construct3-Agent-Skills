@@ -48,6 +48,11 @@ From the event sheets of the official examples, studio cohort
   release on the button ran its action, a slide off did not.
 - An overshooting ease on a 6% press rose 0.6% over the rest size, 1 px on
   a 160 px button. That is too small to see, so the press takes a sine ease.
+- A button stretched in the layout to twice its image's width took its
+  image's size on the first press while the squash set and tweened its size
+  from `Self.ImageWidth` (r506.3 preview, 2026-10-31). With the size it had
+  before its first squash kept as its rest size, it pressed to 0.9 of that
+  size and returned to it on every press.
 
 Scripts, the probe and its recordings: `.local/docs/evidence/ui-recipes/`.
 
@@ -88,6 +93,15 @@ Option 3.
   its size while the finger stays, so it deforms less than the examples'
   one-tap pops. `squash(obj, kind, half=...)` gives the actions through the
   hold or the tween back, for a squash that two events share.
+- A squash works from the object's rest size, not its image's size, so a
+  size the user sets in the layout editor stays. The first squash keeps the
+  size the object has then in its instance variables `restWidth` and
+  `restHeight`, which `build_all()` gives every squashed type and family
+  with 0 on each instance. It keeps them at the first squash, not in
+  *On created*, because a size set after a creation in the same event comes
+  after *On created* has run. A comment action before the two actions says
+  why 0 means the size now, and it keeps `hit()` under the eight actions in
+  a row that the style check warns about.
 - `button()` links its label with width and height, so a press squashes
   both. `link(..., size=True)` does it for any child.
 

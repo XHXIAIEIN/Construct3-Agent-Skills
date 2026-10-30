@@ -139,6 +139,44 @@ def test_a_stopped_export_leaves_the_users_own_tab_on_the_start_page(monkeypatch
     assert "window.__c3Keep = setInterval" in export.oe.SETUP_JS
 
 
+@pytest.mark.parametrize("release, reused", [([506, 3], True), ([476, 4], True), ([475, 0], False)])
+def test_the_own_window_reuses_an_editor_page_by_its_release(monkeypatch, tmp_path, release, reused):
+    """The logged-in page of the script's window was at editor.construct.net/, release 506.3, after
+    Update on the editor's update prompt; the next two runs matched pages by the URL of the project's
+    release, r476-4/, opened a new page, showed Guest and stopped at the login (2026-10-31). A page
+    whose release opens the project is reused wherever its URL points; an older one is not."""
+    export = script_module("export_project")
+    (tmp_path / "project.c3proj").write_text('{"savedWithRelease": 47604}', encoding="utf-8")
+    pages = {"preview": "https://preview.construct.net/local.html", "editor": export.oe.EDITOR}
+    opened = []
+
+    class Page(Tab):
+        def __init__(self, url: str) -> None:
+            super().__init__(url.rsplit("/", 1)[-1])
+            self.ws = self
+
+        def close(self) -> None:
+            pass
+
+        def evaluate(self, expression: str, by_value: bool = True, wait: float = 10):
+            super().evaluate(expression)
+            return release if expression == export.oe.RELEASE_JS else None
+
+    class Browser:
+        port, devtools = 0, Tab("browser")
+
+        def page(self, url: str) -> tuple:
+            opened.append(url)
+            return "new", Page(url)
+
+    Browser.devtools.call = lambda method, **params: {"targetInfos": [
+        {"type": "page", "url": url, "targetId": target} for target, url in pages.items()]}
+    monkeypatch.setattr(export.oe, "DevTools", Page)
+    monkeypatch.setattr(export.oe, "load", lambda page, url: None)
+    target, page = export.own_page(Browser(), tmp_path)
+    assert (target, opened) == (("editor", []) if reused else ("new", [export.oe.EDITOR + "r476-4/"])), (target, opened)
+
+
 def test_a_crashed_editor_is_restarted_to_close_the_copy(capsys):
     """An export left the user's tab on the editor's crash report, which has no close button and
     came back each time the menu opened, so the copy could not be closed (2026-10-04, r495-2).
@@ -300,6 +338,7 @@ def test_take_over_hands_the_export_a_folder_once(monkeypatch, project, tmp_path
     monkeypatch.setattr(export.oe, "browser_path", lambda: "browser")
     monkeypatch.setattr(export, "run", lambda project, folder, version, spec, exe:
                         export.unpack(zipped_export(version), folder, version))
+    monkeypatch.setattr(export, "booted", lambda project, folder, exe: 0)
     argv = ["export_project.py", "--project", str(project), "--to", str(web), "--version", "1.2.0.0"]
     monkeypatch.setattr(sys, "argv", argv)
     assert export.main() == 2 and tree(web) == before
@@ -410,9 +449,10 @@ def test_an_export_whose_version_cannot_be_written_says_where_it_is_and_how_to_s
     monkeypatch.setattr(Path, "write_bytes", refuse)
     monkeypatch.setattr(export.oe, "browser_path", lambda: "browser")
     monkeypatch.setattr(export, "run", lambda project, folder, version, spec, exe: True)
+    monkeypatch.setattr(export, "booted", lambda project, folder, exe: 0)
     monkeypatch.setattr(sys, "argv", ["export_project.py", "--project", str(project), "--version", "1.2.0.0"])
     assert export.main() == 4
-    out = capsys.readouterr().out.splitlines()[-1]
+    out = next(line for line in capsys.readouterr().out.splitlines() if line.startswith("exported "))
     assert out.startswith(f"exported 1.2.0.0 into {project / '.build' / 'web'}, runtime in the worker; project.c3proj "
                           f"was not changed and still says version {old}: ")
     assert "Access is denied" in out and "set Version to 1.2.0.0" in out
@@ -451,3 +491,111 @@ def test_export_stops_on_a_bundled_addon_unless_the_user_said_yes(monkeypatch, t
         with pytest.raises(export.Stop, match="Name Mallory Tools.*--install-bundled-addons"):
             export.open_project(Page(), tmp_path, tmp_path / "game.c3p")
         assert [e[-8:] for e in asked] == [")(false)"], asked
+
+
+# A stand-in for the runtime of an export: the probe of open_in_editor finds C3.Runtime and waits for a Tick
+RUNTIME = """globalThis.C3 = {Runtime: class {
+  constructor() { this.n = 0; }
+  Tick() { this.n++; }
+  GetIRuntime() { const r = this; return {layout: {name: "Title"}, get tickCount() { return r.n; }, objects: {},
+    globalVars: {}, addEventListener() {}}; }
+}};
+const runtime = new C3.Runtime();
+setInterval(() => runtime.Tick(), 16);
+"""
+
+
+@pytest.mark.skipif(not script_module("export_project").oe.browser_path(), reason="no Edge, Chrome or Chromium")
+@pytest.mark.parametrize("where", ["page", "worker"])
+def test_the_boot_runs_the_export_and_names_its_errors_and_missing_files(tmp_path, where):
+    """An export that packaged fine can still fail to start in the modes no preview played, so the
+    script opens it as a player's browser would. The page and each worker are watched from their first
+    line: an error a worker logs before its runtime ticks counts, once, and so does a file the export
+    lacks, whichever context asked for it."""
+    export = script_module("export_project")
+    folder = tmp_path / "web"
+    folder.mkdir()
+    (folder / "runtime.js").write_text('console.error("no save slot"); fetch("data-missing.json");\n' + RUNTIME,
+                                       encoding="utf-8")
+    start = ('<script src="runtime.js"></script>' if where == "page"
+             else '<script>new Worker("runtime.js", {type: "module"})</script>')
+    (folder / "index.html").write_text(f"<!doctype html><body style='background:#235'><h1>Title</h1>{start}"
+                                       f"<img src='images/gone.png'>", encoding="utf-8")
+    shot = tmp_path / "boot.png"
+    result = export.boot(folder, export.oe.browser_path(), tmp_path / "profile", shot)
+    assert result["ticked"] is not None and result["layout"] == "Title", result
+    assert result["runtime"] == f"the {where}" and result["errors"] == ["no save slot"], result
+    assert sorted(result["failed"]) == ["404 data-missing.json", "404 images/gone.png"], result
+    assert shot.read_bytes().startswith(b"\x89PNG") and not (tmp_path / "profile").exists()
+    lines = export.boot_lines(result, folder, "msedge", shot)
+    assert lines[:2] == ["  runtime: no save slot", "  request: " + result["failed"][0]], lines
+    assert lines[-1].startswith(f"boot failed: the export in {folder}, served on 127.0.0.1 to a headless msedge: "
+                                f"layout Title ticking in the {where} "), lines
+    assert lines[-1].endswith(f"s after loading began, with 1 console error and 2 failed requests (above); "
+                              f"screenshot {shot}"), lines
+
+
+def test_the_boot_verdict_is_the_last_line():
+    """booted only when the runtime ticked with nothing logged and nothing missing; a runtime that never
+    ticked, or a first layout that drew nothing, is said in the same line."""
+    export = script_module("export_project")
+    shot, folder = Path("boot.png"), Path("web")
+    clean = {"ticked": 1.25, "runtime": "the worker", "layout": "Game", "errors": [], "failed": [], "blank": None}
+    assert export.boot_lines(clean, folder, "chrome", shot) == [
+        f"booted: the export in {folder}, served on 127.0.0.1 to a headless chrome: layout Game ticking in the "
+        f"worker 1.2 s after loading began, no console error and no failed request; screenshot {shot}"]
+    stalled = {**clean, "ticked": None, "runtime": None, "layout": None, "blank": 0.9995,
+               "failed": [f"404 images/{n}.png" for n in range(12)]}
+    lines = export.boot_lines(stalled, folder, "chrome", shot)
+    assert len(lines) == 12 and lines[-2] == "  and 2 more failed requests", lines
+    assert lines[-1].startswith(f"boot failed: the export in {folder}, served on 127.0.0.1 to a headless chrome: no "
+                                f"runtime ticked in {export.BOOT_WAIT} seconds, with 12 failed requests (above); "
+                                f"99.9% or more of the screenshot is one colour"), lines
+
+
+@pytest.mark.parametrize("boot, code", [("booted", 0), ("failed", 6), ("not run", 3)])
+def test_the_exit_code_is_the_boots(monkeypatch, project, capsys, boot, code):
+    """An export whose game did not boot is a finding, 6, and one whose boot could not run was not
+    checked, 3, though the export is in place either way."""
+    export = script_module("export_project")
+    monkeypatch.setattr(export.oe, "browser_path", lambda: None if boot == "not run" else "browser")
+    monkeypatch.setattr(export, "run", lambda project, folder, version, spec, exe:
+                        export.unpack(zipped_export(version), folder, version))
+    result = {"ticked": 2.0, "runtime": "the page", "layout": "Game", "errors": [] if boot == "booted" else ["x"],
+              "failed": [], "blank": None}
+    monkeypatch.setattr(export, "boot", lambda folder, exe, profile, shot: result)
+    monkeypatch.setattr(sys, "argv", ["export_project.py", "--project", str(project), "--version", "1.2.0.0",
+                                      *(["--attach", "9222"] if boot == "not run" else [])])
+    assert export.main() == code
+    out = capsys.readouterr().out.splitlines()
+    assert out[-1].startswith({"booted": "booted: ", "failed": "boot failed: ", "not run": "boot not checked: "}[boot])
+    assert (project / ".build" / "web" / "index.html").read_text(encoding="utf-8") == "1.2.0.0"
+
+
+def test_release_warns_of_construct_icons_and_empty_properties(project):
+    """A published game should not ship Construct's icons and loading logo or an empty Author, ID or
+    Description; the dry run says so already, as a warning that keeps exit 0."""
+    export = script_module("export_project")
+    template = export.c3.locate_rag(project, None)[0] / "data" / "c3-new-project" / "icons"
+    (project / "icons").mkdir(exist_ok=True)
+    (project / "icons" / "loading-logo.png").write_bytes((template / "loading-logo.png").read_bytes())
+    (project / "icons" / "icon-16.png").write_bytes(b"\x89PNG own")
+    code, out = run(project, SCRIPT, "--dry-run")
+    lines = [line for line in out.splitlines() if line.startswith("release: ")]
+    assert code == 0 and "release: icons/ holds Construct's default loading-logo.png, " in lines[0], out
+    assert "icon-16.png" not in lines[0], lines
+    properties = export.c3.load(project / "project.c3proj")["properties"]
+    empty = [label for key, label in (("author", "Author"), ("appId", "ID"), ("description", "Description"))
+             if not properties.get(key)]
+    if empty:
+        assert lines[1].startswith(f"release: {empty[0]}"), lines
+
+    def fill(data):
+        data["properties"].update(author="Someone", appId="com.someone.coins", description="Coins to collect.")
+    path = project / "project.c3proj"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    fill(data)
+    path.write_text(json.dumps(data, indent="\t"), encoding="utf-8")
+    (project / "icons" / "loading-logo.png").write_bytes(b"\x89PNG own")
+    code, out = run(project, SCRIPT, "--dry-run")
+    assert code == 0 and "release: " not in out, out

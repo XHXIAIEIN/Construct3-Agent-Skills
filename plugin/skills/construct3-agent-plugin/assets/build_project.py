@@ -105,8 +105,8 @@ SHAPE_STYLE = {
 # time. hit_frame() draws it with the outline, so a white flash shows on the sheet.
 # A frame, not the object's colour: the colour multiplies the image and cannot turn it white.
 HIT_FLASH = {"role": "flash", "seconds": 0.08}
-# Squash and stretch by kind: the size set to a share of the image's size, held, then tweened
-# back. squash(obj, kind) plays one; hit() plays the hit's with its flash.
+# Squash and stretch by kind: the size set to a share of the object's rest size, held, then
+# tweened back. squash(obj, kind) plays one; hit() plays the hit's with its flash.
 # Squash the art, never the object that collides: a Platform or Solid object that grows sinks
 # into the floor. The art is a second object, origin at its feet with shape(..., oy=1), pinned
 # to an invisible collision mask.
@@ -1379,7 +1379,7 @@ def hit_flash(obj: str, frame: str = "hit") -> list:
             act("set-animation-frame", obj, {"frame-number": "0"})]
 
 
-SQUASHED: set[str] = set()                 # objects squash() acts on, checked in build_all()
+SQUASHED: set[str] = set()                 # objects squash() acts on; build_all() gives them their rest size
 # Behaviors whose object collides, by behaviorId; squash() stops the run on one
 COLLIDING = ("Platform", "EightDir", "Physics", "Car", "solid", "jumpthru")
 # Squash of a button under a finger, press(); a game tunes it as SQUASH["press"]
@@ -1388,9 +1388,11 @@ SQUASH_PRESS = {"width": 0.9, "height": 0.9, "hold": 0, "seconds": 0.1, "ease": 
 
 def squash(obj: str, kind: str, tween: str = "Tween", half: str = "both") -> list:
     """Actions of a squash of SQUASH ("hit", "land", "jump" or "press") on obj: stop its running
-    squash, set its size to the kind's share of its image size, hold, and tween back under the tag
+    squash, set its size to the kind's share of its rest size, hold, and tween back under the tag
     "squash". obj is the art, not the object that collides, and has the Tween behavior `tween`.
-    The tween ends at the image's size, the size shape_inst() places obj at.
+    The rest size is the size obj has when its first squash starts, kept in its instance variables
+    restWidth and restHeight, so a size set in the layout editor survives the squash.
+    A later resize that should last sets restWidth and restHeight too.
     The hold waits, so put the actions last in their block.
     half="down" gives the actions up to the hold, "back" the tween back; press() uses both halves.
 
@@ -1404,12 +1406,37 @@ def squash(obj: str, kind: str, tween: str = "Tween", half: str = "both") -> lis
     k = kinds[kind]
     SQUASHED.add(obj)
     down = [act("stop-tweens", obj, {"tags": q("squash")}, beh=tween),
-            act("set-size", obj, {"width": f"Self.ImageWidth * {k['width']:g}",
-                                  "height": f"Self.ImageHeight * {k['height']:g}"}),
+            {"type": "comment", "text": f"Squash {obj} from the size it rests at. A rest size of 0 is a first "
+                                        f"squash, so the size it has now is its rest size"},
+            *(set_ivar(obj, f"rest{side}", f"Self.rest{side} = 0 ? Self.{side} : Self.rest{side}")
+              for side in ("Width", "Height")),
+            act("set-size", obj, {"width": f"Self.restWidth * {k['width']:g}",
+                                  "height": f"Self.restHeight * {k['height']:g}"}),
             *([wait(f"{k['hold']:g}", use_timescale=False)] if k["hold"] else [])]
-    back = [tween2(obj, "squash", "size", "Self.ImageWidth", "Self.ImageHeight", f"{k['seconds']:g}", k["ease"],
+    back = [tween2(obj, "squash", "size", "Self.restWidth", "Self.restHeight", f"{k['seconds']:g}", k["ease"],
                    beh=tween)]
     return {"both": down + back, "down": down, "back": back}[half]
+
+
+def squash_types(types: dict, families: dict, layouts: dict) -> None:
+    """Gives each type or family squash() acts on the number instance variables restWidth and
+    restHeight, 0 on every instance, because an instance lists every instance variable of its type
+    and of its families."""
+    squashed = set()
+    for name in sorted(SQUASHED & (set(types) | set(families))):
+        item = types.get(name) or families[name]
+        ivars = item.setdefault("instanceVariables", [])
+        for side in ("Width", "Height"):
+            if not any(v["name"] == f"rest{side}" for v in ivars):
+                ivars.append(ivar_def(f"rest{side}", "number", f"{side} it rests at, the size squash() returns "
+                                                               f"to; 0 until its first squash keeps it."))
+        squashed |= set(families[name]["members"]) if name in families else {name}
+    for lay in layouts.values():
+        for layer_ in layers_in(lay["layers"]):
+            for inst in layer_["instances"]:
+                if inst["type"] in squashed:
+                    inst["instanceVariables"].setdefault("restWidth", 0)
+                    inst["instanceVariables"].setdefault("restHeight", 0)
 
 
 def squash_the_art(types: dict, families: dict) -> None:
@@ -1436,7 +1463,7 @@ def press(obj: str, actions: list, tween: str = "Tween") -> list:
     """The two events of a press on obj, a button()'s shape with Tween. The touch that lands on
     it marks it pressed and squashes it; the touch's end springs it back and runs `actions` only
     if the touch ends on it, so a finger that slides off cancels.
-        module("Menu", events=[*press("Restart", [restart_layout()])])"""
+        module("Menu", events=[*press("Restart", fade_to())])"""
     PRESSED.add(obj)
     return [*event(f"Press {obj} down under the finger", [on_touched(obj)],
                    [set_bool(obj, "pressed", True), *squash(obj, "press", tween, "down")]),
@@ -1478,7 +1505,8 @@ def count_up(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> 
 def counting(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> list:
     """The two events that show count_up()'s count on obj: during it, the tween's value rounded
     towards `value`, so a gain of 1 shows at once; at its end, `value`, because the tween's value
-    reads 0 once the tween has ended."""
+    reads 0 once the tween has ended. obj is best left-aligned: check_texts() warns otherwise."""
+    COUNTED.add(obj)
     v = f"Self.{tween}.Value({q(tag)})"
     return [*event(f"Show {obj}'s count while it runs", [is_playing(obj, tag, beh=tween)],
                    [set_text(obj, f"{v} < {value} ? ceil({v}) : floor({v})")]),
@@ -1524,6 +1552,49 @@ def restart_layout() -> dict:
 
 def go_to_layout(name: str) -> dict:
     return act("go-to-layout", "System", {"layout": name})
+
+
+# A change of layout passes through a cover over the whole screen in FADE's role
+# (look-manifest.json, screen.transition): fade_to() fades the cover in, then changes the layout,
+# and each layout of the sheet opens under it and fades it away. The wait ignores the time scale,
+# so a pause menu's quit still leaves.
+FADE = {"seconds": 0.3, "ease": "easeinoutsine", "role": "ink"}
+_fades = False                             # fade_to() was called, so add_fade() adds the cover
+
+
+def fade_to(layout: str | None = None) -> list:
+    """Actions that fade the screen to FADE's role, then go to `layout`, or restart this one when it
+    is None. Use them for every change of layout, in place of go_to_layout() and restart_layout():
+    write_all() then puts the cover on a top layer of every layout the sheet runs and fades it away
+    when the layout starts.
+        event("Start the next round", [...], [set_var("beat", "beat + 1"), *fade_to()])"""
+    global _fades
+    _fades = True
+    seconds = f"{FADE['seconds']:g}"
+    return [set_visible("Fade", True), tween1("Fade", "fade-out", "offsetOpacity", "100", seconds, FADE["ease"]),
+            wait(seconds, use_timescale=False), go_to_layout(layout) if layout else restart_layout()]
+
+
+def add_fade(types: dict, layouts: dict, sheet: dict) -> None:
+    """The cover fade_to() fades in: the type Fade, a Tiled Background of FADE's role with the Tween
+    behavior, over screen_box() on a top layer of parallax 0 in each layout that runs `sheet`, opaque
+    at the start; and the group that fades it away when a layout starts and hides it after. A layout
+    with no sheet has no cover, because nothing would fade it away. Nothing without fade_to()."""
+    if not _fades:
+        return
+    write_png("fade.png", UNIT, UNIT, lambda x, y: (*rgb(FADE["role"]), 255))
+    types["Fade"] = image_type("Fade", "TiledBg", UNIT, UNIT, 0, 0, behaviors=[beh_def("Tween")])
+    for lay in layouts.values():
+        if lay["eventSheet"] == sheet["name"]:
+            lay["layers"].append(layer("Fade", parallax=0) | {"instances": [
+                tiledbg_inst("Fade", *screen_box(), 0, 0, behaviors=dict(TWEEN))]})
+    seconds = f"{FADE['seconds']:g}"
+    sheet["events"].append(module("Fade", events=[
+        *event("Fade the cover away as the layout starts", [on_start()],
+               [tween1("Fade", "fade-in", "offsetOpacity", "0", seconds, FADE["ease"])]),
+        *event("Hide the cover once it has faded away", [on_tween_finished("Fade", "fade-in")],
+               [set_visible("Fade", False)]),
+    ]))
 
 
 def set_group_active(title: str, state: str = "activated") -> dict:
@@ -2187,21 +2258,21 @@ def longest_text(otype: str, longest: str | None, size: float) -> None:
         LONGEST[otype] = longest
 
 
+def text_actions(node) -> list[dict]:
+    """Every action of `node`, a sheet or part of one, that sets a text: Set text, Append text and
+    Typewriter text."""
+    if isinstance(node, list):
+        return [a for value in node for a in text_actions(value)]
+    if not isinstance(node, dict):
+        return []
+    own = [node] if node.get("id") in ("set-text", "append-text", "typewriter-text") else []
+    return own + [a for value in node.values() for a in text_actions(value)]
+
+
 def write_texts(sheet: dict, types: dict) -> None:
     """Writes tools/texts.json, which review_look.py shows as the worst data. Warns of a Text the events set
     that has no `longest`: review_look.py then guesses its worst text."""
-    set_by: set[str] = set()
-
-    def walk(node) -> None:
-        if isinstance(node, dict):
-            if node.get("id") in ("set-text", "append-text", "typewriter-text"):
-                set_by.add(node.get("objectClass"))
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-    walk(sheet)
+    set_by = {a.get("objectClass") for a in text_actions(sheet)}
     open_ = sorted(n for n in set_by if n in types and types[n].get("plugin-id") in FONT_PLUGINS and n not in LONGEST)
     if open_:
         print(f"warning: the events set the text of {', '.join(open_)}, and no helper says how long it gets: "
@@ -2209,6 +2280,38 @@ def write_texts(sheet: dict, types: dict) -> None:
               f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
               f"that text")
     write_json("tools/texts.json", {"longest": dict(sorted(LONGEST.items()))})
+
+
+# The characters a device draws as emoji (Unicode's Emoji_Presentation, and U+FE0F, which asks for
+# the emoji form of the one before it): each system draws its own picture, unlike ART_STYLE, and a
+# Sprite Font draws nothing (look-manifest.json, text.no-emoji)
+EMOJI = re.compile("[⌚⌛⏩-⏬⏰⏳◽◾☔☕♈-♓♿⚓⚡"
+                   "⚪⚫⚽⚾⛄⛅⛎⛔⛪⛲⛳⛵⛺⛽✅"
+                   "✊✋✨❌❎❓-❕❗➕-➗➰➿⬛⬜⭐"
+                   "⭕️\U0001f000-\U0001faff]")
+COUNTED: set[str] = set()                  # the Text types counting() counts
+
+
+def check_texts(sheet: dict, layouts: dict) -> None:
+    """Stops the run on an emoji in a layout's Text or in a text the events set, naming each; warns of
+    a Text that counting() counts and that is not left-aligned, whose other digits shift as one
+    changes, since Inter's digits differ in width (type.counting-digits)."""
+    found = [f"layout {name}: {inst['type']} {inst['properties']['text']!r}" for name, lay in layouts.items()
+             for layer_ in layers_in(lay["layers"]) for inst in layer_["instances"]
+             if EMOJI.search(str(inst.get("properties", {}).get("text", "")))]
+    found += [f"the events: {a['objectClass']} {a['parameters'].get('text', '')!r}" for a in text_actions(sheet)
+              if EMOJI.search(str(a.get("parameters", {}).get("text", "")))]
+    if found:
+        sys.exit("an emoji draws as each device's own picture and not at all in a Sprite Font; draw the icon as "
+                 "art in its own box beside the text, art() or shape() in build_images(), and take the emoji out "
+                 "of:\n  " + "\n  ".join(found))
+    shifting = sorted({inst["type"] for lay in layouts.values() for layer_ in layers_in(lay["layers"])
+                       for inst in layer_["instances"] if inst["type"] in COUNTED
+                       and inst.get("properties", {}).get("horizontal-alignment", "left") != "left"})
+    if shifting:
+        print(f"warning: counting() counts {', '.join(shifting)}, which {'is' if len(shifting) == 1 else 'are'} not "
+              f"left-aligned, so its other digits shift on every step of the count: Inter's digits differ in "
+              f"width; align it left, so the digits before the one that changes stay put")
 
 
 def hud_text(otype: str, text: str, where: str, size: float | None = None, longest: str | None = None,
@@ -2404,10 +2507,12 @@ def label_size(text: str, w: float, h: float) -> float:
     return TEXT_SIZE["title"] if tw <= w and th <= h else TEXT_SIZE["body"]
 
 
-def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size: float | None = None,
+def button(otype: str, rel: str, label: str, text: str, col: int | str, row: int, size: float | None = None,
            longest: str | None = None, color: str | None = None, ivars=None, behaviors=None, label_ivars=None,
            label_behaviors=None) -> tuple[dict, dict]:
-    """A button: the shape images/<rel> on cell (col, row), and the Text type `label` showing
+    """A button: the shape images/<rel> on cell (col, row), or with col "center" on the cell nearest
+    the vertical centre line, as a title, menu or pause screen sets its buttons (look-manifest.json,
+    screen.menu-axis); and the Text type `label` showing
     `text` centred on it by its ink (optical_drop() lowers it). The label's size is `size` or label_size()'s, and its role reads on the
     fill unless `color` names one. The label is the shape's child, size included, so press()
     squashes both. `longest` is the widest text it shows; a shape smaller than its button_size()
@@ -2417,6 +2522,10 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
         sys.exit(f"button({otype!r}): draw images/{rel} first, shape({rel!r}, \"rect\", *button_size({text!r}), "
                  f"role), in build_images()")
     w, h = DRAWN_AS[rel][1:3]
+    if col == "center":
+        col = round((VIEW_W - w) / 2 / UNIT)
+    elif isinstance(col, str):
+        sys.exit(f"button({otype!r}): col {col!r}; a cell number or \"center\"")
     size = size or label_size(longest or text, w, h)
     longest_text(label, longest, size)
     need = button_size(longest or text, size)
@@ -2821,8 +2930,10 @@ def text_input_events(sets: dict | None = None) -> list:
 # The paper-and-ink HUD: what the player is on, a round, a level or a mode, as a small tracked tag
 # top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
 # left as keys, a short name in a thin ink box with its verb beside it, which dim once used
-# (hints()). The screen the player plays on shows no game name; a menu or a result screen sets it
-# with hud_header(). Gaps scale by REF, the viewport's shorter side over 720.
+# (hints()). The screen the player plays on shows no game name; a title, menu or pause screen sets
+# its title on the vertical centre line with hud_header() and its buttons with button(..., "center",
+# row), and a result screen states the moment with result_headline(). Gaps scale by REF, the
+# viewport's shorter side over 720.
 TRACK = "\u2005"                           # a quarter em: the space between the letters of a tracked tag
 HINT_OPACITY = 35                          # % the row of keys keeps once the player has used the controls
 
@@ -2859,28 +2970,50 @@ def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None 
                      weight=TEXT_WEIGHT.get("tag", "regular"))
 
 
-def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where: str = "top-left",
-               longest_tag: str | None = None, on: str = "canvas_alt", dx: float = 0, dy: float = 0) -> list[dict]:
-    """A screen's title, for a menu or a result screen that names the game or the moment, held to an
-    edge or corner by anchor() as one group. The title is in text_size("title") and its weight, in
-    ink. The tag follows it, 0.6 em of the title away, in text_size("tag"), dim and tracked(), on the
-    title's baseline. The screen the player plays on shows no title, only hud_tag(). Returns
-    [title, tag], or [title] without a tag, one group of spaced():
-        hud_header("ResultTitle", "ResultTag", "Round clear", "Round · 03")"""
+def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", longest_tag: str | None = None,
+               on: str = "canvas_alt", dy: float = 0) -> list[dict]:
+    """The title of a title, menu or pause screen, the game's name or the menu's, centred on the
+    vertical centre line and held to the top edge by anchor("top") as one group (look-manifest.json,
+    screen.menu-axis). The title is in text_size("title") and its weight, in ink. The tag goes GAP_IN
+    under it, centred, in text_size("tag"), dim and tracked(), as wide as `longest_tag`. dy moves the
+    group down in whole units. The screen the player plays on shows no title, only hud_tag(), and a
+    result screen takes result_headline(). Returns [title, tag], or [title] without a tag, one group
+    of spaced():
+        hud_header("MenuTitle", "MenuTag", "Coins", "Round · 03")"""
     big, small = text_size("title"), text_size("tag")
-    tw, h = text_width(title, big), line_height(big)
-    gap = round(0.6 * em_px(big)) if tag else 0
-    gw = text_width(tracked(longest_tag or tag), small) if tag else 0
-    x, y = anchor(where, tw + gap + gw, h, 0, 0, dx, dy)
-    title_ = text_inst(title_type, title, x, y, tw, h, big, "left", color="ink", on=on, behaviors=anchored(where),
-                       weight=TEXT_WEIGHT.get("title", "medium"), valign="bottom")
+    tw, th = text_width(title, big), line_height(big)
+    gw, gh = (text_width(tracked(longest_tag or tag), small), line_height(small)) if tag else (0, 0)
+    w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
+    x, y = anchor("top", w, h, 0, 0, 0, dy)
+    title_ = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
+                       behaviors=anchored("top"), weight=TEXT_WEIGHT.get("title", "medium"))
     if not tag:
         return [title_]
-    # Bottom-aligned, a line keeps its descent under the baseline, about a quarter em of its size
-    lift = round(0.24 * (em_px(big) - em_px(small)))
-    tag_ = text_inst(tag_type, tracked(tag), x + tw + gap, y - lift, gw, h, small, "left", color="dim", on=on,
-                     behaviors=anchored(where), weight=TEXT_WEIGHT.get("tag", "regular"), valign="bottom")
-    return [title_, tag_]
+    return [title_, text_inst(tag_type, tracked(tag), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+                              color="dim", on=on, behaviors=anchored("top"), weight=TEXT_WEIGHT.get("tag", "regular"))]
+
+
+def result_headline(title_type: str, tag_type: str, title: str, tag: str = "", longest: str | None = None,
+                    on: str = "canvas_alt", dy: float = 0) -> list[dict]:
+    """A result screen's headline, the moment in one line, centred on the screen as one group: the
+    headline in text_size("display") and the title weight, in ink, as wide as `longest`, the widest
+    text the events set (look-manifest.json, screen.result-headline). The tag goes GAP_IN under it,
+    centred, in text_size("tag"), dim and tracked(). dy moves the group in whole units, up from a
+    row of buttons under it. Returns [headline, tag], or [headline] without a tag, one group of
+    spaced():
+        result_headline("ResultTitle", "ResultTag", "Round clear", "Round · 03", longest="Game over")"""
+    big, small = text_size("display"), text_size("tag")
+    longest_text(title_type, longest, big)
+    tw, th = text_width(longest or title, big), line_height(big)
+    gw, gh = (text_width(tracked(tag), small), line_height(small)) if tag else (0, 0)
+    w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
+    x, y = anchor("center", w, h, 0, 0, 0, dy)
+    headline = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
+                         weight=TEXT_WEIGHT.get("display", "medium"))
+    if not tag:
+        return [headline]
+    return [headline, text_inst(tag_type, tracked(tag), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+                                color="dim", on=on, weight=TEXT_WEIGHT.get("tag", "regular"))]
 
 
 def hud_keys(box_type: str, key_type: str, verb_type: str, keys: list, where: str = "bottom-left",
@@ -2937,7 +3070,7 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
 GAP_IN = max(1, UNIT // 4)                 # px between the parts of a group
 GAP_OUT = UNIT                             # px at least between the HUD and the playfield
 GROUP_RATIO = 1.5                          # least ratio of the gap between groups to the gap inside one
-OPTICAL_LIFT = 0.05                        # share of the area's height the playfield sits above centre
+OPTICAL_LIFT = 0                           # share of the area's height the playfield sits above its middle
 PLAYFIELD_MIN = 0.15                       # least share of the screen the playfield covers
 # Most items of the HUD one ninth of the screen holds, off its middle, while two corners stand empty.
 # An item is a group, or a part a label joins to another with " · " or " | ".
@@ -3133,6 +3266,35 @@ def filled(content: list, where: str = "layout Game") -> None:
         print(f"warning: {where}: {names} covers {covers:.0%} of the {VIEW_W}x{VIEW_H} screen, under "
               f"PLAYFIELD_MIN {PLAYFIELD_MIN:.0%}. Make it larger, bigger cells or more of them, or fit(w, h) "
               f"for its size on the stage")
+
+
+# A layout or layer whose name says it is a title, menu or pause screen
+MENU_SCREEN = re.compile(r"title|menu|pause", re.I)
+
+
+def on_axis(layouts: dict) -> None:
+    """Warns of each instance of a title, menu or pause screen, a layout or a layer whose name
+    MENU_SCREEN matches, centred more than half a unit off the vertical centre line: such a screen
+    sets its texts and buttons on it (look-manifest.json, screen.menu-axis). A backdrop or a dim that
+    covers 80% of the viewport both ways is left out. A settings screen, rows of a name beside its
+    control, is no such screen. A warning, not a stop: a back button in a corner may sit off the line
+    on purpose."""
+    for name, lay in layouts.items():
+        off = []
+        for layer_ in layers_in(lay["layers"]):
+            if not MENU_SCREEN.search(name) and not MENU_SCREEN.search(layer_["name"]):
+                continue
+            for inst in layer_["instances"]:
+                b = box_of(inst)
+                if not b or b[2] - b[0] >= 0.8 * VIEW_W and b[3] - b[1] >= 0.8 * VIEW_H:
+                    continue
+                if abs((b[0] + b[2]) / 2 - VIEW_W / 2) > UNIT / 2:
+                    off.append(f"{inst['type']} at x {(b[0] + b[2]) / 2:g}")
+        if off:
+            print(f"warning: layout {name}: a title, menu or pause screen sets its texts and buttons on the vertical "
+                  f"centre line, x {VIEW_W / 2:g}, and {', '.join(dict.fromkeys(off))} sits off it; place a title with "
+                  f"hud_header(), a button with button(..., \"center\", row), anything else with anchor(\"top\") or "
+                  f"anchor(\"center\"), or keep it there if it is meant")
 
 
 # --- the order of each layer and the HUD's behavior --------------------------------------------
@@ -3448,14 +3610,18 @@ def write_all(c3proj: Path) -> None:
                   f"Fusion Pixel Font's 8px proportional BDF release there: "
                   f"https://github.com/TakWolf/fusion-pixel-font/releases")
     layouts = build_layouts()
+    on_axis(layouts)
     anchor_types(types, layouts)
     for lay in layouts.values():
         for layer_ in layers_in(lay["layers"]):
             layer_["instances"] = z_order(layer_["instances"])
-    # Sheet first: press() records its types, and press_types() gives them their variable
+    # Sheet first: press() and squash() record their types, which then get their variables
     sheet = build_event_sheet()
+    add_fade(types, layouts, sheet)
+    check_texts(sheet, layouts)
     write_texts(sheet, types)
     press_types(types, layouts)
+    squash_types(types, families, layouts)
     for name, t in types.items():
         write_json(f"objectTypes/{name}.json", t)
     for name, f in families.items():
@@ -3513,7 +3679,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 2d6fc905c788 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp d8798e026e02 ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3684,7 +3850,7 @@ def module_restart() -> dict:
     return module("Restart", events=[
         event("Start the next round when the last coin is gone",
               [cmp2("Coin.Count", EQ, "0"), trigger_once()],
-              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), restart_layout()]),
+              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), *fade_to()]),
     ])
 
 

@@ -318,8 +318,14 @@ parameters are in the template.
   `GAP_IN` above the value in `TEXT_SIZE["number"]` and the light weight.
   What the player is on, a round, a level or a mode, is `hud_tag(type,
   text)` top left, a small tracked tag, and the events set it with
-  `tracked_expr()`. On a menu or a result screen, `hud_header()` puts a
-  title before a tag. The controls are `hud_keys(box_type, key_type,
+  `tracked_expr()`. A title, menu or pause screen sets its texts and
+  buttons on the vertical centre line (`screen.menu-axis`): `hud_header()`
+  centres its title at the top with a tag under it, and a button takes
+  `"center"` for its column. The run warns of an instance of a layout or
+  layer named title, menu or pause that sits off the line.
+  A result screen states its moment with `result_headline(title_type,
+  tag_type, text, tag, longest=...)`, one line at `display` size centred
+  on the screen (`screen.result-headline`). The controls are `hud_keys(box_type, key_type,
   verb_type, [(key, verb), ...])` bottom left, and `hints(box_type)` is the
   group that dims the keys once the player has used them.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,
@@ -351,10 +357,21 @@ parameters are in the template.
   its type the behavior.
 - A number that counts to its new value takes `count_up(text, value)` in
   the actions where the value changes, and `counting(text, value)` among a
-  module's events. The Text shows the number alone and has the Tween
-  behavior.
+  module's events. The Text shows the number alone, has the Tween behavior
+  and is left-aligned, or its other digits shift as one changes
+  (`type.counting-digits`; the run warns).
+- Every change of layout is `*fade_to(layout)`, or `*fade_to()` to restart
+  this one, in place of `go_to_layout()` and `restart_layout()`
+  (`screen.transition`). The run then puts a cover on a top layer of every
+  layout the sheet runs and fades it away as each starts.
+- A text holds no emoji: the run stops on one in a layout or in a text the
+  events set (`text.no-emoji`). An icon is art in its own box beside the
+  text. A Text that the events set starts with real text, never `Text` or
+  Lorem ipsum, which `review_look.py` reports if it is still shown
+  (`text.placeholder`).
 - A button is `button(type, file, label, text, col, row)`, its shape drawn
-  at `button_size(text)`. The label is centred on the shape, in the colour
+  at `button_size(text)`; col `"center"` puts it on the cell nearest the
+  vertical centre line. The label is centred on the shape, in the colour
   `text_on()` picks for its fill, at the size `label_size()` gives. It is
   the shape's child in the layout's hierarchy (`link()`), so the events that
   hide, move, squash or destroy the button take the label along.
@@ -421,9 +438,12 @@ parameters are in the template.
 - A hit shows as a colour: `hit_frame(file)` draws the shape's second frame
   in the `flash` role, tagged `hit`, and `hit_flash(obj)` gives the actions
   that show it for `HIT_FLASH["seconds"]` and return to frame 0.
-  `squash(obj, kind)` sets the share of the image's size that `SQUASH`
+  `squash(obj, kind)` sets the share of the object's rest size that `SQUASH`
   gives for `"hit"`, `"land"` or `"jump"`, and `SQUASH_PRESS` for `"press"`
-  unless `SQUASH` has one, holds it and tweens back, and `hit(obj)` gives
+  unless `SQUASH` has one, holds it and tweens back. The rest size is the
+  size the instance has when its first squash starts, kept in its instance
+  variables `restWidth` and `restHeight`, so a size the user sets in the
+  layout editor stays. `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
   `Collect` does; the object needs the Tween behavior. In paper and ink the
   Flash behavior stops the run (`motion.hit`). A squash acts on the art,

@@ -68,6 +68,38 @@ browser starts, the script reads them as `scripts/check_project.py` does,
 stops on a string shaped like a key, and names the hosts of the addresses
 the game holds: tell the user which hosts the game contacts.
 
+A `release:` line is a warning that leaves the exit code as it is: the
+project ships the icons and loading logo of a new project, which are
+Construct's, or its Author, ID or Description is empty in the project
+properties. The dry run prints these lines too. Tell the user before the game
+is published.
+
+## The boot
+
+A packaged export can still fail to start: it runs in modes no preview
+played, such as Use worker Auto, Offline support and optimized images. So
+after the export the script serves `--to` on `127.0.0.1` and opens its
+`index.html` in a headless, muted Edge or Chrome on a fresh profile, as a
+player's browser would. It watches the page and every worker from their
+first line, waits up to 30 seconds for the runtime to tick, lets it run 2
+seconds, and takes a screenshot into `.tmp/scripts/export-project/boot.png`
+of the project. Then it prints a `runtime:` line per console error, a
+`request:` line per failed request (an answer of 400 or more, or a load that
+failed, with a path under the export relative to it), and last the verdict:
+
+- `booted:` the runtime ticked with no console error and no failed request.
+  The line names the first layout and where it ran. Exit 0.
+- `boot failed:` the runtime did not tick in 30 seconds, or it logged an
+  error or a request failed. Exit 6. Fix what the lines above it name, or
+  tell the user why a request may fail, such as a host that the game
+  contacts, and export again.
+- `boot not checked:` no browser to run it in, or that browser stopped.
+  Exit 3. The export itself is in place.
+
+A screenshot that is one colour adds that the first layout drew nothing in
+view. Look at the screenshot either way: the boot shows that the game starts,
+not that its first screen is right.
+
 A project over the Free edition's limits exports only from an account with a
 subscription. The script drives a window of its own, and when the editor
 shows Guest or Free edition it waits up to 5 minutes: tell the user to log
@@ -118,9 +150,12 @@ closes it after the export or when the run stops.
 - Exit 2: a flag or version that cannot be used, no project, a `--to` the
   script refuses, or an editor page that did not load.
 - Exit 3: no Edge, Chrome or Chromium. Export by hand in the editor, or
-  attach to a browser.
-- Exit 4: exported, but `project.c3proj` could not be written and keeps its
-  old version; the last line says how to set it.
+  attach to a browser. After an export, `boot not checked:`: the export is in
+  place, and the line says why its boot did not run.
+- Exit 4: exported and booted, but `project.c3proj` could not be written and
+  keeps its old version; its line says how to set it.
+- Exit 6, `boot failed:`: the export is in place, but its game did not start
+  or reported errors, as "The boot" above describes.
 
 After an export by hand, set `project.c3proj` back to the exported version,
 or export again with the script (the *Auto-increment version* bullet below).
@@ -150,6 +185,19 @@ or export again with the script (the *Auto-increment version* bullet below).
   refuses a project a newer release saved. The script opens
   `editor.construct.net/r<release>/` from `savedWithRelease`. [Edge,
   2026-10-01]
+- An editor of a release older than the latest stable one, opened at
+  `editor.construct.net/r<release>/`, shows "Update available" with Update
+  and Not now about 2 seconds after it loads. Update sets the page's address
+  to `editor.construct.net/`, which loads the latest release and shows Guest.
+  A user who logs in there leaves the logged-in page at the root, so the
+  script finds its page again by the release the page runs, not by its
+  address. [r476.4 editor in Edge, 2026-10-31: in the export window of
+  ghost-chaser, the page went from `r476-4/` to the root 7 seconds after it
+  opened and 36 seconds before the user logged in. The profile's history
+  records the move as a link from `r476-4/` with no login page between. A
+  new `r476-4/` page in that profile showed the prompt, and r476.4's
+  `main.js` sets `location.href = location.origin` on Update. A fresh
+  profile showed the welcome tour instead]
 - The export report's download link, clicked in a driven browser, saves no
   file; the script reads the zip out of the page instead. [r504 editor in
   Edge, 2026-10-01]

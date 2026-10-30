@@ -5,10 +5,20 @@ the next. The generator template's playfield checks take their thresholds from t
 sizes of a layout and how far apart they step, how near the edge the nearest text sits, and how
 many items the screen's texts gather in one ninth of it while its corners stand empty. With
 --screens, group the texts by kind of screen: title or menu, result, and play. Then measure the
-largest text of each kind and the title image of each title screen.
+largest text of each kind and the title image of each title screen. With --frame, measure how each
+kind of screen frames its texts: how many sit on its vertical centre line, which corners they hold,
+how many are set in capitals, their faces, and the colour of the screen's ground. With --labels,
+count how the texts are set: short labels in capitals, letters spaced apart, parts joined by a
+middle dot or a bar, and numbers padded with zeros, in the layouts and in the events' zeropad() calls.
+With --taps, measure the objects the player taps: the smaller side of each and the gap to the
+nearest other, in dp, the viewport's shorter side counting as 360 dp. With --lines, measure the
+texts that hold several lines: the line height they add as a share of their letters' height, and
+how many characters a line holds.
 
     python evals/measure_layout.py --examples <Construct-Example-Projects>/example-projects
-                                   [--text | --screens] [--out ROWS.json] [--rag FOLDER]
+                                   [--text | --screens | --frame | --labels | --taps | --lines]
+                                   [--out ROWS.json]
+                                   [--rag FOLDER]
 
 An example counts when its tags in data/c3-examples name a game ("Game template" or "Demo
 game") and not "3D". A layout counts when it is one screen, at most 5% larger than the viewport
@@ -20,13 +30,20 @@ Font, its character height times its scale, that shows a non-empty text; its dis
 edge counts on a layout of one screen or a layer that does not scroll, from the sides its
 letters align to. A screen is a layout whose name says what it is. On a layout of play, a layer
 whose name says so is a screen too. NO_SCREEN names the layouts and layers that are no screen.
-A title image is the image of the game's name that TITLE_IMAGES names for a title screen. Exit
-codes: 0 measured, 2 bad arguments.
+A title image is the image of the game's name that TITLE_IMAGES names for a title screen. A
+screen's ground is its lowest visible layer's colour when that layer is opaque, else the mean
+colour, by alpha, of the first image that covers 80% of the viewport both ways, else none; --frame
+needs Pillow to read that image. A tapped object is an instance of a type, or a family's member,
+that a Touch or Mouse condition of the event sheets names, shown on a layout of one screen or a
+layer that does not scroll. A text of several lines is a Text that wraps, holds more than 60
+characters and is at least 2.5 lines of 1.15 em high; a line holds its width over half an em of
+characters, Arial's mean width. Exit codes: 0 measured, 2 bad arguments or no Pillow for --frame.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -184,11 +201,13 @@ def measure_text(examples: Path, rag: Path) -> list[dict]:
     return rows
 
 
+def cuts(vals: list[float], ks: tuple = (0.05, 0.25, 0.5, 0.75)) -> str:
+    vals = sorted(vals)
+    return f"{len(vals)}, min {vals[0]:g} " + " ".join(
+        f"p{int(k * 100)} {vals[min(len(vals) - 1, int(k * len(vals)))]:g}" for k in ks)
+
+
 def report_text(rows: list[dict]) -> None:
-    def cuts(vals: list[float]) -> str:
-        vals = sorted(vals)
-        return f"{len(vals)}, min {vals[0]:g} " + " ".join(
-            f"p{int(k * 100)} {vals[min(len(vals) - 1, int(k * len(vals)))]:g}" for k in (0.05, 0.25, 0.5, 0.75))
     smallest: dict[str, float] = {}
     for r in rows:
         smallest[r["example"]] = min(smallest.get(r["example"], 1), *r["sizes"])
@@ -310,9 +329,282 @@ def report_screens(rows: list[dict]) -> None:
           f"{sum(i['covered'] >= 0.05 for i in images)}")
 
 
+MONO = re.compile(r"mono|courier|consol|menlo|3270|7segment", re.I)
+
+
+def ground(folder: Path, layout: dict, vw: float, vh: float) -> tuple[float, float] | None:
+    """(lightness, chroma) of a screen's ground, each 0 to 1, as the module's docstring defines the
+    ground; None when it has none."""
+    from PIL import Image
+    for layer in layers_in(layout["layers"]):
+        if not layer.get("isInitiallyVisible", True):
+            continue
+        if not layer.get("isTransparent", True):
+            rgb = layer["backgroundColor"][:3]
+            break
+        backdrop = next((i for i in layer["instances"] if i.get("world")
+                         and abs(i["world"]["width"]) >= 0.8 * vw and abs(i["world"]["height"]) >= 0.8 * vh
+                         and i.get("properties", {}).get("initially-visible") is not False), None)
+        if backdrop is None:
+            continue
+        stem = backdrop["type"].lower()
+        image = next((f for f in (folder / "images").glob("*.png")
+                      if f.stem.lower() == stem or f.stem.lower().startswith(stem + "-") and f.stem.endswith("-000")),
+                     None)
+        if image is None:
+            return None
+        raw = Image.open(image).convert("RGBA").resize((64, 64)).tobytes()
+        px = [raw[k:k + 4] for k in range(0, len(raw), 4) if raw[k + 3]]
+        if not px:
+            return None
+        rgb = [sum(q[k] * q[3] for q in px) / sum(q[3] for q in px) / 255 for k in range(3)]
+        break
+    else:
+        return None
+    return round((max(rgb) + min(rgb)) / 2, 3), round(max(rgb) - min(rgb), 3)
+
+
+def measure_frame(examples: Path, rag: Path) -> list[dict]:
+    """One row per screen with a text shown on it, grouped as measure_screens() groups them: its
+    kind; how many texts it shows, how many of them are centred on the vertical centre line within
+    2% of the viewport's width, and how many of those with letters are set in capitals; the corners
+    of a 3 x 3 grid that hold a text's centre; the faces of its texts, a Sprite Font as "sprite
+    font"; and its ground."""
+    rows = []
+    for gid in games(rag):
+        folder = examples / gid
+        if not (folder / "project.c3proj").is_file():
+            continue
+        p = load(folder / "project.c3proj")
+        vw, vh = p["viewportWidth"], p["viewportHeight"]
+        for f in sorted((folder / "layouts").glob("*.json")):
+            lay = json.loads(f.read_text(encoding="utf-8"))
+            kind = screen_kind(lay["name"])
+            if kind is None:
+                continue
+            one_screen = lay["width"] <= 1.05 * vw and lay["height"] <= 1.05 * vh
+            screens: dict[tuple[str, str], list] = {}
+            for layer in layers_in(lay["layers"]):
+                own = kind if kind != "play" else screen_kind(layer["name"])
+                fixed = layer.get("parallaxX", 1) == 0 and layer.get("parallaxY", 1) == 0
+                if own is None or not layer.get("isInitiallyVisible", True) or not (one_screen or fixed):
+                    continue
+                for inst in layer["instances"]:
+                    props, w = inst.get("properties", {}), inst.get("world")
+                    text = str(props.get("text", "")).strip()
+                    if text_px(props) is None or not text or not w or props.get("initially-visible") is False:
+                        continue
+                    box = world_box(w)
+                    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+                    if not (0 <= cx <= vw and 0 <= cy <= vh):
+                        continue
+                    name = lay["name"] if kind != "play" or own == "play" else f"{lay['name']}/{layer['name']}"
+                    screens.setdefault((name, own), []).append((cx, cy, text, props.get("font", "sprite font")))
+            if not screens:
+                continue
+            under = ground(folder, lay, vw, vh)
+            for (name, own), texts in screens.items():
+                lettered = [t for _, _, t, _ in texts if any(c.isalpha() for c in t)]
+                corners = {("left" if cx < vw / 3 else "right") + ("-top" if cy < vh / 3 else "-bottom")
+                           for cx, cy, _, _ in texts
+                           if (cx < vw / 3 or cx > 2 * vw / 3) and (cy < vh / 3 or cy > 2 * vh / 3)}
+                rows.append({"example": gid, "screen": name, "kind": own, "texts": len(texts),
+                             "centred": sum(abs(cx - vw / 2) <= 0.02 * vw for cx, _, _, _ in texts),
+                             "lettered": len(lettered), "caps": sum(t == t.upper() for t in lettered),
+                             "corners": sorted(corners), "faces": sorted({face for *_, face in texts}),
+                             "ground": under})
+    return rows
+
+
+def report_frame(rows: list[dict]) -> None:
+    def cuts(vals: list[float]) -> str:
+        vals = sorted(vals)
+        return (f"{len(vals)}, min {vals[0]:g} " + " ".join(
+            f"p{int(k * 100)} {vals[min(len(vals) - 1, int(k * len(vals)))]:g}" for k in (0.25, 0.5, 0.75))
+            + f" max {vals[-1]:g}") if vals else "none"
+    for kind in ("title", "result", "play"):
+        some = [r for r in rows if r["kind"] == kind]
+        several = [r for r in some if r["texts"] >= 2]
+        held = [len(r["corners"]) for r in some]
+        print(f"{kind}: {len(some)} screens of {len({r['example'] for r in some})} examples; texts centred: "
+              f"{sum(r['centred'] for r in some)} of {sum(r['texts'] for r in some)}; of the {len(several)} screens "
+              f"with two texts or more, all centred: {sum(r['centred'] == r['texts'] for r in several)}, none "
+              f"centred: {sum(r['centred'] == 0 for r in several)}; corners holding a text: "
+              + ", ".join(f"{k}: {held.count(k)}" for k in range(5)))
+        lettered = [r for r in some if r["lettered"]]
+        capped = [r for r in lettered if r["caps"] == r["lettered"]]
+        print(f"  texts in capitals: {sum(r['caps'] for r in lettered)} of {sum(r['lettered'] for r in lettered)}; "
+              f"screens all in capitals: {len(capped)} of {len(lettered)}, in "
+              f"{len({r['example'] for r in capped})} examples")
+        grounds = [r["ground"] for r in some if r["ground"]]
+        print(f"  ground: {len(grounds)} measured; lightness {cuts([g[0] for g in grounds])}; chroma "
+              f"{cuts([g[1] for g in grounds])}; dark (under 0.25): {sum(g[0] < 0.25 for g in grounds)}, light "
+              f"(over 0.75): {sum(g[0] > 0.75 for g in grounds)}")
+    faces: dict[str, set] = {}
+    for r in rows:
+        faces.setdefault(r["example"], set()).update(r["faces"])
+    counts = [len(v) for v in faces.values()]
+    print("faces in an example's screens: " + ", ".join(f"{k}: {counts.count(k)}" for k in sorted(set(counts)))
+          + f"; examples with a monospaced face: {sum(any(MONO.search(f) for f in v) for v in faces.values())} "
+          f"of {len(faces)}")
+
+
+BBCODE = re.compile(r"\[/?[a-zA-Z]+(?:=[^\]]*)?\]")
+SPACED = re.compile(r"(?:\S[    ]){3,}\S")
+JOINED = re.compile(r"[·•|]")
+PADDED = re.compile(r"(?<![\d.,])0\d")
+ZEROPAD = re.compile(r"zeropad\(\s*([^,]+?),", re.I)
+LABEL_CHARS = 20                           # a label: a text this long or shorter, BBCode tags left out
+
+
+def measure_labels(examples: Path, rag: Path) -> list[dict]:
+    """One row per example: each text that shows two Latin letters or more, its BBCode tags left out,
+    with what sets it apart, and what its events pass to zeropad()."""
+    rows = []
+    for gid in games(rag):
+        proj = examples / gid / "project.c3proj"
+        if not proj.is_file():
+            continue
+        p = load(proj)
+        short = min(p["viewportWidth"], p["viewportHeight"])
+        texts = []
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = json.loads(f.read_text(encoding="utf-8"))
+            for layer in layers_in(lay["layers"]):
+                for inst in layer["instances"]:
+                    props = inst.get("properties", {})
+                    px, text = text_px(props), BBCODE.sub("", str(props.get("text", ""))).strip()
+                    letters = [c for c in text if c.isascii() and c.isalpha()]
+                    if px is None or len(letters) < 2:
+                        continue
+                    texts.append({"text": text, "size": round(px / short, 4), "label": len(text) <= LABEL_CHARS,
+                                  "caps": all(c.isupper() for c in letters), "spaced": bool(SPACED.fullmatch(text)),
+                                  "joined": bool(JOINED.search(text)), "padded": bool(PADDED.search(text))})
+        padded = sorted({m.group(1).strip() for f in (examples / gid / "eventSheets").glob("*.json")
+                         for m in ZEROPAD.finditer(f.read_text(encoding="utf-8"))})
+        rows.append({"example": gid, "texts": texts, "zeropad": padded})
+    return rows
+
+
+def report_labels(rows: list[dict]) -> None:
+    texts = [t for r in rows for t in r["texts"]]
+    labels = [t for t in texts if t["label"]]
+    def count(key: str, among: list[dict]) -> str:
+        return (f"{sum(t[key] for t in among)} of {len(among)} in "
+                f"{sum(any(t[key] for t in r['texts'] if t in among) for r in rows)} examples")
+    print(f"{len(rows)} examples, {sum(bool(r['texts']) for r in rows)} with texts: {len(texts)} texts, "
+          f"{len(labels)} labels of {LABEL_CHARS} characters or fewer")
+    print(f"labels in capitals: {count('caps', labels)}; under 5% of the shorter side: "
+          f"{count('caps', [t for t in labels if t['size'] < 0.05])}")
+    for key in ("spaced", "joined", "padded"):
+        print(f"texts {key}: {count(key, texts)}")
+    with_pad = [r for r in rows if r["zeropad"]]
+    clocks = re.compile(r"%\s*60|second|minute|millisecond", re.I)
+    print(f"examples whose events call zeropad(): {len(with_pad)}; on a clock's part: "
+          f"{sum(any(clocks.search(a) for a in r['zeropad']) for r in with_pad)}; on a level, round or wave: "
+          f"{sum(any(re.search('level|round|wave', a, re.I) for a in r['zeropad']) for r in with_pad)}")
+
+
 def share(rows: list[dict], key: str, test) -> str:
     n = sum(1 for r in rows if test(r[key]))
     return f"{n} of {len(rows)} ({100 * n / len(rows):.0f}%)"
+
+
+TAPPED = {"on-touched-object", "on-object-clicked", "is-touching-object", "on-tap-gesture-object"}
+
+
+def events_in(events: list):
+    """Every event, each followed by those inside it."""
+    for e in events:
+        yield e
+        yield from events_in(e.get("children", []))
+
+
+def tapped_types(folder: Path) -> set[str]:
+    """The object types that a Touch or Mouse condition names, a family's members for a family."""
+    named = {c["parameters"]["object"] for f in (folder / "eventSheets").glob("*.json")
+             for e in events_in(load(f).get("events", [])) for c in e.get("conditions", [])
+             if c.get("id") in TAPPED and "object" in c.get("parameters", {})}
+    families = {(fam := load(f))["name"]: set(fam.get("members", [])) for f in (folder / "families").glob("*.json")}
+    return set().union(*(families.get(n, {n}) for n in named))
+
+
+def measure_taps(examples: Path, rag: Path) -> list[dict]:
+    """One row per tapped object shown on a screen: its smaller side and the gap to the nearest
+    other tapped object of its layout, in dp; the gap is 0 when they touch or overlap, None when
+    it is alone."""
+    rows = []
+    for gid in games(rag):
+        proj = examples / gid / "project.c3proj"
+        if not proj.is_file():
+            continue
+        p = load(proj)
+        vw, vh = p["viewportWidth"], p["viewportHeight"]
+        dp = 360 / min(vw, vh)
+        taps = tapped_types(examples / gid)
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = load(f)
+            one_screen = lay["width"] <= 1.05 * vw and lay["height"] <= 1.05 * vh
+            boxes = []
+            for layer in layers_in(lay["layers"]):
+                fixed = layer.get("parallaxX", 1) == 0 and layer.get("parallaxY", 1) == 0
+                if not (layer.get("isInitiallyVisible", True) and (one_screen or fixed)):
+                    continue
+                for inst in layer["instances"]:
+                    w = inst.get("world")
+                    if inst["type"] in taps and w and not w.get("angle") \
+                            and inst.get("properties", {}).get("initially-visible") is not False \
+                            and (box := box_on_screen(w, vw, vh)):
+                        boxes.append((inst["type"], box))
+            for n, (otype, a) in enumerate(boxes):
+                gaps = [math.hypot(max(b[0] - a[2], a[0] - b[2], 0), max(b[1] - a[3], a[1] - b[3], 0))
+                        for m, (_, b) in enumerate(boxes) if m != n]
+                rows.append({"example": gid, "layout": lay["name"], "type": otype,
+                             "side": round(min(a[2] - a[0], a[3] - a[1]) * dp, 1),
+                             "gap": round(min(gaps) * dp, 1) if gaps else None})
+    return rows
+
+
+def report_taps(rows: list[dict]) -> None:
+    sides = [r["side"] for r in rows]
+    print(f"smaller side of a tapped object, dp: {cuts(sides)}; under 48 dp: {sum(s < 48 for s in sides)} of {len(sides)}")
+    near = [r for r in rows if r["gap"] is not None]
+    under = [r for r in near if r["gap"] < 8]
+    print(f"gap to the nearest other tapped object, dp: {cuts([r['gap'] for r in near])}; touching or overlapping: "
+          f"{sum(r['gap'] == 0 for r in near)}, under 8 dp: {len(under)} of {len(near)}")
+    named = sorted({r["example"] for r in under if re.search(r"button|btn|tab|picker|icon", r["type"], re.I)})
+    print(f"examples with a button, tab, picker or icon under 8 dp from another: {len(named)} of "
+          f"{len({r['example'] for r in near})} ({', '.join(named)})")
+
+
+def measure_lines(examples: Path, rag: Path) -> list[dict]:
+    """One row per text of several lines: the line height it adds over its letters' height, and
+    the characters a line holds."""
+    rows = []
+    for gid in games(rag):
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = load(f)
+            for layer in layers_in(lay["layers"]):
+                for inst in layer["instances"]:
+                    props, w = inst.get("properties", {}), inst.get("world")
+                    px = text_px(props)
+                    if not (px and w and "font" in props and props.get("wrapping") and len(str(props.get("text", ""))) > 60
+                            and abs(w["height"]) >= 2.5 * 1.15 * px):
+                        continue
+                    rows.append({"example": gid, "layout": lay["name"], "type": inst["type"],
+                                 "added": round(props.get("line-height", 0) / px, 3),
+                                 "chars": round(abs(w["width"]) / (0.5 * px))})
+    return rows
+
+
+def report_lines(rows: list[dict]) -> None:
+    added = [r["added"] for r in rows]
+    print(f"texts of several lines: {len(rows)} in {len({r['example'] for r in rows})} examples; line height added "
+          f"over the letters, share of their height: {cuts(added)}; none added: {added.count(0)}, 0.3 or more: "
+          f"{sum(a >= 0.3 for a in added)}")
+    chars = [r["chars"] for r in rows]
+    print(f"characters a line holds: {cuts(chars, (0.1, 0.25, 0.5, 0.75, 0.9))}; 45 to 75: "
+          f"{sum(45 <= c <= 75 for c in chars)}, over 75: {sum(c > 75 for c in chars)}")
 
 
 def main() -> int:
@@ -323,13 +615,26 @@ def main() -> int:
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--text", action="store_true", help="measure the layouts' texts, not their content")
     mode.add_argument("--screens", action="store_true", help="measure the texts and title images by kind of screen")
+    mode.add_argument("--frame", action="store_true", help="measure the axis, corners, case, faces and ground by "
+                                                           "kind of screen")
+    mode.add_argument("--labels", action="store_true", help="count capitals, spacing, joins and zero padding in texts")
+    mode.add_argument("--taps", action="store_true", help="measure the size and spacing of the objects the player taps")
+    mode.add_argument("--lines", action="store_true", help="measure the line height and length of texts of several lines")
     ap.add_argument("--out", type=Path, help="write every measured layout here as JSON")
     ap.add_argument("--rag", type=Path, default=RAG, help="the Construct3-RAG folder, for the examples' tags")
     args = ap.parse_args()
     if not args.examples.is_dir():
         print(f"--examples {args.examples}: not a folder; pass <Construct-Example-Projects>/example-projects", file=sys.stderr)
         return 2
-    rows = (measure_text if args.text else measure_screens if args.screens else measure)(args.examples, args.rag)
+    if args.frame:
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            print("--frame needs Pillow, to read a screen's ground: pip install pillow", file=sys.stderr)
+            return 2
+    rows = (measure_text if args.text else measure_screens if args.screens else measure_frame if args.frame
+            else measure_labels if args.labels else measure_taps if args.taps
+            else measure_lines if args.lines else measure)(args.examples, args.rag)
     if not rows:
         print("no layout measured: check that --examples is the example-projects folder")
         return 0
@@ -337,6 +642,14 @@ def main() -> int:
         report_text(rows)
     elif args.screens:
         report_screens(rows)
+    elif args.frame:
+        report_frame(rows)
+    elif args.labels:
+        report_labels(rows)
+    elif args.taps:
+        report_taps(rows)
+    elif args.lines:
+        report_lines(rows)
     else:
         for key in ("covers", "focal"):
             vals = sorted(r[key] for r in rows)
