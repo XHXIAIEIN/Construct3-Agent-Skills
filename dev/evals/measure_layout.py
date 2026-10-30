@@ -5,10 +5,12 @@ the next. The generator template's playfield checks take their thresholds from t
 sizes of a layout and how far apart they step, how near the edge the nearest text sits, and how
 many items the screen's texts gather in one ninth of it while its corners stand empty. With
 --screens, group the texts by kind of screen: title or menu, result, and play. Then measure the
-largest text of each kind and the title image of each title screen.
+largest text of each kind and the title image of each title screen. With --labels, count how
+the texts are set: short labels in capitals, letters spaced apart, parts joined by a middle dot
+or a bar, and numbers padded with zeros, in the layouts and in the events' zeropad() calls.
 
     python evals/measure_layout.py --examples <Construct-Example-Projects>/example-projects
-                                   [--text | --screens] [--out ROWS.json] [--rag FOLDER]
+                                   [--text | --screens | --labels] [--out ROWS.json] [--rag FOLDER]
 
 An example counts when its tags in data/c3-examples name a game ("Game template" or "Demo
 game") and not "3D". A layout counts when it is one screen, at most 5% larger than the viewport
@@ -310,6 +312,62 @@ def report_screens(rows: list[dict]) -> None:
           f"{sum(i['covered'] >= 0.05 for i in images)}")
 
 
+BBCODE = re.compile(r"\[/?[a-zA-Z]+(?:=[^\]]*)?\]")
+SPACED = re.compile(r"(?:\S[    ]){3,}\S")
+JOINED = re.compile(r"[·•|]")
+PADDED = re.compile(r"(?<![\d.,])0\d")
+ZEROPAD = re.compile(r"zeropad\(\s*([^,]+?),", re.I)
+LABEL_CHARS = 20                           # a label: a text this long or shorter, BBCode tags left out
+
+
+def measure_labels(examples: Path, rag: Path) -> list[dict]:
+    """One row per example: each text that shows two Latin letters or more, its BBCode tags left out,
+    with what sets it apart, and what its events pass to zeropad()."""
+    rows = []
+    for gid in games(rag):
+        proj = examples / gid / "project.c3proj"
+        if not proj.is_file():
+            continue
+        p = load(proj)
+        short = min(p["viewportWidth"], p["viewportHeight"])
+        texts = []
+        for f in sorted((examples / gid / "layouts").glob("*.json")):
+            lay = json.loads(f.read_text(encoding="utf-8"))
+            for layer in layers_in(lay["layers"]):
+                for inst in layer["instances"]:
+                    props = inst.get("properties", {})
+                    px, text = text_px(props), BBCODE.sub("", str(props.get("text", ""))).strip()
+                    letters = [c for c in text if c.isascii() and c.isalpha()]
+                    if px is None or len(letters) < 2:
+                        continue
+                    texts.append({"text": text, "size": round(px / short, 4), "label": len(text) <= LABEL_CHARS,
+                                  "caps": all(c.isupper() for c in letters), "spaced": bool(SPACED.fullmatch(text)),
+                                  "joined": bool(JOINED.search(text)), "padded": bool(PADDED.search(text))})
+        padded = sorted({m.group(1).strip() for f in (examples / gid / "eventSheets").glob("*.json")
+                         for m in ZEROPAD.finditer(f.read_text(encoding="utf-8"))})
+        rows.append({"example": gid, "texts": texts, "zeropad": padded})
+    return rows
+
+
+def report_labels(rows: list[dict]) -> None:
+    texts = [t for r in rows for t in r["texts"]]
+    labels = [t for t in texts if t["label"]]
+    def count(key: str, among: list[dict]) -> str:
+        return (f"{sum(t[key] for t in among)} of {len(among)} in "
+                f"{sum(any(t[key] for t in r['texts'] if t in among) for r in rows)} examples")
+    print(f"{len(rows)} examples, {sum(bool(r['texts']) for r in rows)} with texts: {len(texts)} texts, "
+          f"{len(labels)} labels of {LABEL_CHARS} characters or fewer")
+    print(f"labels in capitals: {count('caps', labels)}; under 5% of the shorter side: "
+          f"{count('caps', [t for t in labels if t['size'] < 0.05])}")
+    for key in ("spaced", "joined", "padded"):
+        print(f"texts {key}: {count(key, texts)}")
+    with_pad = [r for r in rows if r["zeropad"]]
+    clocks = re.compile(r"%\s*60|second|minute|millisecond", re.I)
+    print(f"examples whose events call zeropad(): {len(with_pad)}; on a clock's part: "
+          f"{sum(any(clocks.search(a) for a in r['zeropad']) for r in with_pad)}; on a level, round or wave: "
+          f"{sum(any(re.search('level|round|wave', a, re.I) for a in r['zeropad']) for r in with_pad)}")
+
+
 def share(rows: list[dict], key: str, test) -> str:
     n = sum(1 for r in rows if test(r[key]))
     return f"{n} of {len(rows)} ({100 * n / len(rows):.0f}%)"
@@ -323,13 +381,15 @@ def main() -> int:
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--text", action="store_true", help="measure the layouts' texts, not their content")
     mode.add_argument("--screens", action="store_true", help="measure the texts and title images by kind of screen")
+    mode.add_argument("--labels", action="store_true", help="count capitals, spacing, joins and zero padding in texts")
     ap.add_argument("--out", type=Path, help="write every measured layout here as JSON")
     ap.add_argument("--rag", type=Path, default=RAG, help="the Construct3-RAG folder, for the examples' tags")
     args = ap.parse_args()
     if not args.examples.is_dir():
         print(f"--examples {args.examples}: not a folder; pass <Construct-Example-Projects>/example-projects", file=sys.stderr)
         return 2
-    rows = (measure_text if args.text else measure_screens if args.screens else measure)(args.examples, args.rag)
+    rows = (measure_text if args.text else measure_screens if args.screens else measure_labels if args.labels
+            else measure)(args.examples, args.rag)
     if not rows:
         print("no layout measured: check that --examples is the example-projects folder")
         return 0
@@ -337,6 +397,8 @@ def main() -> int:
         report_text(rows)
     elif args.screens:
         report_screens(rows)
+    elif args.labels:
+        report_labels(rows)
     else:
         for key in ("covers", "focal"):
             vals = sorted(r[key] for r in rows)
