@@ -157,18 +157,41 @@ type and the UID: a text its box cuts (`text`), instances of one type on one
 box (`stacked`), overlaps on the HUD and texts over texts (`overlap`), a HUD
 instance the screen's edge cuts (`edge`), a type whose kinds show one
 frame (`frame`), texts gathered in one ninth of the screen while two
-corners stand empty (`crowd`), and a label or glyph whose ink sits off the
-centre of the shape it is centred on (`optical`). Except `optical`, none
-of them fires on the official examples. The generator's helpers centre their
-labels by ink, and `optical` reports a label placed off the centre by hand.
-Fix every one.
+corners stand empty (`crowd`), a text whose letters, measured on what lies
+behind them on screen, read under `text.contrast` (`faint`), a label or
+glyph whose ink sits off the centre of the shape it is centred on
+(`optical`), and Texts that events set with no declared longest text
+(`unlimited`). Except `optical`, none of the first six fires on the official
+examples. The generator's helpers centre their labels by ink, and `optical`
+reports a label placed off the centre by hand.
+
+Each finding and each yes of the questions has a tier (`look.severity` in
+`assets/look-manifest.json`): `broken`, the player cannot read, reach or
+tell it apart; `ugly`, it reads but looks wrong; `fragile`, right as shown
+and one step from broken, or a finish of a pixel or two. Fix every broken
+one, then every ugly one: both fail the review. A fragile one warns, and
+the hand-over names it. A yes with more than one right fix, such as cutting
+a text short or wrapping it, is the user's to pick, so ask before you spend
+a round on it.
+
+Each layout is also looked at in three more data states and on two more
+shapes of screen (`look.worst-data`, `look.screen-shapes`): the Texts that
+events set show their longest text, nothing, and a count of one, and the
+screen takes the shapes the project's orientations allow, such as 4:3 and a
+phone's. A finding that arises only there carries `@` and where, as
+`@phone worst`, and its screenshot is `<layout>@phone-worst.png`. The
+longest text of a Text comes from `tools/texts.json`, which the generator
+writes from each helper's `longest=`; without it the worst text is a guess,
+and what only the guess causes warns. `--viewport` looks at one screen and
+`--data demo` at the layout as it starts.
 
 The script asks what a measurement cannot judge, in one list of yes/no
 questions about what a player sees as a mistake: text cut, too small, too
 faint or partly hidden; an object over a text, a button or a card's face;
 the HUD cut by the screen's edge; a stand-in or an object drawn in a style
 of its own; a backdrop that catches the eye before what the player acts on;
-kinds that look alike; decoration repeated on every layout; and, when the
+kinds that look alike; a screen that looks like an app's dashboard;
+decoration repeated on every layout; and, when the
 project has a design, the screen entries that `play_design.py` cannot
 measure. Art layered on purpose, such as scenery running past the edge, is
 no mistake. The agent that wrote the events reads its own screenshots by
@@ -187,8 +210,9 @@ form the brief gives and check them with `--reply` as well, because `verify_chan
 passes its look step only on a reply that `--reply` checked: one that
 answers every question, each yes saying where, with no yes. A yes fails the
 step: fix it and run `verify_change.py` again, which looks again. After
-three replies with a yes the step passes, and the hand-over names each yes
-left. In a generated game the step first runs `scripts/check_look.py`, and
+three replies with a yes the step passes, and its `ok:` line names each yes
+left and each fragile finding, for the hand-over to give with each fix in
+three parts: before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
 a finding of it stops the step before the review. When `scripts/art.py`
 has written a contact sheet of the game's pictures, the brief shows it
 after the screenshots, under the same questions. A question answered from

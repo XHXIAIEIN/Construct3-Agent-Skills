@@ -163,3 +163,72 @@ def test_a_picture_lost_on_the_canvas_and_frames_that_drift_are_found(project):
         (project / "art" / COIN).write_bytes(pale[:-12] + bytes([n]) + pale[-11:])     # another version, as pale
         fix, kept = art.counted(project, found[:1])
     assert fix == [] and kept[0].endswith("still so after 3 versions: name it in the hand-over"), kept
+
+
+def test_two_kinds_drawn_alike_are_found_and_poses_of_one_are_not(project):
+    """art.alike: two pictures of one box for different subjects that look the same cell by cell; a colour of
+    its own tells one apart, and the frames of one animation are poses of one subject."""
+    wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
+    item = wanted["images"][0]
+    blob = lambda colour: png(32, 32, lambda x, y: colour if 6 <= x < 26 and 6 <= y < 26 else (0, 0, 0, 0))
+    kinds = [dict(item, file="goblin-default-000.png", width=32, height=32, subject="a goblin"),
+             dict(item, file="orc-default-000.png", width=32, height=32, subject="an orc"),
+             dict(item, file="slime-default-000.png", width=32, height=32, subject="a slime"),
+             dict(item, file="hero-walk-000.png", width=32, height=32, subject="the hero, walk 1"),
+             dict(item, file="hero-walk-001.png", width=32, height=32, subject="the hero, walk 2"),
+             dict(item, file="hero-default-000.png", width=32, height=32, subject="the hero, standing")]
+    for k, colour in zip(kinds, [(200, 40, 40, 255), (201, 40, 40, 255), (40, 160, 60, 255), (9, 9, 9, 255),
+                                 (9, 9, 9, 255), (9, 9, 9, 255)]):
+        (project / "art" / k["file"]).write_bytes(blob(colour))
+    found = art.alike_findings(project, kinds)
+    assert [line for _, line in found] == [
+        "art.alike: orc-default-000 and goblin-default-000 look the same, though one is 'a goblin' and the other "
+        "'an orc': give each a shape, a colour or a mark of its own"], found
+
+
+def test_a_box_inside_a_rounded_box_takes_its_radius_less_the_gap():
+    assert svg_kit.inner(0, 0, 100, 60, 16, 6) == {"x": 6, "y": 6, "w": 88, "h": 48, "r": 10}
+    assert svg_kit.inner(**svg_kit.inner(0, 0, 100, 60, 8, 6), pad=4)["r"] == 0
+    with pytest.raises(SystemExit, match="a gap of 30 px leaves nothing of a 100x60 box"):
+        svg_kit.inner(0, 0, 100, 60, 16, 30)
+
+
+def test_an_icon_set_fixes_the_stroke_radius_and_weight_of_every_icon(project):
+    kit = svg_kit.Kit(project)
+    icons = kit.icons(stroke=4, radius=6)
+    with icons.drawing(COIN) as d:
+        d.rect(20, 20, 120, 120)
+        d.rect(**svg_kit.inner(20, 20, 120, 120, 6, 10))
+        d.circle(80, 80, 20, line="ink")
+    svg = (project / "art" / "coin-default-000.svg").read_text(encoding="utf-8")
+    assert svg.count("fill:none;stroke:var(--reward);stroke-width:4;") == 2, svg
+    assert 'rx="6"' in svg and "stroke:var(--ink);stroke-width:4" in svg
+    with pytest.raises(SystemExit, match="takes its stroke of 4 px, not 2"):
+        icons.drawing(COIN).circle(1, 1, 1, line_width=2)
+    with pytest.raises(SystemExit, match="corners are 6 px at most, not 9"):
+        icons.drawing(COIN).rect(0, 0, 9, 9, r=9)
+    with pytest.raises(SystemExit, match="a line icon fills nothing"):
+        icons.drawing(COIN).circle(1, 1, 1, fill="ink")
+    with kit.icons(stroke=4, weight="solid").drawing(COIN) as d:
+        d.circle(80, 80, 40)
+    svg = (project / "art" / "coin-default-000.svg").read_text(encoding="utf-8")
+    assert "fill:var(--reward);stroke:var(--reward);stroke-width:4" in svg
+    with pytest.raises(SystemExit, match="the weights are line, solid"):
+        kit.icons(weight="bold")
+
+
+def test_an_eased_gradient_runs_between_two_roles_on_its_curve(project):
+    kit = svg_kit.Kit(project)
+    with kit.drawing(COIN) as d:
+        d.rect(0, 0, 160, 160, fill=d.gradient("sky", "canvas", "reward", steps=3))
+    svg = (project / "art" / "coin-default-000.svg").read_text(encoding="utf-8")
+    assert art.svg_problems(svg, kit.items[COIN]) == []
+    assert "fill:url(#coin-default-000-sky)" in svg and svg.count("<stop ") == 5
+    mixes = [float(m) for m in re.findall(r"var\(--reward\) ([\d.]+)%", svg)]
+    offsets = [float(m) for m in re.findall(r'offset="([\d.]+)%"', svg)]
+    assert offsets == [0, 25, 50, 75, 100] and mixes[0] == 0 and mixes[-1] == 100
+    assert mixes[1] < offsets[1] and abs(mixes[2] - 50) < 0.5 and mixes[3] > offsets[3], mixes
+    with pytest.raises(SystemExit, match="defined twice"):
+        d.gradient("sky", "canvas", "ink")
+    with pytest.raises(SystemExit, match="the curves are linear, ease"):
+        d.gradient("dusk", "canvas", "ink", ease="bounce")

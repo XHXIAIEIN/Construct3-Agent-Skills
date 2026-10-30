@@ -28,7 +28,9 @@ game's canvas, frames of one object side by side: .tmp/scripts/art/contact.png.
 
 When drawings are still to make, it writes .tmp/scripts/art/brief.md, the
 whole task of the construct3:art-drawer sub-agent: the pictures, the kit, the
-look and the questions to answer on the contact sheet.
+look and the questions to answer on the contact sheet. When the user gave a
+look, USER_LOOK, it is picked first: pick_look.py keeps the picked first play
+screen as art/look.png, which the brief names.
 
 A picture refused three times keeps its stand-in, recorded in
 art/refused.json; change its subject in art() to try again.
@@ -128,11 +130,11 @@ def page(svg: str, roles: dict) -> str:
 class Renderer:
     """One headless browser for the run, with a page that renders a drawing or a contact sheet."""
 
-    def __init__(self, root: Path, exe: str) -> None:
+    def __init__(self, root: Path, exe: str, folder: str = FOLDER) -> None:
         import open_in_editor as oe
         import pack_project as pp
         self.oe, self.root = oe, root
-        self.folder = pp.script_folder(root, FOLDER)
+        self.folder = pp.script_folder(root, folder)
         self.browser = oe.Browser(exe, pp.browser_profile(root, "art", exe), False)
         _, self.page = self.browser.page("about:blank")
         self.page.call("Emulation.setDefaultBackgroundColorOverride", color={"r": 0, "g": 0, "b": 0, "a": 0})
@@ -244,9 +246,52 @@ def baseline(root: Path, item: dict) -> tuple[int, int] | None:
     return max(y for _, y in shown), (min(xs) + max(xs)) // 2
 
 
+# art.alike: cells a side, and the mean channel difference, of 1, under which two pictures look the same
+ALIKE_CELLS = 16
+ALIKE = 0.03
+
+
+def signature(root: Path, item: dict) -> list[float]:
+    """The picture as ALIKE_CELLS x ALIKE_CELLS cells of mean RGBA, of 1, each colour weighted by its alpha: a
+    clear pixel's hidden colour counts for nothing."""
+    w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
+    sums = [[0.0] * 4 for _ in range(ALIKE_CELLS * ALIKE_CELLS)]
+    counts = [0] * len(sums)
+    for n, (r, g, b, a) in enumerate(px):
+        cell = (n // w * ALIKE_CELLS // h) * ALIKE_CELLS + n % w * ALIKE_CELLS // w
+        for c, v in enumerate((r * a / 255, g * a / 255, b * a / 255, a)):
+            sums[cell][c] += v / 255
+        counts[cell] += 1
+    return [v / max(1, counts[cell]) for cell, four in enumerate(sums) for v in four]
+
+
+def alike_findings(root: Path, done: list[dict]) -> list[tuple[str, str]]:
+    """art.alike: two pictures of one box for different subjects that look the same, cell by cell: two kinds a
+    player cannot tell apart. Two pictures of one object are poses of one subject and left out, unless both are
+    frames of its Default animation, which often holds kinds that events pick."""
+    def kinds(a: dict, b: dict) -> bool:
+        (ta, *ra), (tb, *rb) = a["file"].split("-"), b["file"].split("-")
+        return ta != tb or ra[:1] == rb[:1] == ["default"]
+    seen: list[tuple[dict, list[float]]] = []
+    found = []
+    for item in sorted(done, key=lambda i: i["file"]):
+        mine = signature(root, item)
+        for other, theirs in seen:
+            if (other["width"], other["height"]) != (item["width"], item["height"]) \
+                    or other["subject"] == item["subject"] or not kinds(other, item):
+                continue
+            if sum(abs(u - v) for u, v in zip(mine, theirs)) / len(mine) < ALIKE:
+                found.append((item["file"], f"art.alike: {stem_of(item['file'])} and {stem_of(other['file'])} look "
+                                            f"the same, though one is {other['subject']!r} and the other "
+                                            f"{item['subject']!r}: give each a shape, a colour or a mark of its own"))
+                break
+        seen.append((item, mine))
+    return found
+
+
 def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str, str]]:
-    """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), and for the frames of one
-    animation whose box, feet or middle differ (art.frames)."""
+    """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), for the frames of one
+    animation whose box, feet or middle differ (art.frames), and for two kinds drawn alike (art.alike)."""
     found = []
     # A picture the PNG reader cannot read is the generator's to refuse, when art() takes it
     done = [i for i in done if c3.png_rgba((root / "art" / i["file"]).read_bytes())]
@@ -281,7 +326,7 @@ def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str,
             found.append((frames[0]["file"], f"art.frames: {name}: its frames stand on rows {min(feet)} to "
                                              f"{max(feet)} and are centred from x {min(middles)} to {max(middles)}; "
                                              f"draw them with one function from the same d.ground and centre"))
-    return found
+    return found + alike_findings(root, done)
 
 
 def counted(root: Path, found: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
@@ -362,6 +407,9 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path |
         f"{(root / 'art' / 'wanted.json').as_posix()}.",
         "",
         f"Art direction: {wanted.get('style') or '(none given: flat shapes with an ink outline, light from the top left)'}",
+        *([f"The look the user picked is its first play screen in {(root / image_route.LOOK).as_posix()}: open it "
+           f"with the Read tool and draw every picture in its rendering, linework and light."]
+          if (root / image_route.LOOK).is_file() else []),
         f"Roles: {', '.join(f'{r} {c}' for r, c in hexes(wanted['palette']).items())}. The canvas behind the "
         f"game is {hexes(wanted['palette'])['canvas']}.",
         "",
@@ -394,10 +442,11 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str, sheet: Path |
 
 
 # --- the run -------------------------------------------------------------------------------
-def run_drawings(root: Path) -> tuple[int, str]:
+def run_drawings(root: Path, script: Path = DRAWINGS) -> tuple[int, str]:
+    """Runs the drawing script at root/script with svg_kit on its path: its exit code and what it said."""
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(c3.SKILL_DIR / "scripts"),
                                                                        os.environ.get("PYTHONPATH")]))}
-    p = subprocess.run([sys.executable, str(root / DRAWINGS)], cwd=root, env=env, capture_output=True, text=True,
+    p = subprocess.run([sys.executable, str(root / script)], cwd=root, env=env, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=120)
     return p.returncode, (p.stdout + p.stderr).strip()
 
@@ -549,7 +598,11 @@ def main() -> int:
                 and now[item["file"]] in ("draw", "redraw")]
     counts = {s: list(now.values()).count(s) for s in set(now.values())}
     count = ", ".join(f"{s}: {n}" for s, n in sorted(counts.items()))
-    if drawings:
+    if drawings and image_route.unpicked(root, wanted):
+        out.append(f"{count}; next: the user gave a look, USER_LOOK, and it is not picked yet: run "
+                   f"{c3.script_command(root, 'pick_look.py')}, which has the first play screen drawn in three "
+                   f"directions for the user to pick, then this script")
+    elif drawings:
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "brief.md").write_text(brief(root, wanted, [i for i in wanted["images"] if i.get("route") == "svg"],
                                                skill, sheet), encoding="utf-8")

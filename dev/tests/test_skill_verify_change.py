@@ -173,11 +173,19 @@ def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatc
         assert out.splitlines()[-1].startswith("next: fix each yes that review_look.py --reply printed"), out
         code, out = drive(project, monkeypatch, editor)
         assert code == 1 and steps(out)["looked"] == "asked" and editor.runs["review_look.py"] == 3 + round, out
-    editor.replied(complete=True, yes=1)
+    editor.replied(complete=True, yes=1, yeses=["Game 4, ugly - the coin: a grey box"])
+    result = json.loads(editor.result.read_text(encoding="utf-8"))
+    editor.result.write_text(json.dumps({**result, "preview": {"layouts": [{"layout": "Game", "findings": [
+        {"rule": "optical", "tier": "fragile"}, {"rule": "text", "tier": "broken"}]}]}}), encoding="utf-8")
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 5, out
     assert ("looked    passed: look: reply.md answers every question and still has 1 yes after 3 rounds: name each "
             "in the hand-over") in out
+    assert "  left: Game 4, ugly - the coin: a grey box" in out
+    # The ok: line names what the look left: the yes after three rounds and the fragile findings, which warn
+    assert out.splitlines()[-1].split(". Hand over")[0].endswith(
+        "name in the hand-over, each fix in three parts, before, after and why: look yes Game 4, ugly - the coin: a grey "
+        "box; warns Game: optical"), out
     record = json.loads((project / verify_change.RECORD).read_text(encoding="utf-8"))
     assert record["steps"]["looked"]["state"] == "passed" and record["look_rounds"] == 0
 

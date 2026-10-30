@@ -115,16 +115,22 @@ avoid").
 
 The look is the user's when the user gives one: a style, an art
 direction, or references or an existing project to take it from. The plan
-then names where it comes from in `USER_LOOK` and takes `PALETTE` from it,
-`canvas` and `canvas_alt` from the backdrop. When the user gives none,
+then names where it comes from in `USER_LOOK`, and the user picks the look
+before any art (`look.picker`): after the generator's first run,
+`python scripts/pick_look.py` has the first play screen drawn in three
+directions, paper and ink and two from the user's look, and stops for the
+user's pick. The pick writes `USER_LOOK`, `PALETTE` with `canvas` and
+`canvas_alt` from the backdrop, and `ART_STYLE`, and keeps its screen as
+`art/look.png`, which every picture then follows. When the user gives none,
 `USER_LOOK` stays empty and the game takes paper and ink, the template's
-fallback. `assets/look-manifest.json` holds every rule of the look, each
-under an id that this file cites, with its value and its record. With
-`USER_LOOK` set, a rule of scope `paper-and-ink` stops nothing, and a rule
-of scope `every-look` still stops the run.
+fallback, with no picker. `assets/look-manifest.json` holds every rule of
+the look, each under an id that this file cites, with its value and its
+record. With `USER_LOOK` set, a rule of scope `paper-and-ink` stops
+nothing, and a rule of scope `every-look` still stops the run.
 
-The plan names the art direction in one sentence, `ART_STYLE`, and each
-sprite with what its picture shows and its box in units. Every sprite is an
+The plan names the art direction in one sentence, `ART_STYLE`, which the
+pick writes for a look the user gave, and each sprite with what its picture
+shows and its box in units. Every sprite is an
 `art()`, which shows its stand-in until its picture is in `art/`, and each
 picture takes one of two routes (`art.routes`):
 
@@ -417,6 +423,14 @@ parameters are in the template.
   never on an object that collides (`motion.squash-art`): a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of
   the mask.
+- A tween takes the ease and the seconds of its class from `TWEEN_STYLE`:
+  `style="hud_in"`, `"hud_out"`, `"bar"`, `"camera"`, `"world"` (the
+  default), `"popup"` or `"banner"` (`motion.tween-style`). A popup is
+  `popup(panel, dim)` to open and `popup(panel, dim, show=False)` to close,
+  with `popup_closed(panel, dim)` among the module's events. The motion
+  checks of `check_look.py` are the rules whose ids start with `motion.`.
+  [motion-vocabulary.md](motion-vocabulary.md) names each motion with its
+  helper and value: a pop, a float, a hit stop, a shake, a ticker, a stagger.
 - A label is `TEXT_SIZE["body"]`, a screen's title `TEXT_SIZE["title"]`, the
   count `TEXT_SIZE["number"]` and a banner `TEXT_SIZE["display"]`, each in
   the weight `TEXT_WEIGHT` gives it, a font of `FONT`, never bold. `FONT`

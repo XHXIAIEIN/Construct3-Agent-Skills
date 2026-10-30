@@ -1008,6 +1008,7 @@ def write_wanted() -> None:
     write_json("art/wanted.json", {"style": ART_STYLE, "flash": list(rgb(HIT_FLASH["role"])),
                                    "flash_role": HIT_FLASH["role"], "pixel_art": PIXEL_ART, "unit": UNIT,
                                    "line_width": SHAPE_STYLE["outline_width"], "view": [VIEW_W, VIEW_H],
+                                   "user_look": USER_LOOK, "text_size": TEXT_SIZE, "text_weight": TEXT_WEIGHT,
                                    "palette": {role: list(c) for role, c in PALETTE.items()},
                                    "images": list(ART.values())})
     waiting = [rel for rel in ART if not (ROOT / "art" / rel).exists()]
@@ -1583,18 +1584,47 @@ def set_text(obj: str, text: str) -> dict:
     return act("set-text", obj, {"text": text})
 
 
+# Ease and seconds of a tween by the class of what it moves (motion.tween-style). Each class keeps
+# one kind of motion, so the player can tell what matters: the HUD fades and slides in and out, a
+# bar's fill slides, the camera moves slowly and evenly, a world object moves as the game needs, and
+# a popup or a banner, the subject of a moment, opens fast and settles. A tween helper takes
+# style=<class>; a time or an ease passed to it wins over the class's.
+# An overshoot ease (back, elastic, bounce) is for world objects and the subject of a moment, never
+# for the HUD, and the HUD never eases in; check_look.py warns of both.
+TWEEN_STYLE = {
+    "hud_in": {"ease": "easeinoutsine", "seconds": 0.5},
+    "hud_out": {"ease": "easeinoutsine", "seconds": 0.5},
+    "bar": {"ease": "easeinoutsine", "seconds": 0.25},
+    "camera": {"ease": "easeinoutsine", "seconds": 1},
+    "world": {"ease": "easeinoutsine", "seconds": 0.5},
+    "popup": {"ease": "easeoutquint", "seconds": 0.2},
+    "banner": {"ease": "easeoutquint", "seconds": 0.25},
+}
+
+
+def eased(style: str, time: str | None, ease: str | None) -> tuple[str, str]:
+    """The time and ease of a tween of class `style` in TWEEN_STYLE, unless given."""
+    if style not in TWEEN_STYLE:
+        sys.exit(f"tween style {style!r}: the classes are {', '.join(TWEEN_STYLE)}; add one to TWEEN_STYLE")
+    s = TWEEN_STYLE[style]
+    return (f"{s['seconds']:g}" if time is None else time), ease or s["ease"]
+
+
 # Tween behavior; beh is the behavior's name on the object
-def tween1(obj: str, tag: str, prop: str, end: str, time: str, ease: str = "easeinoutsine",
-           destroy: bool = False, beh: str = "Tween") -> dict:
-    """prop: offsetX, offsetY, size, offsetWidth, offsetHeight, offsetAngle, offsetOpacity, offsetScaleX, ..."""
+def tween1(obj: str, tag: str, prop: str, end: str, time: str | None = None, ease: str | None = None,
+           destroy: bool = False, beh: str = "Tween", style: str = "world") -> dict:
+    """prop: offsetX, offsetY, size, offsetWidth, offsetHeight, offsetAngle, offsetOpacity, offsetScaleX, ...
+    time in seconds and ease default to TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-one-property", obj, {
         "tags": q(tag), "property": prop, "end-value": end, "time": time, "ease": ease,
         "destroy-on-complete": "yes" if destroy else "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
 
 
-def tween2(obj: str, tag: str, prop: str, end_x: str, end_y: str, time: str, ease: str = "easeinoutsine",
-           destroy: bool = False, beh: str = "Tween") -> dict:
-    """prop: position, size or scale."""
+def tween2(obj: str, tag: str, prop: str, end_x: str, end_y: str, time: str | None = None, ease: str | None = None,
+           destroy: bool = False, beh: str = "Tween", style: str = "world") -> dict:
+    """prop: position, size or scale. time and ease default to TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-two-properties", obj, {
         "tags": q(tag), "property": prop, "end-x": end_x, "end-y": end_y, "time": time, "ease": ease,
         "destroy-on-complete": "yes" if destroy else "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
@@ -1610,14 +1640,19 @@ def bar_width(value: str, maximum: str, length: float) -> str:
     return f"clamp({value} / {maximum}, 0, 1) * {length:g}"
 
 
-def tween_width(obj: str, tag: str, width: str, time: str = "0.25", ease: str = "easeinoutsine", beh: str = "Tween") -> dict:
+def tween_width(obj: str, tag: str, width: str, time: str | None = None, ease: str | None = None, beh: str = "Tween",
+                style: str = "bar") -> dict:
     """Slides a fill to a new width instead of jumping: tween_width("HpFill", "hp", bar_width("hp", "HP_MAX", 380))."""
-    return tween1(obj, tag, "offsetWidth", width, time, ease, beh=beh)
+    return tween1(obj, tag, "offsetWidth", width, time, ease, beh=beh, style=style)
 
 
-def tween_value(obj: str, tag: str, start: str, end: str, time: str, ease: str = "easeinoutsine", beh: str = "Tween") -> dict:
+def tween_value(obj: str, tag: str, start: str, end: str, time: str | None = None, ease: str | None = None,
+                beh: str = "Tween", style: str = "world") -> dict:
     """A tween of a number, for what Tween has no property for. Read it as Obj.Tween.Value("tag")
-    while it plays; it reads 0 after it ends."""
+    while it plays; it reads 0 after it ends. A second value tween under a tag that still plays runs
+    beside the first, so stop_tweens() the tag before a restart. time and ease default to
+    TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-value", obj, {
         "tags": q(tag), "start-value": start, "end-value": end, "time": time, "ease": ease,
         "destroy-on-complete": "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
@@ -1637,6 +1672,40 @@ def on_any_tween_finished(obj: str, beh: str = "Tween") -> dict:
 
 def stop_tweens(obj: str, tag: str, beh: str = "Tween") -> dict:
     return act("stop-tweens", obj, {"tags": q(tag)}, beh=beh)
+
+
+# A popup's panel opens from `scale` of its size at opacity 0 while its dim fades in to `dim` %, in
+# the time and ease of TWEEN_STYLE["popup"], and closes the way it came.
+POPUP = {"scale": 0.95, "dim": 50}
+
+
+def popup(panel: dict, dim: dict, show: bool = True, tween: str = "Tween") -> list:
+    """Actions that open the popup, or close it with show=False. `panel` and `dim` are their layout
+    instances, each with the Tween behavior `tween` and placed hidden, properties["initially-visible"]
+    False before link(): the dim over screen_box() on the popup's layer, the panel with its origin at
+    its centre and its labels and buttons link()ed to it, so they follow its position, opacity and
+    visibility. popup_closed() among the module's events hides both once the close ends.
+        event("Open the pause menu", [on_touched("PauseButton")], popup(PAUSE_PANEL, PAUSE_DIM))"""
+    p, d = panel["type"], dim["type"]
+    w, h = panel["world"]["width"], panel["world"]["height"]
+    k = POPUP["scale"]
+    if show:
+        return [set_visible(d, True), act("set-opacity", d, {"opacity": "0"}),
+                tween1(d, "popup", "offsetOpacity", f"{POPUP['dim']:g}", beh=tween, style="popup"),
+                set_visible(p, True), act("set-opacity", p, {"opacity": "0"}),
+                act("set-size", p, {"width": f"{w * k:g}", "height": f"{h * k:g}"}),
+                tween2(p, "popup", "size", f"{w:g}", f"{h:g}", beh=tween, style="popup"),
+                tween1(p, "popup-in", "offsetOpacity", "100", beh=tween, style="popup")]
+    return [tween1(d, "popup", "offsetOpacity", "0", beh=tween, style="popup"),
+            tween2(p, "popup", "size", f"{w * k:g}", f"{h * k:g}", beh=tween, style="popup"),
+            tween1(p, "popup-out", "offsetOpacity", "0", beh=tween, style="popup")]
+
+
+def popup_closed(panel: dict, dim: dict, tween: str = "Tween") -> list:
+    """The event that hides the popup's panel and dim once popup(..., show=False) has faded the
+    panel out. An open during the close stops that fade, so the popup stays shown."""
+    return event(f"Hide {panel['type']} once it has closed", [on_tween_finished(panel["type"], "popup-out", beh=tween)],
+                 [set_visible(panel["type"], False), set_visible(dim["type"], False)])
 
 
 # Timer behavior
@@ -2109,6 +2178,39 @@ def face_of(kind: str) -> str:
     return face(TEXT_WEIGHT.get(kind, "regular"))
 
 
+LONGEST: dict[str, str] = {}               # the widest text of each Text type
+
+
+def longest_text(otype: str, longest: str | None, size: float) -> None:
+    """Records `longest` as the widest text of the Text type `otype`, the widest of its instances."""
+    if longest and text_px(longest, size) >= text_px(LONGEST.get(otype, ""), size):
+        LONGEST[otype] = longest
+
+
+def write_texts(sheet: dict, types: dict) -> None:
+    """Writes tools/texts.json, which review_look.py shows as the worst data. Stops on a Text the events set
+    that has no `longest`."""
+    set_by: set[str] = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            if node.get("id") in ("set-text", "append-text", "typewriter-text"):
+                set_by.add(node.get("objectClass"))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+    walk(sheet)
+    open_ = sorted(n for n in set_by if n in types and types[n].get("plugin-id") in FONT_PLUGINS and n not in LONGEST)
+    if open_:
+        sys.exit(f"the events set the text of {', '.join(open_)}, and no helper says how long it gets: pass "
+                 f"longest=, the widest text it shows at runtime (\"Score: 999999\", the longest card name), to "
+                 f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
+                 f"that text")
+    write_json("tools/texts.json", {"longest": dict(sorted(LONGEST.items()))})
+
+
 def hud_text(otype: str, text: str, where: str, size: float | None = None, longest: str | None = None,
              bold: bool = False, color: str = "ink", on: str = "canvas_alt", dx: float = 0, dy: float = 0,
              ivars=None, behaviors=None, weight: str = "regular") -> dict:
@@ -2118,6 +2220,7 @@ def hud_text(otype: str, text: str, where: str, size: float | None = None, longe
     leftwards. Size TEXT_SIZE["body"], or text_size("display") for a banner; color, on and weight
     as for text_inst()."""
     size = size or TEXT_SIZE["body"]
+    longest_text(otype, longest, size)
     w, h = label_box(longest or text, size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
@@ -2315,6 +2418,7 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
                  f"role), in build_images()")
     w, h = DRAWN_AS[rel][1:3]
     size = size or label_size(longest or text, w, h)
+    longest_text(label, longest, size)
     need = button_size(longest or text, size)
     if w < need[0] or h < need[1]:
         sys.exit(f"button({otype!r}): the label {longest or text!r} needs a shape of {need[0]}x{need[1]} px and "
@@ -2388,6 +2492,7 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
     size = {"title": TEXT_SIZE["title"], "stage": text_size("display")}.get(band, TEXT_SIZE["body"])
     if label_box(longest or text, size)[0] > bw:
         size = TEXT_SIZE["body"]
+    longest_text(otype, longest, size)
     w, h = label_box(longest or text, size)
     if w > bw:
         chars = int(bw / em_px(size))
@@ -2526,6 +2631,7 @@ def slider(name: str, col: int, row: int, length: int, lo: float = 0, hi: float 
                        behaviors={"DragDrop": {"properties": {"axes": "horizontal-only", "enabled": True}}})
     parts = [track, fill, knob, *([label] if label else [])]
     widest = max((f"{v:g}" for v in (lo, hi, lo + step)), key=text_ems)
+    longest_text(SLIDER["value"], widest, TEXT_SIZE["body"])
     vw, vh = label_box(widest)[0], line_height()
     shown = None
     if value_at == "end":
@@ -2745,6 +2851,7 @@ def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None 
     at runtime, which the events set with tracked_expr(). One group of spaced() on its own:
         HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")], ...]"""
     size = text_size("tag")
+    longest_text(otype, longest and tracked(longest), size)
     w, h = text_width(tracked(longest or text), size), line_height(size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
@@ -2817,7 +2924,7 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
         events += event("Dim the keys on the player's first input",
                         [trigger, cond("compare-boolean-eventvar", "System", {"variable": "used"}, inverted=True)],
                         [set_bool_var("used", True),
-                         tween1(box_type, "hint", "offsetOpacity", str(HINT_OPACITY), "0.5", beh=tween)])
+                         tween1(box_type, "hint", "offsetOpacity", str(HINT_OPACITY), beh=tween, style="hud_out")])
     return module("Hints", events, variables=[var("used", "boolean", "false",
                                                   "The player has used the controls; kept across a restart",
                                                   static=True)])
@@ -2846,6 +2953,7 @@ def hud_stat(name_type: str, value_type: str, name: str, where: str, value: str 
     `ivars` and `behaviors` go on the value. Returns [name, value], one group for spaced():
         HUD = [hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"), ...]"""
     small, large = text_size("name"), text_size("number")
+    longest_text(value_type, longest, large)
     nw, vw = label_box(name, small)[0], label_box(longest or value, large)[0]
     nh, vh = line_height(small), line_height(large)
     gw = max(nw, vw)
@@ -3346,6 +3454,7 @@ def write_all(c3proj: Path) -> None:
             layer_["instances"] = z_order(layer_["instances"])
     # Sheet first: press() records its types, and press_types() gives them their variable
     sheet = build_event_sheet()
+    write_texts(sheet, types)
     press_types(types, layouts)
     for name, t in types.items():
         write_json(f"objectTypes/{name}.json", t)
@@ -3404,7 +3513,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 5f6c1ffde32b ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 612ca732b823 ================
 
 
 # --- the game ---------------------------------------------------------------------------
