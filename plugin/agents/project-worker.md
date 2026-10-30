@@ -19,6 +19,4 @@ no one. Do not answer its questions yourself, because the judge has not seen
 the project and you have.
 
 Keep every file you write inside the project folder or the folder the task
-names. If you changed the project, run `verify_change.py --status` before
-you end and do what its last line says, as SKILL.md describes. End with
-what you changed or found, the commands you ran and that last line.
+names. End with what you changed or found and the commands you ran.
