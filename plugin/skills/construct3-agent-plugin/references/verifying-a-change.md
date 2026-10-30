@@ -281,8 +281,12 @@ kinds takes the rows of each.
   integrates `dt` lands at a slightly different place each run. Compare
   positions against a range, and use `until` instead of a fixed wait.
   `runtime.timeScale` slows the game for a closer look; the audio clock is
-  not scaled. [editor-and-preview.md, the bullet on the display's rate;
-  manual: scripting/scripting-reference/iruntime.md `timeScale`]
+  not scaled. To count an effect's frames, as `scripts/measure_timing.py`
+  does, slow the game and give the `record` step `"fps": 60`, because a
+  recording on the clock holds about half of a 60 fps effect's frames.
+  [editor-and-preview.md, the bullet on the display's rate and "Recording
+  an effect's frames"; manual: scripting/scripting-reference/iruntime.md
+  `timeScale`]
 - Physics time step: with the default *Framerate independent* stepping the
   simulation can differ between runs; *Set stepping mode* to *Fixed* makes
   it deterministic for the check. [manual:

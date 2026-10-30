@@ -340,10 +340,68 @@ def test_preview_project_joins_a_recording_into_a_gif_without_ffmpeg(tmp_path, m
     for frame, colour in zip(frames, ("red", "blue")):
         image.new("RGB", (8, 8), colour).save(frame)
     monkeypatch.setattr(pp.shutil, "which", lambda name: None)
-    made = pp.make_video(frames, [0.25, 0.05], tmp_path / "02-merge")
+    made = pp.make_video(frames, tmp_path / "02-merge", [0.25, 0.05])
     assert made == str(tmp_path / "02-merge.gif")
     with image.open(made) as gif:
         assert gif.n_frames == 2 and gif.info["duration"] == 250
+
+
+def test_preview_project_takes_fps_only_on_a_record_step_that_starts_a_recording():
+    _, problems = pp.check_plan({"steps": [{"record": "a", "fps": 0}, {"record": "b", "fps": True},
+                                           {"record": False, "fps": 60}, {"record": "c", "fps": 300}]})
+    assert [p.split(":")[0] for p in problems] == [f"step {n} (record)" for n in (1, 2, 3, 4)], problems
+    assert all("fps is frames per second of game time" in p for p in problems), problems
+    assert pp.check_plan({"steps": [{"record": "a", "fps": 60}, {"record": "b", "fps": 30, "watch": {"t": "1"}}]})[1] == []
+
+
+def test_preview_project_puts_a_video_in_game_time_together_from_the_screenshots():
+    """A game slowed to a tenth: a screenshot every 3 ms of game time, read after it. Each
+    frame at 60 fps is the last screenshot at or before its instant; a frame of the reloaded
+    page and a frame whose read failed are left out."""
+    frames = [{"t": i * 0.03, "game": 1.0 + i * 0.003} for i in range(40)]
+    frames[7] = {"t": 0.21}
+    frames.append({"t": 1.2, "game": 0.01})
+    game = pp.game_frames(frames, 60)
+    instants = [1.0 + k / 60 for k in range(len(game["shots"]))]
+    assert game["start"] == 1.0 and len(game["shots"]) == 8 and instants[-1] <= frames[39]["game"]
+    for at, i in zip(instants, game["shots"]):
+        assert frames[i]["game"] <= at + 1e-9 and not any(
+            "game" in f and frames[i]["game"] < f["game"] <= at + 1e-9 for f in frames[:40])
+    assert game["repeats"] == 0 and game["lag"] < 0.003
+    assert pp.game_lines(game, 60, [0.03] * 41) == [
+        "8 frames at 60 fps of game time from 1.00 s, each the last screenshot at or before its instant, at most "
+        f"{game['lag'] * 1000:.1f} ms of game time before it: "]
+    assert pp.game_frames([{"t": 0, "game": 2.0}, {"t": 1, "game": 2.0}], 60) is None     # the game stood still
+
+
+def test_preview_project_says_how_far_to_slow_a_game_whose_frames_repeat():
+    """At full speed a screenshot every 30 ms leaves every other 60 fps frame without one; a quarter
+    of a frame of game time between two screenshots needs a scale of 1 / (4 * 60 * 0.03)."""
+    frames = [{"t": i * 0.03, "game": i * 0.03} for i in range(21)]
+    game = pp.game_frames(frames, 60)
+    assert len(game["shots"]) == 37 and game["repeats"] == 16      # 21 screenshots for 37 frames
+    said = pp.game_lines(game, 60, [0.03] * 20 + [0.05])
+    assert said[1] == ("16 of 37 frames repeat the one before, since no screenshot fell in them: set runtime.timeScale "
+                       "= 0.1 in a js step before this record step, and record again"), said
+
+
+def test_preview_project_writes_a_video_in_game_time_at_its_own_rate(tmp_path):
+    """measure_timing.py reads the frame rate from the file, and counts one frame per instant."""
+    image = pytest.importorskip("PIL.Image", reason="Pillow is not installed; pip install pillow")
+    if not (pp.shutil.which("ffmpeg") and pp.shutil.which("ffprobe")):
+        pytest.skip("ffmpeg is not installed")
+    frames = [tmp_path / f"{k + 1:04d}.jpg" for k in range(5)]
+    for k, frame in enumerate(frames):
+        image.new("RGB", (16, 16), (k * 60, k * 60, k * 60)).save(frame)
+    picked = [0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4]
+    made = pp.make_video([frames[i] for i in picked], tmp_path / "05-impact", fps=60)
+    mt = script_module("measure_timing")
+    info = mt.probe(pp.shutil.which("ffprobe"), Path(made))
+    assert info["fps"] == 60
+    grey = pp.subprocess.run(["ffmpeg", "-v", "error", "-i", made, "-vf", "scale=1:1", "-f", "rawvideo",
+                              "-pix_fmt", "gray", "-"], capture_output=True, check=True).stdout
+    assert len(grey) == len(picked)
+    assert [min(range(5), key=lambda k: abs(k * 60 - v)) for v in grey] == picked
 
 
 def test_preview_project_picks_the_frames_of_a_contact_sheet():
