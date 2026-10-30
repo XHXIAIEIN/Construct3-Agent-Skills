@@ -5,7 +5,8 @@ layouts, event sheets and the parts of project.c3proj that list them.
     python tools/build_project.py --replace-edited
 
 Copy this template to tools/ of a project that the editor saved as a folder,
-then rewrite it for the game. A run replaces the files it generates and keeps
+then rewrite it for the game. A run replaces the files it generates, removes
+the type, layout, sheet and image files that it no longer generates, and keeps
 the editor's own: uistate, icons, scripts. A run writes nothing when a file
 that the last run wrote, as tools/generated.json records, has changed since;
 --replace-edited writes over such files. A run that writes ends with the
@@ -495,13 +496,30 @@ def digest(path: Path) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
 
-def edited_since_last_run() -> list[str]:
+def last_run() -> dict[str, str]:
+    """The digest of each file the last run wrote, by its path from ROOT."""
+    return json.loads(GENERATED.read_text(encoding="utf-8"))["files"] if GENERATED.is_file() else {}
+
+
+def edited_since(last: dict[str, str]) -> list[str]:
     """The files the last run wrote that changed since. A removed one is no change: writing it again
     loses nothing."""
-    if not GENERATED.is_file():
-        return []
-    last = json.loads(GENERATED.read_text(encoding="utf-8"))["files"]
     return [rel for rel, was in sorted(last.items()) if (ROOT / rel).is_file() and digest(ROOT / rel) != was]
+
+
+# The folders that only this run's project.c3proj and object types point into. files/ and fonts/
+# are not among them: project.c3proj keeps listing a file there that a run no longer writes.
+REMOVABLE = ("objectTypes/", "families/", "layouts/", "eventSheets/", "images/")
+
+
+def remove_unwritten(last: dict[str, str]) -> None:
+    """Removes each file in REMOVABLE that the last run wrote, this run did not, and nobody changed
+    since: nothing points to it any more, and the checker warns of it."""
+    for rel, was in sorted(last.items()):
+        path = ROOT / rel
+        if rel.startswith(REMOVABLE) and rel not in _written and path.is_file() and digest(path) == was:
+            path.unlink()
+            print(f"removed {rel}: the last run wrote it, and this run did not")
 
 
 def record_written(complete: bool) -> None:
@@ -3575,7 +3593,8 @@ def build_all() -> None:
                      f"game project and run the copy there")
         sys.exit(
             f"{c3proj} not found: create the project in the editor and save it as a folder first")
-    edited = [] if "--replace-edited" in sys.argv[1:] else edited_since_last_run()
+    last = last_run()
+    edited = [] if "--replace-edited" in sys.argv[1:] else edited_since(last)
     if edited:
         script = Path(__file__).relative_to(ROOT).as_posix()
         sys.exit(f"nothing was written: these files changed since the last run wrote them, in the editor or by "
@@ -3590,6 +3609,7 @@ def build_all() -> None:
         complete = True
     finally:
         record_written(complete)
+    remove_unwritten(last)
 
 
 def write_all(c3proj: Path) -> None:
@@ -3679,7 +3699,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp d8798e026e02 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp feeb70e08052 ================
 
 
 # --- the game ---------------------------------------------------------------------------

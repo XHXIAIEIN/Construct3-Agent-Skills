@@ -6,6 +6,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [The Contact Sheet Comes in Pages a Model Reads at Their Own Size](contact-sheet-pages.md) — 2026-10-31
 - [Emil Kowalski's Other Skills Checked Against a Game Screen](emil-skills-for-a-game-screen.md) — 2026-10-31
 - [An Export Passes Only When Its Game Boots](export-boots-the-game.md) — 2026-10-31
+- [The Generator Removes the Files It No Longer Writes](generator-removes-what-it-no-longer-writes.md) — 2026-10-31
 - [The Game's Look: What impeccable Adds to the Review and the Manifest](look-from-impeccable.md) — 2026-10-31
 - [Layout, Type, Colour and Motion Rules of Motion-Design Websites, Measured on Game Screens](motion-atlas-layouts.md) — 2026-10-31
 - [A Preview Run Names What Went Wrong in the Runtime](runtime-signals.md) — 2026-10-31

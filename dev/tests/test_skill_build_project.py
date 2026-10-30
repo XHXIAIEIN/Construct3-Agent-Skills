@@ -554,6 +554,38 @@ def test_generator_writes_nothing_over_a_file_changed_since_its_last_run(project
     assert code == 0, out
 
 
+def test_generator_removes_the_files_of_a_type_it_no_longer_makes(project):
+    """A generator that stops making a type leaves no file of it, so the checker does not warn of an
+    object type that project.c3proj does not list. A file changed since the last run stays."""
+    source = project / "tools" / "build_project.py"
+    game = source.read_text(encoding="utf-8")
+    source.write_text(game.replace("\n\nif __name__", '''
+
+def with_spare(make):
+    def build():
+        types, families, containers = make()
+        return types | {"Keyboard": single_global_type("Keyboard", "Keyboard", {})}, families, containers
+    return build
+
+
+build_object_types = with_spare(build_object_types)
+
+if __name__''', 1), encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and (project / "objectTypes" / "Keyboard.json").is_file(), out
+    source.write_text(game, encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
+    assert "removed objectTypes/Keyboard.json: the last run wrote it, and this run did not" in out.splitlines()
+    assert not (project / "objectTypes" / "Keyboard.json").exists() and warnings(out) == [], out
+    assert "objectTypes/Keyboard.json" not in json.loads((project / "tools" / "generated.json").read_text())["files"]
+    spare = project / "objectTypes" / "Spare.json"
+    spare.write_text("{}", encoding="utf-8")
+    edit(project, "tools/generated.json", lambda g: g["files"].update({"objectTypes/Spare.json": "0" * 16}))
+    code, out = run(project, "tools/build_project.py", "--replace-edited")
+    assert spare.exists() and "removed" not in out, out
+
+
 def test_template_run_where_it_sits_says_to_copy_it(project):
     """Run from the skill's assets/, the template would look for project.c3proj in the skill."""
     code, out = run(project, f"{INSTALLED}/assets/build_project.py")
