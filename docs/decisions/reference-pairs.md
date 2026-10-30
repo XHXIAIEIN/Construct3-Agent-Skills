@@ -27,6 +27,13 @@ from the art agent's reading of the pictures, not from a measurement.
   judge also named the layout as a difference until the question said that
   other objects, layout or text are none. The briefs, pairs and replies are
   in `.local/docs/evidence/look-judge/reference-pairs/`.
+- Eval case `look-from-references` asks the agent to give the coins game the
+  look of two reference pictures. In iteration 88 both the previous skill and
+  this one pass every graded assertion, two runs each: what shows behind the
+  game is mostly the references' plum, and the coin is their amber with an ink
+  edge. This skill's runs take the measured colours exactly and have the
+  screen judged beside the references, where the previous runs name the
+  colours in words.
 
 ## Options
 
@@ -75,6 +82,9 @@ Option 3, manifest rule `look.references`.
   the drift as it was fails nothing.
 
 ## Re-evaluate when
+
+- A case tells the arms apart: references whose look an agent misreads by
+  eye, or a later change that drifts from a look already set.
 
 - A judge answers question 8 yes for a difference in objects, layout or
   text, or no beside a reference in a plainly other look: the question needs

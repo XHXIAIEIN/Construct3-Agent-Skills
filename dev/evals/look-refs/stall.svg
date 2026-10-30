@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="38%" r="60%">
+      <stop offset="0" stop-color="#4A2E4F"/>
+      <stop offset="1" stop-color="#2A1E3D"/>
+    </radialGradient>
+    <radialGradient id="lamp" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#F2A541" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#F2A541" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#2A1E3D"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+  <!-- the string the lanterns hang on -->
+  <path d="M0 70 Q320 130 640 80 T1280 70" fill="none" stroke="#140E1F" stroke-width="6"/>
+  <g stroke="#140E1F" stroke-width="6">
+    <circle cx="200" cy="150" r="90" fill="url(#lamp)" stroke="none"/>
+    <ellipse cx="200" cy="150" rx="42" ry="52" fill="#D9472B"/>
+    <path d="M178 104 h44 M178 196 h44" stroke-linecap="round"/>
+    <ellipse cx="188" cy="138" rx="10" ry="18" fill="#F2A541" stroke="none"/>
+    <circle cx="640" cy="130" r="90" fill="url(#lamp)" stroke="none"/>
+    <ellipse cx="640" cy="130" rx="42" ry="52" fill="#D9472B"/>
+    <path d="M618 84 h44 M618 176 h44" stroke-linecap="round"/>
+    <ellipse cx="628" cy="118" rx="10" ry="18" fill="#F2A541" stroke="none"/>
+    <circle cx="1080" cy="150" r="90" fill="url(#lamp)" stroke="none"/>
+    <ellipse cx="1080" cy="150" rx="42" ry="52" fill="#D9472B"/>
+    <path d="M1058 104 h44 M1058 196 h44" stroke-linecap="round"/>
+    <ellipse cx="1068" cy="138" rx="10" ry="18" fill="#F2A541" stroke="none"/>
+  </g>
+  <!-- the stall's table -->
+  <path d="M260 330 L1020 330 L1080 600 L200 600 Z" fill="#5B3424" stroke="#140E1F" stroke-width="8"
+        stroke-linejoin="round"/>
+  <path d="M300 360 L980 360" stroke="#7A4A33" stroke-width="10" stroke-linecap="round"/>
+  <!-- coins: amber with an ink outline and one cream highlight -->
+  <g stroke="#140E1F" stroke-width="6">
+    <circle cx="420" cy="430" r="44" fill="#F2A541"/>
+    <circle cx="560" cy="480" r="44" fill="#F2A541"/>
+    <circle cx="700" cy="420" r="44" fill="#F2A541"/>
+    <circle cx="840" cy="490" r="44" fill="#F2A541"/>
+    <circle cx="620" cy="550" r="44" fill="#F2A541"/>
+  </g>
+  <g fill="#F3E6CF">
+    <ellipse cx="404" cy="414" rx="12" ry="8"/>
+    <ellipse cx="544" cy="464" rx="12" ry="8"/>
+    <ellipse cx="684" cy="404" rx="12" ry="8"/>
+    <ellipse cx="824" cy="474" rx="12" ry="8"/>
+    <ellipse cx="604" cy="534" rx="12" ry="8"/>
+  </g>
+  <g fill="#C8782A">
+    <circle cx="420" cy="430" r="20"/>
+    <circle cx="560" cy="480" r="20"/>
+    <circle cx="700" cy="420" r="20"/>
+    <circle cx="840" cy="490" r="20"/>
+    <circle cx="620" cy="550" r="20"/>
+  </g>
+  <!-- the HUD, cream on the dark -->
+  <g fill="#F3E6CF" font-family="Georgia, serif">
+    <text x="40" y="660" font-size="30" letter-spacing="4">ROUND 1</text>
+    <text x="1240" y="660" font-size="44" text-anchor="end">12</text>
+  </g>
+</svg>

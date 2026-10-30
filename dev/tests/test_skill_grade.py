@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, game_rows, install, new_project, run
+from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, game_rows, install, new_project, png, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -1477,3 +1477,39 @@ def test_the_look_judges_reply_beside_the_brief_grades_the_art_questions(tmp_pat
         reply = {**answers, **changed}
         (folder / "shots" / "reply.md").write_text("\n".join(f"{k}: {v}" for k, v in reply.items()), encoding="utf-8")
         assert grader.looked_no(tmp_path, (4, 6))[0] is ok, (changed, grader.looked_no(tmp_path, (4, 6)))
+
+
+def test_the_look_of_the_references_is_missing_from_the_fixture_and_read_from_its_colours(
+        tmp_path: Path, generated: Callable) -> None:
+    """On the fixture as laid out the checker and the rerun pass, and the plum, the amber, the ink outline and
+    USER_LOOK are missing. The references hold the colours the grader asks for, as art.measure would count them."""
+    run_dir = generated_case(tmp_path, generated, "look-from-references")
+    results = list(graded_by(run_dir).values())
+    assert [ok for ok, _ in results] == [True, False, False, False, False, True], results
+    stall = make_fixtures.PICTURES["coins-look-refs"][0] / "stall.png"
+    pixels = grader.opaque(stall)
+    assert grader.near(grader.commonest(pixels), grader.PLUM, grader.PLUM_SLACK)
+    assert not grader.near(grader.NAVY, grader.PLUM, grader.PLUM_SLACK)
+    # A coin of amber outlined 4 px in ink, and the same coin flat
+    ring = [(x, y, (20, 14, 31) if min(x, y, 31 - x, 31 - y) < 4 else (242, 165, 65)) for x in range(32) for y in range(32)]
+    flat = [(x, y, (242, 165, 65)) for x, y, _ in ring]
+    assert grader.commonest(ring) == (242, 165, 65) and grader.ink_edge(ring) > 0.5 and grader.ink_edge(flat) == 0
+
+
+def test_a_painted_backdrop_that_is_mostly_the_references_plum_passes_and_a_navy_one_fails(
+        tmp_path: Path, generated: Callable) -> None:
+    """A run's backdrop painted as the references' stall scene, lanterns and table on the plum, is a right answer;
+    the same backdrop in the deep navy of another case is not."""
+    run_dir = generated_case(tmp_path, generated, "look-from-references")
+    project = run_dir / "project"
+    w, h = grader.view_of(project)
+    ui_instance(project, "Stall", "Sprite", (0, 0, w, h), layer="Background")
+    backdrop = Path(__file__).parent / "fixtures" / "look_answers" / "stall-backdrop.png"
+    shutil.copyfile(backdrop, project / "images" / "stall-default-000.png")
+    key = CASES["look-from-references"]["assertions"][1]
+    passed, said = graded_by(run_dir)[key]
+    assert passed, said
+    navy = grader.c3.png_rgba(backdrop.read_bytes())
+    (project / "images" / "stall-default-000.png").write_bytes(png(navy[0], navy[1], lambda x, y: (*grader.NAVY, 255)))
+    passed, said = graded_by(run_dir)[key]
+    assert not passed, said

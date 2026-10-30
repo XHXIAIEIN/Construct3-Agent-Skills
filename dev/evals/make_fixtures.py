@@ -613,7 +613,11 @@ GENERATED: dict[str, Callable[[str], str]] = {
     "coins-portrait": lambda template: with_settings(template, VIEW="720, 1280", ORIENTATION='"portrait"'),
     "coins-pixel": lambda template: with_settings(template, VIEW="320, 180"),
     "platformer-generator": platformer,
+    "coins-look-refs": lambda template: template,
 }
+# fixture of GENERATED -> the folder of pictures copied into the project after its generator ran, and its name there:
+# the user's references, which the user leaves where they like
+PICTURES = {"coins-look-refs": (Path(__file__).parent / "look-refs", "look-refs")}
 
 
 def digest(project: Path) -> dict:
@@ -740,6 +744,9 @@ def main() -> int:
                     (target / "tools" / "build_project.py").write_bytes(
                         GENERATED[case["fixture"]](template).encode("utf-8"))
                     run("tools/build_project.py", cwd=target)
+                    if case["fixture"] in PICTURES:
+                        source_folder, name = PICTURES[case["fixture"]]
+                        shutil.copytree(source_folder, target / name, ignore=shutil.ignore_patterns("*.svg"))
                 commit = {"clone.commit": commits[prefix]} if commits.get(prefix) else {}
                 (target.parent / "fixture.json").write_text(json.dumps(digest(target) | commit | {
                     "check_project.warnings": warnings_of(target, plugin)}, indent=2), encoding="utf-8")
