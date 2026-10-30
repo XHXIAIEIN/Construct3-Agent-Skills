@@ -37,6 +37,8 @@ Steps, each an object with one of these keys, and "note" for a label:
                                 press, move in steps, release (default 0.4 s); through is a list of
                                 TARGETs passed on the way, and rest the seconds the pointer stays still
                                 on "to" before the release (default 0.05; 0 for a flick)
+  move TARGET, seconds, through, rest
+                                a drag with no button, a hover, from where the pointer is; rest 0; no touch
   key NAME or [NAME, ...], seconds
                                 press a key for the time (default 0.1 s): ArrowLeft, Space, Enter, Escape,
                                 KeyA or a, Digit1 or 1, ShiftLeft; a list holds the keys together
@@ -107,7 +109,6 @@ import open_in_editor as oe
 
 EPILOG = """examples:
   python scripts/preview_project.py .tmp/drafts/merge-plan.json
-  python scripts/preview_project.py plan.json --project "D:/Games/Merge" --headed
   python scripts/preview_project.py .tmp/drafts/merge-plan.json --keep merge-two-pieces
   python scripts/preview_project.py --all
 
@@ -144,13 +145,14 @@ used, or --all found no kept plan; 3 no browser here; 5 another run holds the br
 with its pid: wait for it to end, or pass --profile for a profile of this run's own
 """
 
-STEPS = ("tap", "hold", "drag", "key", "wait", "until", "js", "state", "shot", "record")
+STEPS = ("tap", "hold", "drag", "move", "key", "wait", "until", "js", "state", "shot", "record")
 # Where a project keeps the plans that passed, one per change they checked.
 KEPT = Path("tools") / "plans"
-FIELDS = {"tap": set(), "hold": {"seconds"}, "drag": {"to", "seconds", "through", "rest"}, "key": {"seconds"}, "wait": set(),
+FIELDS = {"tap": set(), "hold": {"seconds"}, "drag": {"to", "seconds", "through", "rest"},
+          "move": {"seconds", "through", "rest"}, "key": {"seconds"}, "wait": set(),
           "until": {"timeout"}, "js": {"timeout"}, "state": set(), "shot": set(), "record": {"watch"}}
-# Seconds a hold, a drag and a key press last when the step gives none.
-PRESS = {"hold": 0.5, "drag": 0.4, "key": 0.1}
+# Seconds a hold, a drag, a move and a key press last when the step gives none.
+PRESS = {"hold": 0.5, "drag": 0.4, "move": 0.4, "key": 0.1}
 # Seconds the preview window gets to take the plan's viewport.
 RESIZE = 5
 # Seconds a page the game reloaded gets to run its runtime again.
@@ -313,14 +315,18 @@ def check_plan(plan: object) -> tuple[dict, list[str]]:
         for extra in set(step) - {kind, "note"} - FIELDS[kind]:
             problems.append(f"step {n} ({kind}) has {extra!r}{c3.closest(extra, FIELDS[kind] | {'note'})}")
         value = step[kind]
-        if kind in ("tap", "hold", "drag") and not target_ok(value):
+        if kind in ("tap", "hold", "drag", "move") and not target_ok(value):
             problems.append(f"step {n} ({kind}): the target is a type name, \"Type 2\", \"uid 12\", "
                             f"{{\"x\": .., \"y\": .., \"layer\": ..}} or {{\"js\": ..}}")
         if kind == "drag" and not target_ok(step.get("to")):
             problems.append(f"step {n} (drag) needs \"to\", a target like the one it drags")
-        if kind == "drag" and "through" in step and not (isinstance(step["through"], list) and step["through"]
-                                                         and all(map(target_ok, step["through"]))):
-            problems.append(f"step {n} (drag): through is a list of targets like the one it drags")
+        if kind in ("drag", "move") and "through" in step and not (
+                isinstance(step["through"], list) and step["through"] and all(map(target_ok, step["through"]))):
+            problems.append(f"step {n} ({kind}): through is a list of targets like the one it "
+                            + ("drags" if kind == "drag" else "moves to"))
+        if kind == "move" and plan.get("touch"):
+            problems.append(f"step {n} (move) moves the mouse with no button held, and a touch plan has no mouse: a "
+                            f"finger cannot hover, so play the hover in a plan without \"touch\"")
         if kind == "key":
             names = key_names(value)
             wrong = [k for k in names if not (isinstance(k, str) and key_event(k))]
@@ -383,6 +389,7 @@ class Game:
         self.project, self.ratio = project, ratio
         self.recording: Recorder | None = None
         self.recorded: list[Recorder] = []      # finished, their connections closed after the window (Recorder)
+        self.pointer: tuple[float, float] | None = None     # where the last mouse event put the pointer
 
     def record(self, name: str, video: Path, watch: dict[str, str]) -> None:
         self.recording = Recorder(self.url, name, video, self.viewport, watch, self.project, self.ratio)
@@ -444,6 +451,7 @@ class Game:
     def mouse(self, kind: str, x: float, y: float, down: bool) -> None:
         extra = {"button": "left", "clickCount": 1} if kind != "mouseMoved" else {"button": "left"} if down else {}
         self.win.call("Input.dispatchMouseEvent", type=kind, x=x, y=y, buttons=1 if down else 0, **extra)
+        self.pointer = (x, y)
 
     def finger(self, kind: str, x: float = 0, y: float = 0) -> None:
         points = [] if kind == "touchEnd" else [{"x": x, "y": y, "id": 1}]
@@ -826,7 +834,9 @@ def step_line(n: int, step: dict) -> str:
     value = step[kind]
     what = {"tap": lambda: target_text(value), "hold": lambda: target_text(value),
             "drag": lambda: " through ".join(map(target_text, [value, *step.get("through", [])]))
-            + f" to {target_text(step['to'])}", "key": lambda: "+".join(key_names(value)),
+            + f" to {target_text(step['to'])}",
+            "move": lambda: "".join(f"through {target_text(t)} " for t in step.get("through", []))
+            + f"to {target_text(value)}", "key": lambda: "+".join(key_names(value)),
             "wait": lambda: f"{value:g} s", "until": lambda: one_line(value), "js": lambda: one_line(value),
             "state": lambda: " ".join([value] if isinstance(value, str) else value) or "counts",
             "shot": lambda: value, "record": lambda: value or "stop"}[kind]()
@@ -871,6 +881,23 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
         where = " through ".join(f"({x:.0f}, {y:.0f})" for x, y in points[:-1])
         moving = ", released moving" if rest == 0 else ""
         return f"{where} to ({points[-1][0]:.0f}, {points[-1][1]:.0f}) in {seconds:g} s{moving}", None
+    if kind == "move":
+        points = [game.aim(t) for t in [*step.get("through", []), value]]
+        seconds, rest = step.get("seconds", PRESS["move"]), step.get("rest", 0)
+        if game.pointer is None:    # no mouse event yet, so the move starts on its first point
+            game.mouse("mouseMoved", *points[0], False)
+            points = points[1:]
+        points = [game.pointer, *points]
+        for delay, x, y in path(points, seconds) if seconds else [(0, x, y) for x, y in points[1:]]:
+            time.sleep(delay)
+            game.mouse("mouseMoved", x, y, False)
+        time.sleep(rest)
+        still = f", then still {rest:g} s" if rest else ""
+        if len(points) == 1:
+            return f"at ({points[0][0]:.0f}, {points[0][1]:.0f}), the run's first mouse event{still}", None
+        where = " through ".join(f"({x:.0f}, {y:.0f})" for x, y in points[:-1])
+        took = f"in {seconds:g} s" if seconds else "at once"
+        return f"{where} to ({points[-1][0]:.0f}, {points[-1][1]:.0f}) {took}{still}", None
     if kind == "key":
         events = [key_event(k) for k in key_names(value)]
         seconds = step.get("seconds", PRESS["key"])

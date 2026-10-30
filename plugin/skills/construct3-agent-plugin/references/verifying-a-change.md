@@ -265,7 +265,7 @@ kinds takes the rows of each.
 | Physics | as above | positions and velocities against a range | the Physics time step |
 | Rhythm, music, sound | input on the beat, timed from `Audio.CurrentTime` | the sound itself, recorded in the page | the audio clock's start |
 | Spawners, random levels, loot | play or `callFunction` | what spawned and where | the random seed |
-| Menus, several layouts | `tap` on buttons | the current layout and layer visibility | the layout the preview starts on |
+| Menus, several layouts | `tap` on buttons; `move` for a menu that opens on hover, with `seconds` and `rest` for its delays | the current layout and layer visibility | the layout the preview starts on |
 
 - Frame rate: a preview ticks at the display's rate, so a move that
   integrates `dt` lands at a slightly different place each run. Compare
