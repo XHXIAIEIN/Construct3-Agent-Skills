@@ -89,3 +89,41 @@ def test_check_look_warns_of_a_viewport_under_the_notch(project):
     assert "screen.safe-area" not in tool(project, "check_look")[1]
     edit(project, "project.c3proj", lambda p: p["properties"].update(viewportFit="auto"))
     assert "screen.safe-area" not in tool(project, "check_look")[1]
+
+
+def test_check_look_names_the_motion_that_breaks_the_hud_or_a_tween(project):
+    """A HUD object that grows from 0, and a count restarted without Stop, are findings; an
+    overshoot or an ease-in fade on the HUD and a squash of an object a size tween destroys are
+    warnings, since the subject of a moment and a guarded squash are not in the files. The stand-in
+    game's own tweens, a coin's hit and its shrink in one action list among them, raise none."""
+    code, out = tool(project, "check_look")
+    assert code == 0 and "motion." not in out and out.splitlines()[-1].endswith(", 3 tweens"), out
+    t = template_module()
+    stop = t.stop_tweens("ScoreText", "count")
+    count = t.tween_value("ScoreText", "count", "int(ScoreText.Text)", "score", "0.5", "easeoutquad")
+    rows = [
+        block([cond("on-any-touch-start", "Touch")], [
+            t.tween1("KeyBox", "pop", "offsetY", "0", "0.5", "easeoutback"),
+            t.tween1("KeyBox", "show", "offsetOpacity", "100", "0.5", "easeinsine"),
+            t.tween1("KeyBox", "hide", "offsetOpacity", "0", "0.5", "easeinsine"),
+            t.act("set-size", "KeyBox", {"width": "0", "height": "0"}),
+            t.tween2("KeyBox", "open", "size", "320", "64", style="popup"),
+            count,
+            t.tween2("Coin", "land", "size", "Self.ImageWidth", "Self.ImageHeight", "0.5", "easeoutelastic")]),
+        block([cond("on-any-touch-end", "Touch")], [stop, count]),
+        block([cond("on-any-touch-end", "Touch")], [t.tween2("Coin", "die", "size", "0", "0", destroy=True)]),
+    ]
+    edit(project, "eventSheets/Game.json", lambda s: s["events"].extend(rows))
+    code, out = tool(project, "check_look")
+    assert code == 1, out
+    assert ("warning: motion.hud-overshoot: sheet Game: KeyBox, on the HUD, tweens offsetY with easeoutback. An "
+            "overshoot ease is for world objects and the subject of a moment") in out
+    assert "warning: motion.hud-ease-in: sheet Game: KeyBox, on the HUD, fades in with easeinsine" in out
+    assert out.count("motion.hud-ease-in") == 1                     # a fade out with an ease-in passes
+    assert "motion.panel-from-zero: sheet Game: KeyBox, on the HUD, grows its size from 0" in out
+    assert ("motion.value-restart: sheet Game: ScoreText starts the value tween 'count' from int(ScoreText.Text), "
+            "the number it shows, without Stop 'count' first") in out
+    assert out.count("motion.value-restart") == 1                   # the count after its Stop passes
+    assert ("warning: motion.size-on-dying: sheet Game: Coin is destroyed by a size tween, and another event "
+            "tweens its size back to its image size") in out
+    assert out.splitlines()[-1].startswith("2 findings:"), out
