@@ -25,6 +25,7 @@
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
     "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
+    "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
@@ -280,7 +281,7 @@
       "id": "layout.balance",
       "status": "open",
       "scope": "every-look",
-      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, raised by OPTICAL_LIFT of that space's height; a centre more than a unit off prints a warning. The 5% lift is a rule of thumb with no measurement found behind it.",
+      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, raised by OPTICAL_LIFT of that space's height; a centre more than a unit off prints a warning. The 5% lift is a rule of thumb that the official 2D game examples do not follow: their one-screen layouts centre their content a median 0% off the screen's middle, 44 of 81 within 3% of its height, 25 lower and 12 higher.",
       "template": "OPTICAL_LIFT",
       "value": "0.05",
       "helpers": "play_area(), centred(), balanced()",
@@ -338,6 +339,20 @@
       "scope": "every-look",
       "says": "Each size of TEXT_SIZE at least 1.2 times the next smaller, a modular scale: the step between the sizes of an official 2D game example's layout runs from 1.03 to 3, a quarter of the steps under 1.25, and 71 brands' design systems step a median 1.17; no ratio holds.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "type.two-families",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "The texts of a screen use at most two type families: of the official 2D game examples' 109 layouts that hold a Text, 95 use one face and 14 two, none three. One family alone, the web rule, fails 13% of them. Paper and ink's FONT holds weights of one family.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
+    },
+    {
+      "id": "text.placeholder",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "No Text shows the Text object's default text or Lorem ipsum once its layout has run. 21 of the official 2D game examples' 448 Texts hold one in the layout files and events set them at runtime, so only the runtime can judge it. Proposed until review_look.py runs over those examples.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
     },
     {
       "id": "screen.title-name",
@@ -680,6 +695,13 @@
       "scope": "every-look",
       "says": "A MOTION scale from 0 to 1 for reduced motion multiplies the shake's magnitude, the camera's moves and the squash's share; the hit flash stays, since it shows the hit without moving anything. Proposed until the official examples are read for a setting of the kind.",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.duration-floor",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No tween shorter than 0.2 s, from web design skills: 183 of the 1275 tween times the official 2D game examples write as numbers are under 0.2 s, and a game's feedback, the hit flash of 0.08 s and the press of 0.1 s, is faster than a page's hover.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
     },
     {
       "id": "motion.stagger",
