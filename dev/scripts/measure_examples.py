@@ -1,16 +1,22 @@
 """Measure the official example projects for the numbers a generated game would otherwise borrow:
 the player's height on the screen by genre, the share of the screen the HUD covers, how popups
-open and close, and the Sine behavior's idle motion.
+open and close, the Sine behavior's idle motion, how the HUD fades in and out, the emoji and
+symbols in texts, and whether a game keeps the new project's icons.
 
     python dev/scripts/measure_examples.py actors --examples <Construct-Example-Projects>/example-projects
     python dev/scripts/measure_examples.py hud --examples ... [--out ROWS.json]
     python dev/scripts/measure_examples.py popups --examples ...
     python dev/scripts/measure_examples.py sine --examples ...
+    python dev/scripts/measure_examples.py fades --examples ...
+    python dev/scripts/measure_examples.py glyphs --examples ...
+    python dev/scripts/measure_examples.py icons --examples ...
 
 Each subcommand prints a summary and, with --out, writes every measured row as JSON. actors and
-hud leave out the examples tagged "3D"; popups and sine read every example, since a popup or an idle
-motion on a 2D layer is the same in a 3D game. Genres are the examples' tags in data/c3-examples.
-docs/decisions/borrowed-numbers.md cites the summaries; the rows stay in .local/docs/evidence/.
+hud leave out the examples tagged "3D"; the others read every example, since a popup, an idle
+motion, a fade or a text on a 2D layer is the same in a 3D game, and icons reports 2D games and the
+studio's games apart. Genres are the examples' tags in data/c3-examples.
+docs/decisions/borrowed-numbers.md and docs/decisions/look-from-impeccable.md cite the summaries;
+the rows stay in .local/docs/evidence/.
 actors needs Pillow, to read the opaque height of the player's picture.
 Exit codes: 0 done (a line says when nothing was measured), 2 bad arguments or no Pillow for actors.
 """
@@ -389,9 +395,119 @@ def report_sine(rows: list[dict]) -> None:
     print(f"  {'':16} magnitude {quantiles([r['magnitude'] / r['size'][1] for r in bob])}  (px over the object's height)")
 
 
+# --- fades ----------------------------------------------------------------------------------------
+def hud_types(folder: Path) -> set[str]:
+    """The object types every placed instance of which lies on a layer at parallax 0."""
+    on = defaultdict(set)
+    for _, layer, inst in instances(folder):
+        on[inst["type"]].add(layer.get("parallaxX", 1) == 0)
+    return {t for t, where in on.items() if where == {True}}
+
+
+def measure_fades(examples: Path, rag: Path) -> list[dict]:
+    """Every opacity tween to 100 or to 0 on a HUD object that does not ping-pong: whether a HUD object
+    leaves faster than it enters."""
+    rows = []
+    for gid, folder in project_folders(examples):
+        hud = hud_types(folder)
+        for f in sorted((folder / "eventSheets").glob("*.json")):
+            for act in actions_in(load(f).get("events", [])):
+                if act.get("id") not in TWEENS or act.get("objectClass") not in hud:
+                    continue
+                p, obj = act.get("parameters", {}), act["objectClass"]
+                end, time = number(p.get("end-value")), number(p.get("time"))
+                if p.get("property") == "offsetOpacity" and p.get("ping-pong") != "yes" and end in (0, 100) and time is not None:
+                    rows.append({"example": gid, "object": obj, "end": end, "time": time})
+    return rows
+
+
+def report_fades(rows: list[dict]) -> None:
+    print(f"HUD fades of the examples: {len(rows)} in {len({r['example'] for r in rows})} examples")
+    print(f"  {'in (opacity to 100)':22} time {quantiles([r['time'] for r in rows if r['end'] == 100])}")
+    print(f"  {'out (opacity to 0)':22} time {quantiles([r['time'] for r in rows if r['end'] == 0])}")
+    times = defaultdict(lambda: ([], []))
+    for r in rows:
+        times[r["example"], r["object"]][r["end"] == 0].append(r["time"])
+    both = [(statistics.median(i), statistics.median(o)) for i, o in times.values() if i and o]
+    print(f"  objects that fade both ways: {len(both)}; median out shorter than in {sum(o < i for i, o in both)}, "
+          f"equal {sum(o == i for i, o in both)}, longer {sum(o > i for i, o in both)}")
+
+
+# --- glyphs ---------------------------------------------------------------------------------------
+EMOJI = re.compile(r"[\U0001F000-\U0001FAFF]")
+# Arrows, technical signs, geometric shapes, miscellaneous symbols and dingbats
+SYMBOL = re.compile(r"[←-⇿⌀-⏿■-➿⬀-⯿]")
+
+
+def strings_in(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from strings_in(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from strings_in(v)
+
+
+def measure_glyphs(examples: Path, rag: Path) -> list[dict]:
+    """Every string of a layout or an event sheet that holds an emoji or a symbol, such as a heart or an
+    arrow: whether the examples draw an icon as a character of a font."""
+    rows = []
+    for gid, folder in project_folders(examples):
+        for kind in ("layouts", "eventSheets"):
+            for f in sorted((folder / kind).rglob("*.json")):
+                for s in strings_in(load(f)):
+                    emoji, symbols = EMOJI.findall(s), SYMBOL.findall(s)
+                    if emoji or symbols:
+                        rows.append({"example": gid, "file": f"{kind}/{f.name}", "emoji": "".join(sorted(set(emoji))),
+                                     "symbols": "".join(sorted(set(symbols))), "text": s[:80]})
+    return rows
+
+
+def report_glyphs(rows: list[dict]) -> None:
+    emoji = [r for r in rows if r["emoji"]]
+    print(f"strings with an emoji: {len(emoji)} in {len({r['example'] for r in emoji})} examples")
+    print(f"strings with a symbol: {len(rows) - len(emoji)} in {len({r['example'] for r in rows})} examples")
+    for r in rows:
+        print(f"  {r['example']} {r['file']}: {r['emoji'] or r['symbols']}  {r['text']!r}")
+
+
+# --- icons ----------------------------------------------------------------------------------------
+NEW_PROJECT_ICONS = ROOT / "plugin" / "data" / "c3-new-project" / "icons"
+STUDIO = re.compile(r"viridino|forsteri", re.I)
+
+
+def measure_icons(examples: Path, rag: Path) -> list[dict]:
+    """Per example: whether its icons are the new project's, its loader style, whether it is a 2D game and
+    whether the studio made it: whether a finished game draws the parts that Construct otherwise supplies."""
+    import hashlib
+    digest = lambda f: hashlib.sha256(f.read_bytes()).hexdigest()
+    default = {f.name: digest(f) for f in NEW_PROJECT_ICONS.glob("icon-*.png")}
+    games = {gid for gid, meta in examples_meta(rag).items() if {"Game template", "Demo game"} & set(meta.get("tags", []))}
+    rows = []
+    for gid, folder in project_folders(examples):
+        text = (folder / "project.c3proj").read_text(encoding="utf-8-sig")
+        icons = {f.name: digest(f) for f in (folder / "icons").glob("icon-*.png")}
+        rows.append({"example": gid, "game": gid in games, "studio": bool(STUDIO.search(text)),
+                     "default_icons": bool(icons) and all(default.get(k) == v for k, v in icons.items()),
+                     "loader": json.loads(text).get("properties", {}).get("loaderStyle")})
+    return rows
+
+
+def report_icons(rows: list[dict]) -> None:
+    for name, test in (("all examples", lambda r: True), ("2D games", lambda r: r["game"]),
+                       ("studio", lambda r: r["studio"]), ("studio 2D games", lambda r: r["game"] and r["studio"])):
+        rs = [r for r in rows if test(r)]
+        print(f"  {name:16} {len(rs):3}: the new project's icons {sum(r['default_icons'] for r in rs):3}, "
+              f"splash loader {sum(r['loader'] == 'splash' for r in rs):3}")
+
+
 # --- command line -----------------------------------------------------------------------------
 MEASURES = {"actors": (measure_actors, report_actors), "hud": (measure_hud, report_hud),
-            "popups": (measure_popups, report_popups), "sine": (measure_sine, report_sine)}
+            "popups": (measure_popups, report_popups), "sine": (measure_sine, report_sine),
+            "fades": (measure_fades, report_fades), "glyphs": (measure_glyphs, report_glyphs),
+            "icons": (measure_icons, report_icons)}
 
 
 def main() -> int:
