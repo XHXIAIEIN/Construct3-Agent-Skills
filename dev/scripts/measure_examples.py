@@ -1,17 +1,20 @@
 """Measure the official example projects for the numbers a generated game would otherwise borrow:
 the player's height on the screen by genre, the share of the screen the HUD covers, how popups
-open and close, and the Sine behavior's idle motion.
+open and close, the Sine behavior's idle motion, the step between items that start one after
+another, the eases of tweens, and how often a change of layout passes through a fade.
 
     python dev/scripts/measure_examples.py actors --examples <Construct-Example-Projects>/example-projects
     python dev/scripts/measure_examples.py hud --examples ... [--out ROWS.json]
     python dev/scripts/measure_examples.py popups --examples ...
     python dev/scripts/measure_examples.py sine --examples ...
+    python dev/scripts/measure_examples.py stagger | eases | transitions --examples ...
 
 Each subcommand prints a summary and, with --out, writes every measured row as JSON. actors and
-hud leave out the examples tagged "3D"; popups and sine read every example, since a popup or an idle
-motion on a 2D layer is the same in a 3D game. Genres are the examples' tags in data/c3-examples.
-docs/decisions/borrowed-numbers.md cites the summaries; the rows stay in .local/docs/evidence/.
-actors needs Pillow, to read the opaque height of the player's picture.
+hud leave out the examples tagged "3D"; the others read every example, since a popup, an idle
+motion or a tween on a 2D layer is the same in a 3D game. Genres are the examples' tags in
+data/c3-examples. docs/decisions/borrowed-numbers.md and docs/decisions/motion-atlas-layouts.md
+cite the summaries; the rows stay in .local/docs/evidence/. actors needs Pillow, to read the
+opaque height of the player's picture.
 Exit codes: 0 done (a line says when nothing was measured), 2 bad arguments or no Pillow for actors.
 """
 from __future__ import annotations
@@ -389,9 +392,79 @@ def report_sine(rows: list[dict]) -> None:
     print(f"  {'':16} magnitude {quantiles([r['magnitude'] / r['size'][1] for r in bob])}  (px over the object's height)")
 
 
+# --- stagger ----------------------------------------------------------------------------------
+# A Wait whose seconds are a number times loopindex, after an optional constant: the items of a loop
+# start that far apart.
+STEP = re.compile(r"^\s*(?:[\d.]+\s*\+\s*)?\(?\s*(?:([\d.]+)\s*\*\s*loopindex(?:\([^)]*\))?|"
+                  r"loopindex(?:\([^)]*\))?\s*\*\s*([\d.]+))\s*\)?\s*$")
+
+
+def measure_stagger(examples: Path, rag: Path) -> list[dict]:
+    """Every System Wait whose seconds are a constant times loopindex, the step between the items of
+    a loop that start one after another."""
+    rows = []
+    for gid, folder in project_folders(examples):
+        for f in sorted((folder / "eventSheets").glob("*.json")):
+            for act in actions_in(load(f).get("events", [])):
+                if act.get("id") != "wait":
+                    continue
+                m = STEP.match(str(act.get("parameters", {}).get("seconds", "")).replace('"', ""))
+                if m:
+                    rows.append({"example": gid, "sheet": f.stem, "step": float(m.group(1) or m.group(2))})
+    return rows
+
+
+def report_stagger(rows: list[dict]) -> None:
+    print(f"waits of a constant times loopindex: {len(rows)} in {len({r['example'] for r in rows})} examples; "
+          f"step s {quantiles([r['step'] for r in rows])}")
+    for r in sorted(rows, key=lambda r: r["step"]):
+        print(f"  {r['step']:g} s  {r['example']} {r['sheet']}")
+
+
+# --- eases and transitions --------------------------------------------------------------------
+# An object type whose name says it covers the screen while the layout changes.
+FADER = re.compile(r"fade|transition|curtain|wipe", re.I)
+
+
+def measure_eases(examples: Path, rag: Path) -> list[dict]:
+    """The ease of every Tween action."""
+    return [{"example": gid, "ease": str(act.get("parameters", {}).get("ease", "")).strip('"')}
+            for gid, folder in project_folders(examples) for f in sorted((folder / "eventSheets").glob("*.json"))
+            for act in actions_in(load(f).get("events", [])) if act.get("id") in TWEENS]
+
+
+def report_eases(rows: list[dict]) -> None:
+    by = defaultdict(set)
+    for r in rows:
+        by[r["ease"]].add(r["example"])
+    counts = sorted(((sum(r["ease"] == e for r in rows), e) for e in by), reverse=True)
+    print(f"tween eases: {len(rows)} tweens in {len({r['example'] for r in rows})} examples; "
+          + ", ".join(f"{e} {n} ({len(by[e])} examples)" for n, e in counts[:8]))
+
+
+def measure_transitions(examples: Path, rag: Path) -> list[dict]:
+    """Each example that goes to another layout, and whether it has an object type whose name says
+    it is a fade (FADER)."""
+    rows = []
+    for gid, folder in project_folders(examples):
+        if not any(act.get("id") in ("go-to-layout", "go-to-layout-by-name")
+                   for f in (folder / "eventSheets").glob("*.json") for act in actions_in(load(f).get("events", []))):
+            continue
+        faders = sorted(o["name"] for o in map(load, (folder / "objectTypes").rglob("*.json")) if FADER.search(o["name"]))
+        rows.append({"example": gid, "faders": faders})
+    return rows
+
+
+def report_transitions(rows: list[dict]) -> None:
+    print(f"examples that go to another layout: {len(rows)}; with an object type named as a fade "
+          f"({FADER.pattern}): {sum(bool(r['faders']) for r in rows)}")
+
+
 # --- command line -----------------------------------------------------------------------------
 MEASURES = {"actors": (measure_actors, report_actors), "hud": (measure_hud, report_hud),
-            "popups": (measure_popups, report_popups), "sine": (measure_sine, report_sine)}
+            "popups": (measure_popups, report_popups), "sine": (measure_sine, report_sine),
+            "stagger": (measure_stagger, report_stagger), "eases": (measure_eases, report_eases),
+            "transitions": (measure_transitions, report_transitions)}
 
 
 def main() -> int:
