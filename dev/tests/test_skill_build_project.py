@@ -678,12 +678,42 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     with pytest.raises(SystemExit, match=r"needs a shape of 160x160 px and images/small-default-000.png is 96x96; "
                                          r"draw it at button_size\('重新开始'\)"):
         t.button("Small", "small-default-000.png", "SmallLabel", "继续", 0, 0, longest="重新开始")
+    # On a title, menu or pause screen a button takes the cell nearest the vertical centre line.
+    t.shape("play-default-000.png", "rect", *t.button_size("Play"), "solid")
+    play, _ = t.button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 12)
+    pb = t.box_of(play)
+    assert pb[0] % t.UNIT == 0 and abs((pb[0] + pb[2]) / 2 - t.VIEW_W / 2) <= t.UNIT / 2
+    with pytest.raises(SystemExit, match=r"col 'middle'; a cell number or \"center\""):
+        t.button("Play", "play-default-000.png", "PlayLabel", "Play", "middle", 12)
     # A hidden button starts with its label hidden.
     hidden = t.sprite_inst("Panel", 0, 0, 96, 96)
     hidden["properties"]["initially-visible"] = False
     child = t.text_inst("PanelText", "", 0, 0, 96, 96)
     t.link(hidden, child)
     assert child["properties"]["initially-visible"] is False
+
+
+def test_template_warns_of_a_menu_item_off_the_centre_line(tmp_path, capsys):
+    """on_axis() warns of an instance of a title, menu or pause screen, by the layout's or the
+    layer's name, centred more than half a unit off the vertical centre line, and leaves out a
+    backdrop or a dim and every other screen, a settings screen among them (screen.menu-axis)."""
+    t = template_module()
+    t.ROOT = tmp_path
+    t.shape("play-default-000.png", "rect", *t.button_size("Play"), "solid")
+    centred = [*t.hud_header("MenuTitle", "MenuTag", "Coins", "Round · 03"),
+               *t.button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 12),
+               t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))]
+    menu = t.layout("Menu", [t.layer("UI", parallax=0)], sheet=None)
+    menu["layers"][0]["instances"] = centred
+    game = t.layout("Game", [t.layer("Game"), t.layer("Pause", parallax=0)], sheet=None)
+    game["layers"][0]["instances"] = [t.hud_tag("RoundTag", "Round · 01")]
+    t.on_axis({"Menu": menu, "Game": game})
+    assert capsys.readouterr().out == ""
+    game["layers"][1]["instances"] = [t.hud_text("BackText", "Back", "top-left")]
+    t.on_axis({"Game": game})
+    assert capsys.readouterr().out.startswith(
+        f"warning: layout Game: a title, menu or pause screen sets its texts and buttons on the vertical centre line, "
+        f"x {t.VIEW_W / 2:g}, and BackText at x ")
 
 
 def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
@@ -776,8 +806,8 @@ def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_e
     assert t.items(header) == 3
     t.spaced([header])
     assert capsys.readouterr().out == (
-        "warning: layout Game: the top-left of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
-        "top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
+        "warning: layout Game: the top of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
+        "top-left, top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
         "of hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several joined by "
         "· or |\n")
     # Three labels stacked in one corner warn; the same three in three corners do not.
@@ -1170,8 +1200,8 @@ def build_object_types() -> tuple[dict, dict, list]:
 def build_layouts() -> dict[str, dict]:
     lay = layout("Menu", [layer("Background", transparent=False), layer("UI", parallax=0)], sheet="Menu")
     ui = lay["layers"][1]["instances"]
-    ui += button("Play", "play-default-000.png", "PlayLabel", "Play", 4, 5, behaviors=dict(TWEEN))
-    ui += button("Quit", "quit-default-000.png", "QuitLabel", "Quit", 4, 12, behaviors=dict(TWEEN))
+    ui += button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 5, behaviors=dict(TWEEN))
+    ui += button("Quit", "quit-default-000.png", "QuitLabel", "Quit", "center", 12, behaviors=dict(TWEEN))
     no_overlap(ui)
     return {"Menu": lay}
 
@@ -1728,7 +1758,8 @@ def test_template_helpers_take_the_look_of_a_game_made_before_it():
 
 
 def test_template_header_keys_and_hints(tmp_path):
-    """hud_header() sets the title and, on its baseline, a tag in tracked capitals; hud_keys() a row of
+    """hud_header() sets the title on the vertical centre line at the top and a tag in tracked capitals
+    under it (screen.menu-axis); hud_keys() a row of
     keys in thin ink boxes, every part a child of the first box, which alone carries the Anchor; hints()
     dims that box on the first input and keeps it dim across a restart in a static local."""
     t = template_module()
@@ -1738,9 +1769,10 @@ def test_template_header_keys_and_hints(tmp_path):
     assert (title["properties"]["font"], tag["properties"]["font"]) == ("Inter-Medium", "Inter-Regular")
     assert tag["properties"]["color"] == t.rgba(t.PALETTE["dim"]) and title["properties"]["bold"] is False
     tb, gb = t.box_of(title), t.box_of(tag)
-    # The tag's box lifted by the difference of the two lines' descents, so the baselines meet
-    assert gb[0] - tb[2] == round(0.6 * t.TEXT_SIZE["title"] * t.PX_PER_PT)
-    assert tb[3] - gb[3] == round(0.24 * (t.TEXT_SIZE["title"] - t.TEXT_SIZE["tag"]) * t.PX_PER_PT) == 5
+    assert title["properties"]["horizontal-alignment"] == tag["properties"]["horizontal-alignment"] == "center"
+    assert abs((tb[0] + tb[2]) / 2 - t.VIEW_W / 2) <= 1 and abs((gb[0] + gb[2]) / 2 - t.VIEW_W / 2) <= 1
+    assert tb[1] == t.MARGIN and gb[1] - tb[3] == t.GAP_IN
+    assert title["behaviors"] == tag["behaviors"] == t.anchored("top")
     assert len(t.hud_header("TitleText", "RoundTag", "Coins")) == 1          # no tag, no second Text
     # A result screen's headline: display size, centred on the screen with its tag under it
     head, under = t.result_headline("ResultTitle", "ResultTag", "Round clear", "Round · 03", longest="Game over")

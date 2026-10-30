@@ -379,9 +379,12 @@
     },
     {
       "id": "screen.menu-axis",
-      "status": "proposed",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "A title, menu or pause screen sets its texts and buttons on the vertical centre line: 51 of 63 texts on the official 2D game examples' title screens are centred within 2% of the width, and of the 10 such screens with two texts or more, 8 centre all and none centres none; 82 of 200 motion-design websites centre their headline or stack. The template's hud_header() holds a menu's title top left.",
+      "says": "A title, menu or pause screen sets its texts and buttons on the vertical centre line: hud_header() centres its title at the top with the tag under it, button(..., \"center\", row) puts a button on the cell nearest the line, and the run warns of an instance of a layout or layer named title, menu or pause that sits more than half a unit off it. 51 of 63 texts on the official 2D game examples' title screens are centred within 2% of the width, and of the 10 such screens with two texts or more, 8 centre all and none centres none; 82 of 200 motion-design websites centre their headline or stack. A settings screen, rows of a name beside its control, is left out.",
+      "template": "hud_header()",
+      "helpers": "hud_header(), button(), on_axis()",
+      "confirm": "build_project.py: a warning",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {

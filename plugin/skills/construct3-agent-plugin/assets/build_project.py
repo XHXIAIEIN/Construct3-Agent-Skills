@@ -2404,10 +2404,12 @@ def label_size(text: str, w: float, h: float) -> float:
     return TEXT_SIZE["title"] if tw <= w and th <= h else TEXT_SIZE["body"]
 
 
-def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size: float | None = None,
+def button(otype: str, rel: str, label: str, text: str, col: int | str, row: int, size: float | None = None,
            longest: str | None = None, color: str | None = None, ivars=None, behaviors=None, label_ivars=None,
            label_behaviors=None) -> tuple[dict, dict]:
-    """A button: the shape images/<rel> on cell (col, row), and the Text type `label` showing
+    """A button: the shape images/<rel> on cell (col, row), or with col "center" on the cell nearest
+    the vertical centre line, as a title, menu or pause screen sets its buttons (look-manifest.json,
+    screen.menu-axis); and the Text type `label` showing
     `text` centred on it by its ink (optical_drop() lowers it). The label's size is `size` or label_size()'s, and its role reads on the
     fill unless `color` names one. The label is the shape's child, size included, so press()
     squashes both. `longest` is the widest text it shows; a shape smaller than its button_size()
@@ -2417,6 +2419,10 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
         sys.exit(f"button({otype!r}): draw images/{rel} first, shape({rel!r}, \"rect\", *button_size({text!r}), "
                  f"role), in build_images()")
     w, h = DRAWN_AS[rel][1:3]
+    if col == "center":
+        col = round((VIEW_W - w) / 2 / UNIT)
+    elif isinstance(col, str):
+        sys.exit(f"button({otype!r}): col {col!r}; a cell number or \"center\"")
     size = size or label_size(longest or text, w, h)
     longest_text(label, longest, size)
     need = button_size(longest or text, size)
@@ -2821,9 +2827,10 @@ def text_input_events(sets: dict | None = None) -> list:
 # The paper-and-ink HUD: what the player is on, a round, a level or a mode, as a small tracked tag
 # top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
 # left as keys, a short name in a thin ink box with its verb beside it, which dim once used
-# (hints()). The screen the player plays on shows no game name; a menu sets it with hud_header(),
-# and a result screen states the moment with result_headline(). Gaps scale by REF, the viewport's
-# shorter side over 720.
+# (hints()). The screen the player plays on shows no game name; a title, menu or pause screen sets
+# its title on the vertical centre line with hud_header() and its buttons with button(..., "center",
+# row), and a result screen states the moment with result_headline(). Gaps scale by REF, the
+# viewport's shorter side over 720.
 TRACK = "\u2005"                           # a quarter em: the space between the letters of a tracked tag
 HINT_OPACITY = 35                          # % the row of keys keeps once the player has used the controls
 
@@ -2860,28 +2867,27 @@ def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None 
                      weight=TEXT_WEIGHT.get("tag", "regular"))
 
 
-def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where: str = "top-left",
-               longest_tag: str | None = None, on: str = "canvas_alt", dx: float = 0, dy: float = 0) -> list[dict]:
-    """A menu's title, the game's name, held to an edge or corner by anchor() as one group. The title
-    is in text_size("title") and its weight, in ink. The tag follows it, 0.6 em of the title away,
-    in text_size("tag"), dim and tracked(), on the title's baseline. The screen the player plays on
-    shows no title, only hud_tag(), and a result screen takes result_headline(). Returns
-    [title, tag], or [title] without a tag, one group of spaced():
+def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", longest_tag: str | None = None,
+               on: str = "canvas_alt", dy: float = 0) -> list[dict]:
+    """The title of a title, menu or pause screen, the game's name or the menu's, centred on the
+    vertical centre line and held to the top edge by anchor("top") as one group (look-manifest.json,
+    screen.menu-axis). The title is in text_size("title") and its weight, in ink. The tag goes GAP_IN
+    under it, centred, in text_size("tag"), dim and tracked(), as wide as `longest_tag`. dy moves the
+    group down in whole units. The screen the player plays on shows no title, only hud_tag(), and a
+    result screen takes result_headline(). Returns [title, tag], or [title] without a tag, one group
+    of spaced():
         hud_header("MenuTitle", "MenuTag", "Coins", "Round · 03")"""
     big, small = text_size("title"), text_size("tag")
-    tw, h = text_width(title, big), line_height(big)
-    gap = round(0.6 * em_px(big)) if tag else 0
-    gw = text_width(tracked(longest_tag or tag), small) if tag else 0
-    x, y = anchor(where, tw + gap + gw, h, 0, 0, dx, dy)
-    title_ = text_inst(title_type, title, x, y, tw, h, big, "left", color="ink", on=on, behaviors=anchored(where),
-                       weight=TEXT_WEIGHT.get("title", "medium"), valign="bottom")
+    tw, th = text_width(title, big), line_height(big)
+    gw, gh = (text_width(tracked(longest_tag or tag), small), line_height(small)) if tag else (0, 0)
+    w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
+    x, y = anchor("top", w, h, 0, 0, 0, dy)
+    title_ = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
+                       behaviors=anchored("top"), weight=TEXT_WEIGHT.get("title", "medium"))
     if not tag:
         return [title_]
-    # Bottom-aligned, a line keeps its descent under the baseline, about a quarter em of its size
-    lift = round(0.24 * (em_px(big) - em_px(small)))
-    tag_ = text_inst(tag_type, tracked(tag), x + tw + gap, y - lift, gw, h, small, "left", color="dim", on=on,
-                     behaviors=anchored(where), weight=TEXT_WEIGHT.get("tag", "regular"), valign="bottom")
-    return [title_, tag_]
+    return [title_, text_inst(tag_type, tracked(tag), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+                              color="dim", on=on, behaviors=anchored("top"), weight=TEXT_WEIGHT.get("tag", "regular"))]
 
 
 def result_headline(title_type: str, tag_type: str, title: str, tag: str = "", longest: str | None = None,
@@ -3157,6 +3163,35 @@ def filled(content: list, where: str = "layout Game") -> None:
         print(f"warning: {where}: {names} covers {covers:.0%} of the {VIEW_W}x{VIEW_H} screen, under "
               f"PLAYFIELD_MIN {PLAYFIELD_MIN:.0%}. Make it larger, bigger cells or more of them, or fit(w, h) "
               f"for its size on the stage")
+
+
+# A layout or layer whose name says it is a title, menu or pause screen
+MENU_SCREEN = re.compile(r"title|menu|pause", re.I)
+
+
+def on_axis(layouts: dict) -> None:
+    """Warns of each instance of a title, menu or pause screen, a layout or a layer whose name
+    MENU_SCREEN matches, centred more than half a unit off the vertical centre line: such a screen
+    sets its texts and buttons on it (look-manifest.json, screen.menu-axis). A backdrop or a dim that
+    covers 80% of the viewport both ways is left out. A settings screen, rows of a name beside its
+    control, is no such screen. A warning, not a stop: a back button in a corner may sit off the line
+    on purpose."""
+    for name, lay in layouts.items():
+        off = []
+        for layer_ in layers_in(lay["layers"]):
+            if not MENU_SCREEN.search(name) and not MENU_SCREEN.search(layer_["name"]):
+                continue
+            for inst in layer_["instances"]:
+                b = box_of(inst)
+                if not b or b[2] - b[0] >= 0.8 * VIEW_W and b[3] - b[1] >= 0.8 * VIEW_H:
+                    continue
+                if abs((b[0] + b[2]) / 2 - VIEW_W / 2) > UNIT / 2:
+                    off.append(f"{inst['type']} at x {(b[0] + b[2]) / 2:g}")
+        if off:
+            print(f"warning: layout {name}: a title, menu or pause screen sets its texts and buttons on the vertical "
+                  f"centre line, x {VIEW_W / 2:g}, and {', '.join(dict.fromkeys(off))} sits off it; place a title with "
+                  f"hud_header(), a button with button(..., \"center\", row), anything else with anchor(\"top\") or "
+                  f"anchor(\"center\"), or keep it there if it is meant")
 
 
 # --- the order of each layer and the HUD's behavior --------------------------------------------
@@ -3472,6 +3507,7 @@ def write_all(c3proj: Path) -> None:
                   f"Fusion Pixel Font's 8px proportional BDF release there: "
                   f"https://github.com/TakWolf/fusion-pixel-font/releases")
     layouts = build_layouts()
+    on_axis(layouts)
     anchor_types(types, layouts)
     for lay in layouts.values():
         for layer_ in layers_in(lay["layers"]):
@@ -3537,7 +3573,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f3cae5e3de1d ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp dabbb0eb5cde ================
 
 
 # --- the game ---------------------------------------------------------------------------

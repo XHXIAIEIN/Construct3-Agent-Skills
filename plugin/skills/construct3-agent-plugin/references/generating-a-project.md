@@ -314,7 +314,11 @@ parameters are in the template.
   `GAP_IN` above the value in `TEXT_SIZE["number"]` and the light weight.
   What the player is on, a round, a level or a mode, is `hud_tag(type,
   text)` top left, a small tracked tag, and the events set it with
-  `tracked_expr()`. On a menu, `hud_header()` puts a title before a tag.
+  `tracked_expr()`. A title, menu or pause screen sets its texts and
+  buttons on the vertical centre line (`screen.menu-axis`): `hud_header()`
+  centres its title at the top with a tag under it, and a button takes
+  `"center"` for its column. The run warns of an instance of a layout or
+  layer named title, menu or pause that sits off the line.
   A result screen states its moment with `result_headline(title_type,
   tag_type, text, tag, longest=...)`, one line at `display` size centred
   on the screen (`screen.result-headline`). The controls are `hud_keys(box_type, key_type,
@@ -352,7 +356,8 @@ parameters are in the template.
   module's events. The Text shows the number alone and has the Tween
   behavior.
 - A button is `button(type, file, label, text, col, row)`, its shape drawn
-  at `button_size(text)`. The label is centred on the shape, in the colour
+  at `button_size(text)`; col `"center"` puts it on the cell nearest the
+  vertical centre line. The label is centred on the shape, in the colour
   `text_on()` picks for its fill, at the size `label_size()` gives. It is
   the shape's child in the layout's hierarchy (`link()`), so the events that
   hide, move, squash or destroy the button take the label along.
