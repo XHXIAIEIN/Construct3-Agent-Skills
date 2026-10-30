@@ -314,8 +314,10 @@ parameters are in the template.
   `GAP_IN` above the value in `TEXT_SIZE["number"]` and the light weight.
   What the player is on, a round, a level or a mode, is `hud_tag(type,
   text)` top left, a small tracked tag, and the events set it with
-  `tracked_expr()`. On a menu or a result screen, `hud_header()` puts a
-  title before a tag. The controls are `hud_keys(box_type, key_type,
+  `tracked_expr()`. On a menu, `hud_header()` puts a title before a tag.
+  A result screen states its moment with `result_headline(title_type,
+  tag_type, text, tag, longest=...)`, one line at `display` size centred
+  on the screen (`screen.result-headline`). The controls are `hud_keys(box_type, key_type,
   verb_type, [(key, verb), ...])` bottom left, and `hints(box_type)` is the
   group that dims the keys once the player has used them.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,

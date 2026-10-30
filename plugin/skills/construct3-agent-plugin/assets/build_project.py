@@ -2821,8 +2821,9 @@ def text_input_events(sets: dict | None = None) -> list:
 # The paper-and-ink HUD: what the player is on, a round, a level or a mode, as a small tracked tag
 # top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
 # left as keys, a short name in a thin ink box with its verb beside it, which dim once used
-# (hints()). The screen the player plays on shows no game name; a menu or a result screen sets it
-# with hud_header(). Gaps scale by REF, the viewport's shorter side over 720.
+# (hints()). The screen the player plays on shows no game name; a menu sets it with hud_header(),
+# and a result screen states the moment with result_headline(). Gaps scale by REF, the viewport's
+# shorter side over 720.
 TRACK = "\u2005"                           # a quarter em: the space between the letters of a tracked tag
 HINT_OPACITY = 35                          # % the row of keys keeps once the player has used the controls
 
@@ -2861,12 +2862,12 @@ def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None 
 
 def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where: str = "top-left",
                longest_tag: str | None = None, on: str = "canvas_alt", dx: float = 0, dy: float = 0) -> list[dict]:
-    """A screen's title, for a menu or a result screen that names the game or the moment, held to an
-    edge or corner by anchor() as one group. The title is in text_size("title") and its weight, in
-    ink. The tag follows it, 0.6 em of the title away, in text_size("tag"), dim and tracked(), on the
-    title's baseline. The screen the player plays on shows no title, only hud_tag(). Returns
+    """A menu's title, the game's name, held to an edge or corner by anchor() as one group. The title
+    is in text_size("title") and its weight, in ink. The tag follows it, 0.6 em of the title away,
+    in text_size("tag"), dim and tracked(), on the title's baseline. The screen the player plays on
+    shows no title, only hud_tag(), and a result screen takes result_headline(). Returns
     [title, tag], or [title] without a tag, one group of spaced():
-        hud_header("ResultTitle", "ResultTag", "Round clear", "Round · 03")"""
+        hud_header("MenuTitle", "MenuTag", "Coins", "Round · 03")"""
     big, small = text_size("title"), text_size("tag")
     tw, h = text_width(title, big), line_height(big)
     gap = round(0.6 * em_px(big)) if tag else 0
@@ -2881,6 +2882,29 @@ def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where:
     tag_ = text_inst(tag_type, tracked(tag), x + tw + gap, y - lift, gw, h, small, "left", color="dim", on=on,
                      behaviors=anchored(where), weight=TEXT_WEIGHT.get("tag", "regular"), valign="bottom")
     return [title_, tag_]
+
+
+def result_headline(title_type: str, tag_type: str, title: str, tag: str = "", longest: str | None = None,
+                    on: str = "canvas_alt", dy: float = 0) -> list[dict]:
+    """A result screen's headline, the moment in one line, centred on the screen as one group: the
+    headline in text_size("display") and the title weight, in ink, as wide as `longest`, the widest
+    text the events set (look-manifest.json, screen.result-headline). The tag goes GAP_IN under it,
+    centred, in text_size("tag"), dim and tracked(). dy moves the group in whole units, up from a
+    row of buttons under it. Returns [headline, tag], or [headline] without a tag, one group of
+    spaced():
+        result_headline("ResultTitle", "ResultTag", "Round clear", "Round · 03", longest="Game over")"""
+    big, small = text_size("display"), text_size("tag")
+    longest_text(title_type, longest, big)
+    tw, th = text_width(longest or title, big), line_height(big)
+    gw, gh = (text_width(tracked(tag), small), line_height(small)) if tag else (0, 0)
+    w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
+    x, y = anchor("center", w, h, 0, 0, 0, dy)
+    headline = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
+                         weight=TEXT_WEIGHT.get("display", "medium"))
+    if not tag:
+        return [headline]
+    return [headline, text_inst(tag_type, tracked(tag), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+                                color="dim", on=on, weight=TEXT_WEIGHT.get("tag", "regular"))]
 
 
 def hud_keys(box_type: str, key_type: str, verb_type: str, keys: list, where: str = "bottom-left",
@@ -3513,7 +3537,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 2d6fc905c788 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp f3cae5e3de1d ================
 
 
 # --- the game ---------------------------------------------------------------------------
