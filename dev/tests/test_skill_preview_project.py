@@ -150,6 +150,45 @@ def test_preview_project_drags_through_its_waypoints_and_can_release_moving(monk
     assert ("touchMove", 300, 200) in sent and ("touchMove", 100, 200) in sent and slept[-1] == 0
 
 
+def test_preview_project_moves_the_mouse_with_no_button_from_where_the_pointer_is(monkeypatch, tmp_path):
+    """A hover: mouseMoved events with no button, starting where the last mouse event
+    left the pointer; the first move of a run starts on its own first point, and 0
+    seconds sends one event a point."""
+    sent, slept = [], []
+    win = SimpleNamespace(call=lambda method, **e: sent.append((method, e)))
+    game = pp.Game(win, None, False, (1280, 720), "", None, tmp_path)
+    places = {"Menu": (100, 40), "Item": (150, 92), "Sub": (300, 200)}
+    monkeypatch.setattr(game, "aim", lambda t: places[t] if isinstance(t, str) else (t["x"], t["y"]))
+    monkeypatch.setattr(pp.time, "sleep", slept.append)
+
+    assert pp.do_step(game, {"move": "Item"}, 1, tmp_path) == ("at (150, 92), the run's first mouse event", None)
+    assert sent == [("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 150, "y": 92, "buttons": 0})]
+    sent.clear()
+    pp.do_step(game, {"tap": "Menu"}, 2, tmp_path)
+    sent.clear()
+    step = {"move": "Sub", "through": ["Item"], "seconds": 0.5, "rest": 0.3}
+    said, _ = pp.do_step(game, step, 3, tmp_path)
+    assert said == "(100, 40) through (150, 92) to (300, 200) in 0.5 s, then still 0.3 s"
+    assert pp.step_line(3, step) == "3 move through Item to Sub"
+    assert {e["type"] for _, e in sent} == {"mouseMoved"} and all("button" not in e and e["buttons"] == 0
+                                                                   for _, e in sent)
+    assert ((150, 92) in [(e["x"], e["y"]) for _, e in sent] and (sent[-1][1]["x"], sent[-1][1]["y"]) == (300, 200))
+    assert sum(slept[-len(sent) - 1:-1]) == pytest.approx(0.5) and slept[-1] == 0.3
+    assert game.pointer == (300, 200)
+    sent.clear()
+    said, _ = pp.do_step(game, {"move": {"x": 700, "y": 450}, "through": ["Item"], "seconds": 0}, 4, tmp_path)
+    assert said == "(300, 200) through (150, 92) to (700, 450) at once"
+    assert [(e["x"], e["y"]) for _, e in sent] == [(150, 92), (700, 450)]
+
+    _, problems = pp.check_plan({"touch": True, "steps": [{"move": "Item"}, {"move": "Item", "to": "Sub"},
+                                                          {"move": "Item", "through": "Sub"}, {"move": ""}]})
+    for expected in ('step 1 (move) moves the mouse with no button held, and a touch plan has no mouse',
+                     "step 2 (move) has 'to'", "step 3 (move): through is a list of targets like the one it moves to",
+                     "step 4 (move): the target is a type name"):
+        assert any(p.startswith(expected) for p in problems), (expected, problems)
+    assert pp.check_plan({"steps": [{"move": "Item", "through": ["Sub"], "seconds": 0, "rest": 1}]})[1] == []
+
+
 def opened(steps: list[dict], planned: int, seconds: float, touch: bool = False) -> dict:
     """The result of a run that opened the project and played `steps` in the page's runtime."""
     return {"project": "Game", "status": "opened", "title": "Game - Construct 3",

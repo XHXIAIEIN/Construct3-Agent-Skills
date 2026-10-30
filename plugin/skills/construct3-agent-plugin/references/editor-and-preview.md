@@ -2,8 +2,8 @@
 
 Read this before previewing a project that starts on a layout other than the
 one open in the editor, or before driving a preview with input from a script.
-`scripts/preview_project.py` sends taps, holds, drags and keys as the bullets
-below describe; a script of the agent's own needs them for what it does not
+`scripts/preview_project.py` sends taps, holds, drags, hover moves and keys as
+the bullets below describe; a script of the agent's own needs them for what it does not
 cover, such as two fingers at once. A lesson from the editor, the preview or
 a script driving them goes here with its source, under the heading of its
 topic, one bullet each: fact, consequence, source. A runtime behaviour that
@@ -38,6 +38,13 @@ which cases to play and how to reach and read them to
   `layoutToCssPx`. [preview: ILayer.d.ts `layerToCssPx`; observed in a game
   project, r504 preview in Edge, 2026-09-30: a weapon dragged onto a piece
   and a piece onto a battle slot landed where the events put them]
+- `mouseMoved` with `buttons: 0` and no `button` moves the pointer without
+  a press, which is a hover: `Mouse.X`, `Mouse.Y` and *Cursor is over
+  object* follow each event at the next tick, so a hover menu opens and
+  closes on its own delays. A finger has no hover, so a touch plan cannot
+  test one. [observed in a game project, r506.3 preview in Edge,
+  2026-10-30: a pointer menu opened a sub-menu after its 0.22 s delay and
+  kept it open while the pointer left and came back within 0.3 s]
 - Two fingers at once go through `Input.dispatchTouchEvent` after
   `Emulation.setTouchEmulationEnabled`, which Touch and Drag & Drop both
   read. Every event lists all the fingers still down, each with its `id`: a
