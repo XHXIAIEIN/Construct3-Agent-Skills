@@ -3,8 +3,9 @@
     python scripts/measure_timing.py VIDEO [--fps 60] [--from SECONDS] [--csv FILE]
 
 The video is a recording of this project's effect, at a steady frame rate,
-with nothing else moving on screen. The script decodes it to grey frames,
-measures each frame, finds the effect's events and splits each into the
+with nothing else moving on screen. A record step of preview_project.py with
+"fps": 60, in a game slowed with runtime.timeScale, makes one in game time.
+The script decodes it to grey frames, measures each frame, finds the effect's events and splits each into the
 four parts that Construct3-Cookbook/guides/recipes/vfx-timing.md names: a
 rise, a peak, a fall and an ember. It prints, per event, the frame of each
 boundary, the count of each part, and the ratio of the rise to the fall.

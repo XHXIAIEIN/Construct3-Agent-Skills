@@ -74,7 +74,7 @@ layer's name says pause, menu, shop, result, game over or the like.
 Nearly all of these tweens fade the opacity with `easeinoutsine`. A few
 slide a menu in by X or Y, and none scales a popup. Opening and closing
 both take 0.25 to 1 s in the middle half, 0.5 s at the median. The HUD's
-motion measured in `prompts/references/new-project.md` agrees: fades, sine
+motion measured in `Construct3-Cookbook/guides/project-files/new-project.md` agrees: fades, sine
 eases, 0.5 to 1 s.
 
 `measure_examples.py sine` reads the Sine behavior on the first instance

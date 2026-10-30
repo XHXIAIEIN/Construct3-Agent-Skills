@@ -185,7 +185,13 @@ image tool, answer each question from the picture, and name the same for
 each yes. Save these answers to `.tmp/scripts/review-look/reply.md` in the
 form the brief gives and check them with `--reply` as well, because `verify_change.py`
 passes its look step only on a reply that `--reply` checked: one that
-answers every question, each yes saying where. A question answered from
+answers every question, each yes saying where, with no yes. A yes fails the
+step: fix it and run `verify_change.py` again, which looks again. After
+three replies with a yes the step passes, and the hand-over names each yes
+left. In a generated game the step first runs `scripts/check_look.py`, and
+a finding of it stops the step before the review. When `scripts/art.py`
+has written a contact sheet of the game's pictures, the brief shows it
+after the screenshots, under the same questions. A question answered from
 memory of the events, not from the picture, is not answered.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up
@@ -275,8 +281,12 @@ kinds takes the rows of each.
   integrates `dt` lands at a slightly different place each run. Compare
   positions against a range, and use `until` instead of a fixed wait.
   `runtime.timeScale` slows the game for a closer look; the audio clock is
-  not scaled. [editor-and-preview.md, the bullet on the display's rate;
-  manual: scripting/scripting-reference/iruntime.md `timeScale`]
+  not scaled. To count an effect's frames, as `scripts/measure_timing.py`
+  does, slow the game and give the `record` step `"fps": 60`, because a
+  recording on the clock holds about half of a 60 fps effect's frames.
+  [editor-and-preview.md, the bullet on the display's rate and "Recording
+  an effect's frames"; manual: scripting/scripting-reference/iruntime.md
+  `timeScale`]
 - Physics time step: with the default *Framerate independent* stepping the
   simulation can differ between runs; *Set stepping mode* to *Fixed* makes
   it deterministic for the check. [manual:

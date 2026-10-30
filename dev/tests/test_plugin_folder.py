@@ -187,6 +187,19 @@ def test_the_design_judge_only_reads_and_runs_the_measured_model():
     assert "brief.md" in body and "offset" in body
 
 
+def test_the_art_drawer_draws_on_a_fixed_model_from_its_brief():
+    """The art drawer draws a game's pictures from the brief of art.py on a fixed strong model, since the main
+    agent may be a small one, and starts without the project's instruction files
+    (docs/decisions/art-drawer-agent.md)."""
+    text = (PLUGIN / "agents" / "art-drawer.md").read_text(encoding="utf-8")
+    head, body = text.split("\n---\n", 1)
+    fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
+    assert fields["name"] == "art-drawer" and len(fields["description"]) < 1024
+    assert [t.strip() for t in fields["tools"].split(",")] == ["Read", "Write", "Edit", "Bash"]
+    assert fields["omitClaudeMd"] == "true" and fields["model"].startswith("claude-"), fields["model"]
+    assert "brief.md" in body and "three rounds" in body and "tools/drawings.py" in body
+
+
 def test_the_look_judge_only_reads_and_runs_the_measured_model():
     """The look judge answers review_look.py's brief apart from the agent that built the game: it can only read,
     it starts without the project's instruction files, and it names the model whose answers were measured by its

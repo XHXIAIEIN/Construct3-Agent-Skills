@@ -49,10 +49,12 @@ Steps, each an object with one of these keys, and "note" for a label:
                                 their inspector values, named in --locale
   shot NAME                     a screenshot, NN-NAME.png in --shots; named as not drawn yet when it
                                 is one colour
-  record NAME, watch            record from here to the next record step or the end: NN-NAME.mp4 with
+  record NAME, watch, fps       record from here to the next record step or the end: NN-NAME.mp4 with
                                 ffmpeg or .gif with Pillow, the frames, a contact sheet of up to 12
                                 numbered frames to judge the motion from, and NN-NAME.html to review
-                                it; watch is {"label": EXPRESSION, ...}, read at every frame; false stops
+                                it; watch is {"label": EXPRESSION, ...}, read at every frame; fps 60
+                                makes the video 60 frames a second of game time, for a game that a js
+                                step slowed with runtime.timeScale; false stops
 
 TARGET is where to press, the middle of an instance's bounding box:
   "Button"                      the first instance of an object type, as the project spells it
@@ -124,9 +126,7 @@ output:
     recorded merge: 95 frames in 3.4 s, shots/02-merge.mp4
       sheet shots/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
       2 at 35 ms (largest change), ..., 10 at 3380 ms (end)
-        judge the motion from the sheet, not from what the events meant to do: open it with the image tool,
-        name the three worst defects, each with its time, what the frame shows and the event to change, fix
-        only those, and record that part again
+        <how to judge the motion from the sheet>
       review shots/02-merge.html: the user plays it there, selects the part that looks wrong and
       copies it to you as a task; shots/index.html lists every recording
       frames and timeline.json in shots/02-merge
@@ -149,7 +149,7 @@ STEPS = ("tap", "hold", "drag", "move", "key", "wait", "until", "js", "state", "
 KEPT = Path("tools") / "plans"
 FIELDS = {"tap": set(), "hold": {"seconds"}, "drag": {"to", "seconds", "through", "rest"},
           "move": {"seconds", "through", "rest"}, "key": {"seconds"}, "wait": set(),
-          "until": {"timeout"}, "js": {"timeout"}, "state": set(), "shot": set(), "record": {"watch"}}
+          "until": {"timeout"}, "js": {"timeout"}, "state": set(), "shot": set(), "record": {"watch", "fps"}}
 # Seconds a hold, a drag, a move and a key press last when the step gives none.
 PRESS = {"hold": 0.5, "drag": 0.4, "move": 0.4, "key": 0.1}
 # Seconds the preview window gets to take the plan's viewport.
@@ -355,6 +355,11 @@ def check_plan(plan: object) -> tuple[dict, list[str]]:
                 isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in watch.items())):
             problems.append(f"step {n} (record): watch is {{\"label\": \"EXPRESSION\", ...}} on a step that starts "
                             f"a recording")
+        fps = step.get("fps") if kind == "record" else None
+        if fps is not None and not (value and isinstance(fps, (int, float)) and not isinstance(fps, bool)
+                                    and 0 < fps <= 240):
+            problems.append(f"step {n} (record): fps is frames per second of game time, up to 240, on a step that "
+                            f"starts a recording")
         for field in ("seconds", "timeout", "rest"):
             if field in step and not (isinstance(step[field], (int, float)) and step[field] >= 0):
                 problems.append(f"step {n} ({kind}): {field} is a number of seconds")
@@ -390,8 +395,8 @@ class Game:
         self.recorded: list[Recorder] = []      # finished, their connections closed after the window (Recorder)
         self.pointer: tuple[float, float] | None = None     # where the last mouse event put the pointer
 
-    def record(self, name: str, video: Path, watch: dict[str, str]) -> None:
-        self.recording = Recorder(self.url, name, video, self.viewport, watch, self.project, self.ratio)
+    def record(self, name: str, video: Path, watch: dict[str, str], fps: float | None) -> None:
+        self.recording = Recorder(self.url, name, video, self.viewport, watch, self.project, self.ratio, fps)
 
     def stop_recording(self) -> str:
         """What the recording that ran made, or "" when none ran."""
@@ -427,7 +432,7 @@ class Game:
         self.live = live[0]
         self.win.evaluate(PLAY_JS, session=self.live)
         enable(self.win, sessions)
-        if self.recording and self.recording.watch:
+        if self.recording and self.recording.read:
             self.recording.session = self.recording.game_session()
         return time.monotonic() - began
 
@@ -478,7 +483,8 @@ class Game:
 
 class Recorder(threading.Thread):
     """Screenshots of the window, one after another, on a connection of its own while
-    the steps run, each with the values the record step watches, read right after it.
+    the steps run, each with the game time and the values the record step watches,
+    read right after it.
     The browser's screencast sends no frame, or a strip, once the window's size is
     emulated. This connection emulates the plan's viewport too, since one without an
     emulated size of its own takes a headed window's screenshots at the display's
@@ -486,24 +492,24 @@ class Recorder(threading.Thread):
     that emulated a size clears the size for the page, the steps' connection included."""
 
     def __init__(self, url: str, name: str, video: Path, viewport: list[int] | None, watch: dict[str, str],
-                 project: Path, ratio: float = 1) -> None:
+                 project: Path, ratio: float = 1, fps: float | None = None) -> None:
         super().__init__(name=name, daemon=True)
-        self.video, self.folder, self.project = video, video.with_suffix(""), project
+        self.video, self.folder, self.project, self.fps = video, video.with_suffix(""), project, fps
         self.frames, self.steps, self.done, self.first = [], [], threading.Event(), threading.Event()
         shutil.rmtree(self.folder, ignore_errors=True)
         self.folder.mkdir(parents=True)
         self.page = oe.DevTools(url)
         if viewport or ratio != 1:
             emulate(self.page, viewport, ratio)
-        self.session, self.watch = None, None
-        if watch:
+        self.session, self.watch, self.read = None, bool(watch), None
+        if watch or fps:
             self.session = self.game_session()
             body = ", ".join(f"[{json.dumps(label)}, await read(async () => ({expression}))]"
                              for label, expression in watch.items())
-            self.watch = ("(async () => { const runtime = c3probe.runtime, vars = c3play.vars;\n"
-                          "  const read = async f => { try { return c3play.plain(await f()); }"
-                          " catch (e) { return `error: ${e.message}`; } };\n"
-                          f"  return Object.fromEntries([{body}]); }})()")
+            self.read = ("(async () => { const runtime = c3probe.runtime, vars = c3play.vars;\n"
+                         "  const read = async f => { try { return c3play.plain(await f()); }"
+                         " catch (e) { return `error: ${e.message}`; } };\n"
+                         f"  return {{game: runtime.gameTime, watch: Object.fromEntries([{body}])}}; }})()")
         self.start()
         self.first.wait(5)      # the next step starts after the state before it is on record
 
@@ -527,11 +533,15 @@ class Recorder(threading.Thread):
                 taken = time.monotonic()
                 shot = self.page.call("Page.captureScreenshot", format="jpeg", quality=70, optimizeForSpeed=True)
                 frame = {"file": f"{len(self.frames) + 1:04d}.jpg", "t": taken}
-                if self.watch:
+                if self.read:
                     try:
-                        frame["watch"] = self.page.evaluate(self.watch, wait=5, session=self.session)
+                        got = self.page.evaluate(self.read, wait=5, session=self.session)
+                        frame["game"] = got["game"]
+                        if self.watch:
+                            frame["watch"] = got["watch"]
                     except oe.DevToolsError as e:
-                        frame["watch"] = {"error": str(e).splitlines()[0]}
+                        if self.watch:
+                            frame["watch"] = {"error": str(e).splitlines()[0]}
                 (self.folder / frame["file"]).write_bytes(base64.b64decode(shot["data"]))
                 self.frames.append(frame)
                 self.first.set()
@@ -548,18 +558,27 @@ class Recorder(threading.Thread):
             return f"no frames: the window answered no screenshot; {self.folder} is empty"
         start = frames[0]["t"]
         seconds = [max(b["t"] - a["t"], 0.001) for a, b in zip(frames, frames[1:])] + [0.05]
-        made = make_video([self.folder / f["file"] for f in frames], seconds, self.video)
+        paths = [self.folder / f["file"] for f in frames]
+        game = game_frames(frames, self.fps) if self.fps else None
+        made = make_video([paths[i] for i in game["shots"]], self.video, fps=self.fps) if game else \
+            make_video(paths, self.video, seconds)
         timeline = {"name": self.name, "folder": self.folder.name, "path": self.folder.resolve().as_posix(),
                     "project": self.project.resolve().as_posix(), "video": made,
                     "frames": [{**f, "t": round(f["t"] - start, 3)} for f in frames],
                     "steps": [{**s, "start": round(s["start"] - start, 3), "end": round(s["end"] - start, 3)}
                               for s in self.steps]}
+        if game:
+            timeline["game_video"] = {"fps": self.fps, "start": game["start"],
+                                      "frames": [frames[i]["file"] for i in game["shots"]]}
         (self.folder / "timeline.json").write_text(json.dumps(timeline, ensure_ascii=False, indent=1), encoding="utf-8")
         page = self.video.with_suffix(".html")
         page.write_text(REVIEW.replace("/*TIMELINE*/null", script_json(timeline)), encoding="utf-8")
         index = write_index(self.video.parent)
-        lines = [f"{len(frames)} frames in {sum(seconds):.1f} s, {made or 'no ffmpeg or Pillow here to join them'}"]
-        paths = [self.folder / f["file"] for f in frames]
+        said = game_lines(game, self.fps, seconds) if game else [
+            "no frame of game time passed, or the game time was not read, so the video keeps the clock: "
+            if self.fps else ""]
+        lines = [f"{len(frames)} frames in {sum(seconds):.1f} s, {said[0]}"
+                 f"{made or 'no ffmpeg or Pillow here to join them'}", *said[1:]]
         cells = sheet_frames(timeline["frames"], timeline["steps"], frame_change(paths, timeline["frames"]))
         sheet = make_sheet([paths[i] for i, _ in cells], [timeline["frames"][i]["t"] for i, _ in cells],
                            self.folder.with_name(self.folder.name + "-sheet.png"))
@@ -620,20 +639,67 @@ def watch_lines(frames: list[dict]) -> list[str]:
     return lines
 
 
-def make_video(frames: list[Path], seconds: list[float], video: Path) -> str | None:
-    """An .mp4 through ffmpeg where it is installed, else a .gif through Pillow; None
-    with neither. Each frame stays up for as long as the window showed it."""
+def game_frames(frames: list[dict], fps: float) -> dict | None:
+    """The screenshots of a video at fps frames a second of game time: for each instant
+    start + k / fps up to the last screenshot's game time, the last screenshot whose game
+    time is at or before it. Also how far the chosen screenshots fall before their
+    instants, and how many frames repeat the one before because no screenshot fell in
+    them. None when less than a frame of game time passed."""
+    timed, top = [], -math.inf
+    for i, f in enumerate(frames):
+        g = f.get("game")
+        if isinstance(g, (int, float)) and g >= top:    # a page the game reloaded starts its game time again
+            timed.append((g, i))
+            top = g
+    if len(timed) < 2 or timed[-1][0] - timed[0][0] < 1 / fps:
+        return None
+    start, shots, lags, j, k = timed[0][0], [], [], 0, 0
+    while start + k / fps <= timed[-1][0]:
+        at = start + k / fps
+        while j + 1 < len(timed) and timed[j + 1][0] <= at:
+            j += 1
+        shots.append(timed[j][1])
+        lags.append(at - timed[j][0])
+        k += 1
+    return {"start": start, "shots": shots, "lag": max(lags),
+            "repeats": sum(a == b for a, b in zip(shots, shots[1:]))}
+
+
+def game_lines(game: dict, fps: float, seconds: list[float]) -> list[str]:
+    """What a video in game time holds: the start of the recording's first line, then
+    how to slow the game when frames repeat. The scale asked for puts a quarter of a
+    frame of game time or less between two screenshots."""
+    n = len(game["shots"])
+    said = [f"{n} frames at {fps:g} fps of game time from {game['start']:.2f} s, each the last screenshot at or "
+            f"before its instant, at most {game['lag'] * 1000:.1f} ms of game time before it: "]
+    if game["repeats"]:
+        scale = 1 / (4 * fps * sorted(seconds[:-1])[len(seconds[:-1]) // 2])
+        unit = 10 ** math.floor(math.log10(scale))
+        said.append(f"{game['repeats']} of {n} frames repeat the one before, since no screenshot fell in them: set "
+                    f"runtime.timeScale = {math.floor(scale / unit) * unit:.2g} in a js step before this record step, "
+                    f"and record again")
+    return said
+
+
+def make_video(frames: list[Path], video: Path, seconds: list[float] | None = None, fps: float = 30) -> str | None:
+    """An .mp4 at fps frames a second through ffmpeg where it is installed, else a .gif
+    through Pillow; None with neither. Each frame stays up for its seconds, or with no
+    seconds for one frame of the video."""
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg:
         listing = video.with_suffix(".txt")
         lines = ["ffconcat version 1.0"]
-        for frame, s in zip(frames, seconds):
-            lines += [f"file '{frame.resolve().as_posix()}'", f"duration {s:.4f}"]
-        lines.append(f"file '{frames[-1].resolve().as_posix()}'")     # concat drops the last duration otherwise
+        for i, frame in enumerate(frames):
+            lines += [f"file '{frame.resolve().as_posix()}'"] + ([f"duration {seconds[i]:.4f}"] if seconds else [])
+        if seconds:
+            lines.append(f"file '{frames[-1].resolve().as_posix()}'")     # concat drops the last duration otherwise
         listing.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        # Durations of 1/fps come out with frames doubled: concat times them in its own base and -r rounds
+        steady = "" if seconds else f"settb=1/{fps:g},setpts=N,fps={fps:g},"
         mp4 = video.with_suffix(".mp4")
         done = subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
-                               "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-pix_fmt", "yuv420p", "-r", "30", str(mp4)],
+                               "-vf", steady + "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-pix_fmt", "yuv420p",
+                               "-r", f"{fps:g}", str(mp4)],
                               capture_output=True, text=True, timeout=120)
         listing.unlink(missing_ok=True)
         if done.returncode == 0:
@@ -645,7 +711,7 @@ def make_video(frames: list[Path], seconds: list[float], video: Path) -> str | N
     gif = video.with_suffix(".gif")
     images = [Image.open(f) for f in frames]
     images[0].save(gif, save_all=True, append_images=images[1:], loop=0,
-                   duration=[max(20, round(s * 1000)) for s in seconds])
+                   duration=[max(20, round(s * 1000)) for s in seconds or [1 / fps] * len(frames)])
     return str(gif)
 
 
@@ -930,7 +996,7 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
     if kind == "record":
         said = game.stop_recording()
         if value:
-            game.record(value, shots / f"{n:02d}-{value}", step.get("watch") or {})
+            game.record(value, shots / f"{n:02d}-{value}", step.get("watch") or {}, step.get("fps"))
         return "; ".join(filter(None, ["recording" if value else "", said])), None
     return screenshot(game, shots / f"{n:02d}-{value}.png"), None
 

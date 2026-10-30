@@ -1327,6 +1327,16 @@ def test_look_manifest_matches_the_template():
         named = rule.get("helpers", "") + ("" if "value" in rule else rule.get("template", ""))
         for name in re.findall(r"(\w+)\(\)", named):
             assert callable(getattr(t, name, None)), (rule["id"], name)
+        assert rule["source"] in manifest["decisions"], rule["id"]
+    for record in manifest["decisions"]:
+        if record.startswith("Construct3-Agent-Skills/"):
+            assert (REPO / record.removeprefix("Construct3-Agent-Skills/")).is_file(), record
+    # check_look.py enforces the manifest's values, so they cannot drift from the template's
+    check_look = script_module("check_look")
+    assert check_look.COLLIDING == t.COLLIDING
+    for view in ("VIEW_W, VIEW_H = 320, 180", "VIEW_W, VIEW_H = 720, 1280", "VIEW_W, VIEW_H = 1920, 1080"):
+        sized = template_module(VIEW=view)
+        assert check_look.rule_value("grid.unit", VIEW_W=sized.VIEW_W, VIEW_H=sized.VIEW_H) == sized.UNIT
     assert {r["id"] for r in manifest["rules"] if r.get("strict")} >= {
         "alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn"}
     enforced = {r["scope"]: set() for r in manifest["rules"]}
@@ -1402,8 +1412,8 @@ def test_template_art_shows_the_stand_in_until_its_picture_is_there(tmp_path):
     assert png_pixels(tmp_path / "images" / "gem-default-001.png")[0][20] == (255, 255, 255, 255)
     inst = t.shape_inst("Gem", "gem-default-000.png", 2, 3)
     assert (inst["world"]["x"], inst["world"]["y"]) == (96, 160)
-    with pytest.raises(SystemExit, match=r"art/gem-default-000.png is 64x64, and art\(\) asks 96x96: put the picture "
-                                         r"in art/raw/ and run the skill's scripts/prepare_art.py.* or delete"):
+    with pytest.raises(SystemExit, match=r"art/gem-default-000.png is 64x64, and art\(\) asks 96x96: run the skill's "
+                                         r"scripts/art.py, which renders its drawing .* or delete"):
         t.art("gem-default-000.png", "circle", 96, 96, "reward", "a red gem")
 
 

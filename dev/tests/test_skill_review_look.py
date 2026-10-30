@@ -226,8 +226,8 @@ def test_a_reply_is_checked_against_the_brief_it_answers():
     lines, _, _ = rl.check_reply(REVIEWED, every_no, "reply.md", "python v.py")
     assert lines[-1] == "next: every question is answered no; run python v.py, which passes its look step on this reply"
     lines, _, _ = rl.check_reply(REVIEWED, one_yes, "r", "python v.py")
-    assert lines[-1].endswith("; name a yes about what your change did not touch in the hand-over, then run python "
-                              "v.py, which passes its look step on this reply"), lines[-1]
+    assert lines[-1].endswith("change it, then run python v.py, which looks again; after three rounds with a yes "
+                              "its look step passes, and the hand-over names each yes left"), lines[-1]
 
 
 def test_review_look_checks_a_saved_reply_without_a_browser(project):
@@ -427,3 +427,14 @@ def test_review_look_finds_a_label_or_glyph_off_the_centre_of_its_face():
                                 "shrinking its box from the top by 6 px")
     assert "its area sits 10.8 px below" in found[1]["line"] and "move it 11 px up" in found[1]["line"]
     assert found[2]["line"].endswith("move its ink down 2 px by moving its box as far")
+
+
+def test_the_brief_asks_about_the_art_sheet_after_the_screenshots():
+    """The contact sheet of art.py is one more picture under the same questions, last, and a reply must answer it."""
+    result = {"preview": {"layouts": [{"layout": "Game", "shot": "shots/Game.png"}]}, "places": [],
+              "art_sheet": "art/contact.png"}
+    text = rl.brief(result)
+    assert "1. Game: shots/Game.png\n2. Art sheet: art/contact.png" in text
+    assert "The last picture, Art sheet, is no screenshot" in text
+    lines, _, verdict = rl.check_reply(result, "\n".join(f"Game {q}: no" for q in range(1, 7)), "r.md", None)
+    assert "  missing: Art sheet 1-6" in lines and not verdict["complete"], lines

@@ -1,31 +1,26 @@
-"""Turn the pictures of the session's image tool into a generated game's art.
-
-    python scripts/prepare_art.py --list     the next step: the prompts of the pictures to make
-    python scripts/prepare_art.py            cut out and fit every picture in art/raw/
+"""The image route of scripts/art.py: the prompts of the pictures an image tool makes, and the cut-out
+and fit of each picture it made.
 
 The generator's art() asks for each sprite by what it shows, in a box of whole
-units, and writes the list to art/wanted.json; until its picture is there, the
-sprite shows its stand-in shape. --list prints one step at a time. While
-ART_STYLE is empty, it asks for ART_STYLE. While more than one sprite is to
-make, it asks for the key picture, a line-up of the game's subjects that sets
-the style. Then it prints a prompt per picture, which starts with ART_STYLE so
-that the pictures share one style. Make each picture with the image tool and
-save it as art/raw/<name>.png, .jpg or .webp, where <name> is the image's file
-name without .png. Save the key picture as art/raw/_key.png: each sprite's
-prompt then gives it as the reference image.
+units, and writes the list to art/wanted.json. art.py prints one step at a
+time for the pictures of the image route. While ART_STYLE is empty, it asks
+for ART_STYLE. While more than one sprite is to make, it asks for the key
+picture, a line-up of the game's subjects that sets the style. Then it prints
+a prompt per picture, which starts with ART_STYLE so that the pictures share
+one style. Each picture is saved as art/raw/<name>.png, .jpg or .webp, where
+<name> is the image's file name without .png, and the key picture as
+art/raw/_key.png: each sprite's prompt then gives it as the reference image.
 
---list also warns of subjects that will come out wrong. A subject must not
-name a background, a shadow, text, or a drawing style that ART_STYLE does not
-name. Several subjects that differ only in colour or element words come out
-as one figure in several colours.
-
---list also warns when ART_STYLE names nothing of the rendering, the
-linework, the colour temperature, the light direction, the proportions or the
-framing. Each prompt leaves such a dimension to the image tool, so the
+The prompts come with warnings of subjects that will come out wrong. A subject
+must not name a background, a shadow, text, or a drawing style that ART_STYLE
+does not name. Several subjects that differ only in colour or element words
+come out as one figure in several colours. A warning also names what
+ART_STYLE leaves to the image tool of the rendering, the linework, the colour
+temperature, the light direction, the proportions or the framing, so that the
 pictures can differ in it. "framing unspecified" in ART_STYLE leaves the
 framing open on purpose.
 
-Without --list, each picture there is:
+Each picture in art/raw/ is then:
 
   cut out    a picture with transparency keeps it. Any other picture was
              asked for on a flat magenta or green, the key. The key is
@@ -41,18 +36,9 @@ Without --list, each picture there is:
              colour, with art/<name>.hit.png, its silhouette in the flash
              colour, for hit_frame()
 
-Then run the generator: art() takes each picture in place of its stand-in.
-Needs Pillow (pip install pillow).
-
-The last line starts with ok: once every picture art() asks for is in art/;
-before that it counts what is left and names the next step.
-
-A refused picture is recorded in art/refused.json, and --list gives its
-prompt again with what to make instead. After three refusals a picture keeps
-its stand-in, and both runs count it and move on.
-
-Exit 0: no picture waits to be made again. Exit 1: a picture could not be
-used; its line says why. Exit 2: no art/wanted.json, or no Pillow.
+Fitting needs Pillow (pip install pillow). A refused picture is recorded in
+art/refused.json, and its next prompt says what to make instead. After three
+refusals a picture keeps its stand-in.
 """
 import hashlib
 import json
@@ -84,7 +70,7 @@ STYLE_WORDS = ("pixel", "8-bit", "16-bit", "vector", "cartoon", "anime", "manga"
                "oil paint", "painterly", "sketch", "line art", "cel-shad", "cel shad", "low poly", "low-poly", "3d",
                "outline", "像素", "矢量", "扁平", "卡通", "动漫", "二次元", "写实", "水彩", "油画", "素描", "手绘",
                "线稿", "描边", "赛璐璐", "低多边形", "厚涂", "风格")
-# The words by which ART_STYLE fixes each dimension. --list warns of a dimension with none of them.
+# The words by which ART_STYLE fixes each dimension. The prompts warn of a dimension with none of them.
 # "<dimension> unspecified" leaves it open on purpose. A negated word counts: "no outlines" fixes
 # the linework. An English word matches as a whole word, with an optional plural; a Chinese word
 # matches anywhere. docs/decisions/art-from-the-image-tool.md.
@@ -139,7 +125,7 @@ SPILL = 60
 FRINGE, FRINGE_MIN = 0.005, 8
 LINEUP = 4                                 # subjects in the key picture
 WORK = 4                                   # a picture is cut out at up to this many times its box
-REFUSED = "art/refused.json"               # the pictures this script refused, which --list reads
+REFUSED = "art/refused.json"               # the pictures and drawings refused, which the next run reads
 TRIES = 3                                  # refusals before a picture keeps its stand-in
 STAND_IN = (f"{TRIES} times, so it keeps its stand-in. To try again, change its subject in art(), which starts the "
             f"count again")
@@ -366,7 +352,7 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
                 f"the user, that fixes the {joined(list(DIMENSIONS), 'and')}, so that every picture shares it",
                 *warnings(making, style),
                 f"{count}; next: write ART_STYLE, run python tools/build_project.py, then python {skill}/scripts/"
-                f"prepare_art.py --list again"]
+                f"art.py again"]
     out = ([f"style: {style}"] if style.strip() else []) + (style_warning(style) if making else []) + \
         warnings(making, style)
     key_picture = raw_of(root, "_key.png")
@@ -377,7 +363,7 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
         return out + [f"key picture: \"{lead(style)}a line-up of {subjects}, side by side on a flat {name} "
                       f"{hex_of(key)} background, no text\". If the user is in the session, show it and keep the "
                       f"one they choose. Save it as art/raw/_key.png",
-                      f"{count}; next: make the key picture, then python {skill}/scripts/prepare_art.py --list for "
+                      f"{count}; next: make the key picture, then python {skill}/scripts/art.py for "
                       f"the prompts of the others"]
     for item in items:
         rel, s = item["file"], states[item["file"]]
@@ -394,9 +380,9 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
         else:
             out.append(f"{s} {stem}: {raw.name if (raw := raw_of(root, rel)) else 'art/' + rel}")
     if to_make:
-        out.append(f"{count}; next: make each with the image tool, then python {skill}/scripts/prepare_art.py")
+        out.append(f"{count}; next: make each with the image tool, then python {skill}/scripts/art.py")
     elif counts["prepare"]:
-        out.append(f"{count}; next: python {skill}/scripts/prepare_art.py")
+        out.append(f"{count}; next: python {skill}/scripts/art.py")
     elif counts["stand-in"]:
         out.append(f"{count}; next: python tools/build_project.py")
     else:
@@ -716,94 +702,29 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path) -> list[str]:
     return [f"{stem}: {raw.name} {rw}x{rh}, {how} -> art/{rel} {w}x{h}, the subject {sw}x{sh} in it"] + notes
 
 
-def main() -> int:
-    c3.utf8_output()
-    ap = c3.argument_parser(__doc__.split("\n\n")[0], "examples:\n"
-                            "  python scripts/prepare_art.py --list\n"
-                            "  python scripts/prepare_art.py --project D:/games/Coins\n\n"
-                            "exit codes: 0 when no picture waits to be made again, the last line starting with ok: "
-                            "once all are in art/; 1 when a picture could not be used; 2 when art/wanted.json or "
-                            "Pillow is missing")
-    ap.add_argument("--list", action="store_true",
-                    help="print the next step: ART_STYLE, the key picture, or the prompt of every picture still to "
-                         "make, and what is ready")
-    args = ap.parse_args()
-    root = c3.find_project(args.project)
-    where = root or Path.cwd()
-    wanted_path = where / "art" / "wanted.json"
-    if root is None or not wanted_path.exists():
-        print(f"no art/wanted.json in {where}: give every sprite an art() in build_images() of "
-              f"tools/build_project.py and run it, which writes the list", file=sys.stderr)
-        return 2
-    wanted = json.loads(wanted_path.read_text(encoding="utf-8"))
-    # The skill as the commands print it: relative to the project when it is inside it
-    skill = (c3.SKILL_DIR.relative_to(root) if c3.SKILL_DIR.is_relative_to(root) else c3.SKILL_DIR).as_posix()
-    failed = 0
-    if args.list:
-        (root / "art" / "raw").mkdir(parents=True, exist_ok=True)      # where the pictures are saved
-        out = list_prompts(root, wanted, skill)
-    else:
-        try:
-            import PIL  # noqa: F401
-        except ImportError:
-            print("prepare_art.py needs Pillow to read and resize the pictures: pip install pillow", file=sys.stderr)
-            return 2
-        refused = refusals(root, wanted)
-        out, waiting, done, kept = [], 0, 0, 0
-        for item in wanted["images"]:
-            rel = item["file"]
-            stem, raw = stem_of(rel), raw_of(root, rel)
-            if state(root, item, refused) == "stand-in":
-                kept += 1
-                out.append(f"{stem}: refused {STAND_IN}")
-                continue
-            if raw is None:
-                if (root / "art" / rel).exists():
-                    done += 1           # put in art/ as it is, by the user
-                else:
-                    waiting += 1
-                continue
-            try:
-                out += prepare(root, with_refusal(item, refused), wanted, raw)
-                done += 1
-                refused.pop(rel, None)
-            except Unusable as e:
-                line = f"{stem}: {raw.name}: {e}"
-                if e.again:
-                    r = refused.setdefault(rel, {"subject": item["subject"], "pictures": []})
-                    if (seen := fingerprint(raw)) not in r["pictures"]:
-                        r["pictures"].append(seen)
-                    r["tell"] = e.tell
-                    if e.key:
-                        r["key"] = e.key
-                    if len(r["pictures"]) >= TRIES:
-                        kept += 1
-                        out.append(f"{line}. Refused {STAND_IN}")
-                        continue
-                    line += f" {refusal(len(r['pictures']))}"
-                failed += 1
-                out.append(line)
-        if refused or (root / REFUSED).exists():
-            (root / REFUSED).write_text(json.dumps(refused, indent=1, ensure_ascii=False), encoding="utf-8")
-        counts = f"prepared: {done}, could not use: {failed}, still to make: {waiting}" + \
-            (f", kept as stand-ins: {kept}" if kept else "")
-        if failed:
-            out.append(f"{counts}; next: python {skill}/scripts/prepare_art.py --list for the prompts of the "
-                       f"pictures above, make them again, then python {skill}/scripts/prepare_art.py")
-        elif waiting:
-            out.append(f"{counts}; next: python {skill}/scripts/prepare_art.py --list for their prompts")
-        elif kept:
-            out.append(f"{counts}; next: python tools/build_project.py")
-        else:
-            out.append(f"ok: {done} pictures in art/; next: python tools/build_project.py")
-    shown = c3.fitting(out, args.limit)
-    for line in out[:shown]:
-        print(line)
-    if shown < len(out):
-        print(f"... {len(out) - shown} more lines; --limit 0 prints them all")
-        print(out[-1])
-    return 1 if failed else 0
+def fit(root: Path, item: dict, wanted: dict, refused: dict) -> tuple[list[str], bool]:
+    """Cuts out and fits the picture of art/raw/ for item, recording a refusal in `refused`; returns its
+    lines and whether art/<file> was written."""
+    rel = item["file"]
+    raw = raw_of(root, rel)
+    try:
+        lines = prepare(root, with_refusal(item, refused), wanted, raw)
+        refused.pop(rel, None)
+        return lines, True
+    except Unusable as e:
+        line = f"{stem_of(rel)}: {raw.name}: {e}"
+        if e.again:
+            r = refused.setdefault(rel, {"subject": item["subject"], "pictures": []})
+            if (seen := fingerprint(raw)) not in r["pictures"]:
+                r["pictures"].append(seen)
+            r["tell"] = e.tell
+            if e.key:
+                r["key"] = e.key
+            line += f". Refused {STAND_IN}" if len(r["pictures"]) >= TRIES else f" {refusal(len(r['pictures']))}"
+        return [line], False
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+def keep_refusals(root: Path, refused: dict) -> None:
+    """art/refused.json: the pictures and drawings refused, which the next run reads."""
+    if refused or (root / REFUSED).exists():
+        (root / REFUSED).write_text(json.dumps(refused, indent=1, ensure_ascii=False), encoding="utf-8")

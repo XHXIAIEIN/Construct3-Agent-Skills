@@ -175,7 +175,9 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 ### Scripts
 
 - Scripts use the standard library, with these exceptions:
-  - `prepare_art.py` needs Pillow to read, cut out and resample pictures.
+  - `art.py` needs Pillow to read, cut out and resample the pictures of an
+    image tool (`prepare_art.py`). It renders the drawings of the SVG route
+    in the browser that `open_in_editor.py` drives, without Pillow.
   - In `preview_project.py` Pillow is optional. It numbers the frames of a
     recording's contact sheet, which ffmpeg alone tiles without numbers, and
     it joins a recording into a GIF when ffmpeg is missing.

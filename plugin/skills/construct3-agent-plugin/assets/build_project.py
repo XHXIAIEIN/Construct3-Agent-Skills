@@ -152,9 +152,15 @@ PIXEL_ART = UNIT == 8
 # light direction, proportions and framing, never a subject. For example "flat vector with soft
 # cel shading, thick dark outlines, warm colours, light from the top left, chunky proportions,
 # side view", or "ink wash on rice paper, dry brush edges, cool muted greens, light from above,
-# slender proportions, three-quarter view from above". Every image prompt of the skill's
-# scripts/prepare_art.py starts with it; prepare_art.py --list warns of a dimension it leaves out.
+# slender proportions, three-quarter view from above". The skill's scripts/art.py starts every
+# prompt of an image tool with it, gives it to the drawings' brief, and warns of a dimension it
+# leaves out.
 ART_STYLE = ""
+# Where the pictures come from: "svg", drawn in code by the game's tools/drawings.py with the skill's
+# scripts/svg_kit.py, or "image", made by the session's image tool; the skill's scripts/art.py
+# renders or fits them. An object whose frames must keep one box and baseline takes
+# art(..., route="svg") on either route.
+ART_ROUTE = "svg"
 
 
 # ==== construct3-agent-plugin helpers: begin ======================================================
@@ -183,6 +189,7 @@ TEXT_WEIGHT = globals().get("TEXT_WEIGHT", {})
 LINE = globals().get("LINE", max(1, round(min(VIEW_W, VIEW_H) / 720)))
 PIXEL_FONT = globals().get("PIXEL_FONT", "fusion-pixel-8px-proportional-zh_hans")
 USER_LOOK = globals().get("USER_LOOK", "")
+ART_ROUTE = globals().get("ART_ROUTE", "svg")
 # Px of this viewport per px of the paper-and-ink prototype, which was drawn at 720 px high: the
 # gaps of the keys and the header scale by it.
 REF = min(VIEW_W, VIEW_H) / 720
@@ -621,9 +628,10 @@ EQ, NE, LT, LE, GT, GE = 0, 1, 2, 3, 4, 5
 
 
 # --- images ----------------------------------------------------------------------
-# Stand-in images, each a PNG drawn from an RGBA function. The game's art comes from the
-# session's image tool through art() and the skill's scripts/prepare_art.py, or from the user.
-# Do not draw the game's art in code: it looks worse than the stand-ins and mixes styles.
+# Stand-in images, each a PNG drawn from an RGBA function. The game's art comes through art() and
+# the skill's scripts/art.py: drawn as SVG in tools/drawings.py, made by an image tool, or given by
+# the user. Do not compute the game's art pixel by pixel here: nothing holds a style, so it mixes
+# styles on one screen.
 def rgb(role: str) -> tuple[int, int, int]:
     """The colour of a role of PALETTE: rgb("danger")."""
     if role not in PALETTE:
@@ -842,10 +850,10 @@ def hit_frame(rel: str) -> dict:
                  f"<type>-<animation>-000.png")
     hit = rel[:-len("000.png")] + "001.png"
     if DRAWN_AS[rel][0] == "art":
-        # Silhouette in the flash colour, written by prepare_art.py
+        # the picture in the flash colour, written by the skill's scripts/art.py
         source = ROOT / "art" / (rel[:-len(".png")] + ".hit.png")
         if not source.exists():
-            sys.exit(f"art/{source.name} is missing: run the skill's scripts/prepare_art.py, which writes each "
+            sys.exit(f"art/{source.name} is missing: run the skill's scripts/art.py, which writes each "
                      f"picture's hit frame beside it")
         (ROOT / "images" / hit).write_bytes(source.read_bytes())
         wrote(ROOT / "images" / hit)
@@ -941,26 +949,31 @@ def zone(name: str, col: int, row: int, cols: int, rows: int, ivars=None, behavi
 
 # --- art -------------------------------------------------------------------------------
 # art() asks for a picture of `subject` and shows the stand-in shape() until the picture is in
-# art/. The skill's scripts/prepare_art.py --list prints a prompt per picture; without --list it
-# cuts each picture out and fits it to its box. The picture keeps the stand-in's box, origin and
-# collision polygon, so layouts and events stay as they are.
+# art/. The skill's scripts/art.py renders each drawing of the SVG route and fits each picture of
+# the image route to its box, then runs this file again. The picture keeps the stand-in's box,
+# origin and collision polygon, so layouts and events stay as they are.
 ART: dict[str, dict] = {}                  # what art() asked for, by file name: art/wanted.json
 
 
 def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float = 0.5, oy: float = 0.5,
-        outline: bool | None = None, shadow: bool | None = None, inset: int = 0) -> dict:
+        outline: bool | None = None, shadow: bool | None = None, inset: int = 0, route: str | None = None) -> dict:
     """images/<rel>: the picture art/<rel> when it is there, else the stand-in
     shape(rel, kind, w, h, role, ..., inset). `subject` says what the picture shows, for its prompt:
     "a gold coin seen from the front". The picture fills its box; `inset` keeps the stand-in's
     drawing that far inside it. Kind "scene" is an opaque picture that fills its box, such as a
-    backdrop, with a flat rectangle of `role` as its stand-in. Returns the frame."""
+    backdrop, with a flat rectangle of `role` as its stand-in. `route` is "svg" or "image", ART_ROUTE
+    by default; `role` is the drawing's body, which its hit frame shows in the flash. Returns the frame."""
     scene = kind == "scene"
+    route = route or ART_ROUTE
+    if route not in ("svg", "image"):
+        sys.exit(f"art({rel!r}): route {route!r} is neither 'svg', drawn in code, nor 'image', made by an image tool")
     if kind not in SHAPES and not scene:
         sys.exit(f"art({rel!r}): {kind!r} is no kind; art() takes {', '.join(SHAPES)} or scene")
     if not subject.strip():
         sys.exit(f"art({rel!r}): say what the picture shows, the words its prompt is made of: art({rel!r}, "
                  f"{kind!r}, {w}, {h}, {role!r}, \"a gold coin seen from the front\")")
-    ART[rel] = {"file": rel, "kind": kind, "width": w, "height": h, "origin": [ox, oy], "subject": subject}
+    ART[rel] = {"file": rel, "kind": kind, "width": w, "height": h, "origin": [ox, oy], "subject": subject,
+                "role": role, "route": route}
     picture = ROOT / "art" / rel
     if not picture.exists():
         if scene:
@@ -968,13 +981,13 @@ def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float 
         return shape(rel, kind, w, h, role, ox, oy, outline, shadow, inset)
     if w % UNIT or h % UNIT:
         sys.exit(f"art({rel!r}): {w}x{h} is not whole units of {UNIT} px; give it units(n) or TOUCH, "
-                 f"{math.ceil(w / UNIT) * UNIT}x{math.ceil(h / UNIT) * UNIT} here, then run prepare_art.py again")
+                 f"{math.ceil(w / UNIT) * UNIT}x{math.ceil(h / UNIT) * UNIT} here, then run the skill's scripts/art.py")
     data = picture.read_bytes()
     size = struct.unpack(">II", data[16:24]) if data[:8] == b"\x89PNG\r\n\x1a\n" else None
     if size != (w, h):
-        sys.exit(f"art/{rel} is {'not a PNG' if size is None else '%dx%d' % size}, and art() asks {w}x{h}: put the "
-                 f"picture in art/raw/ and run the skill's scripts/prepare_art.py, which fits it to its box, or "
-                 f"delete art/{rel} to show the stand-in")
+        sys.exit(f"art/{rel} is {'not a PNG' if size is None else '%dx%d' % size}, and art() asks {w}x{h}: run the "
+                 f"skill's scripts/art.py, which renders its drawing or fits the picture of art/raw/ to the box, "
+                 f"or delete art/{rel} to show the stand-in")
     target = ROOT / "images" / rel
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
@@ -988,17 +1001,20 @@ def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float 
 
 
 def write_wanted() -> None:
-    """Writes art/wanted.json for the skill's scripts/prepare_art.py and prints how many sprites
-    still show their stand-in."""
+    """Writes art/wanted.json for the skill's scripts/art.py, with the roles and the grid its drawings
+    take, and prints how many sprites still show their stand-in."""
     if not ART:
         return
     write_json("art/wanted.json", {"style": ART_STYLE, "flash": list(rgb(HIT_FLASH["role"])),
-                                   "pixel_art": PIXEL_ART, "images": list(ART.values())})
+                                   "flash_role": HIT_FLASH["role"], "pixel_art": PIXEL_ART, "unit": UNIT,
+                                   "line_width": SHAPE_STYLE["outline_width"], "view": [VIEW_W, VIEW_H],
+                                   "palette": {role: list(c) for role, c in PALETTE.items()},
+                                   "images": list(ART.values())})
     waiting = [rel for rel in ART if not (ROOT / "art" / rel).exists()]
     if waiting:
         print(f"art: {len(waiting)} of {len(ART)} images show their stand-in ({', '.join(waiting[:3])}"
-              f"{' ...' if len(waiting) > 3 else ''}); with an image tool in this session, run the skill's "
-              f"scripts/prepare_art.py --list for their prompts")
+              f"{' ...' if len(waiting) > 3 else ''}); run the skill's scripts/art.py, which says what "
+              f"each needs")
     else:
         print(f"art: all {len(ART)} images from art/")
 
@@ -1009,7 +1025,7 @@ def write_wanted() -> None:
 # pointer_types() declares the Mouse, pointer_module() plays them. With POINTER off each adds
 # nothing, so a game calls them either way.
 POINTER = globals().get("POINTER", False)
-POINTER_STYLE = globals().get("POINTER_STYLE", {"hover": "ink", "pressed": "pressed", "seconds": 0.15})
+POINTER_STYLE = globals().get("POINTER_STYLE", {"hover": "hover", "pressed": "pressed", "seconds": 0.15})
 POINTED: dict[str, list[str]] = {}         # the hover and pressed frames drawn for an image, by its file name
 
 
@@ -1028,11 +1044,11 @@ def pointer_frames(rel: str) -> None:
     for tag, role in (("hover", POINTER_STYLE["hover"]), ("pressed", POINTER_STYLE["pressed"])):
         file = f"{base}{n:03d}.png"
         if DRAWN_AS[rel][0] == "art":
-            # the picture's silhouette in the role's colour, written by prepare_art.py
+            # the picture's silhouette in the role's colour, from the hit frame of the skill's scripts/art.py
             source = ROOT / "art" / (rel[:-len(".png")] + ".hit.png")
             if not source.exists():
-                sys.exit(f"art/{source.name} is missing: run the skill's scripts/prepare_art.py, which writes each "
-                         f"picture's silhouette beside it")
+                sys.exit(f"art/{source.name} is missing: run the skill's scripts/art.py, which writes each "
+                         f"picture's hit frame beside it")
             w, h, alpha = png_alpha(source)
             write_png(file, w, h, lambda x, y: (*rgb(role), alpha[y * w + x]), painted=True)
             FRAMES[file] = {**FRAMES[rel], "imageSpriteId": image_id(), "tag": tag}
@@ -1045,7 +1061,7 @@ def pointer_frames(rel: str) -> None:
 
 
 def png_alpha(path: Path) -> tuple[int, int, list[int]]:
-    """Width, height and the alpha of each pixel of an 8-bit RGBA or RGB PNG, as prepare_art.py writes one."""
+    """Width, height and the alpha of each pixel of an 8-bit RGBA or RGB PNG, as the skill's scripts/art.py writes one."""
     data = path.read_bytes()
     pos, idat, w, h, kind = 8, b"", 0, 0, 6
     while pos + 8 <= len(data):
@@ -3388,7 +3404,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 51d2b61dd16d ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp 5f6c1ffde32b ================
 
 
 # --- the game ---------------------------------------------------------------------------

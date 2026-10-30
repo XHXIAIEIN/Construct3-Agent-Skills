@@ -79,9 +79,10 @@ Option 3.
 - `SKILL.md`, `references/generating-a-project.md` and the Cookbook's
   "Viewport, look and HUD" say the same.
 
-A look judge, such as `construct3:look-judge`, reads `USER_LOOK` the same
-way: a game whose look the user gave is not a fault for departing from
-paper and ink.
+The questions of the look judge, `construct3:look-judge`, name no rule of
+paper and ink, so they hold in every look, and its brief carries no
+`USER_LOOK`: a game whose look the user gave is not judged against paper
+and ink.
 
 ## Re-evaluate when
 

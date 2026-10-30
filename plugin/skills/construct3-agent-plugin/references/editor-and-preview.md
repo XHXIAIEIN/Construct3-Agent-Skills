@@ -121,6 +121,34 @@ which cases to play and how to reach and read them to
   comment at `--mute-audio`; the user's rule, 2026-09-30, that a test must
   not play sound through their speakers]
 
+## Recording an effect's frames
+
+- A `record` step of `scripts/preview_project.py` takes one JPEG
+  screenshot after another, about 40 a second at 480x270, while the game
+  ticks at the display's rate. A video on the clock therefore holds fewer
+  frames than a 60 fps effect has, and `scripts/measure_timing.py` counts
+  the parts of an impact wrong in it. [observed in a probe of a pixel-art
+  impact, r506.3 preview in Edge headless on a 143 Hz display,
+  2026-10-30: 432 ticks in 3.0 s; 123 screenshots in 3.1 s, 122 with the
+  game time read after each]
+- To count an effect's frames, slow the game with a `js` step,
+  `runtime.timeScale = 0.1`, right before a `record` step with `"fps": 60`.
+  The video then holds 60 frames a second of game time, each the last
+  screenshot taken at or before its instant, and `measure_timing.py` reads
+  it at 60 fps. The run prints how far before its instant a screenshot
+  fell, and, when frames repeat because no screenshot fell in them, the
+  scale to set instead. Set the scale back to 1 after the `record` step
+  that stops the recording. [the same probe: 1766 screenshots in 45.5 s
+  gave 273 frames from 1.36 to 5.9 s of game time, none repeated, each at
+  most 3.4 ms of game time before its instant; the three impacts measured
+  at 1.51, 2.99 and 4.51 s, where the events place them at 1.5, 3 and
+  4.5 s. At full speed 60 of 181 frames repeated]
+- After the scale changes, game time runs slower than the clock, and the
+  `timeout` of a step counts the clock's seconds: at 0.1, an `until` that
+  waits for 4.5 s of game time needs a `timeout` over 45. The audio clock is
+  not scaled. [manual: scripting/scripting-reference/iruntime.md
+  `timeScale`; the same probe: 4.55 s of game time took 45.5 s]
+
 ## Screenshots of the editor
 
 - `Page.captureScreenshot` draws at most 16384 device pixels of a window's

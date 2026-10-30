@@ -118,21 +118,33 @@ direction, or references or an existing project to take it from. The plan
 then names where it comes from in `USER_LOOK` and takes `PALETTE` from it,
 `canvas` and `canvas_alt` from the backdrop. When the user gives none,
 `USER_LOOK` stays empty and the game takes paper and ink, the template's
-fallback. Only paper and ink is held to its taste: with `USER_LOOK` set, the
-white paper's ratio, the checker backdrop, the stripes' sizes and
-the ban on the Flash behavior stop nothing, and contrast, the grid and a
-clean alpha channel still stop the run. The `scope` of each rule of
-`assets/look-manifest.json` says which it is.
+fallback. `assets/look-manifest.json` holds every rule of the look, each
+under an id that this file cites, with its value and its record. With
+`USER_LOOK` set, a rule of scope `paper-and-ink` stops nothing, and a rule
+of scope `every-look` still stops the run.
 
 The plan names the art direction in one sentence, `ART_STYLE`, and each
 sprite with what its picture shows and its box in units. Every sprite is an
-`art()`, which shows its stand-in until its picture is in `art/`. The
-session that has an image tool makes the pictures; the plan does not draw
-them in code. Art drawn in code looks worse than the stand-ins and mixes
-drawing styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md`).
-When this session has an image generation tool, run
-`python scripts/prepare_art.py --list` and follow its output; without one,
-keep the stand-ins.
+`art()`, which shows its stand-in until its picture is in `art/`, and each
+picture takes one of two routes (`art.routes`):
+
+- `ART_ROUTE = "svg"`, the template's default: the pictures are drawn in
+  code as SVG and rendered in the browser. An object whose frames must keep
+  one box and baseline, such as a character that walks, takes
+  `art(..., route="svg")` on either route.
+- `ART_ROUTE = "image"`, when this session has an image generation tool:
+  the tool makes each picture from the prompt that `scripts/art.py` prints.
+
+After the generator has run, run `python scripts/art.py` and do what its
+last line says. It runs the game's `tools/drawings.py`, renders every
+drawing, fits every picture of the image tool, runs the generator again so
+that `art()` takes them, and writes a contact sheet of every picture. For
+the drawings still to make, it writes a brief: give it as the whole task to
+a `construct3:art-drawer` sub-agent, which draws them all in one style with
+`scripts/svg_kit.py` and reads its own contact sheet before it returns.
+Without that agent type, draw them yourself as the brief says. Never compute
+a picture pixel by pixel in Python: with nothing to hold a style, it mixes
+styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md`).
 
 ## Build, check, open
 
@@ -316,10 +328,10 @@ parameters are in the template.
   maximum, LENGTH))`, or slides it with `tween_width()`. A bar with its
   name in front of it is `labelled_bar(label, text, frame, fill, where,
   length)`.
-- The project fills the screen: `FULLSCREEN` is *Scale outer*, or *Integer
-  scale outer* for pixel art, so the screen shows more than the viewport on
-  its longer side. A viewport 360 px high or less is pixel art:
-  `PIXEL_ART` has the project sample *Nearest* at a whole-number scale. The
+- The project fills the screen (`screen.fill`): `FULLSCREEN` is *Scale
+  outer*, or *Integer scale outer* for pixel art, so the screen shows more
+  than the viewport on its longer side. `PIXEL_ART` has a pixel-art project
+  sample *Nearest* at a whole-number scale (`pixel-art.sampling`). The
   HUD helpers and `band_text()` hold their element to the screen's edge
   with the Anchor behavior of `anchored(where)`; an instance placed by
   `anchor()` or `row()` takes `behaviors=anchored(where)`, and the run gives
@@ -366,12 +378,13 @@ parameters are in the template.
   colour stops the run with the nearest role: a new object reuses the
   game's colours or adds one under the role it plays. A painting, a
   gradient or a photograph passes `painted=True`. `check_palette()` stops
-  the run when `solid` falls under 3:1 on the fill, and in paper and ink
-  when the paper and its fill pass 1.2:1.
+  the run on a palette that breaks `colour.structure`, and in paper and ink
+  `palette.greys`.
 - A sprite is `art(file, kind, w, h, role, subject)` in `build_images()`. It
-  takes the picture `art/<file>` when it is there, which
-  `scripts/prepare_art.py` fits to the box; until then it draws the
-  stand-in. Both have the same box, origin and collision polygon, so the
+  takes the picture `art/<file>` when it is there, which `scripts/art.py`
+  renders or fits to the box; until then it draws the stand-in. `role` is
+  the picture's body, which its hit frame shows in the flash, and
+  `route="svg"` or `"image"` overrides `ART_ROUTE` for one object. Both have the same box, origin and collision polygon, so the
   layouts and events do not change when the art arrives. `subject` says in
   words what the picture shows, for its prompt. Kind `"scene"` is an opaque
   backdrop that fills its box.
@@ -380,16 +393,13 @@ parameters are in the template.
   image, since Construct's effects have neither; both are off by default.
   The type takes `drawn(file)` as its frame and an instance is that frame's
   size, the shadow included; a sprite that rotates is drawn with
-  `shadow=False`. `shape()` stops on an accent under 3:1 on `canvas_alt`
-  drawn without an ink outline, or on a fill under 3:1 against the ink. In
+  `shadow=False`. `shape()` stops on a fill that breaks
+  `colour.accent-contrast`. In
   an open field the player, a pickup and a hazard are each drawn `SUBJECT`
   across, and one that is tapped is drawn `inset` inside a `TOUCH` box,
   `shape(file, kind, TOUCH, TOUCH, role, inset=(TOUCH - SUBJECT) // 2)`.
   What is tapped on a board fills its `TOUCH` box, as the stand-in's coins;
-  structure takes the size it needs. A pixel-art image holds three alpha
-  values, clear, opaque and the shadow's; in a viewport taller than 360 px
-  the edges are antialiased. A clear pixel is written with no colour under
-  it.
+  structure takes the size it needs. Every image keeps `alpha.pure`.
 - A region or a range is a zone drawn as lines, `zone(type, col, row, cols,
   rows)` of a `zone_image(type)` and `zone_type(type)`, a `LINE` px edge in
   `solid` over the fill, and a reach is a dashed `ring()`. A slot is a disc
@@ -403,8 +413,8 @@ parameters are in the template.
   unless `SQUASH` has one, holds it and tweens back, and `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
   `Collect` does; the object needs the Tween behavior. In paper and ink the
-  Flash behavior stops the run. A squash acts on the art, never on an object that
-  collides: a player is an invisible mask with Platform and its art, drawn
+  Flash behavior stops the run (`motion.hit`). A squash acts on the art,
+  never on an object that collides (`motion.squash-art`): a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of
   the mask.
 - A label is `TEXT_SIZE["body"]`, a screen's title `TEXT_SIZE["title"]`, the
@@ -413,12 +423,11 @@ parameters are in the template.
   names Inter's three files, which the generator copies from the user's
   font cache into `fonts/` and lists; a file in neither place draws in
   `system-ui` with a warning; `FONT = "system-ui"` ships none. `hud_text()`
-  stops the run on a colour that reads below 4.5:1 on what is behind it,
-  3:1 from 18 pt up (`text_contrast()`), and names the roles that would
-  read there. A size outside `TEXT_SIZE` stops the run too, as does one
-  whose letters are under `TEXT_MIN` of the viewport's shorter side, in any
-  look; a kind of text the look lacks is a new key of `TEXT_SIZE`, as a
-  colour is a new role.
+  stops the run on a colour that breaks `text.contrast` on what is behind
+  it, and names the roles that would read there. A size outside
+  `TEXT_SIZE` stops the run too (`type.scale`), as does one under
+  `TEXT_MIN` (`type.min-size`), in any look; a kind of text the look lacks
+  is a new key of `TEXT_SIZE`, as a colour is a new role.
 - In pixel art every text type is a Sprite Font of `PIXEL_FONT`, an 8 px
   pixel font with Chinese, when the user's font cache holds its BDF file.
   Without the file the run warns and draws Texts. A text size of 8 draws
@@ -436,7 +445,7 @@ parameters are in the template.
   template's default is `False`, and the `pointer_*()` helpers then add
   nothing. On, `pointer_frames(file)` in `build_images()`, after
   `hit_frame(file)`, draws the image's hover frame and its pressed frame,
-  which need not read 3:1 on the paper; `*pointer_drawn(file)` ends the
+  (`pointer.colours`); `*pointer_drawn(file)` ends the
   type's animation, `types |= pointer_types()` declares the Mouse, and
   `*pointer_module(type)` in the sheet shows the hovered one's hover frame
   and, for an instant, a touched one's pressed frame. An object a touch

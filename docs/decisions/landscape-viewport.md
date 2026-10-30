@@ -9,7 +9,7 @@ The generator template, `plugin/skills/construct3-agent-plugin/assets/build_proj
 started every game at 720×1280 in portrait. The value came with the first
 generator, written for a phone puzzle game, and no record argued for it.
 Most of the user's players see a game on a desktop browser, where a
-portrait stage fills a third of a landscape window. `prompts/references/new-project.md`
+portrait stage fills a third of a landscape window. `Construct3-Cookbook/guides/project-files/new-project.md`
 already gives 1920×1080 for art that is not pixel art.
 
 ## Options
@@ -26,7 +26,7 @@ already gives 1920×1080 for art that is not pixel art.
 
 `VIEW_W, VIEW_H = 1920, 1080` and `ORIENTATION = "landscape"`. The values
 derived from the viewport follow without code changes: `UNIT` 32, `MARGIN`
-32, `TOUCH` 160 (48 dp × 1080 / 360, a whole number of units), `PIXEL_ART`
+64, `TOUCH` 160 (48 dp × 1080 / 360, a whole number of units), `PIXEL_ART`
 off. A phone game sets 720×1280 and `"portrait"`, and gets `TOUCH` 96.
 
 The tests pin the derived numbers at 1920×1080, and the HUD eval case and

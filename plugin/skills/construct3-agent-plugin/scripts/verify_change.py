@@ -59,6 +59,7 @@ RECORD = c3.VERIFY_RECORD
 PLANS = Path("tools") / "plans"
 # Where review_look.py writes its result by default.
 LOOK_RESULT = c3.script_folder(Path(), "review-look") / "result.json"
+LOOK_ROUNDS = 3              # replies with a yes before the look step passes with the yes left for the hand-over
 DESIGN = Path("tools") / "design.json"
 QUESTION = re.compile(r"^\s+\d+\.\s+(.*\S)")
 SCRIPT_OF = {"checked": "check_project.py", "reviewed": "review_design.py", "opened": "open_in_editor.py",
@@ -343,11 +344,27 @@ def looked(run: Run) -> tuple[int, str] | None:
     reply = result.get("reply") or {}
     if kept.get("state") == "asked" and run.on_these_files("looked", kept) and kept.get("run") \
             and result.get("run") == kept["run"] and reply.get("complete"):
-        line = (f"look: {reply['file']} answers every question" + (
-            f"; name its {reply['yes']} yes in the hand-over" if reply.get("yes") else " no"))
-        run.keep("looked", "passed", line, 0)
-        show("looked", "passed", line)
-        return None
+        # A yes is a fault to fix and look at again; the rounds count the replies with a yes, across file changes
+        rounds = run.record.get("look_rounds", 0) + bool(reply.get("yes"))
+        if not reply.get("yes") or rounds >= LOOK_ROUNDS:
+            run.record["look_rounds"] = 0
+            line = (f"look: {reply['file']} answers every question" + (
+                f" and still has {reply['yes']} yes after {rounds} rounds: name each in the hand-over"
+                if reply.get("yes") else " no"))
+            run.keep("looked", "passed", line, 0)
+            show("looked", "passed", line)
+            return None
+        run.record["look_rounds"] = rounds
+        line = f"look: {reply['file']} has {reply['yes']} yes, round {rounds} of {LOOK_ROUNDS}"
+        run.keep("looked", "failed", line, 1)
+        show("looked", "failed", line)
+        return 1, (f"next: fix each yes that review_look.py --reply printed, in the generator or the drawings, then run "
+                   f"{again(run)}, which looks again")
+    if (run.root / c3.GENERATOR).is_file():
+        code, out = run.script("check_look.py")
+        if code:
+            return stopped(run, "looked", code, out, f"next: fix every line above in tools/build_project.py, run it, "
+                                                     f"then run {again(run)}")
     code, out = run.script("review_look.py", *run.browser())
     if code in (2, 3, 5):
         return could_not(run, "looked", "review_look.py", code, out)

@@ -1,7 +1,7 @@
 ---
 name: construct3-agent-plugin
 description: Check, read, look up and generate the JSON of a Construct 3 folder project (project.c3proj, eventSheets, layouts, objectTypes, families) against the schemas of every Construct 3 condition, action, expression and effect and the rules the Construct 3 editor applies when it opens a project. Use this skill whenever you write or edit an event sheet or any other project file of a Construct 3 game, need the exact id, parameters and JSON of a condition, action or expression, want to read an event sheet or an official example as events instead of JSON, generate a whole project from a script, or the editor refuses to open or preview a project, even if the user only says "add a mechanic", "fix this event" or pastes an editor error.
-compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. prepare_art.py needs Pillow, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
+compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. art.py needs Pillow for the pictures of an image tool, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
 metadata:
   source: https://github.com/XHXIAIEIN/Construct3-Agent-Skills
 ---
@@ -79,9 +79,11 @@ at about 10 000 characters and its last line says how to get the rest;
 
 `verify_change.py` takes minutes once it opens the editor. A finding names
 its place, `sheet Game event 15 action 2`, and what to write. `stop:` names
-a finding that two changes left standing. Exit code 3 or a `skipped:` line
-is a check that did not run; exit code 2 and `stopped at` give the cause.
-`pack_project.py` refuses files that the check has not passed.
+a finding that two changes left standing. A yes of the look review fails
+the look step until the third round, which passes it. Exit code 3 or a
+`skipped:` line is a check that did not run; exit code 2 and `stopped at`
+give the cause. `pack_project.py` refuses files that the check has not
+passed.
 
 ## Facts
 
@@ -102,9 +104,11 @@ is a check that did not run; exit code 2 and `stopped at` give the cause.
 - In pixel art the labels are Sprite Fonts, which draw only the characters
   baked into them. `python scripts/bake_font.py` bakes the characters of a
   changed text.
-- Art drawn in code with Pillow looks worse than the stand-in shapes and
-  mixes styles. `python scripts/prepare_art.py --list` prepares art from an
-  image generation tool.
+- A generated game's pictures come through `art()`, and
+  `python scripts/art.py` runs after the generator. Without an image
+  generation tool, it hands the drawings to a `construct3:art-drawer`
+  sub-agent. Never compute a picture pixel by pixel in Python: with nothing
+  to hold a style, it mixes styles.
 
 ## Look an ACE up
 
