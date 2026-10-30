@@ -605,6 +605,13 @@ loses nothing. `project.c3proj` is not in the record, because a run changes
 only its own keys there. A generator that has no record yet writes over a
 changed file on its first run, then writes the record.
 
+A file under `objectTypes/`, `families/`, `layouts/`, `eventSheets/` or
+`images/` that the last run wrote and this run did not, such as the file of
+a type the generator no longer makes, is removed at the end of a complete
+run, with a `removed` line for each. A file changed since the last run stays.
+`files/` and `fonts/` keep such a file, because `project.c3proj` keeps
+listing it.
+
 `json.dumps(obj, indent="\t", ensure_ascii=False)` written with
 `newline="\n"` and no trailing newline is the editor's own file layout, so
 what the editor saves over a generated project differs only where it changed
