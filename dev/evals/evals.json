@@ -576,7 +576,7 @@
         "Four enemy pictures exist in images/, and no two of them share 90% of their opaque pixels",
         "The enemies and the cards are drawn on the SVG route: an art/<name>.svg for each, which art.py accepts",
         "No picture is computed pixel by pixel: no script of tools/ imports PIL",
-        "The look judge, answering review_look.py's brief, says no to questions 4 and 6 on every screenshot and on the art sheet (judged by hand from the run's look reply, not by grade.py)"
+        "The look judge, answering review_look.py's brief, says no to questions 4 and 6 on every screenshot and on every page of the art sheet, read from the run's reply beside the brief"
       ]
     }
   ]
