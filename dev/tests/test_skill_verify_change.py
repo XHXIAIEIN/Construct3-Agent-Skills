@@ -109,6 +109,23 @@ def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: 
     assert code == 0 and editor.runs["preview_project.py"] == 2 and editor.runs["open_in_editor.py"] == 1, editor.runs
 
 
+def test_a_run_cut_off_in_the_look_keeps_the_steps_that_passed(project: Path,
+                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    """A caller's timeout can kill the run in its longest step; the next run does not open the editor again."""
+    class CutOff(Editor):
+        def __call__(self, name: str, *extra: str) -> tuple[int, str]:
+            if name == "review_look.py":
+                raise KeyboardInterrupt
+            return editor(name, *extra)
+
+    editor = Editor()
+    with pytest.raises(KeyboardInterrupt):
+        drive(project, monkeypatch, CutOff())
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 0 and "opened    passed: on these files, earlier" in out, out
+    assert editor.runs["open_in_editor.py"] == 1 and editor.runs["review_look.py"] == 1, editor.runs
+
+
 def test_no_browser_hands_over_the_last_step_that_passed(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     code, out = drive(project, monkeypatch, Editor(**{"open_in_editor.py": (3, "no browser here: no Edge, Chrome or "
                                                                                "Chromium was found")}))
