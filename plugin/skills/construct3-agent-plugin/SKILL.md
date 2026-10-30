@@ -37,6 +37,11 @@ once before it is handed over.
   `Construct3-Agent-Skills/docs/` paths, the records of the repository the
   plugin is built in, are not in the plugin, so skip them. To hand a sheet change or a lookup to a sub-agent, start it as
   `construct3:project-worker`, which has only the tools these scripts need.
+  When a worker that changed the project returns, run
+  `python scripts/verify_change.py --status` yourself, because the files
+  show which checks passed and the report does not. If its last line does
+  not start with `ok:`, send that line to the same worker with SendMessage,
+  which keeps its context, instead of starting another.
 - Otherwise, reading this inside the clone while the work is in a game
   project: install the skill there first,
   `python scripts/install.py --project <game folder>`. It copies this folder
