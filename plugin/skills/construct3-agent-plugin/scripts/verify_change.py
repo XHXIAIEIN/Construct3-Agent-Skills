@@ -487,8 +487,9 @@ def main() -> int:
             if STEPS.index(name) > STEPS.index(args.upto):
                 break
             ended = step(run)
+            # Saved after every step, so a run that the caller's timeout kills keeps the steps that passed
+            run.save()
             if ended:
-                run.save()
                 code, line = ended
                 print(line)
                 return code
@@ -497,7 +498,6 @@ def main() -> int:
         exe = args.browser or oe.browser_path()
         if exe:
             oe.close_shared(exe, oe.profile_folder(None, run.root, exe))
-    run.save()
     print(handed_over(run, args.upto))
     return 0
 
