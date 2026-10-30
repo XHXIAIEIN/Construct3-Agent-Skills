@@ -525,7 +525,7 @@
       "id": "art.frames",
       "status": "enforced",
       "scope": "every-look",
-      "says": "The frames of one animation share their box, stand on one row within a sixteenth of a unit, at least 1 px, and are centred within a quarter of their width; one drawing function with pose parameters keeps them so.",
+      "says": "The frames of one animation other than Default share their box, stand on one row within a sixteenth of a unit, at least 1 px, and are centred within a quarter of their width; one drawing function with pose parameters keeps them so. The frames of a Default animation are left out, because a game often keeps kinds there, a card or an enemy per frame, that events pick.",
       "template": "art()",
       "confirm": "art.py: art.frames",
       "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"

@@ -266,7 +266,8 @@ def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str,
         animations.setdefault(item["file"].rsplit("-", 1)[0], []).append(item)
     slack = max(1, wanted["unit"] // 16)          # px the feet of two frames may differ by: 2 at 1080, 1 in pixel art
     for name, frames in animations.items():
-        if len(frames) < 2:
+        # The frames of a Default animation are often kinds that events pick, a card per frame, not poses
+        if len(frames) < 2 or name.split("-")[1:2] == ["default"]:
             continue
         boxes = {(f["width"], f["height"]) for f in frames}
         if len(boxes) > 1:
