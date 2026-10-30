@@ -795,11 +795,15 @@ def read_only_run(tmp_path: Path, answer: str) -> Path:
     # Correct answers of earlier runs that also cite the events around the one asked for
     ("grade_find_in_a_long_sheet", "long_sheet_lists_what_the_restart_reruns.md", [True, True, True, True]),
     ("grade_find_in_a_long_sheet", "long_sheet_names_the_start_events.md", [True, True, True, True]),
+    ("grade_find_in_a_long_sheet", "long_sheet_answers_in_chinese.md", [True, True, True, True]),
     ("grade_find_in_a_big_sheet", "big_sheet_follows_the_bonus_to_addscore.md", [True, True, True]),
     ("grade_find_in_a_big_sheet", "big_sheet_compares_other_waves.md", [True, True, True]),
     # Wrong answers: another event as the finish line and the restart, another wave's bonus
     ("grade_find_in_a_long_sheet", "Event 102 is the finish line. The layout restarts in event 107, prepareForGameOver, "
                                    "for the player (success) or any other tractor (fail).", [False, False, True, True]),
+    ("grade_find_in_a_long_sheet", "事件 102 处理终点线（Finish Line）。游戏在事件107 `prepareForGameOver` 里调用 "
+                                   "showGameOver，再执行 Restart layout，玩家（Player）是 success，其他是 fail。",
+     [False, False, True, True]),
     ("grade_find_in_a_big_sheet", "Event 267 pays the bonus of wave 17: 427 points.", [False, False, True]),
 ])
 def test_find_answers_are_graded_by_what_they_give(tmp_path: Path, grade_case: str, answer: str,
@@ -999,7 +1003,8 @@ prompt = args[args.index("-p") + 1]
 session = args[args.index("--resume") + 1] if "--resume" in args else None
 sheet = Path("eventSheets/Game.json").read_text(encoding="utf-8")
 with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
-    log.write(json.dumps({"prompt": prompt, "resume": session, "inverted": "isInverted" in sheet}) + "\\n")
+    log.write(json.dumps({"prompt": prompt, "resume": session, "inverted": "isInverted" in sheet,
+                          "sources": args[args.index("--setting-sources") + 1]}) + "\\n")
 if os.environ.get("FAKE_HANG"):
     import subprocess, time
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
@@ -1045,6 +1050,7 @@ def test_run_session_compacts_between_turns_and_writes_the_change(tmp_path: Path
     assert [entry["prompt"][:12] for entry in log] == prompts
     assert [entry["resume"] for entry in log] == [None, *["s1"] * (len(prompts) - 1)]
     assert [entry["inverted"] for entry in log] == [False] * (len(prompts) - 1) + [True]
+    assert {entry["sources"] for entry in log} == {"project,local"}
     session = read_json(run_dir / "outputs" / "session.json")
     compactions = [t["compaction"] for t in session["turns"] if t.get("prompt") == "/compact"]
     assert compactions == ([{"pre_tokens": 40000, "post_tokens": 5000}] if "compact" in arm else [])

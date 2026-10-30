@@ -408,10 +408,12 @@ def answer_of(run: Path) -> str:
 
 
 def event_numbers(answer: str) -> list[int]:
-    """Every number that follows "event" or "events" in the answer: "event 103", "events 104 and 105",
-    "Events 103-105"; and the number that opens a bullet of a list of events: "- **12** `On drop`", "- 15: ..."."""
-    after_word = {int(n) for span in re.findall(r"\bevents?\b[^.\n]{0,40}", answer, re.I)
-                  for n in re.findall(r"(?<![\w.])\d{1,3}(?![\w.]|\s*(?:seconds?|s\b|px|%))", span)}
+    """Every number that follows "event" or "events", or "事件" in a Chinese answer, up to the end of its sentence:
+    "event 103", "events 104 and 105", "Events 103-105", "事件 102–105", "事件108"; and the number that opens a
+    bullet of a list of events: "- **12** `On drop`", "- 15: ..."."""
+    # ASCII word characters, so that a number written against a Chinese character ("在事件108") still counts
+    after_word = {int(n) for span in re.findall(r"(?:\bevents?\b|事件)[^.。\n]{0,40}", answer, re.I)
+                  for n in re.findall(r"(?<![\w.])\d{1,3}(?![\w.]|\s*(?:seconds?|s\b|px|%|秒))", span, re.A)}
     bullets = {int(n) for n in re.findall(r"^\s*[-*+]\s+\*{0,2}(\d{1,3})\*{0,2}(?=[:\s])", answer, re.M)}
     return sorted(after_word | bullets)
 

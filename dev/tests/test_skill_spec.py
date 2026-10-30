@@ -169,6 +169,7 @@ def test_every_script_runs_in_isolated_mode(tmp_path):
 FAKE_CLIENT = '''
 import json, pathlib, sys, time
 query = sys.argv[sys.argv.index("-p") + 1]
+assert sys.argv[sys.argv.index("--setting-sources") + 1] == "project,local"    # the user's settings stay out
 def say(event): print(json.dumps(event), flush=True)
 def tool(name, id="t", **given):
     say({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": id, "name": name, "input": given}]}})

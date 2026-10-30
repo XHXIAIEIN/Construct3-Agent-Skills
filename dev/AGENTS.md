@@ -457,6 +457,12 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
 - `--no-pin` lays out from the checkout as it stands, uncommitted changes
   included, and its fixtures name that checkout. The checker then gives the
   runs a pull of the checkout if its branch trails its upstream.
+- Start every `claude -p` session that runs a case or a trigger query with
+  `--setting-sources project,local`, in an iteration's own driver too. Without it the session
+  loads the user's `~/.claude/CLAUDE.md`, skills, hooks and plugins, which
+  can change its language and what it agrees to write. The project's
+  `CLAUDE.md` and `.claude/skills` and a `--plugin-dir` still load.
+  `run_session.py` and `run_trigger_eval.py` pass it.
 - A case with `turns`, such as `keep-checking-after-compaction`, is not a
   sub-agent run. `run_session.py <run folder>` runs its turns as one `claude
   -p` session, writes `answer.md`, `timing.json` and `outputs/session.json`,
