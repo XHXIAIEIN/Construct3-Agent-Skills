@@ -892,6 +892,21 @@ def test_quoted_combo_value_is_told_to_drop_the_quotes(project):
     assert 'write it bare, "start": only an expression parameter carries inner quotes' in out
 
 
+def test_grouped_combo_value_must_be_an_item_id(project):
+    """Set cursor style written with "16", the index of grabbing, opened and checked clean, and the
+    r506.3 preview kept the default cursor (2026-10-30). The project stores the item id."""
+    add_global_object(project, "Mouse")
+
+    def cursor(style: str):
+        return lambda s: s["events"].append(block([cond("every-tick")], [
+            {"id": "set-cursor-style2", "objectClass": "Mouse", "sid": 3, "parameters": {"cursor-style": style}}]))
+    out = findings(project, cursor("16"))
+    assert "cursor-style='16' is not one of ['normal', 'all-scroll'," in out, out
+    edit(project, SHEET, lambda s: s["events"].pop())
+    out = findings(project, cursor("grabbing"))
+    assert "cursor-style" not in out, out
+
+
 def test_bare_text_value_is_told_to_add_the_quotes(project):
     out = findings(project, lambda s: events(s)["setup"]["actions"][1]["parameters"].update(text="Hello"))
     assert "identifier 'Hello' is not a variable" in out and 'a text value carries inner quotes: "\\"Hello\\""' in out
