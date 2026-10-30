@@ -15,6 +15,7 @@
     "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
     "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
+    "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
     "Construct3-Agent-Skills/docs/decisions/look-picker.md",
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
@@ -165,6 +166,13 @@
       "value": "0.0175",
       "helpers": "on_scale(), em_px()",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "text.no-emoji",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "No Text shows an emoji: an emoji draws from the device's emoji font, so its picture differs between systems and from ART_STYLE, and a Sprite Font draws nothing for it. An icon is art in its own box. No string of the layouts and event sheets of the 544 official examples holds an emoji; the 13 strings with a symbol hold arrows naming keys in instructions and a Sprite Font's own drawn heart.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
     },
     {
       "id": "lines.areas",
@@ -759,6 +767,13 @@
       "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {
+      "id": "motion.exit-faster",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A HUD object leaves faster than it enters, from web motion guides: of the 92 HUD objects of the official examples that fade both ways, 62 fade out in the same median time as in, 17 faster and 13 slower; fades in and out both take 0.5 s at the median.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
+    },
+    {
       "id": "menu.hold-to-confirm",
       "status": "proposed",
       "scope": "every-look",
@@ -823,6 +838,13 @@
       "template": "art()",
       "confirm": "art.py: art.frames",
       "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.icon",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "The game's icons, icons/icon-16.png to icon-512.png, are drawn from its look by the art route, not left as Construct's: each of the 29 studio examples draws its own, while 54 of the 113 official 2D game examples keep Construct's. The splash loader stays, as all 29 studio examples keep it.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
     },
     {
       "id": "juice.functions",

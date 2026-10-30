@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [The Game's Look: What impeccable Adds to the Review and the Manifest](look-from-impeccable.md) — 2026-10-31
 - [Layout, Type, Colour and Motion Rules of Motion-Design Websites, Measured on Game Screens](motion-atlas-layouts.md) — 2026-10-31
 - [taste-skill and frontend-design Read in Full, Against the Game's Look](taste-skill-and-frontend-design.md) — 2026-10-31
 - [Title and Result Screens Get Their Own Type Rules](title-and-result-screens.md) — 2026-10-31
