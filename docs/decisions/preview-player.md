@@ -103,9 +103,9 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   (`recording-describer.md`); the agent then names the three worst defects,
   each with its time, what the frame shows and the event to change, and
   fixes only those. The pattern is the contact sheet of code-rendered video
-  production; on a HealthBar recording of 70 frames, a sheet of the hit and the heal at
-  their step boundaries left out the lost-HP bar closing between them, and
-  spreading the spare cells over the change put it on the sheet.
+  production; on a HealthBar recording of 70 frames, a sheet of the hit and
+  the heal at their step boundaries left out the lost-HP bar closing between
+  them, and spreading the spare cells over the change put it on the sheet.
 - What the user sees go wrong reaches the agent as a part of the recording.
   The user selects it on the page and copies it as a task for an agent that
   starts cold: what to find out, in their words or a default question, the

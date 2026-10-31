@@ -120,28 +120,29 @@ about the editor or the preview goes to `editor-and-preview.md`.
    watched values first: where it starts, overshoots and rests, and how
    long each part takes, against the row for the same effect in
    `Construct3-Cookbook/guides/recipes/feel.md` where there is one.
-   What the frames show is judged from a description by a reviewer that
-   has not seen the change, because the agent that wrote the events reads
-   its own frames by what it meant them to show. Before the run, write on
-   the `record` step what a frame would show if the change works and if it
-   does not, as visible features (`expect`), and open questions about the
-   frames (`ask`): what moves and which way, what is at a place, what a
-   text says, never what you hope to see and never a question a yes
-   answers. The run writes a brief of the frames and the questions alone;
-   have it answered as its `brief:` line says, check the reply with
-   `--reply`, and hold the description against `expect`. A description in
-   which the thing is not seen (too small, covered, off the frame, too
-   fast) is no verdict: record that part closer or slower and play it
-   again. Name the three worst defects the description shows, each with its
-   time and frame and the event to change; fix only those and record that
-   part again, until the values and the description show no defect.
-   State a claim that something can happen (the player reaches the ledge,
-   the door opens) as shown when a run did it once. A plan that did not
-   reach it or do it leaves the claim open, not false, since the plan is as
-   likely at fault as the game: improve the plan. Say it cannot happen only
-   when the game's own values show it, such as a jump's strength and
-   gravity against a platform's height or a speed against a timer, and name
-   those values. The hand-over names the cases played, what each read, any
+   Have a reviewer that has not seen the change describe the frames, and
+   judge what they show from that description, because the agent that
+   wrote the events reads its own frames by what it meant them to show.
+   Before the run, write `expect` on the `record` step: what a frame would
+   show if the change works and if it does not, as visible features. Write
+   `ask` too: open questions about the frames, such as what moves and which
+   way, what is at a place, what a text says. Leave out what you hope to
+   see and any question a yes answers, because both tell the reviewer what
+   to look for. The run writes a brief of the frames and the questions
+   alone. Have it answered as its `brief:` line says, and check the reply
+   with `--reply`. Then hold the description against `expect`. A
+   description in which the thing is not seen (too small, covered, off the
+   frame, too fast) is no verdict: record that part closer or slower and
+   play it again. Name the three worst defects the description shows, each
+   with its time and frame and the event to change. Fix only those and
+   record that part again, until the values and the description show no
+   defect. If a run did something once (the player reached the ledge, the
+   door opened), state the claim that it can happen as shown. If the plan
+   did not reach it or do it, the claim is open, not false, because the
+   plan is as likely at fault as the game: improve the plan. Say it cannot
+   happen only when the game's own values show it, such as a jump's
+   strength and gravity against a platform's height or a speed against a
+   timer, and name those values. The hand-over names the cases played, what each read, any
    value the plan forced and each claim left open, one line each, with the
    recording's review page, `NN-NAME.html`, where the user plays it frame
    by frame, selects a part that looks wrong and copies it back as a task.

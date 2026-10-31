@@ -51,7 +51,7 @@ Steps, each an object with one of these keys, and "note" for a label:
                                 {"label": EXPRESSION, ...}, read at every frame; fps 60 makes the video
                                 60 frames a second of game time, for a game that a js step slowed with
                                 runtime.timeScale; false stops; expect {"works": [...], "broken": [...]}
-                                and open questions in ask write a brief of the frames for a reviewer
+                                and ask, open questions, make the run write a brief for a reviewer
 
 TARGET is where to press, the middle of an instance's bounding box:
   "Button"                      the first instance of an object type, as the project spells it
@@ -124,7 +124,7 @@ output:
     recorded merge: 95 frames in 3.4 s, shots/02-merge.mp4
       sheet shots/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
       2 at 35 ms (largest change), ..., 10 at 3380 ms (end)
-      brief: <who answers shots/described-3f9a1c2e4b/brief.md>
+      brief: <give shots/described-3f9a1c2e4b/brief.md to a reviewer>
       review shots/02-merge.html: <where the user plays it>; shots/index.html lists every recording
       frames and timeline.json in shots/02-merge
       watch coins: 40 at 0 ms, 30 at 900 ms
@@ -378,7 +378,7 @@ def check_plan(plan: object) -> tuple[dict, list[str]]:
     return plan, problems
 
 
-# A question that a yes or a no answers, which tells the reviewer what to look for
+# A question a yes or a no answers, which tells the reviewer what to look for
 CLOSED = re.compile(r"^(is|are|was|were|do|does|did|can|could|will|would|should|has|have|had)\b|吗[?？]?$", re.I)
 
 
@@ -650,10 +650,10 @@ class Recorder(threading.Thread):
         return "\n    ".join(lines + watch_lines(timeline["frames"]))
 
     def write_brief(self, frames: list[tuple[Path, float]]) -> list[str]:
-        """brief.md and copies of the sheet's frames in a folder of their own, with the step's questions and
-        nothing of what the frames should show, and the expectations beside that folder for --reply: what to print
-        about them. The folder's name is a hash of the recording's, since the reviewer reads the frames' paths and
-        the recording's name says what it checks."""
+        """Write brief.md and copies of the sheet's frames into a folder of their own, and the expectations beside
+        that folder, which --reply prints; return the lines to print.
+        The folder is named by a hash, because the reviewer reads the frames' paths and the recording's name says
+        what it checks."""
         asked = [*self.asked["ask"], LAST_QUESTION]
         named = hashlib.sha1(self.folder.resolve().as_posix().encode()).hexdigest()[:10]
         blind = self.folder.with_name(f"described-{named}")
@@ -669,21 +669,20 @@ class Recorder(threading.Thread):
             {"recording": self.folder.resolve().as_posix(), "brief": brief.resolve().as_posix(), "ask": asked,
              "expect": self.asked["expect"]}, ensure_ascii=False, indent=1), encoding="utf-8")
         check = c3.script_command(self.project, "preview_project.py", f" --reply {c3.quoted(reply.resolve().as_posix())}")
-        return [f"described: {brief.resolve()} holds {len(frames)} frames and {len(asked)} questions, and nothing of "
-                f"the change or of what the frames should show",
-                f"brief: if you can start a sub-agent, give it {brief.resolve()} as its whole task and tell it nothing "
-                f"of the game or the change; save its reply to {reply.resolve()} and check it with {check}. Otherwise "
-                f"open each frame it lists with the image tool and answer its questions from the frames alone, before "
-                f"you read the plan's expect again"]
+        return [f"described: {brief.resolve()} holds {len(frames)} frames and {len(asked)} questions",
+                f"brief: if you can start a sub-agent, give it {brief.resolve()} as its whole task, and tell it "
+                f"nothing of the game or the change. Save its reply to {reply.resolve()}, then run {check}. Without a "
+                f"sub-agent, open each frame with the image tool and answer the questions before you read expect "
+                f"again"]
 
 
-# The question every description of a recording ends with, so that a change it was not asked about shows too
+# The last question of every brief, so that a change nobody asked about shows too
 LAST_QUESTION = "What else moves or changes between the frames, and what stays still?"
-# Beside a recording's folder: its questions and what the plan said the frames would show, which --reply prints
+# The file of a brief's questions and expectations, beside its folder
 EXPECT = "-expect.json"
-# An answer that says it cannot see what it was asked about, in the words the brief gives for it
+# An answer that cannot see its subject, in the brief's words
 UNSEEN = re.compile(r"can(?:no|')t make out|unreadable", re.I)
-# The start of an answer in a reply: its question's number, then a colon, a full stop or a bracket
+# The first line of an answer, which starts with its question's number
 ANSWER_START = re.compile(r"^[\W_]*(?:q(?:uestion)?\s*)?(\d+)\s*[:.)]\s*(.*)$", re.I)
 
 
@@ -749,12 +748,12 @@ def check_described(described: dict, reply: str, where: str) -> tuple[list[str],
         lines.append("next: give the reviewer the same brief again and have it answer every question by its number; "
                      "then check its reply again")
         return lines, 1
-    lines.append("next: hold the answers against expect, which the plan wrote before the frames were taken. A works "
-                 "feature that an answer shows holds. A broken feature that an answer shows is a defect: fix it at "
-                 "the frame and the time the answer names, and record that part again. A feature that no answer "
-                 "shows is open, not false: ask about it in a new question, or record that part closer"
-                 + (". An answer that cannot make out the thing asked about is no verdict: bring it into view, "
-                    "with a closer viewport or a slower runtime.timeScale, and record it again" if unseen else ""))
+    lines.append("next: hold the answers against expect, which the plan wrote before the run. A works feature that an "
+                 "answer shows holds. A broken feature that an answer shows is a defect: fix it at the frame and time "
+                 "the answer names, then record that part again. A feature that no answer shows is open, not false: "
+                 "ask about it, or record that part closer."
+                 + (" An answer that cannot make out its subject is no verdict: bring the subject into view with a "
+                    "closer viewport or a slower runtime.timeScale, and record it again." if unseen else ""))
     return lines, 0
 
 

@@ -4,18 +4,16 @@ Date: 2026-10-31
 
 ## Problem
 
-Step 7 of `references/verifying-a-change.md` had the agent that wrote the
-events open its recording's contact sheet and judge the motion itself. The
-look review already sends its screenshots to a reviewer that has not seen
-the project (`look-judge-agent.md`), because the agent that wrote the events
-reads its own screenshots by what it meant them to show. The same holds for
-the frames of a recording. The look judge answers fixed yes/no questions
-about layouts at rest, so it cannot take a claim of one change, such as "the
-bar slides to its new length and never passes it".
+Without a describer, the agent that wrote the events opens its own contact
+sheet and judges the motion by what it meant the events to show. The look
+review sends its screenshots to a reviewer that has not seen the project
+(`look-judge-agent.md`) for that reason, and the reason holds for the frames
+of a recording too. The look judge answers fixed yes/no questions about
+layouts at rest, so it cannot take a claim of one change, such as "the bar
+slides to its new length and never passes it".
 
-A second gap was in how a check's result is stated. A plan that failed to
-reach a ledge or open a door was read as proof that the game cannot do it,
-although the plan is as likely at fault as the events.
+A plan that fails to reach a ledge or open a door is read as proof that the
+game cannot do it, although the plan is as likely at fault as the events.
 
 ## Evidence
 
@@ -60,7 +58,7 @@ Option 3.
   what a frame would show if the change works and if it does not, and
   `ask`, open questions about the frames. `check_plan` takes both or
   neither, only on a step that starts a recording, and refuses a question
-  that starts with a verb a yes answers (`is`, `does`, `can` and the rest)
+  that starts with one of the verbs of `CLOSED` in `preview_project.py`
   or ends with `吗`. The plan is written, and kept with `--keep`, before the
   run takes a frame, so the expectations cannot follow the frames.
 - The run copies the frames of the contact sheet, up to 12 at the window's
@@ -69,9 +67,9 @@ Option 3.
   what else moves and what stays still, the rules of a description and the
   reply's form. The folder's name is a hash of the recording's folder. The
   expectations go to `described-<hash>-expect.json` beside it. The frames
-  go one by one, not as the sheet, because a sheet of 12 frames of a
-  1920x1080 window shrinks each to 0.275 of its width (`make_sheet`, 3
-  columns in 1600 px), and a describer has to read a text to quote it.
+  go one by one, not as the sheet, because a sheet of 12 frames in 1600 px
+  shrinks each frame to a fraction of its width, and a describer has to
+  read a text to quote it.
 - A run prints a `brief:` line for such a recording. `construct3:project-worker`
   gives that brief to `construct3:recording-describer`: `tools: Read`,
   `omitClaudeMd: true`, the description rules and the reply form in its
@@ -91,9 +89,9 @@ Option 3.
   it once. A plan that did not get there leaves it open, and only the
   game's own values, named, show it impossible. The hand-over names each
   open claim.
-- The describer runs `claude-sonnet-5-5`. Nothing has measured a
-  describer's answers yet: the model is the one the design judge runs, a
-  middle step between the look judge's Haiku and the art drawer's Opus.
+- The describer runs `claude-sonnet-5-5`, the model of the design judge,
+  between the look judge's Haiku and the art drawer's Opus. Its answers
+  are not measured against recordings of known motion.
 
 ## Re-evaluate when
 
