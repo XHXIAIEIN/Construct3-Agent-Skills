@@ -46,7 +46,13 @@ START = 150
 
 # Installed by the first js step of every plan; idempotent. vars.watch maps a name to a function read after
 # every tick's events (tick2), vars.seen keeps each change with its wallTime. vars.h holds the helpers.
+# vars.engine is the runtime behind the scripting API, which the next tick hands over as runtime-probe.js gets
+# it: runtime.globalVars holds no local, and the stand-in keeps its score and round in static locals.
 HELPERS = r"""if (!vars.h) {
+  vars.engine = await new Promise(resolve => {
+    const proto = C3.Runtime.prototype, tick = proto.Tick, timer = setTimeout(() => { proto.Tick = tick; resolve(null); }, 3000);
+    proto.Tick = function (...args) { proto.Tick = tick; clearTimeout(timer); resolve(this); return tick.apply(this, args); }; });
+  if (!vars.engine) throw new Error('the game did not tick in 3 s, so its static locals cannot be read');
   const h = vars.h = {};
   vars.starts = 0; vars.startAt = []; vars.startGame = [0]; vars.endAt = []; vars.endGame = [];
   vars.watch = {}; vars.seen = {}; vars.tapped = new WeakSet(); vars.taps = [];
@@ -90,13 +96,20 @@ HELPERS = r"""if (!vars.h) {
       const x = b.left + b.width * fx, y = b.top + b.height * fy;
       if (!others.some(o => x >= o.left && x <= o.right && y >= o.top && y <= o.bottom)) return {x, y, layer: c.layer.name}; }
     return c; };
+  // The number statics that are not constants, by name, the SID added to a name that two of them have.
+  h.statics = () => { const out = {};
+    for (const v of vars.engine.GetEventSheetManager().GetAllLocalVariables())
+      if (v.IsStatic() && !v.IsConstant() && v.IsNumber()) out['s:' + v.GetName() + ('s:' + v.GetName() in out ? '#' + v.GetSID() : '')] = v;
+    return out; };
   h.numbers = () => { const out = {};
     for (const k in runtime.globalVars) if (typeof runtime.globalVars[k] === 'number') out['g:' + k] = runtime.globalVars[k];
+    for (const [k, v] of Object.entries(h.statics())) out[k] = v.GetValue();
     for (const i of h.ui()) for (const k in (i.instVars || {}))
       if (typeof i.instVars[k] === 'number') out['i:' + i.objectType.name + '.' + k] = i.instVars[k];
     return out; };
   h.setNumber = (key, value) => { const [kind, rest] = [key.slice(0, 1), key.slice(2)];
     if (kind === 'g') { runtime.globalVars[rest] = value; return true; }
+    if (kind === 's') { const v = h.statics()[key]; if (!v) return false; v.SetValue(value); return true; }
     const [type, name] = rest.split('.'), i = h.first(type); if (!i) return false; i.instVars[name] = value; return true; };
   h.end = () => vars.endAt.find(t => t > vars.tapAt);
   h.lastNumber = s => { const m = /(-?\d+(?:\.\d+)?)(?!.*\d)/.exec(s || ''); return m ? +m[1] : null; };
@@ -523,20 +536,21 @@ def reveal_the_gradient() -> dict:
 
 
 # The lives are the number that drops by one twice over round 3 and does not change otherwise. They may be
-# counted across rounds or per round, and kept where the runtime does not show them, a static local, or drawn
-# from another count, coins taken: so the hearts that still look like the leftmost one count as a number too
-# (FULL_HEARTS). Between the two drops the score changes once per coin collected, so it
-# changes three times when a life goes every third coin. The count comes from the score, not from the taps,
+# counted across rounds or per round, kept in a global or a static local, or drawn from another count, coins
+# taken, which no number shows: so the hearts that still look like the leftmost one count as a number too
+# (FULL_HEARTS). Between the two drops the score, a global or a static local of the stand-in, changes once per
+# coin collected, so it changes three times when a life goes every third coin. The count comes from the score, not from the taps,
 # because one touch can take two coins that overlap. A drop belongs to the last tap of the plan before it, and
 # the screenshots before and after that tap show the heart it took.
 LIVES = r"""const r3 = vars.r3, end = Math.min(r3[r3.length - 1] + 0.9, ...vars.endAt.filter(t => t > r3[0])), at = s => vars.h.at('numbers', s) || {}, start = at(r3[0] - 0.05);
+const score = ['g:score', 's:score'].find(k => k in start);
 const moves = k => vars.h.changes('numbers', r3[0] - 0.05).filter(e => e.at <= end).map(e => ({at: e.at, v: e.v[k]}))
   .filter((e, i, all) => e.v !== (i ? all[i - 1].v : start[k]));
-vars.lives = Object.keys(start).find(k => k !== 'g:score' && (m => m.length === 2 && m[0].v === start[k] - 1
+vars.lives = Object.keys(start).find(k => k !== score && (m => m.length === 2 && m[0].v === start[k] - 1
   && m[1].v === start[k] - 2)(moves(k))) || null;
 const drops = vars.lives ? moves(vars.lives) : [];
 vars.drops = drops.map(d => r3.filter(t => t <= d.at).length);
-vars.between = drops.length === 2 ? moves('g:score').filter(e => e.at > drops[0].at && e.at <= drops[1].at).length : null;
+vars.between = drops.length === 2 ? moves(score).filter(e => e.at > drops[0].at && e.at <= drops[1].at).length : null;
 vars.livesSeen = Object.keys(start).map(k => `${k.slice(2)}: ${start[k]}${moves(k).map(e => ' ' + e.v).join('')}`);
 return {lives: vars.lives, drops: vars.drops, between: vars.between, after: drops.length ? drops[0].v : null, values: vars.livesSeen};"""
 
@@ -833,9 +847,10 @@ PLANS: dict[str, Callable[[], dict]] = {
 # --- checks on the screenshots ---------------------------------------------------------------------------
 
 def shot_of(result: dict, name: str) -> Path | None:
+    """The screenshot of the shot step named name: its said is the path, then how much of the frame is one colour."""
     for done in (result.get("preview") or {}).get("steps", []):
         if done.get("ok") and done["line"].split(" ", 2)[1:2] == ["shot"] and done["line"].endswith(f" {name}"):
-            return Path(done["said"])
+            return Path(done["said"].split(".png", 1)[0] + ".png")
     return None
 
 
