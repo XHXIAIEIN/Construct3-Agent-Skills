@@ -694,9 +694,16 @@ def test_a_run_that_lacks_a_part_makes_the_coverage_incomplete(tmp_path: Path, p
     assert read_json(tmp_path / "it" / "benchmark.json")["coverage_complete"] is True
 
 
-def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path) -> None:
+@pytest.mark.parametrize("timing", [None, {"total_tokens": None, "tool_uses": None, "duration_ms": None}])
+def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path, timing: dict | None) -> None:
+    """A run without timing.json, or with the nulls a driver writes for a worker cut off before its end, lacks
+    its timing."""
     iteration = restart_runs(tmp_path, {"with_skill": [5, 5, 4], "old_skill": [1, 2, 1]})
-    (iteration / "name-the-restart-event" / "old_skill_2" / "timing.json").unlink()
+    path = iteration / "name-the-restart-event" / "old_skill_2" / "timing.json"
+    if timing is None:
+        path.unlink()
+    else:
+        path.write_text(json.dumps(timing), encoding="utf-8")
     (iteration / "decision.json").write_text(json.dumps({
         "cases": ["name-the-restart-event"], "metric": "chain_depth", "direction": "up", "n_per_cell": 3}), encoding="utf-8")
     out = grade_iteration(tmp_path)

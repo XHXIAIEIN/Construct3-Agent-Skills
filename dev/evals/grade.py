@@ -2460,6 +2460,8 @@ def main() -> int:
             (run / "grading.json").write_text(json.dumps({"assertion_results": graded, "summary": summary},
                                                          indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             timing = optional_json(run / "timing.json")
+            if timing.get("duration_ms") is None:   # a worker cut off before its end reported no totals
+                timing = {}
             trace = optional_json(run / "trace.json")
             arm = re.sub(r"_\d+$", "", run.name)           # with_skill_2 is a second run of with_skill
             seconds = round(timing["duration_ms"] / 1000, 1) if timing else trace.get("seconds")
