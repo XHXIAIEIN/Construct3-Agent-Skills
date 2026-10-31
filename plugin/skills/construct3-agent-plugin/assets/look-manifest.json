@@ -20,6 +20,7 @@
     "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
+    "Construct3-Agent-Skills/docs/decisions/look-from-unslop.md",
     "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
     "Construct3-Agent-Skills/docs/decisions/look-picker.md",
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
@@ -340,6 +341,20 @@
       "scope": "every-look",
       "says": "A check that the largest object is at least 1.5 times the area of the next: only 31% of the official 2D game examples' one-screen layouts pass it, since a grid of equal tiles, a deck of cards or two paddles is a sound game screen with no single largest object.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "layout.even-runs",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "Three or more things of one type on one line, a row of hearts or a column of buttons, sit one gap apart: of the 278 such runs on the screens of the official 2D game examples, 249 keep their gaps within 0.5 px of each other on a screen 720 px on its shorter side, 25 skip a whole grid cell or set their items in pairs, and 4, in 3 examples, differ by 0.5 to 8 px, a quarter of UNIT. row() spaces the items it places evenly; review_look.py does not check a run placed by hand.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-unslop.md"
+    },
+    {
+      "id": "layout.edge-snap",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Neighbouring HUD boxes share an edge or a centre exactly, from unslop, where an icon or a label a few pixels off its column reads as careless: of 361 neighbouring pairs on the HUD of the official 2D game examples, 93, in 12 of the 20 examples, lie 0.5 to 8 px apart on their nearest edge of one kind on a screen 720 px on its shorter side, so a check would flag most of the examples' HUDs.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-unslop.md"
     },
     {
       "id": "layout.title-safe",
