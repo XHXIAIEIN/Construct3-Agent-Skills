@@ -1622,6 +1622,19 @@ def grade_check_the_third_round(run: Path) -> list[tuple[bool, str]]:
             unchanged(run, ("tools/notes.json",))]
 
 
+def grade_four_coins_in_round_two(run: Path) -> list[tuple[bool, str]]:
+    """The checker passes, the run played its change, and no event of the fixture is gone: the first-launch hint
+    is the game's, not the fault. What each round deals is the plan's to read."""
+    project = run / "project"
+    scripts = project / ".tmp" / "scripts"
+    played = [name for name in ("preview-project", "open-in-editor") if (scripts / name).is_dir()]
+    events = sheet_of(project)
+    kept = (original_sids(run, list(walk(events)), "Game.json") if events is not None
+            else (False, "eventSheets/Game.json is not readable JSON"))
+    return [*checker_and_warnings(project), (bool(played), f"result folders under .tmp/scripts: {played or 'none'}"),
+            kept]
+
+
 def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
     project = run / "project"
     design = project / "tools" / "design.json"
@@ -2028,7 +2041,8 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
            "art-without-an-image-tool": grade_art_without_an_image_tool,
            "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art,
-           "look-from-references": grade_look_from_references, "check-the-third-round": grade_check_the_third_round}
+           "look-from-references": grade_look_from_references, "check-the-third-round": grade_check_the_third_round,
+           "four-coins-in-round-two": grade_four_coins_in_round_two}
 
 
 # The columns trace.py counts from a transcript: four cost columns, then the route columns.

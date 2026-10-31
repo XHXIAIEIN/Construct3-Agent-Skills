@@ -794,14 +794,36 @@ def test_check_the_third_round_grades_the_preview_the_coins_and_the_text(tmp_pat
     assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, False, False, True]
 
 
-def test_the_notes_of_a_fixture_rest_on_the_stand_in_as_it_is(tmp_path: Path) -> None:
-    """coins-notes holds notes that notes.py prints unmarked on the stand-in it was laid out from."""
-    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "check-the-third-round",
+@pytest.mark.parametrize(("case", "count"), [("check-the-third-round", 3), ("four-coins-in-round-two", 4)])
+def test_the_notes_of_a_fixture_rest_on_the_stand_in_as_it_is(tmp_path: Path, case: str, count: int) -> None:
+    """coins-notes and coins-first-tap hold notes that notes.py prints unmarked on the game they were laid out
+    from, the seeded hint included."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", case,
                     "--arms", "with_skill", "--no-pin")
     assert code == 0, out
-    project = tmp_path / "runs" / "check-the-third-round" / "with_skill" / "project"
+    project = tmp_path / "runs" / case / "with_skill" / "project"
     code, out = run(project, ".agents/skills/construct3-agent-plugin/scripts/notes.py")
-    assert code == 0 and out.startswith("notes: 3 in tools/notes.json") and out.splitlines()[-1].startswith("ok: "), out
+    assert code == 0 and out.startswith(f"notes: {count} in tools/notes.json"), out
+    assert out.splitlines()[-1].startswith("ok: "), out
+
+
+def test_the_second_round_case_keeps_the_first_launch_hint(tmp_path: Path) -> None:
+    """The hint is the game's: a run that deletes its events to reach the second round loses them, by sid. Only
+    the arm of the skill under test has the notes."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "four-coins-in-round-two",
+                    "--arms", "with_skill", "without_skill", "--no-pin")
+    assert code == 0, out
+    run_dir = tmp_path / "runs" / "four-coins-in-round-two" / "with_skill"
+    assert not (run_dir.with_name("without_skill") / "project" / "tools").exists()
+    (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
+    assert [ok for ok, _ in grader.grade_four_coins_in_round_two(run_dir)] == [True, True, True, True]
+    path = run_dir / "project" / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+    hints = next(ev for ev, _ in grader.walk(sheet["events"]) if ev.get("title") == "Hints")
+    hints["children"] = [ev for ev in hints["children"] if "pulse" not in json.dumps(ev)]
+    path.write_text(json.dumps(sheet, indent="\t"), encoding="utf-8")
+    kept = grader.grade_four_coins_in_round_two(run_dir)[3]
+    assert not kept[0] and "original event sids present" in kept[1], kept
 
 
 def test_a_kept_plan_is_no_changed_project_file(tmp_path: Path) -> None:

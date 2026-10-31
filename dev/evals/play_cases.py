@@ -316,6 +316,20 @@ def fix_next_round() -> dict:
     ]}
 
 
+def four_coins_in_round_two() -> dict:
+    """The first three rounds deal 1, 4 and 6 coins. On a first launch the first round's coin pulses until the first
+    touch ends and ignores taps while it does, so the plan's first tap goes on an empty corner."""
+    def deals(n: int, round_: str) -> dict:
+        return check(f"The {round_} round deals {n} coin{'s' * (n > 1)}",
+                     f"return {{ok: h.count('Coin') === {n}, said: `${{h.count('Coin')}} coin(s) in the {round_} round`}};")
+
+    return {"touch": True, "steps": [
+        *COINS, deals(1, "first"),
+        {"tap": {"x": 4, "y": 4}, "note": "the first touch of a launch ends the hint's pulse"}, {"wait": 0.3},
+        *collect(2), deals(4, "second"), *collect(6), deals(6, "third"),
+    ]}
+
+
 def turns(limit: bool = False) -> dict:
     """In round 2: a collect passes the turn once, the turn then holds still, and the next collect passes it back.
     With a limit, first in round 1: without a tap the turn passes once about every 5 seconds, and the seconds
@@ -795,7 +809,7 @@ PLANS: dict[str, Callable[[], dict]] = {
     "lay-out-the-hud-portrait": lambda: lay_out_the_hud(PORTRAIT_VIEW), "lives-as-hearts-pixel": lives_as_hearts,
     "hud-over-a-scrolling-level": hud_over_a_scrolling_level,
     "fix-open-errors-past-the-message": fix_open_errors, "fix-endless-pulse": fix_endless_pulse,
-    "two-buttons-in-the-generator": two_buttons,
+    "two-buttons-in-the-generator": two_buttons, "four-coins-in-round-two": four_coins_in_round_two,
 }
 
 

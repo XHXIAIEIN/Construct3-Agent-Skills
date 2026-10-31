@@ -557,15 +557,66 @@ ROUND_NOTES = (
                          "beat is static, so it keeps its count across the restart"))
 
 
-def seed_notes(root: Path) -> None:
-    """tools/notes.json with the facts of ROUND_NOTES, stamped on the stand-in's events as notes.py stamps them."""
+def seed_notes(root: Path, facts: tuple = ROUND_NOTES) -> None:
+    """tools/notes.json with the facts, stamped on the project's events as notes.py stamps them."""
     sheet = read_json(root / "eventSheets" / "Game.json")
     kept = []
-    for kind, name, fact in ROUND_NOTES:
+    for kind, name, fact in facts:
         note = {"sheet": "Game", "kind": kind, "name": name}
         place = notes.located(sheet, {**note, "stamp": ""})
         kept.append({"fact": fact, **note, "stamp": notes.stamp_of(place.event), "verified": "2026-10-30"})
     notes.write(root, kept)
+
+
+def seed_first_tap(root: Path) -> None:
+    """A first-launch hint in the stand-in's Hints group: the coins of the first round pulse with a looping Tween
+    until the first touch ends. Input's NOT Is any Tween playing then ignores that first touch on a coin, which
+    the events state in two groups and a probe in the game shows at once."""
+    path = root / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+
+    def titled(events: list, title: str) -> dict | None:
+        for ev in events:
+            if ev.get("title") == title:
+                return ev
+            found = titled(ev.get("children", []), title)
+            if found:
+                return found
+        return None
+
+    hints = titled(sheet["events"], "Hints")["children"]
+    sid = iter(range(677777777777701, 677777777777799))
+    first_input = next(n for n, ev in enumerate(hints) if ev.get("text") == "Dim the keys on the player's first input")
+    hints[first_input]["text"] = "Dim the keys and stop the pulse once the player's first touch ends"
+    block = hints[first_input + 1]
+    block["conditions"][0] = {"id": "on-any-touch-end", "objectClass": "Touch", "sid": next(sid)}
+    block["actions"] += [
+        {"id": "stop-tweens", "objectClass": "Coin", "sid": next(sid), "behaviorType": "Tween",
+         "parameters": {"tags": "\"pulse\""}},
+        {"id": "set-opacity", "objectClass": "Coin", "sid": next(sid), "parameters": {"opacity": "100"}}]
+    hints[first_input:first_input] = [
+        {"eventType": "comment", "text": "Pulse the coins on a first launch, to show what to tap"},
+        {"eventType": "block", "conditions": [
+            {"id": "on-start-of-layout", "objectClass": "System", "sid": next(sid)},
+            {"id": "compare-boolean-eventvar", "objectClass": "System", "sid": next(sid),
+             "parameters": {"variable": "used"}, "isInverted": True}],
+         "actions": [{"id": "tween-one-property", "objectClass": "Coin", "sid": next(sid), "behaviorType": "Tween",
+                      "parameters": {"tags": "\"pulse\"", "property": "offsetOpacity", "end-value": "40",
+                                     "time": "0.6", "ease": "easeinoutsine", "destroy-on-complete": "no",
+                                     "loop": "yes", "ping-pong": "yes", "repeat-count": "1"}}],
+         "sid": next(sid)}]
+    write_json(path, sheet)
+
+
+# The fact a check of the second round needs beyond ROUND_NOTES, as a probe in the game showed it
+FIRST_TAP_NOTE = ("group", "Hints", "on a first launch the first round's coin pulses (Tween \"pulse\", looping) "
+                                    "until the first touch ends, and a coin under a Tween ignores taps: a plan taps "
+                                    "an empty spot first, else its first tap on the coin does nothing")
+
+
+def seed_first_tap_notes(root: Path) -> None:
+    seed_first_tap(root)
+    seed_notes(root, (*ROUND_NOTES, FIRST_TAP_NOTE))
 
 
 # fixture -> (the fixture it starts from, the fault written into it). The seeded entries' sids start
@@ -579,7 +630,11 @@ SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "persistent-walls": ("example:persistent-layouts", seed_no_solid),
          "platformer-door": ("example:template-platformer", seed_door),
          "coins-big-sheet": ("coins", seed_big_sheet),
-         "coins-notes": ("coins", seed_notes)}
+         "coins-notes": ("coins", seed_notes),
+         "coins-first-tap": ("coins", seed_first_tap_notes)}
+# Fixtures whose tools/notes.json only the with_... arms keep. The notes stand for what an earlier session of the
+# skill under test left, and an arm without that skill reads them as a file in tools/ all the same (iteration 96).
+NOTES_WITH_ONLY = {"coins-first-tap"}
 
 
 def seed_inverted_start(root: Path) -> None:
@@ -742,6 +797,9 @@ def main() -> int:
                     seed_load_errors(target)
                 if seed:
                     seed(target)
+                if case["fixture"] in NOTES_WITH_ONLY and not arm.startswith("with_"):
+                    (target / "tools" / "notes.json").unlink()
+                    (target / "tools").rmdir()
                 prefix = next((prefix for prefix in installers if arm.startswith(prefix)), None)
                 installer = installers.get(prefix)
                 if installer:

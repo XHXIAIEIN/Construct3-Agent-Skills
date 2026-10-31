@@ -35,6 +35,20 @@ true in an old answer or plan.
   both runs of the changed skill got them before they planned, and neither
   run of the previous skill did. Every run of both iterations passed, so the
   case shows where the notes reach a run, not what they save.
+- The case `four-coins-in-round-two` needs a fact that the notes of its
+  game hold: on a first launch, the first round's coin pulses with a looping
+  Tween until the first touch ends, and Input ignores a touched coin while a
+  Tween plays. A plan that taps the coin first never reaches the second
+  round. In iteration 96 both arms had the notes. Both runs of the previous
+  skill listed `tools/` and read `tools/notes.json` themselves. In iteration
+  97 only the arm of the changed skill had them. Neither run of the previous
+  skill saw a note, and both still planned a tap that ends the pulse before
+  the tap that collects, from the Hints group in the print. All eight runs
+  passed with their first plan, and the deciding column, `chain_attempts`,
+  differed by 0 in both iterations. A fact that the sheet's print states
+  across two groups costs a run no search, so it shows no saving either
+  (`.local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-96/`
+  and `iteration-97/`).
 
 ## Options
 
@@ -87,6 +101,8 @@ Option 2.
 ## Re-evaluate when
 
 - A run checks a change in the preview and searches for a fact that a note
-  on the printed sheet holds.
+  on the printed sheet holds. A case that measures this needs a fact that
+  the print of the sheet does not hold, such as a value set in a layout or a
+  duration that only a recording measures.
 - A note goes stale with no mark, through an edit outside the event sheets,
   such as a layout or an object type that the fact depends on.

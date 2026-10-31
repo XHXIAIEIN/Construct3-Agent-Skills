@@ -611,6 +611,20 @@
         "The answer gives the round text with 03 / 06 in it",
         "No game file differs from the fixture, tools/notes.json aside"
       ]
+    },
+    {
+      "id": 40,
+      "name": "four-coins-in-round-two",
+      "fixture": "coins-first-tap",
+      "prompt": "my coins game is at <project> . make the second round deal four coins instead of three, and check it in the preview before you give it back. the other rounds stay as they are",
+      "expected_output": "ROUND_COINS becomes 1,4,6,2,10,1, so the second round deals 4 coins and the others deal what they did. The check reaches the second round by collecting the first round's coin. On a first launch that coin pulses with a looping Tween until the first touch ends, and Input ignores a touched coin while a Tween plays, so the first tap on it does nothing: a plan taps an empty spot first. A probe in the game shows this. The with_... arms have a note on the Hints group in tools/notes.json that holds it, so a run that reads the note plans the tap without the probe; the other arms have no notes. The checker passes.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the edited project",
+        "check_project.py prints no warning",
+        "The run played the game in the preview: preview_project.py or open_in_editor.py --preview left its results under .tmp/scripts",
+        "Every event of the fixture's sheet is still in it, by sid, the first-launch hint's among them"
+      ]
     }
   ]
 }
