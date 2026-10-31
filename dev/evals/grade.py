@@ -1656,6 +1656,22 @@ def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
             unchanged(run, ("tools/",))]
 
 
+def grade_design_a_hold_game(run: Path) -> list[tuple[bool, str]]:
+    """The catch game's three checks, then the hold: a rule on NAME held and one on NAME released, and a test
+    that holds the input."""
+    try:
+        data = json.loads((run / "project" / "tools" / "design.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    ons = [r.get("on") for r in data.get("rules") or [] if isinstance(r, dict) and isinstance(r.get("on"), str)]
+    phases = {phase for on in ons for phase in ("held", "released") if on.strip().endswith(" " + phase)}
+    holds = [s for t in data.get("tests") or [] if isinstance(t, dict) for s in t.get("steps") or []
+             if isinstance(s, dict) and "hold" in s]
+    return [*grade_design_a_catch_game(run),
+            (phases == {"held", "released"}, f"rule triggers: {ons or 'none'}"),
+            (bool(holds), f"{len(holds)} hold steps in the tests")]
+
+
 def object_types(project: Path) -> dict[str, dict]:
     """Every readable object type file of the project, by its type's name."""
     out = {}
@@ -2036,7 +2052,8 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "two-player-turn-limit": grade_two_player_turns, "find-a-drag-example": grade_find_a_drag_example,
            "script-shift-and-edges": grade_script_shift_and_edges,
            "platform-state-in-chinese": grade_platform_state_in_chinese,
-           "design-a-catch-game": grade_design_a_catch_game, "report-two-enemies": grade_report_two_enemies,
+           "design-a-catch-game": grade_design_a_catch_game, "design-a-hold-game": grade_design_a_hold_game,
+           "report-two-enemies": grade_report_two_enemies,
            "double-jump": grade_kept, "key-opens-door": grade_kept, "stay-on-screen": grade_kept, "walls-stop-the-player": grade_kept,
            "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
            "art-without-an-image-tool": grade_art_without_an_image_tool,

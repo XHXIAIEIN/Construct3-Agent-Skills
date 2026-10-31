@@ -18,8 +18,11 @@ reads the Array.
 
 Then it runs the rules as a prototype: each test from a first launch, 60
 ticks a second, an input followed by 0.15 s of play, as the editor runs the
-events. A tap is also a tap on the screen: it fires the screen inputs whose
-region holds it, before the tapped object's rules, as the runtime does. After
+events. An input stays down as long as the editor holds it, a hold step for
+its seconds, and its "held" rules run every tick meanwhile, its "released"
+rules once at the end. A tap is also a tap on the screen: it fires the screen
+inputs whose region holds it, before the tapped object's rules, as the
+runtime does. After
 the last step the game runs 1 s more and the test's last expects are read
 again, so a restart that a Wait holds back shows. It refuses a failed expect
 with the values the state held, a rule no test reaches, a win or a lose no
@@ -178,8 +181,14 @@ def reads(design: gm.Design) -> dict[str, set[str]]:
 
 
 def playing(design: gm.Design, name: str) -> list[gm.Rule]:
-    """The rules the input fires that do not restart: a restart shows the player a new game."""
-    return [r for r in design.rules if r.on == name and not any(restarts(x) for x in chain(r))]
+    """The rules the input fires, pressed, held or released, that do not restart: a restart shows the player a new
+    game."""
+    return [r for r in design.rules if r.input == name and not any(restarts(x) for x in chain(r))]
+
+
+def does(step: dict, name: str) -> bool:
+    """Whether the test step does the input: a "do" or a "hold" step."""
+    return step["kind"] in ("do", "hold") and step["input"] == name
 
 
 def shows(design: gm.Design, name: str) -> dict[str, list[str]]:
@@ -256,13 +265,13 @@ def expected_after(design: gm.Design) -> None:
     """Refuse an input after which no test expects what the player sees."""
     for name, i in design.inputs.items():
         rows = wanted(design, name)
-        if not rows or not any(st["kind"] == "do" and st["input"] == name for t in design.tests for st in t["steps"]):
+        if not rows or not any(does(st, name) for t in design.tests for st in t["steps"]):
             continue        # no test does it: play() says so
         hit = False
         for t in design.tests:
             done = False
             for st in t["steps"]:
-                done = done or st["kind"] == "do" and st["input"] == name
+                done = done or does(st, name)
                 if done and st["kind"] == "expect" and gm.names_in(st["node"]) & set(rows):
                     hit = True
         if not hit:
@@ -360,8 +369,8 @@ def run_test(design: gm.Design, t: dict) -> dict:
     last_do = None
     for step in t["steps"]:
         try:
-            if step["kind"] == "do":
-                sim.fire(step["input"], step["args"], step["path"])
+            if step["kind"] in ("do", "hold"):
+                sim.fire(step["input"], step["args"], step["path"], step.get("seconds"))
                 last_do = step
             elif step["kind"] == "wait":
                 sim.advance(step["seconds"])
@@ -436,7 +445,7 @@ def play(design: gm.Design) -> list[str]:
     won = lost = restarted = False
     launch(design)
     for t in design.tests:
-        done_inputs |= {s["input"] for s in t["steps"] if s["kind"] == "do"}
+        done_inputs |= {s["input"] for s in t["steps"] if s["kind"] in ("do", "hold")}
         try:
             result = run_test(design, t)
         except gm.ModelError as e:
@@ -539,8 +548,10 @@ def tables(design: gm.Design) -> list[str]:
     written, read = where_read(design)
     lines = ["input -> rule -> feedback:"]
     for r in design.rules:
-        if r.on in design.inputs:
-            lines.append(f"  {r.on} ({design.inputs[r.on]['player']}): {r.id} -> {r.feedback or '(no feedback)'}")
+        if r.input in design.inputs:
+            when = {"held": " while held", "released": " on release"}.get(r.phase, "")
+            lines.append(f"  {r.input}{when} ({design.inputs[r.input]['player']}): {r.id} -> "
+                         f"{r.feedback or '(no feedback)'}")
     lines.append("state, stored in, written by, read by:")
     for n, s in design.state.items():
         lines.append(f"  {n}  {s.stored_in}  {', '.join(written[n]) or '-'}  {', '.join(read[n]) or '-'}")
