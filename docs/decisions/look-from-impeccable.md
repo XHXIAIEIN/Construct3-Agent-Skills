@@ -87,7 +87,7 @@ a scrolling document, CSS breakpoints, forms, the DOM.
 | `generate.md`, `live.md`, `live-setup.md` | Variants of a page element in a browser overlay, with tuning knobs | | Not for a game screen. The picker's three directions are the variant step |
 | `component-review.md`, `region-map.md` | Cut the approved comp into painted plates and code-drawn regions; the user reviews the plates | Each object type has its box and subject in `art/wanted.json`; `art.py` writes a contact sheet; the art agent answers its questions | None |
 | `routing.md`, `doctor.md`, `hooks.md` | A menu from the project's signals; repair of stale files; the detector after each edit and at the end | The last line of each script names the next step; the generator checks on every run; `install.py` reports a copy that differs | None |
-| `craft-floor.md`, Verify | Contrast, depth, spacing, type, motion, states, the parts the page did not draw (selection, caret, scrollbars), copy, coverage | Each has a check here, except the parts the game did not draw: a generated game keeps Construct's icons | `art.icon` proposed (table below) |
+| `craft-floor.md`, Verify | Contrast, depth, spacing, type, motion, states, the parts the page did not draw (selection, caret, scrollbars), copy, coverage | Each has a check here. The game's icons are Construct's, as in the examples | `art.icon` rejected (table below) |
 | `craft-floor.md`, Refuse | Cards as structure, gradient text, glass, side stripes, hard offset shadows, a system display face, emoji or glyphs as icons, geometric masks, light or dark by category | `avoid.dashboard`; `screen.title-name` proposed draws the name as an image; the default look casts no shadow by default (`shadow.form`) | `text.no-emoji` proposed (table below) |
 | `degraded/finish-reviewer.md` | Capture validity first; inventory before the contract; type, material and ground against the approved comp; four derived verdicts; a pass that scores earlier fixes | A layout that draws nothing gets no question; the judge never sees intent; the tier of each question decides the verdict; three rounds, each yes marked new or before. The pair picture shows the user's references, not the picked screen | Proposal 1, the picked screen as the pair |
 | `degraded/asset-producer.md`, `degraded/documenter.md`, `degraded/manual-edit-applier.md` | Plates cut from the comp without redesign; `DESIGN.md` after the build; edits from the overlay | Every drawing follows `art/look.png` | None |
@@ -136,18 +136,19 @@ The symbols are arrows that name keys or point at a field in instructions,
 and a credits screen whose Sprite Font draws its own heart and face. No
 example shows a symbol as an icon in a Text.
 
-`icons` compares each project's `icons/icon-*.png` with the empty project's:
+`icons` compares the pixels of each project's largest `icons/icon-*.png`
+at 32 px with the empty project's, because many examples save the same
+picture again and a comparison of the files' bytes counts these as drawn:
 
-| Examples | Projects | Construct's icons kept | Splash loader |
-|----------|----------|------------------------|---------------|
-| All | 544 | 268 | 434 |
-| 2D games | 113 | 54 | 106 |
-| The studio's (Viridino or Forsteri) | 29 | 0 | 29 |
-| The studio's 2D games | 13 | 0 | 13 |
+| Examples | Projects | The empty project's icon | Splash loader |
+|----------|----------|--------------------------|---------------|
+| All | 544 | 419 | 434 |
+| 2D games | 113 | 104 | 106 |
+| The studio's (Viridino or Forsteri) | 29 | 29 | 29 |
+| The studio's 2D games | 13 | 13 | 13 |
 
-Every finished game of the studio draws its own icons and keeps the
-splash loader. The skill writes no icon, so a generated game ships
-Construct's.
+Of the 9 other 2D games, 8 show Construct 2's logo and one, `minefield`,
+its author's studio logo. No example draws its icon from its game's art.
 
 `fades` reads every opacity tween to 100 or to 0 on a HUD object that
 does not ping-pong: 325 tweens in 46 examples.
@@ -184,12 +185,12 @@ Option 3. The manifest gains three rules:
   the events set, naming each: one regular expression of Unicode's
   Emoji_Presentation characters and U+FE0F, so an arrow that names a key
   passes. A text that someone edits by hand after the run is not checked.
-- `art.icon`, proposed: the game's icons are drawn from its look by the art
-  route, as every studio game draws them. The splash loader stays, as every
-  studio game keeps it. `web-landing-and-redesign-skills.md` leaves a
-  website's favicon out of the look review; the icon of a game is the
-  picture of it on a home screen or a store page, which the studio's games
-  draw.
+- `art.icon`, rejected since the owner chose Construct's icon on
+  2026-11-01: the rule that the art route draws the game's icons from its
+  look. 104 of the 113 2D game examples and all 29 studio examples keep
+  the empty project's icon, so a generated game keeps it too, as
+  `web-landing-and-redesign-skills.md` keeps a favicon out of the look
+  review.
 - `motion.exit-faster`, rejected: the rule that a HUD object leaves faster
   than it enters. The examples fade 62 of 92 HUD objects out in the same
   median time as in.
@@ -215,14 +216,12 @@ The template, `pick_look.py` and the sub-agents' prompts stay as they are.
 
 ## Re-evaluate when
 
-- The owner decides `art.icon`: the rule becomes adopted, with its art
-  and its test.
 - A game's text needs a symbol the regular expression misses, or shows an
   emoji after a hand edit: move the check into `check_look.py`, which
   reads the project's files.
 - The owner takes proposal 1 or 2: the questions or the reply change, and
   both judges answer the regression set again.
-- A generated game shows an emoji, a glyph icon or Construct's icons on a
+- A generated game shows an emoji or a glyph icon on a
   screenshot the user judges: the matching rule is due.
 - A look picked from references is judged generic on the user's
   screenshots, such as a near-black ground with a neon glow: impeccable's
