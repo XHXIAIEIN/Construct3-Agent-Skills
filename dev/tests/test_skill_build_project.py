@@ -773,7 +773,7 @@ def test_template_holds_the_hud_to_the_screens_edges(built, tmp_path):
 
 
 def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
-    """build_all() lists every layer's instances back to front: the backdrop, the areas, then the
+    """build_all() lists every layer's instances back to front: the backdrop, the areas and zones, then the
     rest by the Y of their feet. A child of link() follows its parent, and a box inside another
     box follows it unless the outer box is a label. Placement order decides nothing an editor
     user would see."""
@@ -795,7 +795,25 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     assert t.z_order(ordered) == ordered
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [],
-         ["RoundTag", "ScoreLabel", "ScoreText", "KeyBox", "KeyText", "KeyVerb"], ["Fade"]]
+         ["KeyBox", "KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"], ["Fade"]]
+
+
+def test_template_orders_a_zone_before_a_slider_whose_knob_covers_its_track(tmp_path):
+    """A zone() panel draws before the controls on it, and a slider's parts keep their order, even
+    when a track shorter than the knob lies wholly inside the knob's box: the box rule would make the
+    track follow its own child."""
+    t = template_module()
+    t.ROOT = tmp_path
+    t.slider_types()
+    t.zone_image("Panel")
+    panel = t.zone("Panel", 0, 0, 30, 12)
+    parts = t.slider("cohesion", 2, 2, t.units(4), value=50, text="Cohesion")
+    track, knob = parts[0], parts[2]
+    kb, tb = t.box_of(knob), t.box_of(track)
+    assert kb[0] <= tb[0] and kb[1] <= tb[1] and tb[2] <= kb[2] and tb[3] <= kb[3]   # the knob covers the track
+    for given in ([panel, *parts], [*parts, panel]):
+        assert [i["type"] for i in t.z_order(given)] == ["Panel", "SliderTrack", "SliderFill", "SliderKnob",
+                                                         "SliderLabel", "SliderValue"]
 
 
 def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path):

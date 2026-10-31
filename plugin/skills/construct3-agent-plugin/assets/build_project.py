@@ -3393,31 +3393,41 @@ def layers_in(layers: list):
 
 
 def z_order(instances: list) -> list:
-    """A layer's instances back to front: the backdrop, then the areas of area(), then the rest by the
-    bottom of their box, so a nearer object covers a farther one. Ties keep their order. A link()
-    child follows its parent, and a box wholly inside another follows it unless the outer box is a
-    label. For another order, such as a 3D layer by depth, define z_order() below the end marker."""
+    """A layer's instances back to front: the backdrop, then the areas of area() and zone(), then the
+    rest by the bottom of their box, so a nearer object covers a farther one. Ties keep their order.
+    A link() child follows its parent. A box wholly inside another of its rank follows it, unless the
+    outer box is a label or is linked under the inner one, as a knob that covers a short track is.
+    For another order, such as a 3D layer by depth, define z_order() below the end marker."""
     boxes = [box_of(inst) for inst in instances]
     keys = []
     for n, inst in enumerate(instances):
         kind = PATTERN_OF.get(inst["type"]) or LAID_AS.get(inst["type"])
-        rank = 0 if kind in (*BACKDROPS, "backdrop") else 1 if kind else 2
+        rank = 0 if kind in (*BACKDROPS, "backdrop") else 1 if kind or inst["type"] in ZONES else 2
         keys.append((rank, boxes[n][3] if rank == 2 and boxes[n] else 0, n))
-    # What each instance follows: its parent, else the smallest box that holds it, not a label
-    holders = sorted((m for m, inst in enumerate(instances) if keys[m][0] == 2 and boxes[m]
+    at = {inst.get("uid"): n for n, inst in enumerate(instances)}
+    parents = {n: at[uid] for n, inst in enumerate(instances)
+               if (uid := (inst.get("sceneGraphData") or {}).get("parent-uid")) in at and at[uid] != n}
+
+    def linked_under(m: int, n: int) -> bool:
+        seen = {m}
+        while (m := parents.get(m)) is not None and m not in seen:
+            if m == n:
+                return True
+            seen.add(m)
+        return False
+
+    # What each instance follows: its parent, else the smallest box of its rank that holds it, not a label
+    holders = sorted((m for m, inst in enumerate(instances) if keys[m][0] and boxes[m]
                       and "text" not in inst.get("properties", {})),
                      key=lambda m: ((boxes[m][2] - boxes[m][0]) * (boxes[m][3] - boxes[m][1]), m))
-    at = {inst.get("uid"): n for n, inst in enumerate(instances)}
-    follows = {}
-    for n, inst in enumerate(instances):
-        parent = (inst.get("sceneGraphData") or {}).get("parent-uid")
-        if parent in at and at[parent] != n:
-            follows[n] = at[parent]
-        elif keys[n][0] == 2 and boxes[n]:
+    follows = dict(parents)
+    for n in range(len(instances)):
+        if n not in follows and keys[n][0] and boxes[n]:
             b = boxes[n]
             for m in holders:
                 h = boxes[m]
-                if m != n and h[0] <= b[0] and h[1] <= b[1] and b[2] <= h[2] and b[3] <= h[3] and (h != b or m < n):
+                if m != n and keys[m][0] == keys[n][0] and h[0] <= b[0] and h[1] <= b[1] and b[2] <= h[2] \
+                        and b[3] <= h[3] and (h != b or m < n) and not linked_under(m, n):
                     follows[n] = m
                     break
     for n in list(follows):                  # cut a loop that a cyclic parent chain makes
@@ -3767,7 +3777,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 583ce6dae227 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 269d9df8d4a3 ================
 
 
 # --- the game ---------------------------------------------------------------------------
