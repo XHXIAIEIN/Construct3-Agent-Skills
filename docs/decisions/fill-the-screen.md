@@ -149,9 +149,11 @@ offset by the safe-area insets, which the helpers do not compute.
   centre. A larger layout keeps bounded scrolling, and its backdrop covers
   what shows past its edges.
 - `build_all()` lists every layer in `z_order()`. The backdrop comes first,
-  then the areas of `pattern()`, then the rest by the Y of their feet. A
-  child of `link()` follows its parent. A box wholly inside another box
-  follows it, unless the outer box is a label: a fill follows its frame.
+  then the areas of `pattern()` and `zone()`, then the rest by the Y of
+  their feet. A child of `link()` follows its parent. A box wholly inside
+  another box of its rank follows it, unless the outer box is a label or is
+  linked under the inner one: a fill follows its frame, and the track of a
+  slider whose knob covers it stays before the knob, on its panel.
   Equal keys keep the placement order. A game that draws by another rule,
   such as a 3D layer by depth, defines `z_order()` below the end marker.
 - `check_look.py` warns, `screen.fill`, when `project.c3proj` is in a

@@ -773,7 +773,7 @@ def test_template_holds_the_hud_to_the_screens_edges(built, tmp_path):
 
 
 def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
-    """build_all() lists every layer's instances back to front: the backdrop, the areas, then the
+    """build_all() lists every layer's instances back to front: the backdrop, the areas and zones, then the
     rest by the Y of their feet. A child of link() follows its parent, and a box inside another
     box follows it unless the outer box is a label. Placement order decides nothing an editor
     user would see."""
@@ -795,7 +795,25 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     assert t.z_order(ordered) == ordered
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [],
-         ["RoundTag", "ScoreLabel", "ScoreText", "KeyBox", "KeyText", "KeyVerb"], ["Fade"]]
+         ["KeyBox", "KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"], ["Fade"]]
+
+
+def test_template_orders_a_zone_before_a_slider_whose_knob_covers_its_track(tmp_path):
+    """A zone() panel draws before the controls on it, and a slider's parts keep their order, even
+    when a track shorter than the knob lies wholly inside the knob's box: the box rule would make the
+    track follow its own child."""
+    t = template_module()
+    t.ROOT = tmp_path
+    t.slider_types()
+    t.zone_image("Panel")
+    panel = t.zone("Panel", 0, 0, 30, 12)
+    parts = t.slider("cohesion", 2, 2, t.units(4), value=50, text="Cohesion")
+    track, knob = parts[0], parts[2]
+    kb, tb = t.box_of(knob), t.box_of(track)
+    assert kb[0] <= tb[0] and kb[1] <= tb[1] and tb[2] <= kb[2] and tb[3] <= kb[3]   # the knob covers the track
+    for given in ([panel, *parts], [*parts, panel]):
+        assert [i["type"] for i in t.z_order(given)] == ["Panel", "SliderTrack", "SliderFill", "SliderKnob",
+                                                         "SliderLabel", "SliderValue"]
 
 
 def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path):
@@ -810,7 +828,7 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     t.shape("resume-default-000.png", "rect", *t.button_size("继续"), "solid")
     shape, label = t.button("Resume", "resume-default-000.png", "ResumeLabel", "继续", 3, 10)
     assert (label["world"]["x"], label["world"]["y"], label["world"]["width"], label["world"]["height"]) == \
-        (96, 328, 160, 152)                                 # shrunk from the top by twice optical_drop()
+        (96, 326, 160, 154)                                 # shrunk from the top by twice optical_drop()
     assert label["properties"]["horizontal-alignment"] == "center" and label["properties"]["size"] == t.TEXT_SIZE["title"]
     assert (label["properties"]["font"], label["properties"]["bold"]) == ("Inter-Medium", False)
     assert t.contrast(tuple(round(c * 255) for c in label["properties"]["color"][:3]), t.PALETTE["solid"]) >= 3
@@ -873,15 +891,15 @@ def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
     t = template_module()
     t.ROOT = tmp_path
     title, body = t.TEXT_SIZE["title"], t.TEXT_SIZE["body"]                   # 40 and 24 px high at 1080
-    assert [t.optical_drop(s, title) for s in ("Play", "开始游戏", "42", "menu")] == [4, 4, 4, 0]
-    assert t.optical_drop("Play", body) == 3
+    assert [t.optical_drop(s, title) for s in ("Play", "开始游戏", "42", "menu")] == [3, 3, 3, 0]
+    assert t.optical_drop("Play", body) == 2
     name = t.labelled_bar("HpName", "HP", "HpFrame", "HpFill", "top-left", 192)[0]
-    assert (name["world"]["y"], name["world"]["height"]) == (64 + 3, 32)
+    assert (name["world"]["y"], name["world"]["height"]) == (64 + 2, 32)
     big, small = t.band_text("Big", "GO", "stage"), t.band_text("Small", "go", "stage")
-    assert big["world"]["y"] - small["world"]["y"] == t.optical_drop("GO", t.text_size("display")) == 9
+    assert big["world"]["y"] - small["world"]["y"] == t.optical_drop("GO", t.text_size("display")) == 6
     t.toggle_types()
     switch, label = t.toggle("sound", 2, 3, text="Sound")
-    assert (label["world"]["y"], label["world"]["height"]) == (t.units(3) + 6, t.TOUCH - 6)
+    assert (label["world"]["y"], label["world"]["height"]) == (t.units(3) + 4, t.TOUCH - 4)
     frame = t.shape("tri-default-000.png", "triangle", 192, 192, "solid")
     assert frame["originY"] == 2 / 3
     tri = t.shape_inst("Tri", "tri-default-000.png", 2, 3)
@@ -1047,7 +1065,7 @@ def test_template_slider_is_a_row_a_finger_holds_with_its_knob_on_the_track(tmp_
     track_png = png_pixels(tmp_path / "images" / "slidertrack.png")
     assert [row[0][3] for row in track_png].count(255) == t.CONTROL_SIZE["bar"]  # the bar across the middle alone
     track, fill, knob, label, shown = t.slider("volume", 4, 5, t.units(24), value=50, text="Volume", label_cols=6)
-    assert t.box_of(label) == (128, 166, 320, 320)                            # lowered by its ink
+    assert t.box_of(label) == (128, 164, 320, 320)                            # lowered by its ink
     assert t.box_of(track) == (448, 160, 1216, 320)                            # label, a unit, the knob's reach
     assert (knob["world"]["x"], knob["world"]["y"], knob["world"]["width"]) == (832, 240, 160)
     assert knob["instanceVariables"] == {"name": "volume", "value": 50, "lo": 0, "hi": 100, "step": 1}

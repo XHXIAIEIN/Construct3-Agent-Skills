@@ -2,7 +2,8 @@
 the player's height on the screen by genre, the share of the screen the HUD covers, how popups
 open and close, the Sine behavior's idle motion, the step between items that start one after
 another, the eases of tweens, how often a change of layout passes through a fade, how the HUD
-fades in and out, the emoji and symbols in texts, and whether a game keeps the empty project's icons.
+fades in and out, the emoji and symbols in texts, whether a game keeps the empty project's icons, how
+evenly the boxes of a row are spaced, and how far apart the edges of neighbouring boxes lie.
 
     python dev/scripts/measure_examples.py actors --examples <Construct-Example-Projects>/example-projects
     python dev/scripts/measure_examples.py hud --examples ... [--out ROWS.json]
@@ -10,13 +11,16 @@ fades in and out, the emoji and symbols in texts, and whether a game keeps the e
     python dev/scripts/measure_examples.py sine --examples ...
     python dev/scripts/measure_examples.py stagger | eases | transitions --examples ...
     python dev/scripts/measure_examples.py fades | glyphs | icons --examples ...
+    python dev/scripts/measure_examples.py rows | edges --examples ...
 
-Each subcommand prints a summary and, with --out, writes every measured row as JSON. actors and
-hud leave out the examples tagged "3D"; the others read every example, since a popup, an idle
-motion, a tween or a text on a 2D layer is the same in a 3D game, and icons reports 2D games and
-the studio's games apart. Genres are the examples' tags in data/c3-examples.
-docs/decisions/borrowed-numbers.md, docs/decisions/motion-atlas-layouts.md and
-docs/decisions/look-from-impeccable.md cite the summaries; the rows stay in .local/docs/evidence/.
+Each subcommand prints a summary and, with --out, writes every measured row as JSON. actors leaves
+out the examples tagged "3D", and hud, rows and edges read only the game examples among the rest;
+the others read every example,
+since a popup, an idle motion, a tween or a text on a 2D layer is the same in a 3D game, and icons
+reports 2D games and the studio's games apart. Genres are the examples' tags in data/c3-examples.
+docs/decisions/borrowed-numbers.md, docs/decisions/motion-atlas-layouts.md,
+docs/decisions/look-from-impeccable.md and docs/decisions/look-from-unslop.md cite the summaries;
+the rows stay in .local/docs/evidence/.
 actors needs Pillow, to read the opaque height of the player's picture.
 Exit codes: 0 done (a line says when nothing was measured), 2 bad arguments or no Pillow for actors.
 """
@@ -582,13 +586,178 @@ def report_icons(rows: list[dict]) -> None:
         print(f"    {picture} {len(names):3}: {', '.join(names)}")
 
 
+# --- rows and edges -------------------------------------------------------------------------------
+# A Text's or a Sprite Font's box is wider than its ink, so only the edge its alignment holds is placed
+TEXTS = {"Text", "Spritefont2"}
+# Plugins whose box is not a picture's: particles spread past it
+NO_BOX = {"Particles"}
+# Distances are given as pixels of a screen 720 px on its shorter side, so viewports of every size compare
+SHORT = 720
+BINS = (0.5, 2, 4, 8, 16)
+
+
+def plugins(folder: Path) -> dict[str, str]:
+    return {o["name"]: o.get("plugin-id") for o in map(load, (folder / "objectTypes").rglob("*.json"))}
+
+
+def screen_boxes(examples: Path, rag: Path):
+    """(example, layout, hud, items) for each layer that the screen shows as it is: a layer at parallax 0, which
+    is the HUD, or any layer of a layout no larger than the viewport. An item is (type, plugin, box, align) of a
+    shown instance that is not rotated and covers less than 80% of the screen both ways; align is a Text's
+    (horizontal, vertical) alignment, else None. Game examples only, 3D left out."""
+    for gid, meta in examples_meta(rag).items():
+        folder = examples / gid
+        if not {"Game template", "Demo game"} & set(meta.get("tags", [])) or not (folder / "project.c3proj").is_file():
+            continue
+        proj, kinds = load(folder / "project.c3proj"), plugins(folder)
+        vw, vh = proj["viewportWidth"], proj["viewportHeight"]
+        for f in sorted((folder / "layouts").glob("*.json")):
+            layout = load(f)
+            one_screen = layout["width"] <= vw and layout["height"] <= vh
+            for layer in layers_in(layout["layers"]):
+                hud = layer.get("parallaxX", 1) == 0 and layer.get("parallaxY", 1) == 0
+                if not (hud or one_screen):
+                    continue
+                items = []
+                for inst in layer["instances"]:
+                    w, props = inst.get("world"), inst.get("properties", {})
+                    kind = kinds.get(inst["type"])
+                    if not w or w.get("angle", 0) or kind in NO_BOX or props.get("initially-visible", True) is False:
+                        continue
+                    box = box_on_screen(w, vw, vh)
+                    if not box or (box[2] - box[0] >= 0.8 * vw and box[3] - box[1] >= 0.8 * vh):
+                        continue
+                    align = ((props.get("horizontal-alignment", "left"), props.get("vertical-alignment", "top"))
+                             if kind in TEXTS else None)
+                    items.append((inst["type"], kind, box, align))
+                yield gid, layout["name"], hud, items, SHORT / min(vw, vh)
+
+
+def runs_on(items: list, axis: int) -> list[list]:
+    """Runs of three or more boxes that share a centre line across `axis` (0: a row, 1: a column) within 1 px,
+    in order along it. A run breaks where two boxes overlap, an icon on its button, and where a gap is wider
+    than the larger of the two boxes beside it, so the items of a list are one run and a score and a timer at
+    the two ends of the screen are not."""
+    across = 1 - axis
+    lines = defaultdict(list)
+    for item in items:
+        b = item[2]
+        lines[round((b[across] + b[across + 2]) / 2)].append(item)
+    runs = []
+    for line in lines.values():
+        line.sort(key=lambda it: it[2][axis])
+        run = [line[0]]
+        for prev, it in zip(line, line[1:]):
+            size = max(prev[2][axis + 2] - prev[2][axis], it[2][axis + 2] - it[2][axis])
+            if not 0 <= it[2][axis] - prev[2][axis + 2] <= size:
+                if len(run) >= 3:
+                    runs.append(run)
+                run = []
+            run.append(it)
+        if len(run) >= 3:
+            runs.append(run)
+    return runs
+
+
+def measure_rows(examples: Path, rag: Path) -> list[dict]:
+    """Rows and columns of three or more boxes on one screen that are not texts: the gaps between neighbours
+    and the sizes along the run, in px at SHORT. A Text's box is wider than its ink, so texts are left out."""
+    rows = []
+    for gid, layout, hud, items, k in screen_boxes(examples, rag):
+        drawn = [it for it in items if it[1] not in TEXTS]
+        for axis, name in ((0, "row"), (1, "column")):
+            for run in runs_on(drawn, axis):
+                gaps = [round((b[2][axis] - a[2][axis + 2]) * k, 1) for a, b in zip(run, run[1:])]
+                sizes = [round((it[2][axis + 2] - it[2][axis]) * k, 1) for it in run]
+                rows.append({"example": gid, "layout": layout, "hud": hud, "axis": name, "n": len(run),
+                             "types": sorted({it[0] for it in run}), "gaps": gaps, "sizes": sizes})
+    return rows
+
+
+def spread_bins(values: list[float]) -> str:
+    """How many values fall in each band of BINS, the last band open"""
+    edges = (0,) + BINS
+    counts = [sum(lo <= v < hi for v in values) for lo, hi in zip(edges, edges[1:])] + [sum(v >= BINS[-1] for v in values)]
+    names = [f"<{BINS[0]:g}"] + [f"{lo:g}-{hi:g}" for lo, hi in zip(BINS, BINS[1:])] + [f">={BINS[-1]:g}"]
+    return ", ".join(f"{n} {c}" for n, c in zip(names, counts))
+
+
+def report_rows(rows: list[dict]) -> None:
+    print(f"rows and columns of 3 or more boxes on a screen (not texts) in the game examples, px at {SHORT}:")
+    for name, test in (("HUD", lambda r: r["hud"]), ("one-screen world", lambda r: not r["hud"])):
+        for kind, same in (("one type", True), ("mixed types", False)):
+            rs = [r for r in rows if test(r) and (len(r["types"]) == 1) == same]
+            if not rs:
+                continue
+            print(f"  {name}, {kind}: {len(rs)} runs in {len({r['example'] for r in rs})} examples, "
+                  f"{sum(r['n'] for r in rs)} boxes")
+            print(f"    gap spread  {spread_bins([max(r['gaps']) - min(r['gaps']) for r in rs])}")
+            print(f"    size spread {spread_bins([max(r['sizes']) - min(r['sizes']) for r in rs])}")
+    uneven = [r for r in rows if r["hud"] and max(r["gaps"]) - min(r["gaps"]) >= BINS[1]]
+    print(f"  HUD runs whose gaps differ by {BINS[1]:g} px or more:")
+    for r in uneven:
+        print(f"    {r['example']} / {r['layout']} {r['axis']} {'+'.join(r['types'])}: gaps {r['gaps']} sizes {r['sizes']}")
+
+
+def anchors(item: tuple, axis: int) -> dict[str, float]:
+    """The edges of a box that place it along `axis`: a Text's one edge that its alignment holds, else the
+    start, the centre and the end"""
+    b, align = item[2], item[3]
+    edges = {"start": b[axis], "centre": (b[axis] + b[axis + 2]) / 2, "end": b[axis + 2]}
+    if align is None:
+        return edges
+    held = {"left": "start", "top": "start", "center": "centre", "right": "end", "bottom": "end"}[align[axis]]
+    return {held: edges[held]}
+
+
+def measure_edges(examples: Path, rag: Path) -> list[dict]:
+    """Each box and its nearest neighbour below it (whose box overlaps it across) and to its right (whose box
+    overlaps it down), no further off than the larger box is long: how far apart the nearest pair of their
+    edges of one kind lies, in px at SHORT. 0 is aligned; a small distance is a near miss."""
+    rows = []
+    for gid, layout, hud, items, k in screen_boxes(examples, rag):
+        for axis, name in ((0, "stacked"), (1, "side by side")):
+            along = 1 - axis    # the axis the two boxes follow each other on
+            for a in items:
+                ba = a[2]
+                after = [b for b in items if b is not a and b[2][along] >= ba[along + 2] - 0.5
+                         and min(ba[axis + 2], b[2][axis + 2]) > max(ba[axis], b[2][axis])]
+                if not after:
+                    continue
+                b = min(after, key=lambda it: it[2][along])
+                reach = max(ba[along + 2] - ba[along], b[2][along + 2] - b[2][along])
+                if b[2][along] - ba[along + 2] > reach:
+                    continue
+                ea, eb = anchors(a, axis), anchors(b, axis)
+                shared = [abs(ea[e] - eb[e]) for e in ea if e in eb]
+                if not shared:
+                    continue
+                rows.append({"example": gid, "layout": layout, "hud": hud, "pair": name, "types": [a[0], b[0]],
+                             "texts": [a[3] is not None, b[3] is not None], "off": round(min(shared) * k, 2)})
+    return rows
+
+
+def report_edges(rows: list[dict]) -> None:
+    print(f"neighbouring boxes on a screen in the game examples: the nearest pair of their edges, px at {SHORT}:")
+    for name, test in (("HUD", lambda r: r["hud"]), ("one-screen world", lambda r: not r["hud"])):
+        for pair in ("stacked", "side by side"):
+            rs = [r["off"] for r in rows if test(r) and r["pair"] == pair]
+            if rs:
+                print(f"  {name}, {pair}: {len(rs)} pairs; {spread_bins(rs)}")
+    near = [r for r in rows if r["hud"] and BINS[0] <= r["off"] < BINS[3]]
+    print(f"  HUD pairs off by {BINS[0]:g} to {BINS[3]:g} px: {len(near)} in {len({r['example'] for r in near})} examples")
+    for r in near:
+        print(f"    {r['example']} / {r['layout']} {r['pair']} {' over '.join(r['types'])}: {r['off']:g}")
+
+
 # --- command line -----------------------------------------------------------------------------
 MEASURES = {"actors": (measure_actors, report_actors), "hud": (measure_hud, report_hud),
             "popups": (measure_popups, report_popups), "sine": (measure_sine, report_sine),
             "stagger": (measure_stagger, report_stagger), "eases": (measure_eases, report_eases),
             "transitions": (measure_transitions, report_transitions),
             "fades": (measure_fades, report_fades), "glyphs": (measure_glyphs, report_glyphs),
-            "icons": (measure_icons, report_icons)}
+            "icons": (measure_icons, report_icons), "rows": (measure_rows, report_rows),
+            "edges": (measure_edges, report_edges)}
 
 
 def main() -> int:
