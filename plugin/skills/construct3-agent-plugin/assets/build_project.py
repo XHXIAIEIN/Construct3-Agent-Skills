@@ -2249,7 +2249,7 @@ def leading(size: float) -> float:
 
 # Share of the em by which capitals, digits and Chinese sit above the centre of a Text's em box, by
 # face. A face not listed takes system-ui's.
-OPTICAL_EMS = {"system-ui": 0.11}
+OPTICAL_EMS = {"system-ui": 0.11, "Inter-Regular": 0.07, "Inter-Medium": 0.07}
 
 
 def optical_drop(text: str, size: float, weight: str = "regular") -> int:
@@ -3777,7 +3777,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 269d9df8d4a3 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 797b7ff31e4f ================
 
 
 # --- the game ---------------------------------------------------------------------------
