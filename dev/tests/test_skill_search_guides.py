@@ -175,14 +175,16 @@ def test_raw_data_override_keeps_pitfalls_for_source_and_installed_scripts(proje
 def test_without_a_cookbook_the_pitfalls_point_to_setup_and_the_examples_still_print(project, tmp_path, monkeypatch):
     """The installed copy, which lies in no Agent-Skills clone, so only the data's folder has siblings."""
     monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
-    # install.py named the machine's clone in the block; without that line no clone is named
+    # install.py named the machine's clones in the block, and a Cookbook beside the named Agent-Skills clone
+    # counts; without those lines no clone is named
     agents = project / "AGENTS.md"
     agents.write_text("".join(line for line in agents.read_text(encoding="utf-8").splitlines(keepends=True)
-                              if not line.startswith("- Construct3-Cookbook:")), encoding="utf-8")
+                              if not line.startswith(("- Construct3-Cookbook:", "- Construct3-Agent-Skills:"))),
+                      encoding="utf-8")
     rag = fake_rag(tmp_path / "clones" / "Construct3-RAG", snake=True)
     code, out = run(project, project / INSTALLED / "scripts" / "search_guides.py", "snake", "--rag", str(rag))
     assert code == 0, out
-    assert out.startswith("note: pitfalls not searched: no Construct3-Cookbook clone"), out
+    assert "\nnote: pitfalls not searched: no Construct3-Cookbook clone" in out, out
     assert f"python {INSTALLED}/scripts/setup.py prints the clone to make" in out, out
     assert "\ntemplate-snake: " in out, out
 
