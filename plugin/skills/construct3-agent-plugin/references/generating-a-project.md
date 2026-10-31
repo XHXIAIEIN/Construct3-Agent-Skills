@@ -358,7 +358,8 @@ parameters are in the template.
 - A number that counts to its new value takes `count_up(text, value)` in
   the actions where the value changes, and `counting(text, value)` among a
   module's events. The Text shows the number alone, has the Tween behavior
-  and is left-aligned, or its other digits shift as one changes
+  and draws in the number kind's weight, light, whose digits share one
+  width, or is left-aligned, or its other digits shift as one changes
   (`type.counting-digits`; the run warns).
 - Every change of layout is `*fade_to(layout)`, or `*fade_to()` to restart
   this one, in place of `go_to_layout()` and `restart_layout()`

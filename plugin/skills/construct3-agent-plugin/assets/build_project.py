@@ -1523,7 +1523,8 @@ def count_up(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> 
 def counting(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> list:
     """The two events that show count_up()'s count on obj: during it, the tween's value rounded
     towards `value`, so a gain of 1 shows at once; at its end, `value`, because the tween's value
-    reads 0 once the tween has ended. obj is best left-aligned: check_texts() warns otherwise."""
+    reads 0 once the tween has ended. Draw obj in the number kind's weight, light, whose digits share one
+    width, or align it left: check_texts() warns otherwise."""
     COUNTED.add(obj)
     v = f"Self.{tween}.Value({q(tag)})"
     return [*event(f"Show {obj}'s count while it runs", [is_playing(obj, tag, beh=tween)],
@@ -2132,7 +2133,7 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
                                 "initially-visible": True, "origin": "top-left", "read-aloud": False},
                         world(x, y, w, h, 0, 0, color=(*(v / 255 for v in rgb(color)), 1)), ivars, behaviors)
     return instance(otype, {"text": text, "enable-bbcode": False, "font": face(weight), "size": size,
-                            "line-height": 0, "bold": bold, "italic": False, "color": rgba(rgb(color)),
+                            "line-height": leading(size), "bold": bold, "italic": False, "color": rgba(rgb(color)),
                             "horizontal-alignment": halign, "vertical-alignment": valign, "wrapping": "word",
                             "text-direction": "ltr", "icon-set": -1, "initially-visible": True, "origin": "top-left",
                             "read-aloud": False},
@@ -2141,7 +2142,12 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
 
 # A Text's size is in points, drawn at 96 px per 72 pt: 1 em is size * PX_PER_PT px
 PX_PER_PT = 4 / 3
-LINE_EMS = 1.2                             # line height in em
+# Line height in em by kind of text, 1.2 for a kind not listed: the count and a banner sit tight, body
+# text has room between its lines. text_inst() sets the Text's line-height to draw it.
+LINE_EMS = {"body": 1.28, "number": 1.08, "display": 1.08}
+# The runtime draws a Text's line 1 em + RUNTIME_LINE_PX high, and line-height adds px between lines
+# only, so a one-line label draws the same whatever its line-height (measured at 15 to 60 pt)
+RUNTIME_LINE_PX = 4
 
 
 # The advance of each printable ASCII character in em, space to tilde, measured in Inter Medium, the
@@ -2205,10 +2211,14 @@ def read_pixel_font() -> None:
 
 def text_px(text: str, size: float) -> float:
     """Width in px of one line of `text` at `size`: a Sprite Font's advances at its scale in pixel
-    art with PIXEL_FONT, else text_ems() of a Text."""
+    art with PIXEL_FONT, else text_ems() of a Text, its digits at the number kind's size as wide as
+    its font's when they share one width."""
     if pixel_font():
         return sum(map(advance, text)) * size / UNIT
-    return text_ems(text) * size * PX_PER_PT
+    ems = text_ems(text)
+    if kind_of(size) == "number" and (digit := tabular_ems(face_of("number"))):
+        ems += sum(digit - LATIN_EMS[c] for c in text if c in "0123456789")
+    return ems * size * PX_PER_PT
 
 
 def em_px(size: float) -> float:
@@ -2216,9 +2226,25 @@ def em_px(size: float) -> float:
     return size if pixel_font() else size * PX_PER_PT
 
 
+def kind_of(size: float) -> str | None:
+    """The kind of text whose TEXT_SIZE is `size`, the first such kind when two share it."""
+    return next((k for k, v in TEXT_SIZE.items() if v == size), None)
+
+
+def line_ems(size: float) -> float:
+    """LINE_EMS of the kind of text at `size`."""
+    return LINE_EMS.get(kind_of(size), 1.2)
+
+
 def line_px(size: float) -> float:
-    """Height in px of one line at `size`: a Sprite Font's cell, size px; a Text's LINE_EMS em."""
-    return size if pixel_font() else size * PX_PER_PT * LINE_EMS
+    """Height in px of one line at `size`: a Sprite Font's cell, size px; a Text's line_ems() em."""
+    return size if pixel_font() else size * PX_PER_PT * line_ems(size)
+
+
+def leading(size: float) -> float:
+    """A Text's line-height at `size`: the px that make its lines line_px() apart, where the runtime
+    draws them 1 em + RUNTIME_LINE_PX apart."""
+    return round(line_px(size) - em_px(size) - RUNTIME_LINE_PX, 2)
 
 
 # Share of the em by which capitals, digits and Chinese sit above the centre of a Text's em box, by
@@ -2310,10 +2336,62 @@ EMOJI = re.compile("[⌚⌛⏩-⏬⏰⏳◽◾☔☕♈-♓♿⚓⚡"
 COUNTED: set[str] = set()                  # the Text types counting() counts
 
 
+def font_tables(data: bytes) -> dict[str, bytes]:
+    """The tables of a WOFF, TTF or OTF file by tag, a WOFF's inflated."""
+    if data[:4] == b"wOFF":
+        entries = [struct.unpack_from(">4sIII", data, 44 + 20 * i) for i in range(struct.unpack_from(">H", data, 12)[0])]
+        return {tag.decode(): (zlib.decompress(data[at:at + size]) if size < full else data[at:at + size])
+                for tag, at, size, full in entries}
+    entries = [struct.unpack_from(">4s4xII", data, 12 + 16 * i) for i in range(struct.unpack_from(">H", data, 4)[0])]
+    return {tag.decode(): data[at:at + size] for tag, at, size in entries}
+
+
+def digit_ems(path: Path) -> list[float] | None:
+    """The advances of the digits 0 to 9 in the font file in em, through the format 4 cmap of Windows
+    Unicode; None for a file this cannot read."""
+    try:
+        t = font_tables(path.read_bytes())
+        cmap = t["cmap"]
+        at = next(off for i in range(struct.unpack_from(">H", cmap, 2)[0])
+                  for pid, eid, off in [struct.unpack_from(">HHI", cmap, 4 + 8 * i)]
+                  if (pid, eid) in ((3, 1), (0, 3)) and struct.unpack_from(">H", cmap, off)[0] == 4)
+        segs = struct.unpack_from(">H", cmap, at + 6)[0] // 2
+        ends, starts, deltas, ranges = (struct.unpack_from(f">{segs}H", cmap, at + 14 + k * 2 * segs + (2 if k else 0))
+                                        for k in range(4))
+        glyphs = []
+        for c in range(0x30, 0x3a):
+            i = next(i for i in range(segs) if ends[i] >= c)
+            if starts[i] > c:
+                glyphs.append(0)
+            elif ranges[i]:
+                g = struct.unpack_from(">H", cmap, at + 16 + 6 * segs + 2 * i + ranges[i] + 2 * (c - starts[i]))[0]
+                glyphs.append((g + deltas[i]) % 65536 if g else 0)
+            else:
+                glyphs.append((c + deltas[i]) % 65536)
+        metrics, per_em = struct.unpack_from(">H", t["hhea"], 34)[0], struct.unpack_from(">H", t["head"], 18)[0]
+        return [struct.unpack_from(">H", t["hmtx"], 4 * min(g, metrics - 1))[0] / per_em for g in glyphs]
+    # A font file is outside data: a stand-in or another format reads as unknown digits
+    except (KeyError, StopIteration, struct.error, zlib.error):
+        return None
+
+
+_tabular: dict[str, float | None] = {}
+
+
+def tabular_ems(face_name: str) -> float | None:
+    """The width in em that every digit of the font `face_name` shares, read once from its file; None
+    when its digits differ in width or no file is read."""
+    if face_name not in _tabular:
+        path = font_file(face_name)
+        ems = digit_ems(path) if path else None
+        _tabular[face_name] = ems[0] if ems and len(set(ems)) == 1 else None
+    return _tabular[face_name]
+
+
 def check_texts(sheet: dict, layouts: dict) -> None:
     """Stops the run on an emoji in a layout's Text or in a text the events set, naming each; warns of
-    a Text that counting() counts and that is not left-aligned, whose other digits shift as one
-    changes, since Inter's digits differ in width (type.counting-digits)."""
+    a Text that counting() counts in a font whose digits differ in width, Inter's own, and that is not
+    left-aligned, whose other digits shift as one changes (type.counting-digits)."""
     found = [f"layout {name}: {inst['type']} {inst['properties']['text']!r}" for name, lay in layouts.items()
              for layer_ in layers_in(lay["layers"]) for inst in layer_["instances"]
              if EMOJI.search(str(inst.get("properties", {}).get("text", "")))]
@@ -2325,11 +2403,14 @@ def check_texts(sheet: dict, layouts: dict) -> None:
                  "of:\n  " + "\n  ".join(found))
     shifting = sorted({inst["type"] for lay in layouts.values() for layer_ in layers_in(lay["layers"])
                        for inst in layer_["instances"] if inst["type"] in COUNTED
-                       and inst.get("properties", {}).get("horizontal-alignment", "left") != "left"})
+                       and inst.get("properties", {}).get("horizontal-alignment", "left") != "left"
+                       and tabular_ems(inst["properties"].get("font", "")) is None})
     if shifting:
+        light = FONT if isinstance(FONT, str) else FONT.get("light", "")
         print(f"warning: counting() counts {', '.join(shifting)}, which {'is' if len(shifting) == 1 else 'are'} not "
-              f"left-aligned, so its other digits shift on every step of the count: Inter's digits differ in "
-              f"width; align it left, so the digits before the one that changes stay put")
+              f"left-aligned, in a font whose digits differ in width, so its other digits shift on every step of "
+              f"the count; draw it in the number kind's weight, light, whose {light}.woff has digits of one width "
+              f"in the font cache, or align it left")
 
 
 def hud_text(otype: str, text: str, where: str, size: float | None = None, longest: str | None = None,
@@ -3686,7 +3767,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 3e3744af94b6 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 583ce6dae227 ================
 
 
 # --- the game ---------------------------------------------------------------------------

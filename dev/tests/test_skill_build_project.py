@@ -5,6 +5,7 @@ import json
 import math
 import re
 import shutil
+import struct
 import symtable
 from pathlib import Path
 
@@ -385,6 +386,70 @@ def test_template_stops_on_an_emoji_and_warns_of_a_shifting_count(tmp_path, caps
     t.COUNTED.discard("Lives")
 
 
+def font_with_digits(advances: list[int]) -> bytes:
+    """A TTF of 2048 units per em whose cmap maps the digits 0 to 9 to glyphs 1 to 10 with these advances:
+    the tables digit_ems() reads, and no glyph outlines."""
+    cmap = struct.pack(">HHHHI", 0, 1, 3, 1, 12) + struct.pack(">7H", 4, 32, 0, 4, 4, 1, 0)
+    cmap += struct.pack(">HH", 0x39, 0xFFFF) + b"\0\0" + struct.pack(">HH", 0x30, 0xFFFF)
+    cmap += struct.pack(">HH", (1 - 0x30) % 65536, 1) + struct.pack(">HH", 0, 0)
+    tables = {b"cmap": cmap,
+              b"head": bytes(18) + struct.pack(">H", 2048) + bytes(34),
+              b"hhea": bytes(34) + struct.pack(">H", 11),
+              b"hmtx": b"".join(struct.pack(">Hh", a, 0) for a in [500, *advances])}
+    out, at = struct.pack(">IHHHH", 0x10000, len(tables), 0, 0, 0), 12 + 16 * len(tables)
+    body = b""
+    for tag, data in tables.items():
+        out += struct.pack(">4sIII", tag, 0, at + len(body), len(data))
+        body += data + bytes(-len(data) % 4)
+    return out + body
+
+
+def test_template_counts_in_a_font_whose_digits_share_one_width(tmp_path, capsys):
+    """type.counting-digits: the template reads the digits' advances from the font file. A counted Text
+    that is not left-aligned warns when its font's digits differ in width and keeps quiet when they
+    share one, as InterDisplay-Light's do once its tnum digits are frozen; a label at the number size
+    takes the digits at that width, so its box holds the count."""
+    t = template_module()
+    t.ROOT = tmp_path
+    (tmp_path / "fonts").mkdir()
+    (tmp_path / "fonts" / "InterDisplay-Light.woff").write_bytes(font_with_digits([1320] * 10))
+    (tmp_path / "fonts" / "Inter-Regular.woff").write_bytes(font_with_digits([1292, 833, *[1249] * 8]))
+    t._tabular.clear()
+    assert t.digit_ems(tmp_path / "fonts" / "InterDisplay-Light.woff") == [1320 / 2048] * 10
+    assert t.tabular_ems("InterDisplay-Light") == 1320 / 2048 and t.tabular_ems("Inter-Regular") is None
+    assert t.digit_ems(FONT_CACHE / "Inter-Medium.woff") is None
+    size = t.TEXT_SIZE["number"]
+    assert t.text_px("999", size) == pytest.approx(3 * 1320 / 2048 * size * 4 / 3)
+    assert t.text_px("999", t.TEXT_SIZE["body"]) == pytest.approx(3 * 0.63 * t.TEXT_SIZE["body"] * 4 / 3)
+    lay = t.layout("Game", [t.layer("UI", parallax=0)], sheet="Game")
+    lay["layers"][0]["instances"] += [t.text_inst("Score", "0", 0, 0, 320, 96, size=size, halign="right",
+                                                  weight="light"),
+                                      t.text_inst("Coins", "0", 0, 96, 320, 64, halign="right")]
+    sheet = {"name": "Game", "events": []}
+    t.counting("Score", "score")
+    t.check_texts(sheet, {"Game": lay})
+    assert capsys.readouterr().out == ""
+    t.counting("Coins", "coins")
+    t.check_texts(sheet, {"Game": lay})
+    assert "counting() counts Coins, which is not left-aligned" in capsys.readouterr().out
+    t.COUNTED.difference_update({"Score", "Coins"})
+
+
+def test_template_sets_the_leading_of_each_kind():
+    """type.leading: lines of body text 1.28 em apart, the count and a banner 1.08, every other kind 1.2;
+    a box is sized from that, and the Text's line-height adds what the runtime's own line, 1 em + 4 px,
+    lacks, so the runtime draws the lines the box assumes."""
+    t = template_module()
+    assert t.LINE_EMS == {"body": 1.28, "number": 1.08, "display": 1.08}
+    for kind, ems in (("tag", 1.2), ("body", 1.28), ("title", 1.2), ("number", 1.08)):
+        size = t.TEXT_SIZE[kind]
+        assert t.line_px(size) == pytest.approx(size * 4 / 3 * ems)
+        assert t.leading(size) == round(size * 4 / 3 * ems - size * 4 / 3 - 4, 2)
+    assert (t.leading(t.TEXT_SIZE["tag"]), t.leading(t.TEXT_SIZE["body"]), t.leading(t.TEXT_SIZE["number"])) ==         (0, 2.72, 2.4)
+    hint = t.text_inst("Hint", "Collect every coin", 0, 0, 640, 128)
+    assert hint["properties"]["line-height"] == 2.72
+
+
 def test_template_measures_a_gap_against_the_players_reach():
     """The reach from PLATFORM's properties: 650 px/s, gravity 1500, no sustain, 330 px/s rise
     141 px and stay 0.87 s in the air, 286 px or 8.9 units across; a gap is easy to half of it,
@@ -620,7 +685,7 @@ def test_template_places_the_hud_on_the_grid(built):
     score = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "ScoreText")["world"]
     # The number at the number size, GAP_IN under its label, each box one line high, held to the top
     # right: the HUD is off the grid.
-    assert (score["x"], score["y"], score["width"], score["height"]) == (1696, 98, 160, 96)
+    assert (score["x"], score["y"], score["width"], score["height"]) == (1696, 98, 160, 87)
     # Two HUD boxes that meet, or one past the viewport, stop the generator and name them.
     with pytest.raises(SystemExit, match=r"ScoreText \(64,64\)-\(192,96\) overlaps TimerText .* Move TimerText down 2 units: dy=2"):
         t.no_overlap([t.hud_text("ScoreText", "Score: 0", "top-left", longest="Score: 999"),
@@ -834,17 +899,17 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0)
     assert t.GAP_OUT >= t.GROUP_RATIO * t.GAP_IN
     name, value = t.hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-left", longest="999")
-    assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 194)
+    assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 185)
     assert (name["properties"]["size"], value["properties"]["size"]) == (t.TEXT_SIZE["name"], t.TEXT_SIZE["number"])
     assert (name["properties"]["font"], value["properties"]["font"]) == ("Inter-Regular", "InterDisplay-Light")
     best = t.hud_stat("BestLabel", "BestText", "BEST", "top-right", longest="999")
     assert t.box_of(best[0])[2] == t.box_of(best[1])[2] == 1856
     assert best[1]["properties"]["horizontal-alignment"] == "right" and "Anchor" in best[1]["behaviors"]
     area = t.play_area([name, value, t.hud_text("RoundText", "ROUND 1 / 6", "top-right")])
-    assert area == (64, 194 + 32, 1920 - 128, 1016 - 226)
+    assert area == (64, 185 + 32, 1920 - 128, 1016 - 217)
     assert t.play_area([t.hud_text("Hint", "Tap", "bottom")])[1::2] == (64, 1080 - 64 - 32 - 32 - 64)
     assert t.centred(928, 544, area) == (512, 352) and t.centred(928, 544, area, lift=0.05) == (512, 320)
-    with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x790 px play area"):
+    with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x799 px play area"):
         t.centred(2000, 100, area)
     board = t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)
     t.spaced([[name, value], [best[0], best[1]], [board]])
@@ -855,7 +920,7 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert t.gap((0, 0, 10, 10), (100, 15, 200, 20)) == 5 and t.gap((0, 0, 10, 10), (40, 0, 50, 10)) == 30
     with pytest.raises(SystemExit, match=r"ScoreLabel \+ ScoreText and Board are 4 px apart, and ScoreLabel \+ "
                                          r"ScoreText holds its parts 8 px apart: groups need 1.5 times that"):
-        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 198, 928, 544, 0, 0)]])
+        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 189, 928, 544, 0, 0)]])
     # A name a unit above its number, and the board a unit under the number.
     label = t.hud_text("ScoreLabel", "SCORE", "top-left")
     number = t.hud_text("ScoreText", "0", "top-left", size=t.TEXT_SIZE["number"], dy=3)

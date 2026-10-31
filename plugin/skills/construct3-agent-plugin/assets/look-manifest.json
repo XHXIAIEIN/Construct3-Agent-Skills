@@ -7,6 +7,8 @@
     "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
     "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
     "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
+    "Construct3-Agent-Skills/docs/decisions/default-look-is-the-fallback.md",
+    "Construct3-Agent-Skills/docs/decisions/default-look.md",
     "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md",
     "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
     "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md",
@@ -14,6 +16,7 @@
     "Construct3-Agent-Skills/docs/decisions/input-controls.md",
     "Construct3-Agent-Skills/docs/decisions/landscape-viewport.md",
     "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
+    "Construct3-Agent-Skills/docs/decisions/leading-by-kind.md",
     "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
     "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
@@ -22,10 +25,9 @@
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
     "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
     "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
-    "Construct3-Agent-Skills/docs/decisions/default-look-is-the-fallback.md",
-    "Construct3-Agent-Skills/docs/decisions/default-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
+    "Construct3-Agent-Skills/docs/decisions/tabular-count-digits.md",
     "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md",
     "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
     "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md",
@@ -120,7 +122,7 @@
       "id": "type.inter",
       "status": "adopted",
       "scope": "default-look",
-      "says": "Labels are Inter in three weights, WOFF files that the generator copies from the user's font cache into fonts/ and lists; the skill and the plugin carry no font file. Light for the count the player plays for, regular for labels, tags and verbs, medium for titles and keys; a weight missing from the cache draws in system-ui with a warning, and Chinese falls back to the platform's face. Never bold: a weight is a file. In pixel art the labels are Sprite Fonts of PIXEL_FONT (type.pixel-font).",
+      "says": "Labels are Inter in three weights, WOFF files that the generator copies from the user's font cache into fonts/ and lists; the skill and the plugin carry no font file. Light for the count the player plays for, its digits tabular (type.counting-digits), regular for labels, tags and verbs, medium for titles and keys; a weight missing from the cache draws in system-ui with a warning, and Chinese falls back to the platform's face. Never bold: a weight is a file. In pixel art the labels are Sprite Fonts of PIXEL_FONT (type.pixel-font).",
       "template": "FONT",
       "value": "{'light': 'InterDisplay-Light', 'regular': 'Inter-Regular', 'medium': 'Inter-Medium'}",
       "helpers": "face(), copy_fonts()",
@@ -182,9 +184,9 @@
       "id": "type.counting-digits",
       "status": "adopted",
       "scope": "every-look",
-      "says": "A number that count_up() counts is left-aligned, so the digits before the one that changes stay put, or set in a font whose digits share one width. Inter's digits are 0.42 to 0.66 em wide, the 1 the narrowest, and Construct's Text has no tabular figures, so a centred or right-aligned count shifts its other digits on every tick of its 0.5 s; check_texts() warns of a counted Text that is not left-aligned. One official example counts a number, centred and padded to three digits.",
-      "helpers": "count_up(), counting(), check_texts()",
-      "source": "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md"
+      "says": "A number that count_up() counts is drawn in the number kind's weight, light, whose digits share one width: InterDisplay-Light.woff in the user's font cache has Inter's tabular digits as its own, so a centred or right-aligned count keeps its digits still and widens only when a digit is added. A count in a font whose digits differ in width, Inter's other weights or a stale cache file, is left-aligned, so the digits before the one that changes stay put; check_texts() reads the digits' advances from the font file and warns of a counted Text that is neither. Measured on the template's count of 0 to 999: the proportional digits move the count's left edge 30 px, the tabular ones 5 px.",
+      "helpers": "count_up(), counting(), check_texts(), tabular_ems(), digit_ems(), text_px()",
+      "source": "Construct3-Agent-Skills/docs/decisions/tabular-count-digits.md"
     },
     {
       "id": "lines.areas",
@@ -376,10 +378,20 @@
       "confirm": "review_look.py: placeholder"
     },
     {
+      "id": "type.leading",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "Lines of a Text lie LINE_EMS of their kind apart: body text 1.28 em, so a paragraph has room between its lines, the count and a banner 1.08, set tight, and every other kind 1.2. The runtime draws a Text's line 1 em + 4 px high and its line-height property adds px between lines only, so text_inst() sets line-height to the difference and the runtime draws the lines that label_box() and line_height() size the box for; a one-line label draws the same, its box sized by its kind.",
+      "template": "LINE_EMS",
+      "value": "{'body': 1.28, 'number': 1.08, 'display': 1.08}",
+      "helpers": "line_ems(), line_px(), leading(), text_inst(), label_box(), line_height()",
+      "source": "Construct3-Agent-Skills/docs/decisions/leading-by-kind.md"
+    },
+    {
       "id": "type.line-height",
       "status": "rejected",
       "scope": "every-look",
-      "says": "Lines of body text 1.5 to 1.75 times the letters apart, from web guidelines: 130 of the 137 texts of several lines in the official 2D game examples add no line height to the font's own, about 1.15 em, and none adds 0.3 em or more. text_inst() adds none either.",
+      "says": "Lines of body text 1.5 to 1.75 times the letters apart, from web guidelines: 130 of the 137 texts of several lines in the official 2D game examples add no line height to the font's own, about 1.15 em, and none adds 0.3 em or more. text_inst() adds 0.11 em to body text and less to the other kinds (type.leading).",
       "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
     },
     {

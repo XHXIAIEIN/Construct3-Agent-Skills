@@ -77,18 +77,18 @@ Scripts and rows: `.local/docs/evidence/emil-skills-for-a-game-screen/`.
 ## Decision
 
 Option 3. `type.counting-digits` is adopted, as the owner chose on
-2026-10-31: a number that `count_up()` counts is left-aligned, so the
-digits before the one that changes stay, or set in a font whose digits
-share one width. `counting()` records the Text it counts, and the
-generator's `check_texts()` warns of one that is not left-aligned. It
-warns and does not stop, because a right-aligned score in a corner still
-reads; it moves for the 0.5 s of a count.
+2026-10-31: a number that `count_up()` counts is set in a font whose
+digits share one width, or left-aligned, so the digits before the one that
+changes stay. The owner then chose tabular digits for the light weight
+that draws the count (`tabular-count-digits.md`). `counting()` records the
+Text it counts, and the generator's `check_texts()` warns of one that is
+neither. It warns and does not stop, because a right-aligned score in a
+corner still reads; it moves for the 0.5 s of a count.
 
 ## Re-evaluate when
 
-- A recording of a counted score shows its digits move by more than the
-  owner accepts, or a font with equal digit widths replaces Inter: make the
-  warning a stop, or drop it.
+- A recording of a counted score in a font whose digits differ in width
+  shows them move by more than the owner accepts: make the warning a stop.
 - The template gets a drag, a swipe or a list that scrolls: take the
   projection, the rubber-band and the velocity threshold above.
 - The template gets a sound helper: fire it in the event of its cause.

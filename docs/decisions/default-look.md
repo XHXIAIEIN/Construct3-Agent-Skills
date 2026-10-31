@@ -176,7 +176,7 @@ Open Font License 1.1 text, and each weight is a subset of that release:
 |------|--------|----------|
 | `Inter-Regular.woff` | 400 | body text, names, tags, verbs |
 | `Inter-Medium.woff` | 500 | titles, keys, button labels, banners |
-| `InterDisplay-Light.woff` | 300 | the count the player plays for |
+| `InterDisplay-Light.woff` | 300 | the count the player plays for, in tabular digits |
 
 Source: Inter 4.1, `https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip`,
 sha256 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`,
@@ -188,6 +188,10 @@ the minus, and keeps the copyright and license entries of the name table:
 ```bash
 python -m fontTools.subset extras/ttf/Inter-Regular.ttf --unicodes="U+0020-007E,U+00A0-00FF,U+0152-0153,U+2002-200A,U+2013-2014,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2030,U+2039-203A,U+20AC,U+2122,U+2190-2193,U+2212" --name-IDs="*" --flavor=woff --output-file=Inter-Regular.woff
 ```
+
+`InterDisplay-Light.woff` is subset from a copy of its TTF whose digits
+are mapped to Inter's tabular figures first, so a count keeps its width
+(`tabular-count-digits.md`).
 
 When the game has a Text or a Text input, the template copies each file
 that `FONT` names from the font cache into the project's `fonts/`, unless
