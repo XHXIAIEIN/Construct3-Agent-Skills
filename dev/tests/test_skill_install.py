@@ -234,16 +234,17 @@ def test_bootstrap_creates_the_project_from_the_template_and_installs_the_skill(
     assert (game / "AGENTS.md").read_text(encoding="utf-8") == block
 
 
-def test_bootstrap_without_the_examples_says_what_they_are_missing_for(tmp_path):
+def test_bootstrap_clones_the_optional_clones_only_with_all(tmp_path):
     beside = tmp_path / "GitHub"
-    for name in ("Construct3-RAG", "Construct3-Cookbook", "Construct3-Manual", "Construct-Addon-SDK"):
+    for name in ("Construct3-RAG", "Construct3-Cookbook", "Construct3-Manual"):
         (beside / name).mkdir(parents=True)
         (beside / name / "README.md").write_text("", encoding="utf-8")
-    code, out = bootstrap(tmp_path, "--beside", str(beside), "--no-examples")
+    code, out = bootstrap(tmp_path, "--beside", str(beside))
     assert code == 0, out
-    assert ("Construct-Example-Projects: not cloned (--no-examples), so print_sheet.py reads no official "
-            "example and search_guides.py gives each one's editor URL; run this again without --no-examples "
-            "to clone it") in out, out
+    assert "Construct-Example-Projects (about 864 MB): not cloned, since it is optional; --all clones it\n" in out, out
+    assert "Construct-Addon-SDK (about 1 MB): not cloned" in out and "git clone" not in out, out
+    code, out = bootstrap(tmp_path, "--beside", str(beside), "--all", "--dry-run")
+    assert out.count("would run git clone") == 2 and "Construct-Addon-SDK: would run" in out, out
 
 
 def test_bootstrap_puts_a_named_project_beside_the_clones_whatever_the_directory(tmp_path):
@@ -287,8 +288,12 @@ def test_bootstrap_dry_run_says_the_clones_it_would_make(tmp_path):
     code, out = bootstrap(tmp_path, "--beside", str(tmp_path / "GitHub"), "--project", str(tmp_path / "MyGame"),
                           "--dry-run")
     assert code == 0 and "nothing was done" in out, out
-    assert out.count("would run git clone") == 5 and "--depth 1 https://github.com/Scirra/Construct-Example-Projects" in out
-    assert "--depth 1 https://github.com/XHXIAIEIN/Construct3-RAG" in out
+    # The required three, with setup.py's commands: Construct3-RAG without zh-CN unless --locales names it
+    assert out.count("would run git clone") == 3 and "Construct-Example-Projects (about 864 MB): not cloned" in out
+    assert "--filter=blob:none --no-checkout https://github.com/XHXIAIEIN/Construct3-RAG" in out, out
+    assert "sparse-checkout set --no-cone '/*' '!*zh-CN*'" in out, out
+    _, full = bootstrap(tmp_path, "--beside", str(tmp_path / "GitHub"), "--locales", "zh-CN", "--dry-run")
+    assert "would run git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG" in full and "sparse" not in full
     assert f"MyGame: would be created from {tmp_path / 'GitHub' / 'Construct3-RAG' / 'data' / 'c3-new-project'}" in out
     assert not (tmp_path / "GitHub").exists() and not (tmp_path / "MyGame").exists()
 
