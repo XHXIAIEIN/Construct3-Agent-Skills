@@ -8,13 +8,13 @@ paths of their day and are left out.
 import json
 import re
 
-from tests.skill_helpers import COOKBOOK, GUIDES, NEEDS_COOKBOOK, PLUGIN, REPO
+from tests.skill_helpers import COOKBOOK, DATA, GUIDES, NEEDS_COOKBOOK, PLUGIN, REPO
 
 NAMED = re.compile(r"Construct3-Cookbook/(guides/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
 TEXTS = sorted({
     REPO / "AGENTS.md", REPO / "README.md", REPO / "README_CN.md",
     *REPO.glob("*/AGENTS.md"), *REPO.glob(".claude/agents/*.md"),
-    *(p for p in PLUGIN.rglob("*") if p.suffix in (".md", ".py") and "data" not in p.relative_to(PLUGIN).parts[:1]),
+    *(p for p in PLUGIN.rglob("*") if p.suffix in (".md", ".py")),
 } - {p for p in REPO.glob("docs/decisions/*.md")})
 
 
@@ -46,7 +46,7 @@ def test_native_first_lists_the_addons_a_row_of_the_table_replaces():
     data = json.loads((GUIDES / "design" / "native-first.json").read_text(encoding="utf-8"))
     text = (GUIDES / data["file"]).read_text(encoding="utf-8")
     table = text.split(f"\n## {data['table']}\n", 1)[1].split("\n## ", 1)[0]
-    schemas = PLUGIN / "data" / "c3-schemas"
+    schemas = DATA / "c3-schemas"
     index = json.loads((schemas / "_index.json").read_text(encoding="utf-8"))
     deprecated = json.loads((schemas / "en-US" / "_deprecated.json").read_text(encoding="utf-8"))["addons"]
     for addon, row in data["addons"].items():

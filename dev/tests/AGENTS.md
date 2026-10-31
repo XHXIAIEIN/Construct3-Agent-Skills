@@ -2,7 +2,7 @@
 
 The pytest suite is offline: it needs no agent, no editor and no network.
 It needs the Construct3-RAG clone beside this repository, whose `data/` the
-build reads and a few tests compare with the plugin's copy.
+scripts read through `--rag`.
 
 ## Rules
 
@@ -12,15 +12,12 @@ build reads and a few tests compare with the plugin's copy.
   `test_cookbook_paths.py` (the guides' own shape is checked in
   Construct3-Cookbook).
 - Assert public contracts, not private implementation fields.
-- The scripts get `plugin/` as the clone (`PLUGIN` in `skill_helpers.py`),
-  the built folder that holds the data, because that is
-  what every install and link runs them from. Raw data files come from
-  `DATA`, the sibling clone's `data/`; the guides from `GUIDES`, the
-  Cookbook clone that `CONSTRUCT3_COOKBOOK` or the folder beside the clones
-  holds, and a test that reads them is marked `NEEDS_COOKBOOK`.
-- Run `python dev/scripts/build_plugin.py` after the data of the Construct3-RAG
-  clone changed, because `test_plugin_folder.py` fails while `plugin/data/`
-  differs from a fresh build.
+- The scripts run from `plugin/` (`PLUGIN` in `skill_helpers.py`) and get
+  the Construct3-RAG clone beside the clones as `--rag` (`RAG`), because
+  that is what every install and link reads. Raw data files come from
+  `DATA`, that clone's `data/`; the guides from `GUIDES`, the Cookbook clone
+  that `CONSTRUCT3_COOKBOOK` or the folder beside the clones holds, and a
+  test that reads them is marked `NEEDS_COOKBOOK`.
 - A skip reason names the command that supplies what is missing
   (`python scripts/bootstrap.py`, `pip install pillow`). A sibling clone's
   path comes from `siblings_folder`, as `EXAMPLES` in `skill_helpers.py`

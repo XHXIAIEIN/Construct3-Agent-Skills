@@ -4,8 +4,8 @@ A link resolves when its file or folder exists beside the linking file and,
 when it carries a #fragment, the target Markdown file has a heading with
 that GitHub slug. A content review checks facts, not links, so a link to a
 heading that was renamed or never written survives without this test.
-The built data under plugin/data/ and the template copied into game projects
-are left out, because their links resolve where they are installed.
+The template copied into game projects is left out, because its links
+resolve where it is installed.
 """
 import re
 from pathlib import Path

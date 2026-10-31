@@ -22,8 +22,7 @@ import pytest
 
 
 REPO = Path(__file__).resolve().parents[2]
-# The folder the scripts get as the clone: plugin/, which holds the skill and the built data, and
-# is where every install and link runs them from (docs/decisions/plugin-repository.md)
+# The plugin folder: the skill, which every install and link runs from (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
 EVALS = REPO / "dev" / "evals"        # the skill's evals, kept out of the plugin folder
@@ -35,14 +34,16 @@ from c3project import locate_cookbook, siblings_folder  # noqa: E402
 
 # The sibling clones are beside the main clone, also when the tests run in one of its
 # worktrees: build every sibling path from siblings_folder, never from REPO.parent.
-# Construct3-RAG holds the data as files, which the build reads and a test compares with the plugin's copy.
-DATA = siblings_folder(REPO) / "Construct3-RAG" / "data"
+# The Construct3-RAG clone holds the data the scripts read, which the plugin holds no copy of
+# (docs/decisions/plugin-reads-the-clones.md); the scripts get it as --rag.
+RAG = siblings_folder(REPO) / "Construct3-RAG"
+DATA = RAG / "data"
 EXAMPLES = siblings_folder(REPO) / "Construct-Example-Projects" / "example-projects"
 NO_EXAMPLES = (f"no Construct-Example-Projects clone at {EXAMPLES.parent}; "
                f"python {(REPO / 'scripts' / 'bootstrap.py').as_posix()} clones it")
-# The Construct3-Cookbook clone that holds the event sheet guides, found as the scripts find it from plugin/:
+# The Construct3-Cookbook clone that holds the event sheet guides, found as the scripts find it:
 # CONSTRUCT3_COOKBOOK, else a Construct3-Cookbook folder beside the clones. None without one.
-COOKBOOK = locate_cookbook(PLUGIN, None)[0]
+COOKBOOK = locate_cookbook(RAG, None)[0]
 GUIDES = COOKBOOK / "guides" if COOKBOOK else None
 NO_COOKBOOK = (f"no Construct3-Cookbook clone beside the clones or in CONSTRUCT3_COOKBOOK; git clone --depth 1 "
                f"https://github.com/XHXIAIEIN/Construct3-Cookbook \"{(siblings_folder(REPO) / 'Construct3-Cookbook').as_posix()}\"")
@@ -94,7 +95,7 @@ def run(root: Path, script: str | Path, *args: str) -> tuple[int, str]:
 
 
 def tool(root: Path, name: str, *args: str) -> tuple[int, str]:
-    return run(root, f"{INSTALLED}/scripts/{name}.py", "--rag", str(PLUGIN), *args)
+    return run(root, f"{INSTALLED}/scripts/{name}.py", "--rag", str(RAG), *args)
 
 
 def check(root: Path, *args: str) -> tuple[int, str]:

@@ -2,14 +2,17 @@
 # Construct 3
 
 - Construct3-RAG: <path-to>/Construct3-RAG
+- Construct3-Agent-Skills: <path-to>/Construct3-Agent-Skills
 - Construct3-Cookbook: <path-to>/Construct3-Cookbook
 
-Construct3-Manual, Construct-Example-Projects and Construct-Addon-SDK are
-cloned beside the repository that holds it; add a line like the ones above for any that is elsewhere.
+Construct3-RAG holds the data the scripts read, and Construct3-Agent-Skills
+the skill this project's copy is refreshed from. Construct3-Manual,
+Construct-Example-Projects and Construct-Addon-SDK are cloned beside
+Construct3-RAG; add a line like the ones above for any that is elsewhere.
 Never guess these paths: the checker in step 1 stops when it does not reach
 the Construct3-RAG clone, and says what to write. Construct3-Cookbook holds
-the guides the table names; if its folder is missing, give the user the
-`git clone` command the checker prints, and clone it only once they agree.
+the guides the table names. If a clone is missing, give the user the
+`git clone` command the scripts print, and clone it only once they agree.
 
 Anything that changes what the game does is event sheet work: a new
 mechanic, a fix, a behavior, a variable, a timer, an animation, an edit to
@@ -42,4 +45,4 @@ read in parts: list its headings with their line numbers (`grep -n '^#'
 <file>`, or `Select-String '^#' <file>` in PowerShell), then read the
 section the work needs. Each whole read stays in the context of every
 later turn of the session.
-<!-- construct3-agent-plugin block: end; version 2026-10-21, stamp de6c4a2a7378 -->
+<!-- construct3-agent-plugin block: end; version 2026-10-31, stamp 5eb5d65b6c06 -->

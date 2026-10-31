@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    PLUGIN,    DATA,
+    RAG, DATA,
     REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, every_event, game_rows, collect_tween,
     warnings,
     findings, plan, add_addon, add_global_object, add_keyboard, coin_copy, pathfinding_coin, solid_board, EXAMPLES,
@@ -25,7 +25,7 @@ def test_a_passing_check_ends_with_the_command_that_checks_the_rest(built, monke
     verify_change.py itself it names no next step."""
     code, out = check(built)
     assert code == 0 and "next, run python .agents/skills/construct3-agent-plugin/scripts/verify_change.py, "         "which goes on" in out.splitlines()[-1], out
-    code, out = run(built.parent, SKILL / "scripts" / "check_project.py", "--rag", str(PLUGIN), "--project", str(built))
+    code, out = run(built.parent, SKILL / "scripts" / "check_project.py", "--rag", str(RAG), "--project", str(built))
     assert code == 0 and f"verify_change.py --project {built.resolve().as_posix()}, which" in out.splitlines()[-1], out
     assert "open_in_editor.py" not in out and "play_design.py" not in out
     monkeypatch.setenv("CONSTRUCT3_RAG_IN_VERIFY", "1")
@@ -1941,7 +1941,7 @@ def test_a_mapped_function_must_be_a_function_block(project, defined, said):
 
 @NEEDS_EXAMPLES
 def test_the_official_function_maps_example_passes(tmp_path):
-    code, out = run(tmp_path, SKILL / "scripts" / "check_project.py", "--rag", str(PLUGIN),
+    code, out = run(tmp_path, SKILL / "scripts" / "check_project.py", "--rag", str(RAG),
                     "--project", str(EXAMPLES / "function-maps"))
     assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
 
@@ -2157,10 +2157,12 @@ def test_an_invalid_project_property_is_named_in_the_editor_language(project):
 
 
 def test_offline_says_the_clone_was_not_compared(built):
-    """CONSTRUCT3_RAG_OFFLINE=1, which every run here sets, leaves a trace in the output."""
+    """CONSTRUCT3_RAG_OFFLINE=1, which every run here sets, leaves a trace in the output: the clone the skill
+    comes from, then the Construct3-RAG clone, are named first."""
     code, out = check(built)
     assert code == 0, out
-    assert f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clone at {PLUGIN} was not compared with its upstream" in out
+    assert f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clones at {REPO}, {RAG}" in out, out
+    assert "were not compared with their upstreams" in out, out
 
 
 # --- the fix loop ----------------------------------------------------------------------------------

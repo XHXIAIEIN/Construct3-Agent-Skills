@@ -4,10 +4,11 @@
 
 Copies the skill's folder from the plugin into the project's
 skills directory, and adds the Construct 3 block to the project's AGENTS.md
-when no instruction file there names the clone yet, with the clone's path
-filled in, and the line `@AGENTS.md` to CLAUDE.md. Run again, it refreshes
-every copy the project holds. The clone is the source: run from an installed
-copy, it hands over to the clone's own install.py.
+when no instruction file there names the Construct3-RAG clone yet, with the
+paths of the clones filled in, and the line `@AGENTS.md` to CLAUDE.md. Run
+again, it refreshes every copy the project holds. The Construct3-Agent-Skills
+clone is the source: run from an installed copy, it hands over to the
+clone's own install.py.
 
 Two parts of a project come from the skill's assets and sit between two
 markers there: the Construct 3 block of the instruction file, and the helpers
@@ -52,7 +53,7 @@ def append(path: Path, before: str, text: str) -> None:
 
 
 def names_clone(text: str) -> bool:
-    """Whether the Construct3-RAG line of an instruction file leads to a clone."""
+    """Whether the Construct3-RAG line of an instruction file leads to a Construct3-RAG clone."""
     found = c3.rag_line(text)
     return bool(found) and c3.is_clone(Path(found))
 
@@ -110,13 +111,14 @@ def shown(path: Path, project: Path | None) -> str:
     return path.as_posix()
 
 
-def add_block(project: Path, rag: Path, skill_path: str, replace_edited: bool, dry_run: bool) -> list[str]:
+def add_block(project: Path, rag: Path, source: Path, skill_path: str, replace_edited: bool,
+              dry_run: bool) -> list[str]:
     """The block goes into AGENTS.md once, and a block this script wrote is refreshed where it
     stands. An instruction file that names the clone without such a block is the user's: it is
     left as it is, and what it lacks is said."""
     found = c3.instruction_block(project)
     if found.state != "missing":
-        notes = refresh_block(project, rag, found, skill_path, replace_edited, dry_run)[1]
+        notes = refresh_block(project, rag, source, found, skill_path, replace_edited, dry_run)[1]
         notes += clone_note(project / found.file, rag)
         if found.file == "AGENTS.md":
             notes += lead_claude_md(project, dry_run)
@@ -139,7 +141,7 @@ def add_block(project: Path, rag: Path, skill_path: str, replace_edited: bool, d
             notes += lead_claude_md(project, dry_run)
         return notes
 
-    block = "\n".join(c3.block_lines(rag, skill_path)) + "\n"
+    block = "\n".join(c3.block_lines(rag, source, skill_path)) + "\n"
     agents = project / "AGENTS.md"
     before = text_of(agents)
     if not dry_run:
@@ -150,8 +152,9 @@ def add_block(project: Path, rag: Path, skill_path: str, replace_edited: bool, d
     notes += lead_claude_md(project, dry_run)
     # The block records the clone for this project alone, and nothing here writes outside the
     # project: the next project starts with no record of the clone anywhere on the machine.
-    notes.append(f"memory: keep 'Construct3-RAG: {rag.as_posix()}' where your client stores notes between "
-                 f"sessions; the next project starts without this block")
+    notes.append(f"memory: keep 'Construct3-RAG: {rag.as_posix()}' and '{c3.SKILLS_CLONE}: "
+                 f"{c3.clone_root(source).as_posix()}' where your client stores notes between sessions; the next "
+                 f"project starts without this block")
     return notes
 
 
@@ -177,8 +180,8 @@ def clone_note(path: Path, rag: Path) -> list[str]:
             f"the line to write is '- Construct3-RAG: {rag.as_posix()}'"]
 
 
-def refresh_block(project: Path, rag: Path, found: c3.BlockState, skill_path: str | None, replace_edited: bool,
-                  dry_run: bool) -> tuple[bool, list[str]]:
+def refresh_block(project: Path, rag: Path, source: Path, found: c3.BlockState, skill_path: str | None,
+                  replace_edited: bool, dry_run: bool) -> tuple[bool, list[str]]:
     """The project's Construct 3 block replaced with the skill's when it is an older version left
     unedited there; whether it is the skill's afterwards, and what to print. Edits between the
     markers are the project's, so an edited block is kept unless the run asks with replace_edited.
@@ -194,9 +197,9 @@ def refresh_block(project: Path, rag: Path, found: c3.BlockState, skill_path: st
     have, want = c3.versions(found.have, found.want)
     if found.state == "newer":
         return False, [f"{name}: its Construct 3 block is of {have}, newer than this skill's of {want}, and was left "
-                       f"as it is; update the clone, git -C \"{rag}\" pull --ff-only, and run this again"]
+                       f"as it is; update the clone, git -C \"{source}\" pull --ff-only, and run this again"]
     if found.state == "edited" and not replace_edited:
-        written = c3.copied_from(rag, c3.BLOCK_IN_CLONE, found.have.stamp, lambda lines: c3.block_in(lines, past=False))
+        written = c3.copied_from(source, c3.BLOCK_IN_CLONE, found.have.stamp, lambda lines: c3.block_in(lines, past=False))
         against = f"the block as written, of {have}" if written else f"the skill's of {want}"
         changes = c3.block_changes(project, found, written or c3.text_lines(BLOCK)[0])
         notes = [f"{name}: its Construct 3 block was edited between its markers, so it was left as it is. Where it "
@@ -207,7 +210,7 @@ def refresh_block(project: Path, rag: Path, found: c3.BlockState, skill_path: st
         return False, notes + [f"Move the project's own lines below the end marker, then run "
                                f"{again('--replace-edited-block')}, which writes the skill's of {want} and keeps "
                                f"the lines that name a clone's folder"]
-    c3.replace_block(project, found, rag, skill_path, dry_run)
+    c3.replace_block(project, found, rag, source, skill_path, dry_run)
     before = "" if found.have.marked else ", written before the block had markers,"
     return True, [f"{name}: {'would replace' if dry_run else 'replaced'} its Construct 3 block of {have}{before} with "
                   f"the skill's of {want}; the lines that name a clone's folder and every line outside the block "
@@ -230,7 +233,7 @@ def again(flag: str) -> str:
     return " ".join(["python", word(Path(__file__).resolve().as_posix()), *map(word, kept), flag])
 
 
-def generator(project: Path, rag: Path, replace_edited: str | None, dry_run: bool) -> tuple[bool, list[str]]:
+def generator(project: Path, source: Path, replace_edited: str | None, dry_run: bool) -> tuple[bool, list[str]]:
     """The helpers of the project's tools/build_project.py replaced with the skill's when they
     are an older version left unedited there; whether they are the skill's afterwards, and what
     to print. Edits between the markers are the game's, so they are kept unless the run asks
@@ -252,10 +255,10 @@ def generator(project: Path, rag: Path, replace_edited: str | None, dry_run: boo
     have, want = c3.versions(h.have, h.want)
     if h.state == "newer":
         return False, [f"{name}: its helpers are of {have}, newer than this skill's of {want}, "
-                       f"and were left as they are; update the clone, git -C \"{rag}\" pull --ff-only, and run this "
+                       f"and were left as they are; update the clone, git -C \"{source}\" pull --ff-only, and run this "
                        f"again"]
     if h.state == "edited":
-        copied = c3.copied_template(rag, h.have.stamp)
+        copied = c3.copied_template(source, h.have.stamp)
         lost = c3.unkept_helpers(project, copied=copied)
         if isinstance(lost, str):
             return False, [f"{name}: {lost}; its helpers were left as they are"]
@@ -334,7 +337,12 @@ def main() -> int:
     ap.add_argument("--into", metavar="DIR",
                     help=f"skills directory to install into, relative to the project or absolute (default: every "
                          f"copy the project already holds, else {DEFAULT_INTO})")
-    ap.add_argument("--rag", metavar="FOLDER", help="the plugin folder of a Construct3-Agent-Skills clone, when run from an installed copy")
+    ap.add_argument("--rag", metavar="FOLDER",
+                    help="the Construct3-RAG clone the block names (default: CONSTRUCT3_RAG, else the project's "
+                         "'Construct3-RAG:' line, else a Construct3-RAG folder beside the clones)")
+    ap.add_argument("--agent-skills", metavar="FOLDER",
+                    help="the Construct3-Agent-Skills clone the skill comes from, when run from an installed copy "
+                         "(default: the project's 'Construct3-Agent-Skills:' line, else a folder beside Construct3-RAG)")
     ap.add_argument("--no-block", action="store_true", help="do not touch the project's AGENTS.md")
     ap.add_argument("--helpers-only", action="store_true",
                     help=f"refresh only the helpers of the project's {c3.GENERATOR}, between its markers; no copy "
@@ -362,17 +370,19 @@ def main() -> int:
         sys.exit(f"no project.c3proj in {project}: --project is the folder the editor saved the project into"
                  f"{new_project(str(project))}")
 
-    rag = c3.above(SKILL_DIR, "data/c3-schemas/_index.json")
-    if rag is None or (rag / "skills" / SKILL).resolve() != SKILL_DIR:
+    source = c3.own_plugin()
+    if source is None:
         # An installed copy: the clone holds the current files, so its install.py does the work.
-        rag = c3.find_rag(project, args.rag)
-        theirs = rag / "skills" / SKILL / "scripts" / "install.py"
-        if not theirs.exists():
-            sys.exit(f"{rag} has no skills/{SKILL}: update the clone (git pull) and run again")
+        source = c3.locate_skills(project, args.agent_skills)
+        if source is None:
+            sys.exit(f"no {c3.SKILLS_CLONE} clone found, and this copy of the skill is refreshed from it; pass "
+                     f"--agent-skills <folder>, add '- {c3.SKILLS_CLONE}: <folder>' to the project's AGENTS.md, or "
+                     f"clone it beside {c3.RAG_CLONE}: git clone --depth 1 {c3.SKILLS_URL}")
         passed = sys.argv[1:]
         if not args.into:
             passed += ["--into", str(SKILL_DIR.parent)]
-        return subprocess.run([sys.executable, str(theirs), *passed]).returncode
+        return subprocess.run([sys.executable, str(source / "skills" / SKILL / "scripts" / "install.py"),
+                               *passed]).returncode
 
     if args.helpers_only or args.block_only:
         if project is None:
@@ -382,11 +392,12 @@ def main() -> int:
         if args.block_only:
             # The folder of the project's copy of the skill; without a copy, the one the block names
             held = args.into or copies(project)
-            current, lines = refresh_block(project, rag, c3.instruction_block(project),
+            current, lines = refresh_block(project, c3.find_rag(project, args.rag), source,
+                                           c3.instruction_block(project),
                                            shown(targets(project, args.into)[0], project) if held else None,
                                            args.replace_edited_block, args.dry_run)
         if args.helpers_only:
-            ok, notes = generator(project, rag, args.replace_edited_helpers, args.dry_run)
+            ok, notes = generator(project, source, args.replace_edited_helpers, args.dry_run)
             current = current and ok
             lines += notes or [f"{c3.GENERATOR}: not in {project}, so there are no helpers to refresh"]
         print("\n".join(lines))
@@ -394,14 +405,15 @@ def main() -> int:
             print("dry run: nothing was written")
         return 0 if current else 1
 
+    rag = c3.find_rag(project, args.rag)
     places = targets(project, args.into)
     for target in places:
         print(f"{shown(target, project)}: {mirror(SKILL_DIR, target, args.dry_run)}")
     skill_path = shown(places[0], project)
     if project:
         notes = unnamed_clone(project, rag) if args.no_block else \
-            add_block(project, rag, skill_path, args.replace_edited_block, args.dry_run)
-        refreshed = generator(project, rag, args.replace_edited_helpers, args.dry_run)[1]
+            add_block(project, rag, source, skill_path, args.replace_edited_block, args.dry_run)
+        refreshed = generator(project, source, args.replace_edited_helpers, args.dry_run)[1]
         for note in refreshed + notes + earlier_tools(project, skill_path):
             print(note)
     if args.dry_run:

@@ -544,7 +544,7 @@ def report_glyphs(rows: list[dict]) -> None:
 
 
 # --- icons ----------------------------------------------------------------------------------------
-NEW_PROJECT_ICONS = ROOT / "plugin" / "data" / "c3-new-project" / "icons"
+NEW_PROJECT_ICONS = RAG / "data" / "c3-new-project" / "icons"
 STUDIO = re.compile(r"viridino|forsteri", re.I)
 
 

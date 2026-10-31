@@ -575,13 +575,13 @@ def test_state_says_in_one_line_when_no_clone_names_the_inspector_values(project
     without a state step print none, because they show no inspector values."""
     agents = project / "AGENTS.md"
     agents.write_text("".join(line for line in agents.read_text(encoding="utf-8").splitlines(keepends=True)
-                              if "Construct3-RAG:" not in line), encoding="utf-8")
+                              if "Construct3-RAG:" not in line and "Construct3-Agent-Skills:" not in line),
+                      encoding="utf-8")
     browser = str(tmp_path / "no-browser.exe")
-    note = ("note: Construct3-RAG not found, so each inspector value shows the last word of its key, not its name "
-            "in --locale zh-CN. Set CONSTRUCT3_RAG to the clone's folder, or write the line "
-            "'- Construct3-RAG: <folder>' in the project's AGENTS.md, then run again.")
+    note = ("note: each inspector value shows the last word of its key, not its name in --locale zh-CN, because "
+            "there is no Construct3-RAG clone")
     code, out = run(project, SCRIPT, "--state", "Player", "--locale", "zh-CN", "--browser", browser)
-    assert code == 2 and out.splitlines()[0] == note and "could not be driven" in out, out
+    assert code == 2 and out.splitlines()[0].startswith(note) and "could not be driven" in out, out
     code, out = run(project, SCRIPT, "--preview", "--browser", browser)
     assert code == 2 and "note:" not in out, out
     plan = tmp_path / "plan.json"
@@ -589,7 +589,7 @@ def test_state_says_in_one_line_when_no_clone_names_the_inspector_values(project
         plan.write_text(json.dumps({"steps": steps}), encoding="utf-8")
         code, out = run(project, f"{INSTALLED}/scripts/preview_project.py", str(plan), "--locale", "zh-CN",
                         "--browser", browser)
-        assert code == 2 and (out.splitlines()[0] == note) == noted and "could not be driven" in out, out
+        assert code == 2 and out.splitlines()[0].startswith(note) == noted and "could not be driven" in out, out
 
 
 def test_open_in_editor_says_when_the_state_was_not_read():

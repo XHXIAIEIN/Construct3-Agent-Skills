@@ -65,7 +65,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--examples", type=Path, help="the example-projects folder of Construct-Example-Projects")
     ap.add_argument("--projects", type=Path, nargs="*", default=[], help="game project folders, counted one by one")
-    ap.add_argument("--rag", type=Path, default=Path(__file__).resolve().parents[2] / "plugin")
+    ap.add_argument("--rag", type=Path, default=c3.siblings_folder(Path(__file__).resolve().parents[2]) / c3.RAG_CLONE)
     ap.add_argument("--out", type=Path, help="write every hit and count as JSON")
     args = ap.parse_args()
     c3.utf8_output()

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, PLUGIN, REPO, SKILL, run, install, new_project, script_module
+from tests.skill_helpers import DATA, EVALS, PLUGIN, REPO, SKILL, run, install, new_project, script_module
 
 SKILL_MD = SKILL / "SKILL.md"
 LIMIT = script_module("c3project").LIMIT      # where the scripts cut their own output
@@ -106,13 +106,11 @@ def test_every_file_the_skill_names_is_in_it():
 
 
 def test_every_file_of_the_clone_the_skill_names_exists():
-    """A copy of the skill reaches these through the project's Construct3-RAG line, which names the folder that
-    holds data/; a docs/ path is this repository's, which the plugin bullet of SKILL.md says to
-    skip. A file renamed here breaks them and nothing else reports it."""
+    """A copy of the skill reaches these through the project's Construct3-RAG line, which names the
+    Construct3-RAG clone. A file renamed there breaks them and nothing else reports it."""
     for name, text in skill_docs():
-        for rel in set(re.findall(r"Construct3-RAG/([\w./-]+\.\w+)", text)):
-            where = REPO if rel.startswith("docs/") else PLUGIN
-            assert (where / rel).is_file(), f"{name} names Construct3-RAG/{rel}"
+        for rel in set(re.findall(r"Construct3-RAG/(data/[\w./-]+\.\w+)", text)):
+            assert (DATA.parent / rel).is_file(), f"{name} names Construct3-RAG/{rel}"
         for rel in set(re.findall(r"Construct3-Agent-Skills/plugin/([\w./-]+\.\w+)", text)):
             assert (PLUGIN / rel).is_file(), f"{name} names Construct3-Agent-Skills/plugin/{rel}"
 

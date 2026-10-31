@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import PLUGIN, REPO, edit, install, run, script_module, tool
+from tests.skill_helpers import RAG, REPO, edit, install, run, script_module, tool
 from tests.test_skill_review_design import SCRIPT, c, ev, function, setv, var, write
 
 c3 = script_module("c3project")
@@ -26,7 +26,7 @@ def fixture(root: Path) -> Path:
 
 def questions(root: Path) -> list[dict]:
     """The questions of the Game sheet, each with its evidence."""
-    p = c3.Project(root, PLUGIN, "en-US", c3.Findings())
+    p = c3.Project(root, RAG, "en-US", c3.Findings())
     d = rd.Design.of(p)
     return pack.packets(p, d, rd.review(d), ["Game"], rd.QUESTIONS)["questions"]
 
@@ -69,7 +69,7 @@ def test_packet_has_printed_context_called_function_and_schema(tmp_path):
 @pytest.mark.parametrize("fault", ["missing", "duplicate", "stale", "evidence", "quote", "scope", "edit", "verdict"])
 def test_invalid_answer_preserves_project_and_previous_outputs(tmp_path, fault):
     root = fixture(tmp_path)
-    args = ("--rag", str(PLUGIN), "--prepare", ".tmp/review", "--limit", "0")
+    args = ("--rag", str(RAG), "--prepare", ".tmp/review", "--limit", "0")
     code, said = run(root, SCRIPT, *args)
     assert code == 0, said
     answers = [answer(q) for q in questions(root)]
@@ -178,7 +178,7 @@ def test_shared_dependencies_invalidate(tmp_path, monkeypatch, dependency):
 
 def test_resume_and_partial_validation_preserve_saved_batches(tmp_path):
     root = fixture(tmp_path)
-    args = ("--rag", str(PLUGIN), "--sheets", "Game", "--prepare", ".tmp/review", "--limit", "1")
+    args = ("--rag", str(RAG), "--sheets", "Game", "--prepare", ".tmp/review", "--limit", "1")
     assert run(root, SCRIPT, *args)[0] == 0
     folder = root / ".tmp/review"
     old_batches = {p: p.read_bytes() for p in folder.rglob("batch-*.json")}
@@ -210,7 +210,7 @@ def test_dynamic_dispatch_needs_evidence_and_is_not_reused(tmp_path):
     with pytest.raises(ValueError):
         pack.validate([q], [answer(q)])
     path = answers_file(root, [answer(q, "insufficient_evidence") for q in qs])
-    args = ("--rag", str(PLUGIN), "--sheets", "Game", "--prepare", ".tmp/review", "--limit", "0")
+    args = ("--rag", str(RAG), "--sheets", "Game", "--prepare", ".tmp/review", "--limit", "0")
     code, said = run(root, SCRIPT, *args, "--answers", str(path))
     assert code == 0, said
     assert run(root, SCRIPT, *args, "--resume")[0] == 0
@@ -220,7 +220,7 @@ def test_dynamic_dispatch_needs_evidence_and_is_not_reused(tmp_path):
 
 def test_check_and_prepare_stop_on_failure_and_record_full_log(project):
     assert install(project)[0] == 0
-    args = ("--rag", str(PLUGIN), "--check", "--prepare", ".tmp/review", "--limit", "0")
+    args = ("--rag", str(RAG), "--check", "--prepare", ".tmp/review", "--limit", "0")
     code, said = run(project, SCRIPT, *args)
     assert code == 0, said
     path = project / ".tmp/review/current.json"
@@ -248,7 +248,7 @@ def test_comments_without_sids_keep_distinct_evidence_and_invalidate(tmp_path):
 def test_output_cannot_replace_project_sources(tmp_path):
     root = fixture(tmp_path)
     before = (root / "eventSheets/Game.json").read_bytes()
-    code, said = run(root, SCRIPT, "--rag", str(PLUGIN), "--prepare", "eventSheets")
+    code, said = run(root, SCRIPT, "--rag", str(RAG), "--prepare", "eventSheets")
     assert code == 2 and "under the game's .tmp/" in said
     assert (root / "eventSheets/Game.json").read_bytes() == before
 
@@ -294,7 +294,7 @@ def test_container_picking_and_initial_hierarchy_are_evidence(tmp_path):
 
 def test_check_without_packets_runs_full_checker_and_stops_on_failure(project):
     assert install(project)[0] == 0
-    args = ("--rag", str(PLUGIN), "--check", "--limit", "0")
+    args = ("--rag", str(RAG), "--check", "--limit", "0")
     code, said = run(project, SCRIPT, *args)
     assert code == 0 and "design:" in said, said
     assert not (project / ".tmp/scripts/review-design/current.json").exists()

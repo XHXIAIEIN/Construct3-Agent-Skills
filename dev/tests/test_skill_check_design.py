@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from tests.skill_helpers import PLUGIN, DATA, REPO, SKILL, run, script_module, folder_project
+from tests.skill_helpers import RAG, DATA, REPO, SKILL, run, script_module, folder_project
 
 REFERENCE = SKILL / "references" / "designing-a-game.md"
 SCRIPTS = SKILL / "scripts"
@@ -33,7 +33,7 @@ def example() -> dict:
 def check(tmp_path, design) -> tuple[int, str]:
     path = tmp_path / "design.json"
     path.write_text(json.dumps(design, ensure_ascii=False), encoding="utf-8")
-    return run(tmp_path, SCRIPTS / "check_design.py", str(path), "--rag", str(PLUGIN))
+    return run(tmp_path, SCRIPTS / "check_design.py", str(path), "--rag", str(RAG))
 
 
 def test_check_design_passes_the_reference_example_and_prints_its_tables(tmp_path):

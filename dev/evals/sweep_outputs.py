@@ -78,10 +78,14 @@ def first_sheet(project: Path) -> str | None:
 
 def record(args: argparse.Namespace) -> int:
     scripts = Path(args.scripts).resolve() if args.scripts else SCRIPTS
-    rag = scripts.parent.parent.parent
+    if scripts.parent.parent.parent.name != "plugin" or not (scripts / "c3project.py").is_file():
+        print(f"{scripts} is not plugin/skills/<skill>/scripts of a checkout of the clone", file=sys.stderr)
+        return 2
+    # The data is the Construct3-RAG clone's, beside the checkout whose plugin/skills/<skill>/scripts run
+    rag = c3.siblings_folder(scripts.parent.parent.parent) / c3.RAG_CLONE
     if not c3.is_clone(rag):
-        print(f"{scripts} is not plugin/skills/<skill>/scripts of a checkout of the clone: no data/c3-schemas "
-              f"three folders up", file=sys.stderr)
+        print(f"no Construct3-RAG clone at {rag}, beside the checkout of {scripts}: {c3.rag_clone_command(None)}",
+              file=sys.stderr)
         return 2
     projects = [p.parent for folder in args.examples for p in sorted(Path(folder).glob("*/project.c3proj"))]
     projects += [Path(p) for p in args.projects]

@@ -199,7 +199,7 @@ def test_a_run_that_wrote_outside_its_folder_is_not_scored(tmp_path: Path) -> No
     ("{it}/clone-0123456789ab/dev/evals/evals.json", True),
     ("/x/rag-old/dev/tests/fixtures/find_answers/big_sheet_compares_other_waves.md", True),
     ("{it}/name-the-restart-event/with_skill_2/outputs/answer.md", True),
-    ("{it}/clone-0123456789ab/plugin/data/c3-schemas/_index.json", False),
+    ("/x/Construct3-RAG/data/c3-schemas/_index.json", False),
     ("{it}/name-the-restart-event/with_skill/project/eventSheets/Game.json", False),
     ("{it}/name-the-restart-event/with_skill-1/outputs/answer.md", False),   # its own folder, misspelt
 ])

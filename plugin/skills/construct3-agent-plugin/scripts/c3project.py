@@ -26,7 +26,7 @@ import zipfile
 import zlib
 from collections import Counter
 from collections.abc import Iterator
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import NamedTuple
 
 SKILL = "construct3-agent-plugin"
@@ -329,17 +329,10 @@ def addon_json(addon: Path) -> dict | str:
 
 
 def data_texts(rag: Path, folder: str, pattern: str) -> dict[str, str]:
-    """The files of a data folder whose name matches pattern, as text by their path inside it.
-    The clone keeps the files; the Claude Code plugin keeps them in bundles beside the folder,
-    <folder>.bundle-<n>.json, each a JSON object from that path to the text (docs/decisions/plugin-folder.md)."""
+    """The files of a data folder of the clone whose name matches pattern, as text by their path inside it."""
     root = rag / folder
-    out: dict[str, str] = {}
-    for bundle in sorted(root.parent.glob(f"{root.name}.bundle-*.json")):
-        out.update(load(bundle))
-    if root.is_dir():
-        out.update({p.relative_to(root).as_posix(): p.read_text(encoding="utf-8-sig", errors="replace")
-                    for p in root.rglob(pattern) if p.is_file()})
-    return {k: out[k] for k in sorted(out) if PurePosixPath(k).match(pattern)}
+    return dict(sorted((p.relative_to(root).as_posix(), p.read_text(encoding="utf-8-sig", errors="replace"))
+                       for p in root.rglob(pattern) if p.is_file()))
 
 
 def squash(s: str) -> str:
@@ -522,23 +515,24 @@ def clone_line(text: str, name: str) -> str | None:
 
 
 def is_clone(folder: Path) -> bool:
+    """Whether folder is a Construct3-RAG clone: it holds the data the scripts read."""
     return (folder / "data" / "c3-schemas" / "_index.json").exists()
 
 
-def clone_root(rag: Path) -> Path:
-    """The clone that holds rag: its parent when rag is the plugin/ folder of a Git clone, else rag itself.
-    The plugin/ folder of a Construct3-Agent-Skills clone, linked into ~/.claude/skills/ as the Claude Code
-    plugin, is where the scripts find data/. The sibling clones lie beside the clone, not beside plugin/,
+def clone_root(folder: Path) -> Path:
+    """The clone that holds folder: its parent when folder is the plugin/ folder of a Git clone, else folder
+    itself. The plugin/ folder of a Construct3-Agent-Skills clone, linked into ~/.claude/skills/ as the Claude
+    Code plugin, is where the scripts run from. The sibling clones lie beside the clone, not beside plugin/,
     and the clone is what the update check compares with its upstream."""
-    return rag.parent if rag.name == "plugin" and (is_clone(rag.parent) or (rag.parent / ".git").exists()) else rag
+    return folder.parent if folder.name == "plugin" and (folder.parent / ".git").exists() else folder
 
 
-def siblings_folder(rag: Path) -> Path:
+def siblings_folder(folder: Path) -> Path:
     """The folder that holds the sibling clones, Construct-Example-Projects among them: the parent of the clone
-    that holds rag. A git worktree lies inside the clone it belongs to, so for a worktree it is the parent of
+    that holds folder. A git worktree lies inside the clone it belongs to, so for a worktree it is the parent of
     the main working tree. The worktree's .git file points to its git folder. The commondir file in that folder
     points to the main .git folder, whose parent is the main working tree."""
-    clone = clone_root(rag)
+    clone = clone_root(folder)
     try:
         link = (clone / ".git").read_text(encoding="utf-8") if (clone / ".git").is_file() else ""
         gitdir = clone / link.partition("gitdir:")[2].strip()    # absolute, or relative to the worktree
@@ -554,13 +548,14 @@ EXAMPLES_URL = "https://github.com/Scirra/Construct-Example-Projects"
 
 
 def examples_clone_command(rag: Path | None) -> str:
-    """The command that puts the examples clone where the scripts look for it: the clone's bootstrap.py,
-    or the git clone itself from a plugin that holds no bootstrap.py."""
+    """The command that puts the examples clone beside the Construct3-RAG clone, where the scripts look for
+    it: bootstrap.py of the Construct3-Agent-Skills clone the scripts run from, else the git clone itself."""
+    own = own_plugin()
+    bootstrap = clone_root(own) / "scripts" / "bootstrap.py" if own else None
+    if bootstrap and bootstrap.is_file() and (rag is None or siblings_folder(own) == siblings_folder(rag)):
+        return f"python {bootstrap.as_posix()}"
     if rag is None:
         return "python <Construct3-Agent-Skills>/scripts/bootstrap.py"
-    bootstrap = clone_root(rag) / "scripts" / "bootstrap.py"
-    if bootstrap.is_file():
-        return f"python {bootstrap.as_posix()}"
     return f'git clone --depth 1 {EXAMPLES_URL} "{(siblings_folder(rag) / EXAMPLES_CLONE).as_posix()}"'
 
 
@@ -580,19 +575,74 @@ def missing_example(folder: Path, override: str | None) -> str | None:
             f"{examples_clone_command(rag)} clones it{into}")
 
 
+# The data the scripts read lives in the Construct3-RAG clone, and the skill in the plugin/ folder of the
+# Construct3-Agent-Skills clone; the plugin holds no copy of the data (docs/decisions/plugin-reads-the-clones.md).
+RAG_CLONE = "Construct3-RAG"
+RAG_URL = "https://github.com/XHXIAIEIN/Construct3-RAG"
+SKILLS_CLONE = "Construct3-Agent-Skills"
+SKILLS_URL = "https://github.com/XHXIAIEIN/Construct3-Agent-Skills"
+# The oldest data the scripts read correctly: the "version" of Construct3-RAG's data/c3-schemas/_index.json.
+# Raise it when a script starts to read what a newer refresh added.
+RAG_DATA_FLOOR = "r506.3"
+
+
+def own_plugin() -> Path | None:
+    """The plugin folder these scripts run from: plugin/ of a Construct3-Agent-Skills clone, or the plugin as
+    Claude Code installed it. None for a copy of the skill in a game project."""
+    folder = above(SKILL_DIR, ".claude-plugin/plugin.json")
+    return folder if folder and (folder / "skills" / SKILL).resolve() == SKILL_DIR else None
+
+
+def plugin_in(folder: Path) -> Path | None:
+    """The plugin folder of a Construct3-Agent-Skills clone named by the clone's folder or by its plugin/."""
+    for f in (folder / "plugin", folder):
+        if (f / "skills" / SKILL / "SKILL.md").is_file():
+            return f
+    return None
+
+
+def rag_places(root: Path | None) -> list[Path]:
+    """Where a Construct3-RAG clone lies when no line names it: beside the Construct3-Agent-Skills clone
+    the scripts run from or that a `Construct3-Agent-Skills:` line names. For the plugin as Claude Code
+    installed it, that is beside the plugin's cache folder."""
+    bases = [own_plugin(), *(plugin_in(Path(c)) for _, c in instruction_lines(root, SKILLS_CLONE) if c)]
+    return list(dict.fromkeys(siblings_folder(base) / RAG_CLONE for base in bases if base))
+
+
 def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, list[str]]:
-    """The clone or None, and the places tried before it; for a script that runs without a clone."""
+    """The Construct3-RAG clone or None, and the places tried before it; for a script that runs without
+    a clone. In order: --rag, CONSTRUCT3_RAG, the `Construct3-RAG:` line of an instruction file, a
+    Construct3-RAG folder beside the clones."""
     tried = []
     candidates = [("--rag", override), ("CONSTRUCT3_RAG", os.environ.get("CONSTRUCT3_RAG"))]
-    candidates += instruction_lines(root, "Construct3-RAG")
+    candidates += instruction_lines(root, RAG_CLONE)
+    candidates += [("beside the clones", str(place)) for place in rag_places(root)]
     for source, c in candidates:
         if not c:
             continue
         if is_clone(Path(c)):
             return Path(c), tried
         tried.append(f"{source}: {c}")
-    # Run in place from the plugin folder's skills/, the data beside the skills is the script's own.
-    return above(SKILL_DIR, "data/c3-schemas/_index.json"), tried
+    return None, tried
+
+
+def locate_skills(root: Path | None, override: str | None = None, rag: Path | None = None) -> Path | None:
+    """The plugin folder of the Construct3-Agent-Skills clone the skill comes from, or None. In order: the
+    plugin folder these scripts run from; --agent-skills, the `Construct3-Agent-Skills:` line of an
+    instruction file, a Construct3-Agent-Skills folder beside the Construct3-RAG clone, rag when the
+    script found it, which a --rag of its own may name."""
+    own = own_plugin()
+    if own:
+        return own
+    candidates = [override, *(c for _, c in instruction_lines(root, SKILLS_CLONE))]
+    rag = rag or locate_rag(root, None)[0]
+    if rag:
+        candidates.append(str(siblings_folder(rag) / SKILLS_CLONE))
+    for c in candidates:
+        found = plugin_in(Path(c)) if c else None
+        if found:
+            return found
+    return None
 
 
 def instruction_lines(root: Path | None, name: str) -> list[tuple[str, str | None]]:
@@ -619,12 +669,9 @@ PITFALL_FOLDERS = ("plugins", "behaviors", "effects", "behavior-category", "plug
 
 
 def cookbook_places(rag: Path | None) -> list[Path]:
-    """Where a Cookbook clone lies when no line names it: beside the clone of the selected data, and
-    beside the Construct3-Agent-Skills clone this skill runs from."""
-    bases = [rag] if rag else []
-    plugin = above(SKILL_DIR, ".claude-plugin/plugin.json")
-    if plugin:
-        bases.append(plugin)
+    """Where a Cookbook clone lies when no line names it: beside the Construct3-RAG clone, and beside the
+    Construct3-Agent-Skills clone this skill runs from."""
+    bases = [b for b in (rag, own_plugin()) if b]
     return list(dict.fromkeys(siblings_folder(base) / COOKBOOK_CLONE for base in bases))
 
 
@@ -699,14 +746,27 @@ def guide_path(rag: Path | None, rel: str, root: Path | None = None) -> str:
     return (folder / rel).as_posix() if folder else f"{COOKBOOK_CLONE}/{GUIDES}/{rel}"
 
 
+def rag_clone_command(root: Path | None) -> str:
+    """The git clone that puts Construct3-RAG where the scripts look for it."""
+    places = rag_places(root)
+    into = places[0].as_posix() if places else f"<the folder that holds {SKILLS_CLONE}>/{RAG_CLONE}"
+    return f'git clone --depth 1 {RAG_URL} "{into}"'
+
+
+def missing_rag(root: Path | None) -> str:
+    """Why the data is not there, with the clone to get and the ways to name a clone elsewhere. The
+    plugin never clones it itself."""
+    return (f"no {RAG_CLONE} clone (it holds the schemas and the other data the scripts read). "
+            f"Run: {rag_clone_command(root)}. For a clone elsewhere, pass --rag <folder>, set CONSTRUCT3_RAG "
+            f"or add '- {RAG_CLONE}: <folder>' to the project's AGENTS.md; the folder holds "
+            f"data/c3-schemas/_index.json")
+
+
 def find_rag(root: Path | None, override: str | None) -> Path:
     rag, tried = locate_rag(root, override)
     if rag:
         return rag
-    sys.exit("Construct3-RAG not found. Pass --rag <folder>, set CONSTRUCT3_RAG, or write the line "
-             "'- Construct3-RAG: <folder>' in the project's AGENTS.md or CLAUDE.md; the folder is the "
-             "one that holds data/c3-schemas/_index.json."
-             + ("\nTried " + "; ".join(tried) if tried else ""))
+    sys.exit(missing_rag(root) + ("\nTried " + "; ".join(tried) if tried else ""))
 
 
 def skill_files(skill_dir: Path) -> dict[str, Path]:
@@ -753,22 +813,23 @@ def same_text(a: Path, b: Path) -> bool:
     return a.read_bytes().replace(b"\r\n", b"\n") == b.read_bytes().replace(b"\r\n", b"\n")
 
 
-def refresh_command(rag: Path) -> str | None:
-    """The command that makes this copy of the skill the clone's again; None when
-    the scripts run from the clone itself."""
-    source = rag / "skills" / SKILL
-    if not (source / "SKILL.md").exists() or source.resolve() == SKILL_DIR:
+def refresh_command(source: Path | None) -> str | None:
+    """The command that makes this copy of the skill the one of source, the plugin folder of the
+    Construct3-Agent-Skills clone, again; None when the scripts run from source itself or there is none."""
+    skill = source / "skills" / SKILL if source else None
+    if skill is None or not (skill / "SKILL.md").exists() or skill.resolve() == SKILL_DIR:
         return None
-    return f"python \"{source / 'scripts' / 'install.py'}\" --into \"{SKILL_DIR.parent}\""
+    return f"python \"{source / 'skills' / SKILL / 'scripts' / 'install.py'}\" --into \"{SKILL_DIR.parent}\""
 
 
-def skill_drift(rag: Path) -> str | None:
-    """A sentence when this copy of the skill, installed in a game project, is
-    not what the clone holds. The clone is the source; install.py refreshes the copy."""
-    refresh = refresh_command(rag)
+def skill_drift(source: Path | None) -> str | None:
+    """A sentence when this copy of the skill, installed in a game project, is not what source, the
+    plugin folder of the Construct3-Agent-Skills clone, holds. The clone is the source; install.py
+    refreshes the copy."""
+    refresh = refresh_command(source)
     if not refresh:
         return None
-    wanted, have = skill_files(rag / "skills" / SKILL), skill_files(SKILL_DIR)
+    wanted, have = skill_files(source / "skills" / SKILL), skill_files(SKILL_DIR)
     changed = [rel for rel, path in wanted.items() if rel not in have or not same_text(path, have[rel])]
     changed += [rel for rel in have if rel not in wanted]
     if not changed:
@@ -777,9 +838,20 @@ def skill_drift(rag: Path) -> str | None:
             f"{' ...' if len(changed) > 4 else ''}); refresh it: {refresh}")
 
 
-def note_drift(rag: Path) -> None:
-    """Print skill_drift's sentence as a note, when there is one."""
-    drift = skill_drift(rag)
+def unsourced_copy(root: Path | None, rag: Path | None = None) -> str | None:
+    """A sentence when this copy of the skill, installed in a game project, finds no
+    Construct3-Agent-Skills clone to compare itself with, so nothing says when it is stale."""
+    if own_plugin() or locate_skills(root, rag=rag):
+        return None
+    return (f"this copy of the {SKILL} skill finds no {SKILLS_CLONE} clone, so it is not compared with the "
+            f"skill's source; add '- {SKILLS_CLONE}: <folder>' to the project's AGENTS.md, or clone it beside "
+            f"{RAG_CLONE}: git clone --depth 1 {SKILLS_URL}")
+
+
+def note_drift(root: Path | None, rag: Path | None = None) -> None:
+    """Print skill_drift's sentence as a note, when there is one, for the project at root and the
+    Construct3-RAG clone the script found."""
+    drift = skill_drift(locate_skills(root, rag=rag)) or unsourced_copy(root, rag)
     if drift:
         print(f"note: {drift}")
 
@@ -787,6 +859,7 @@ def note_drift(rag: Path) -> None:
 VERSION_STAMPS = Path(tempfile.gettempdir()) / "construct3-rag-version"
 VERSION_EVERY = 2 * 3600    # seconds between two reads of one clone's upstream version or commit
 VERSION_WAIT = 8            # seconds a read may take before the check goes on without it
+PULL_WAIT = 120             # seconds a fast-forward pull of a data clone may take
 PLUGIN_MANIFEST = Path(".claude-plugin") / "plugin.json"
 GITHUB_REMOTE = re.compile(r"github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
 
@@ -930,8 +1003,9 @@ def own_work(clone: Path) -> str | None:
     return " and ".join(own) or None
 
 
-def clone_behind(rag: Path) -> tuple[str, bool] | None:
-    """A sentence when the clone's plugin version is older than its upstream's, and whether
+def clone_behind(source: Path) -> tuple[str, bool] | None:
+    """A sentence when the plugin version of the Construct3-Agent-Skills clone that holds source, the plugin
+    folder the skill comes from, is older than its upstream's, and whether
     the agent updates it now. The upstream's version is read over HTTPS from the public
     GitHub repository, anonymously, so that no credential of the user's is used. A clone with no
     commits or changes of its own gets the pull, run by the agent, and, for a copy of the
@@ -939,12 +1013,12 @@ def clone_behind(rag: Path) -> tuple[str, bool] | None:
     comes from an earlier read, so that a pull that failed offline does not hold the check
     until the next read. A clone that holds the user's work is the user's to update.
     offline(), with no upstream or with no version, nothing is said."""
-    data, rag = rag, clone_root(rag)
+    rag = clone_root(source)
     track = tracked_branch(rag)
     if not track:
         return None
     upstream, remote, branch = track
-    plugin = next((f for f in (data, rag / "plugin") if plugin_version(f)), None)
+    plugin = next((f for f in (source, rag / "plugin") if plugin_version(f)), None)
     url = plugin and manifest_url(git_out(rag, "remote", "get-url", remote) or "", branch,
                                   (plugin / PLUGIN_MANIFEST).relative_to(rag).as_posix())
     if not url:
@@ -957,35 +1031,83 @@ def clone_behind(rag: Path) -> tuple[str, bool] | None:
     own = own_work(rag)
     if own:
         return f"{lag}; it holds {own} of its own, so tell the user, who decides how to update it", False
-    refresh = refresh_command(data)
+    refresh = refresh_command(source)
     return (f"{lag}, so the scripts lack the fixes and checks of the newer version. Run git -C \"{rag}\" pull --ff-only, "
             f"{f'then {refresh}, ' if refresh else ''}then run this check again"), fresh
 
 
-def cookbook_behind(cookbook: Path | None) -> tuple[str, bool] | None:
-    """As clone_behind, for the Cookbook clone: a sentence when it lacks the newest commit of its
-    upstream branch, and whether the agent updates it now. The Cookbook has no version, and every
-    pitfall it gains is a commit, so the check compares commits. The upstream's commit is read from
-    GitHub's API, anonymously and at most every VERSION_EVERY seconds; the clone is behind when that
-    commit is not an ancestor of its HEAD, which a --depth 1 clone answers too. Without a Cookbook
-    nothing is said: the scripts print the clone command."""
-    track = cookbook and tracked_branch(cookbook)
+def commits_behind(clone: Path | None, name: str, lacks: str, misses: str) -> tuple[str, str] | None:
+    """For a clone of data that has no version, Construct3-RAG, the Cookbook or the examples: a sentence
+    when it lacks the newest commit of its upstream branch, with its level, "note", "warning" or "error".
+    Every pitfall or data refresh such a clone gains is a commit, so the check compares commits. The
+    upstream's commit is read from GitHub's API, anonymously and at most every VERSION_EVERY seconds;
+    the clone is behind when that commit is not an ancestor of its HEAD, which a --depth 1 clone
+    answers too. A clone with no work of its own is pulled here, fast-forward only, and the note says
+    so, so that one clone per repository stays current instead of old copies piling up. When the pull
+    fails, the sentence gives it to the agent: an error when the commit was read in this run, a warning
+    when it comes from an earlier read. A clone that holds the user's work is the user's to update.
+    Without a clone nothing is said: the scripts print the clone command."""
+    track = clone and tracked_branch(clone)
     if not track:
         return None
     upstream, remote, branch = track
-    url = commit_url(git_out(cookbook, "remote", "get-url", remote) or "", branch)
+    url = commit_url(git_out(clone, "remote", "get-url", remote) or "", branch)
     if not url:
         return None
-    newest, fresh = upstream_value(cookbook, url, read_commit)
+    newest, fresh = upstream_value(clone, url, read_commit)
     # An id the clone lacks fails like one that is not an ancestor: both are behind
-    if not newest or git_out(cookbook, "merge-base", "--is-ancestor", newest, "HEAD") is not None:
+    if not newest or git_out(clone, "merge-base", "--is-ancestor", newest, "HEAD") is not None:
         return None
-    lag = f"{COOKBOOK_CLONE} at {cookbook} lacks the newer guides of {upstream}"
-    own = own_work(cookbook)
+    lag = f"{name} at {clone} lacks the newer {lacks} of {upstream}"
+    own = own_work(clone)
     if own:
-        return f"{lag}; it holds {own} of its own, so tell the user, who decides how to update it", False
-    return (f"{lag}, so the agent misses the pitfalls added since. Run git -C \"{cookbook}\" pull --ff-only, "
-            "then run this check again"), fresh
+        return f"{lag}; it holds {own} of its own, so tell the user, who decides how to update it", "warning"
+    before = git_out(clone, "rev-parse", "--short", "HEAD")
+    if git_out(clone, "pull", "-q", "--ff-only", wait=PULL_WAIT) is not None:
+        return f"{lag}, so it was pulled from {before} to {git_out(clone, 'rev-parse', '--short', 'HEAD')}", "note"
+    return (f"{lag}, so {misses}. Run git -C \"{clone}\" pull --ff-only, then run this check again",
+            "error" if fresh else "warning")
+
+
+def cookbook_behind(cookbook: Path | None) -> tuple[str, str] | None:
+    """commits_behind for the Cookbook clone."""
+    return commits_behind(cookbook, COOKBOOK_CLONE, "guides", "the agent misses the pitfalls added since")
+
+
+def rag_behind(rag: Path | None) -> tuple[str, str] | None:
+    """commits_behind for the Construct3-RAG clone, which takes each refresh of the editor's data as a commit."""
+    return commits_behind(rag, RAG_CLONE, "data", "the scripts check against the schemas of an earlier refresh")
+
+
+def examples_behind(rag: Path | None) -> tuple[str, str] | None:
+    """commits_behind for the Construct-Example-Projects clone beside Construct3-RAG, when there is one."""
+    clone = rag and siblings_folder(rag) / EXAMPLES_CLONE
+    return commits_behind(clone if clone and clone.is_dir() else None, EXAMPLES_CLONE, "examples",
+                          "the example search shows projects of an earlier release")
+
+
+def data_version(rag: Path) -> str | None:
+    """The "version" of the clone's data/c3-schemas/_index.json, the Construct release it was exported from."""
+    try:
+        return json.loads((rag / "data" / "c3-schemas" / "_index.json").read_text(encoding="utf-8")).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def release_key(version: str | None) -> tuple[int, ...] | None:
+    """A Construct release such as r506.3 as numbers to compare."""
+    m = re.fullmatch(r"r(\d+(?:\.\d+)*)", version or "")
+    return version_key(m[1]) if m else None
+
+
+def data_too_old(rag: Path) -> str | None:
+    """A sentence when the clone's data is older than RAG_DATA_FLOOR, the oldest the scripts read correctly."""
+    have = data_version(rag)
+    if not release_key(have) or release_key(have) >= release_key(RAG_DATA_FLOOR):
+        return None
+    return (f"{RAG_CLONE} at {rag} holds the data of Construct {have}, and the scripts expect {RAG_DATA_FLOOR} "
+            f"or later, so some ACEs and checks are missing. Run git -C \"{rag}\" pull --ff-only, then run this "
+            f"check again")
 
 
 def project_file(root: Path, kind: str, name: str, folder: Path) -> Path | None:
@@ -1290,19 +1412,22 @@ def top_level_defs(lines: list[str]) -> list[tuple[str, int, list[str]]]:
 TEMPLATE_IN_CLONE = f"skills/{SKILL}/assets/build_project.py"
 
 
-def copied_template(rag: Path, stamp: str) -> list[str] | None:
-    """The template's lines at the newest commit of the clone whose marked part carries stamp and
-    matches it: the template a game's generator was copied from, before the game edited it. None
-    without the clone's history, as in the plugin cache, or when no commit has that stamp."""
-    return copied_from(rag, TEMPLATE_IN_CLONE, stamp, helpers_in)
+def copied_template(source: Path, stamp: str) -> list[str] | None:
+    """The template's lines at the newest commit of the Construct3-Agent-Skills clone that holds source,
+    the plugin folder the skill comes from, whose marked part carries stamp and matches it: the template
+    a game's generator was copied from, before the game edited it. None without the clone's history, as
+    in the plugin cache, or when no commit has that stamp."""
+    return copied_from(source, TEMPLATE_IN_CLONE, stamp, helpers_in)
 
 
-def copied_from(rag: Path, rel: str, stamp: str, part_in) -> list[str] | None:
-    """The lines of the clone's file rel at its newest commit whose marked part, as part_in reads it,
-    carries stamp and matches it. None without the clone's history or when no commit has that stamp."""
-    clone = clone_root(rag)
+def copied_from(source: Path, rel: str, stamp: str, part_in) -> list[str] | None:
+    """The lines of the file rel of source at the newest commit of its clone whose marked part, as
+    part_in reads it, carries stamp and matches it. None without the clone's history or when no commit
+    has that stamp."""
+    clone = clone_root(source)
     if not (clone / ".git").exists() or not shutil.which("git"):
         return None
+    rel = (source / rel).relative_to(clone).as_posix()
     log = git_out(clone, "log", "--follow", "--format=commit %H", "--name-only", "--", rel, wait=30)
     commits: list[list[str]] = []
     for line in (log or "").splitlines():
@@ -1389,7 +1514,8 @@ BLOCK_IN_CLONE = f"skills/{SKILL}/assets/game-project-block.md"
 BLOCK_BEGIN = re.compile(r"<!-- construct3-agent-plugin block: begin\b")
 BLOCK_END = re.compile(r"<!-- construct3-agent-plugin block: end\b")
 BLOCK_HEADING = "# Construct 3"
-BLOCK_PLACE = re.compile(r"^[ \t>*-]*(?:Construct3-RAG|Construct3-Cookbook|Construct3-Manual|Construct-Example-Projects|"
+BLOCK_PLACE = re.compile(r"^[ \t>*-]*(?:Construct3-RAG|Construct3-Agent-Skills|Construct3-Cookbook|Construct3-Manual|"
+                         r"Construct-Example-Projects|"
                          r"Construct-Addon-SDK|<?path-to>?)[ \t]*[:=]")
 # The skill's folder as the block names it, inside backticks; construct3-project is its former name
 BLOCK_SKILL = re.compile(r"(?<=`)(python )?([^`]*?/)construct3-(?:agent-plugin|project)(?=/)")
@@ -1519,18 +1645,22 @@ def instruction_block(root: Path, template: Path = BLOCK_TEMPLATE) -> BlockState
     return BlockState("missing")
 
 
-def block_lines(rag: Path, skill_path: str, places: list[str] | None = None,
+def block_lines(rag: Path, source: Path, skill_path: str, places: list[str] | None = None,
                 template: Path = BLOCK_TEMPLATE) -> list[str]:
-    """The template's block as install.py writes it, markers included: the clone's path on its
-    Construct3-RAG line, or in place of that line the given lines that name a clone's folder, and
-    the folder the skill is installed in."""
+    """The template's block as install.py writes it, markers included: the paths of the Construct3-RAG
+    clone, of the Construct3-Agent-Skills clone that holds source and of the Cookbook clone on their
+    lines, or in place of those lines the given lines that name a clone's folder, and the folder the
+    skill is installed in. A given Construct3-RAG line that does not lead to a clone, as the blocks
+    written while plugin/ held the data name that folder, gives way to the template's."""
     lines = text_lines(template)[0]
     if lines and not lines[-1]:
         lines.pop()
     cookbook = locate_cookbook(rag)[0] or cookbook_places(rag)[0]
-    lines = [line.replace("<path-to>/Construct3-RAG", rag.as_posix())
+    lines = [line.replace(f"<path-to>/{RAG_CLONE}", rag.as_posix())
+             .replace(f"<path-to>/{SKILLS_CLONE}", clone_root(source).as_posix())
              .replace(f"<path-to>/{COOKBOOK_CLONE}", cookbook.as_posix()).replace(BLOCK_SKILL_DEFAULT, skill_path)
              for line in lines]
+    places = [line for line in places or [] if not (rag_line(line) and not is_clone(Path(rag_line(line))))]
     if places:
         # The block's own lines stay, and a line the template adds for another clone joins them
         at = [i for i, line in enumerate(lines) if BLOCK_PLACE.match(line)]
@@ -1540,7 +1670,7 @@ def block_lines(rag: Path, skill_path: str, places: list[str] | None = None,
     return lines
 
 
-def replace_block(root: Path, found: BlockState, rag: Path, skill_path: str | None = None,
+def replace_block(root: Path, found: BlockState, rag: Path, source: Path, skill_path: str | None = None,
                   dry_run: bool = False) -> None:
     """Put the template's block, markers included, in place of the one found: its lines that name a
     clone's folder stay, and so do every line outside the block, the line ends and a byte order
@@ -1552,7 +1682,7 @@ def replace_block(root: Path, found: BlockState, rag: Path, skill_path: str | No
         named = next((m for m in map(BLOCK_SKILL.search, part) if m), None)
         skill_path = named[2] + SKILL if named else BLOCK_SKILL_DEFAULT
     places = [line for line in part if BLOCK_PLACE.match(line)]
-    text = newline.join(lines[:found.have.begin] + block_lines(rag, skill_path, places) + lines[found.have.end + 1:])
+    text = newline.join(lines[:found.have.begin] + block_lines(rag, source, skill_path, places) + lines[found.have.end + 1:])
     if not dry_run:
         write_whole(path, text, bom)
 

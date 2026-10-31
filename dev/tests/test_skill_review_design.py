@@ -4,7 +4,7 @@ the parsed sheets; the projects are written here, the smallest the Project class
 from collections.abc import Sequence
 from pathlib import Path
 
-from tests.skill_helpers import PLUGIN, REPO, SKILL, edit, run, streams, script_module, folder_project
+from tests.skill_helpers import RAG, REPO, SKILL, edit, run, streams, script_module, folder_project
 
 SCRIPT = SKILL / "scripts" / "review_design.py"
 # Fifteen-digit sids, as the editor writes them
@@ -62,7 +62,7 @@ def write(root: Path, sheets: dict, types: dict, layouts: dict | None = None) ->
 
 def found(root: Path, rule: str) -> list[tuple]:
     """(rule, variant, ask, sheet, event) of every candidate `rule` kept, findings and questions."""
-    d = rd.Design.of(c3.Project(root, PLUGIN, "en-US", c3.Findings()))
+    d = rd.Design.of(c3.Project(root, RAG, "en-US", c3.Findings()))
     return [(f["rule"], f["variant"], f["ask"], f["sheet"], f["event"]) for f in rd.review(d) if f["rule"] == rule]
 
 
@@ -246,7 +246,7 @@ def test_numbering_follows_print_sheet(tmp_path):
 # --- the run ------------------------------------------------------------------------------
 def test_review_prints_findings_then_questions_and_exits_0(tmp_path):
     root = tictactoe(tmp_path)
-    code, out = run(root, SCRIPT, "--rag", str(PLUGIN))
+    code, out = run(root, SCRIPT, "--rag", str(RAG))
     assert code == 0, out
     lines = out.splitlines()
     assert lines[0] == "== Game", out
@@ -264,7 +264,7 @@ def test_review_writes_the_questions_as_a_brief_for_a_reviewer_that_has_not_seen
     prints them, and the form of the reply; the run names it on a brief: line above its summary, where
     verify_change.py keeps it (docs/decisions/design-judge-agent.md)."""
     root = tictactoe(tmp_path)
-    code, out = run(root, SCRIPT, "--rag", str(PLUGIN))
+    code, out = run(root, SCRIPT, "--rag", str(RAG))
     assert code == 0, out
     lines = out.splitlines()
     assert lines[-3].startswith("brief: if you can start a sub-agent, give it ") and "brief.md" in lines[-3], out
@@ -278,7 +278,7 @@ def test_review_writes_the_questions_as_a_brief_for_a_reviewer_that_has_not_seen
 def test_a_yes_about_what_the_change_did_not_touch_goes_to_the_hand_over(tmp_path):
     """Iteration 68: 8 of 32 runs moved a global that their request never named into a local, because the owner
     question asked about it and the review said to change each yes; that broke an event the user had."""
-    code, out = run(tictactoe(tmp_path), SCRIPT, "--rag", str(PLUGIN))
+    code, out = run(tictactoe(tmp_path), SCRIPT, "--rag", str(RAG))
     assert code == 0, out
     header = next(line for line in out.splitlines() if line.startswith("questions:"))
     assert "your change wrote" in header and "goes in the hand-over for the user, unchanged" in header, header
@@ -287,19 +287,19 @@ def test_a_yes_about_what_the_change_did_not_touch_goes_to_the_hand_over(tmp_pat
 
 def test_review_cuts_findings_at_the_limit_and_keeps_the_questions(tmp_path):
     root = card_game(tmp_path)
-    code, out = run(root, SCRIPT, "--rag", str(PLUGIN), "--limit", "1800")
+    code, out = run(root, SCRIPT, "--rag", str(RAG), "--limit", "1800")
     assert code == 0 and "more lines of findings not printed" in out and "questions:" in out, out
 
 
 def test_review_refuses_a_sheet_it_does_not_have(tmp_path):
     """The refusal answers the model, so it prints on stdout; the exit code stays 2."""
-    p = streams(tictactoe(tmp_path), SCRIPT, "--rag", str(PLUGIN), "--sheets", "Gmae")
+    p = streams(tictactoe(tmp_path), SCRIPT, "--rag", str(RAG), "--sheets", "Gmae")
     assert p.returncode == 2 and p.stderr == "", p.stderr
     assert "no event sheet named 'Gmae'; closest: Game" in p.stdout, p.stdout
 
 
 def test_review_without_a_project(tmp_path):
-    code, out = run(tmp_path, SCRIPT, "--rag", str(PLUGIN))
+    code, out = run(tmp_path, SCRIPT, "--rag", str(RAG))
     assert code == 1 and "no project.c3proj" in out, out
 
 

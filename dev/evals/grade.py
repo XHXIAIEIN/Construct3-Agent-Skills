@@ -100,10 +100,9 @@ sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
 import check_design as cd           # noqa: E402
 import game_model as gm             # noqa: E402
-# The scripts get plugin/ as the clone, which holds the skill and the built data; the raw data
-# files are in the Construct3-RAG clone beside this one (docs/decisions/plugin-repository.md)
-PLUGIN = REPO / "plugin"
-DATA = c3.siblings_folder(REPO) / "Construct3-RAG" / "data"
+# The scripts read the data from the Construct3-RAG clone beside this one (docs/decisions/plugin-reads-the-clones.md)
+RAG = c3.siblings_folder(REPO) / "Construct3-RAG"
+DATA = RAG / "data"
 CASES = {c["name"]: c for c in json.loads((Path(__file__).parent / "evals.json").read_text(encoding="utf-8"))["evals"]}
 # The stand-in's variables, before and after BEATS, and the static ones of its pause menu
 ORIGINAL_GLOBALS = {"score", "COIN_COUNT", "ROUND_COINS", "beat", "paused", "pick", "mx", "my"}
@@ -123,7 +122,7 @@ def checker(project: Path) -> tuple[int, str]:
     """check_project.py's exit code and output on the project. A run of an old_ arm installed the older skill,
     whose block the current checker warns about, so that one warning is left out of its output."""
     p = subprocess.run([sys.executable, str(SKILL / "scripts" / "check_project.py"),
-                        "--project", str(project), "--rag", str(PLUGIN)],
+                        "--project", str(project), "--rag", str(RAG)],
                        capture_output=True, text=True, encoding="utf-8",
                        env=dict(os.environ, PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_NO_RECORD="1"))
     out = (p.stdout + p.stderr).strip()
@@ -1258,7 +1257,7 @@ def grade_hud_over_a_scrolling_level(run: Path) -> list[tuple[bool, str]]:
 
 def triggered(project: Path):
     """A test of whether a condition is a trigger, from the clone's schemas."""
-    p = c3.Project(project, PLUGIN, "en-US", c3.Findings())
+    p = c3.Project(project, RAG, "en-US", c3.Findings())
     return lambda c: bool((p.ace_entry("conditions", c) or {}).get("isTrigger"))
 
 
@@ -1543,7 +1542,7 @@ def drop_events(example: str) -> set[int]:
     for end in ("", "-js", "-ts"):
         if (folder / f"{example}{end}" / "project.c3proj").is_file():
             out = subprocess.run([sys.executable, str(SKILL / "scripts" / "print_sheet.py"), "--project",
-                                  str(folder / f"{example}{end}"), "--rag", str(PLUGIN), "--limit", "0"],
+                                  str(folder / f"{example}{end}"), "--rag", str(RAG), "--limit", "0"],
                                  capture_output=True, text=True, encoding="utf-8",
                                  env=dict(os.environ, PYTHONIOENCODING="utf-8")).stdout
             numbers |= {int(n) for n in re.findall(r"^\s*(\d+)\s+.*\bOn \w+ drop\b", out, re.M)}
@@ -1651,7 +1650,7 @@ def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
     design = project / "tools" / "design.json"
     if design.exists():
         p = subprocess.run([sys.executable, str(SKILL / "scripts" / "check_design.py"), str(design), "--project",
-                            str(project), "--rag", str(PLUGIN), "--limit", "0"],
+                            str(project), "--rag", str(RAG), "--limit", "0"],
                            capture_output=True, text=True, encoding="utf-8", env=dict(os.environ, PYTHONIOENCODING="utf-8"))
         lines = (p.stdout + p.stderr).strip().splitlines()
         checked = (p.returncode == 0, f"exit {p.returncode}: {lines[-1] if lines else 'no output'}")
@@ -1834,7 +1833,7 @@ def grade_fix_open_errors_past_the_message(run: Path) -> list[tuple[bool, str]]:
     if spark is None:
         return results + [(False, f"Collect creates no Sprite but the coin: {sorted(made) or 'nothing'}")] * 2 \
             + [game_sids(run, rows)]
-    p = c3.Project(project, PLUGIN, "en-US", c3.Findings())
+    p = c3.Project(project, RAG, "en-US", c3.Findings())
     plugin = p.schema("plugins", "Sprite")
     expressions = p.expressions_of(plugin) | p.common_expressions_of(plugin)
     ivars = [v["name"] for v in types[spark].get("instanceVariables", [])]

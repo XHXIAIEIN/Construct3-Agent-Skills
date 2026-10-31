@@ -8,14 +8,17 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import (PLUGIN, DATA, GUIDES, NEEDS_COOKBOOK, REPO, SKILL, INSTALLED, SHEET, run, streams, tool,
+from tests.skill_helpers import (RAG, DATA, GUIDES, NEEDS_COOKBOOK, REPO, SKILL, INSTALLED, SHEET, run, streams, tool,
                                   check, edit)
 
 
 @pytest.fixture
 def skill_only(tmp_path) -> Path:
-    """A folder that holds the skill and no project: an addon is looked up by its own name."""
+    """A folder that holds the skill and no project: an addon is looked up by its own name. Its AGENTS.md
+    names this checkout as the copy's source, as install.py writes it, so that the copy is compared with
+    the scripts under test and not with a clone beside Construct3-RAG."""
     shutil.copytree(SKILL, tmp_path / INSTALLED, ignore=shutil.ignore_patterns("__pycache__"))
+    (tmp_path / "AGENTS.md").write_text(f"- Construct3-Agent-Skills: {REPO}\n", encoding="utf-8")
     return tmp_path
 
 
@@ -144,7 +147,7 @@ def test_an_object_of_a_plugin_the_schemas_lack_is_named_as_third_party_on_stdou
         p["objectTypes"]["items"].append("Gadget")
         p["usedAddons"].append({"type": "plugin", "id": "GadgetPlugin", "name": "Gadget", "author": "Someone", "bundled": False})
     edit(project, "project.c3proj", listed)
-    p = streams(project, f"{INSTALLED}/scripts/lookup_ace.py", "--rag", str(PLUGIN), "Gadget")
+    p = streams(project, f"{INSTALLED}/scripts/lookup_ace.py", "--rag", str(RAG), "Gadget")
     assert p.returncode == 1 and p.stderr == "", (p.stdout, p.stderr)
     assert p.stdout == "the clone has no schema for Gadget, a third-party addon: nothing to look up\n", p.stdout
 
@@ -267,7 +270,7 @@ def test_ace_lookup_prints_a_miss_on_stdout(built):
     which is how two Doubao runs read it."""
 
     def lookup(*words: str) -> subprocess.CompletedProcess:     # tool() joins stdout and stderr
-        return streams(built, f"{INSTALLED}/scripts/lookup_ace.py", "--rag", str(PLUGIN), *words)
+        return streams(built, f"{INSTALLED}/scripts/lookup_ace.py", "--rag", str(RAG), *words)
     p = lookup("Sprite", "aniamtion")
     assert p.returncode == 1
     assert p.stdout.startswith("nothing under Sprite has every word of 'aniamtion'\n") and "set-animation" in p.stdout

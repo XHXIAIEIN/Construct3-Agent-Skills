@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, PLUGIN, SHEET, SKILL, edit, tool
+from tests.skill_helpers import EVALS, RAG, SHEET, SKILL, edit, tool
 
 sys.path.insert(0, str(SKILL / "scripts"))
 sys.path.insert(0, str(EVALS))
@@ -78,7 +78,7 @@ class Editor:
 
 def drive(project: Path, monkeypatch: pytest.MonkeyPatch, editor: Editor, *args: str) -> tuple[int, str]:
     monkeypatch.setattr(verify_change.Run, "script", editor)
-    monkeypatch.setattr(sys, "argv", ["verify_change.py", "--project", str(project), "--rag", str(PLUGIN), *args])
+    monkeypatch.setattr(sys, "argv", ["verify_change.py", "--project", str(project), "--rag", str(RAG), *args])
     out = []
     monkeypatch.setattr("builtins.print", lambda *a, **k: out.append(" ".join(map(str, a))))
     code = verify_change.main()

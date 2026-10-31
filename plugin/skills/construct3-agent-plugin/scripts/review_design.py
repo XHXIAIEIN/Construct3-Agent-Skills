@@ -1019,7 +1019,7 @@ def main() -> int:
     findings = c3.Findings()
     c3.stop_with_a_sentence("review_design.py", findings)
     project = c3.Project.open(args, findings)
-    c3.note_drift(project.rag)
+    c3.note_drift(project.root, project.rag)
     if args.check and not args.prepare:
         import design_review
         try:

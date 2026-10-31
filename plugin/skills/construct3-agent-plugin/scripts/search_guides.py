@@ -136,8 +136,9 @@ def main() -> int:
     args = ap.parse_args()
     c3.utf8_output()
     root = c3.find_project(args.project)
-    rag = c3.find_rag(root if root and (root / "project.c3proj").exists() else None, args.rag)
-    c3.note_drift(rag)
+    game = root if root and (root / "project.c3proj").exists() else None
+    rag = c3.find_rag(game, args.rag)
+    c3.note_drift(game, rag)
 
     lines: list[str] = []
     guides = c3.guides_folder(rag, root, args.cookbook) if args.pitfalls else None

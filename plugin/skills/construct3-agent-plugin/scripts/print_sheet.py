@@ -1136,7 +1136,7 @@ def main() -> int:
     findings = c3.Findings()
     c3.stop_with_a_sentence("print_sheet.py", findings)
     project = c3.Project.open(args, findings)
-    c3.note_drift(project.rag)
+    c3.note_drift(project.root, project.rag)
 
     sheets = project.load_listed("eventSheets")
     files = project.listed_files("eventSheets")

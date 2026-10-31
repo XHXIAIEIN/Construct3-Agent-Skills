@@ -133,7 +133,7 @@ def cli(project: Path, rag: Path) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    rag = HERE.parents[1] / "plugin"
+    rag = c3.siblings_folder(HERE.parents[1]) / c3.RAG_CLONE
     default = c3.siblings_folder(rag) / "Construct-Example-Projects" / "example-projects"
     ap.add_argument("--examples", default=str(default), metavar="FOLDER",
                     help=f"a folder of folder projects (default: {default})")
