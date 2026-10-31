@@ -1160,7 +1160,9 @@ def labeler(project: Path | None, locale: str) -> tuple[Callable[[str], str], st
                           f"{locale}, because there is {c3.missing_rag(project)}; then run again.")
     packs = rag / "data" / "c3-lang"
     if not (packs / f"{locale}.json").is_file():
-        raise ValueError(f"no language pack for --locale {locale}; the clone has: "
+        listed = locale in c3.load(rag / "data" / "c3-schemas" / "_index.json").get("languages", [])
+        raise ValueError(c3.locale_missing(rag, locale) if listed else
+                         f"no language pack for --locale {locale}; the clone has: "
                          f"{', '.join(sorted(p.stem for p in packs.glob('*.json')))}")
     text = c3.load(packs / f"{locale}.json")["text"]
 

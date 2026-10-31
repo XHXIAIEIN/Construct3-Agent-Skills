@@ -573,8 +573,7 @@ def reference(design: gm.Design, rag: Path | None) -> str | None:
     if not isinstance(ref, dict) or not isinstance(ref.get("example"), str):
         return None
     if not rag:
-        return (f"Construct3-RAG not found; pass --rag <the Construct3-RAG clone> or fill in the project's "
-                f"Construct3-RAG: line, or clone it: {c3.rag_clone_command(None)}")
+        return c3.missing_rag(None)
     ids = {k.removesuffix(".json") for k in c3.data_texts(rag, "data/c3-examples/en-US", "*.json")}
     if not ids:
         return f"{c3.shown_path(rag)} holds no data/c3-examples; pass --rag the Construct3-RAG clone"

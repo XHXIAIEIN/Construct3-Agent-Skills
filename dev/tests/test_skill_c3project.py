@@ -36,11 +36,89 @@ def test_script_command_names_the_script_and_the_project_from_the_current_direct
     assert c3.open_command(spaced).endswith(f' --project "{spaced.resolve().as_posix()}" --preview')
 
 
-def test_missing_examples_bootstrap_names_the_tool_repository():
-    """Run from plugin/ of a Construct3-Agent-Skills clone, the clone's bootstrap.py clones the examples beside it."""
-    bootstrap = f"python {(REPO / 'scripts' / 'bootstrap.py').as_posix()}"
-    assert c3.examples_clone_command(None) == bootstrap
-    assert c3.examples_clone_command(c3.siblings_folder(REPO) / "Construct3-RAG") == bootstrap
+def rag_clone(folder: Path, locales: tuple[str, ...] = ("en-US",)) -> Path:
+    """A folder that counts as a Construct3-RAG clone, whose index lists en-US and zh-CN and which holds the
+    schemas of locales only, as a clone made without zh-CN does."""
+    schemas = folder / "data" / "c3-schemas"
+    schemas.mkdir(parents=True)
+    (schemas / "_index.json").write_text('{"languages": ["en-US", "zh-CN"]}', encoding="utf-8")
+    for locale in locales:
+        (schemas / locale).mkdir()
+    return folder
+
+
+def running_plugin(folder: Path, monkeypatch) -> Path:
+    """A plugin folder at folder that the scripts run from."""
+    (folder / ".claude-plugin").mkdir(parents=True)
+    (folder / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+    (folder / "skills" / "construct3-agent-plugin").mkdir(parents=True)
+    monkeypatch.setattr(c3, "SKILL_DIR", (folder / "skills" / "construct3-agent-plugin").resolve())
+    return folder
+
+
+def test_construct3_rag_is_found_by_flag_variable_line_home_then_beside_the_clones(tmp_path, monkeypatch):
+    """Run from plugin/ of a Construct3-Agent-Skills clone, a developer's checkout: a clone in the home comes
+    before one beside the checkout, and a flag, the variable and a line come before both."""
+    plugin = running_plugin(tmp_path / "GitHub" / "Construct3-Agent-Skills" / "plugin", monkeypatch)
+    (plugin.parent / ".git").mkdir()
+    home = tmp_path / "home"
+    monkeypatch.setenv("CONSTRUCT3_HOME", str(home))
+    monkeypatch.delenv("CONSTRUCT3_RAG", raising=False)
+    game = tmp_path / "game"
+    game.mkdir()
+    monkeypatch.chdir(game)
+    assert c3.clone_places("Construct3-RAG", game) == [("CONSTRUCT3_HOME", home / "Construct3-RAG"),
+                                                       ("beside the clones", tmp_path / "GitHub" / "Construct3-RAG")]
+    assert c3.locate_rag(game, None) == (None, [f"CONSTRUCT3_HOME: {home / 'Construct3-RAG'}",
+                                               f"beside the clones: {tmp_path / 'GitHub' / 'Construct3-RAG'}"])
+    beside = rag_clone(tmp_path / "GitHub" / "Construct3-RAG")
+    assert c3.locate_rag(game, None)[0] == beside
+    in_home = rag_clone(home / "Construct3-RAG")
+    assert c3.locate_rag(game, None)[0] == in_home
+    line = rag_clone(tmp_path / "line")
+    (game / "AGENTS.md").write_text(f"- Construct3-RAG: {line.as_posix()}\n", encoding="utf-8")
+    assert c3.locate_rag(game, None)[0] == line
+    variable = rag_clone(tmp_path / "variable")
+    monkeypatch.setenv("CONSTRUCT3_RAG", str(variable))
+    assert c3.locate_rag(game, None)[0] == variable
+    flag = rag_clone(tmp_path / "flag")
+    assert c3.locate_rag(game, str(flag))[0] == flag
+
+
+def test_an_installed_plugin_looks_in_the_home_then_beside_its_cache_folder(tmp_path, monkeypatch):
+    """Claude Code's plugin cache holds no clone of Construct3-Agent-Skills: the home, ~/Construct3 without
+    CONSTRUCT3_HOME, comes first, and the folder beside the version folders, where installs made before the
+    home put the clones, comes last."""
+    plugin = running_plugin(tmp_path / "cache" / "marketplace" / "construct3" / "1.2.0", monkeypatch)
+    monkeypatch.delenv("CONSTRUCT3_HOME", raising=False)
+    monkeypatch.delenv("CONSTRUCT3_RAG", raising=False)
+    monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "user"))
+    monkeypatch.chdir(tmp_path)
+    home = tmp_path / "user" / "Construct3"
+    assert c3.clone_places("Construct3-RAG", None) == [("the home", home / "Construct3-RAG"),
+                                                       ("beside the plugin cache", plugin.parent / "Construct3-RAG")]
+    old = rag_clone(plugin.parent / "Construct3-RAG")
+    assert c3.locate_rag(None, None)[0] == old
+    assert c3.locate_cookbook(old)[1] == [f"the home: {home / 'Construct3-Cookbook'}",
+                                          f"beside the clones: {plugin.parent / 'Construct3-Cookbook'}"]
+    new = rag_clone(home / "Construct3-RAG")
+    assert c3.locate_rag(None, None)[0] == new
+    assert c3.locate_cookbook(new)[0] is None
+    assert cookbook(home / "Construct3-Cookbook") == c3.locate_cookbook(new)[0]
+
+
+def test_a_locale_the_clone_left_out_gives_the_command_that_adds_it(tmp_path):
+    """setup.py clones Construct3-RAG without zh-CN unless asked, and the index still lists it: the message
+    names the sparse checkout to disable, not the languages of the index. A locale the index does not list
+    gives the ones the clone holds."""
+    rag = rag_clone(tmp_path / "Construct3-RAG")
+    assert c3.checked_out_locales(rag) == ["en-US"]
+    assert c3.locale_missing(rag, "en-US") is None
+    assert c3.locale_missing(rag, "zh-CN") == (
+        f"the Construct3-RAG clone at {rag.as_posix()} was cloned without the zh-CN files; run "
+        f'git -C "{rag.as_posix()}" sparse-checkout disable to add every language (about 4 MB), then run this again')
+    assert c3.locale_missing(rag, "xx-XX") == "no schemas for --locale xx-XX; the clone has: en-US"
 
 
 def cookbook(folder: Path) -> Path:
@@ -60,7 +138,7 @@ def test_the_cookbook_is_found_by_flag_variable_line_then_beside_the_clones(tmp_
     monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
     monkeypatch.chdir(game)
     assert c3.guides_folder(rag, game) is None
-    assert f'"{(tmp_path / "Construct3-Cookbook").as_posix()}"' in c3.missing_cookbook(rag)
+    assert "scripts/setup.py prints the clone to make; for a clone elsewhere, set CONSTRUCT3_COOKBOOK" in         c3.missing_cookbook(rag)
 
     # A folder of that name without the guides, such as a private workspace, is not a clone
     (tmp_path / "Construct3-Cookbook").mkdir()

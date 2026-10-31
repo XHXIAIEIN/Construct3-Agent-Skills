@@ -1,7 +1,7 @@
 ---
 name: construct3-agent-plugin
 description: Check, read, look up and generate the JSON of a Construct 3 folder project (project.c3proj, eventSheets, layouts, objectTypes, families) against the schemas of every Construct 3 condition, action, expression and effect and the rules the Construct 3 editor applies when it opens a project. Use this skill whenever you write or edit an event sheet or any other project file of a Construct 3 game, need the exact id, parameters and JSON of a condition, action or expression, want to read an event sheet or an official example as events instead of JSON, generate a whole project from a script, or the editor refuses to open or preview a project, even if the user only says "add a mechanic", "fix this event" or pastes an editor error.
-compatibility: Requires Python 3.10+ and a Construct3-RAG clone, whose data/c3-schemas the scripts read; without one they print the git clone command. art.py needs Pillow for the pictures of an image tool, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
+compatibility: Requires Python 3.10+, git, and clones of Construct3-RAG, whose data/c3-schemas the scripts read, Construct3-Cookbook and Construct3-Manual; scripts/setup.py lists the missing ones with their clone commands. art.py needs Pillow for the pictures of an image tool, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
 metadata:
   source: https://github.com/XHXIAIEIN/Construct3-Agent-Skills
 ---
@@ -20,14 +20,15 @@ the expressions, so it can refuse a project that the checker passes.
   `python .agents/skills/construct3-agent-plugin/scripts/check_project.py`.
   The scripts find the project from the current directory upward;
   `--project <folder>` names another one.
-- The scripts read the data from a Construct3-RAG clone. They find it
-  through `--rag`, the `CONSTRUCT3_RAG` environment variable, the
-  `Construct3-RAG: <folder>` line in the project's `AGENTS.md` or
-  `CLAUDE.md`, or a `Construct3-RAG` folder beside the clones. Without one
-  they stop with the `git clone` command that puts it there: give it to the
-  user, and clone only once they agree. `check_project.py` compares the
-  clones with their upstreams and pulls a data clone that holds no work of
-  its own; `CONSTRUCT3_RAG_OFFLINE=1` stops that.
+- The scripts read the data from a Construct3-RAG clone, and the agent
+  reads the guides of a Construct3-Cookbook clone and the manual of a
+  Construct3-Manual clone. The scripts find a clone through its flag, such
+  as `--rag`, its variable, such as `CONSTRUCT3_RAG`, its line in the
+  project's `AGENTS.md` or `CLAUDE.md`, such as `Construct3-RAG: <folder>`,
+  then in the home, `~/Construct3` or the folder that `CONSTRUCT3_HOME`
+  names. `check_project.py` compares the clones with their upstreams and
+  pulls a clone that holds no work of its own;
+  `CONSTRUCT3_RAG_OFFLINE=1` stops that.
 - As the Claude Code plugin, the skill is `construct3:construct3-agent-plugin`
   and the scripts run from this folder, so the game project needs no copy.
   In the files of this skill, `Construct3-RAG/` names the clone the scripts
@@ -42,6 +43,12 @@ the expressions, so it can refuse a project that the checker passes.
 
 ## Before the first edit
 
+- On first use, or when a script says a clone is missing, run
+  `python scripts/setup.py`, with `--locales zh-CN` for a user who works in
+  Chinese. It downloads nothing. If its last line starts with `missing:`,
+  give the user every line it printed in one message, ask whether they
+  already have any of the clones elsewhere, and run the clone commands
+  only once they agree.
 - The project has no `.git`: `git init` in it before the first edit, so that
   every change can be seen and undone.
 - Commit on the branch `agents`, never on the user's own branch: `git switch
@@ -72,8 +79,9 @@ the expressions, so it can refuse a project that the checker passes.
 
 [references/scripts.md](references/scripts.md) lists the scripts for a new
 game's design, the look, sounds, the facts that earlier checks showed about
-the game, a picture of a sheet, Advanced Random, export, packing, art, a new
-project and the install, with the generator template and the runtime probe.
+the game, a picture of a sheet, Advanced Random, export, packing, art, the
+first-use check, a new project and the install, with the generator template
+and the runtime probe.
 
 Each script prints its options and examples with `--help`. A script stops
 at about 10 000 characters and its last line says how to get the rest;

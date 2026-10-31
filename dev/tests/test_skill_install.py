@@ -596,7 +596,7 @@ PAST_BLOCK = (REPO / "dev" / "tests" / "fixtures" / "game-project-block-2026-10-
 def rendered(places: list[str] = PLACES, skill: str = INSTALLED) -> list[str]:
     """The skill's block as a project holds it, markers included: its lines that name a clone's folder
     in place of the template's one, and the folder its copy of the skill is in."""
-    cookbook = c3.locate_cookbook(RAG)[0] or c3.cookbook_places(RAG)[0]
+    cookbook = c3.locate_cookbook(RAG)[0] or c3.clone_places("Construct3-Cookbook", None, RAG)[0][1]
     lines = [line.replace(".agents/skills/construct3-agent-plugin", skill)
              .replace("<path-to>/Construct3-Cookbook", cookbook.as_posix())
              .replace("<path-to>/Construct3-Agent-Skills", REPO.as_posix()) for line in BLOCK_LINES[:-1]]

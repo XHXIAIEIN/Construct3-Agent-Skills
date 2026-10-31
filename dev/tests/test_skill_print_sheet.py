@@ -288,9 +288,8 @@ def test_an_example_that_is_not_there_names_the_clone_not_a_new_project(built, t
         assert f"no example project at {example}" in out and "search_guides.py" in out, out
     else:
         assert f"the Construct-Example-Projects clone is not at {clone}" in out, out
-        # A copy of the skill holds no bootstrap.py, so the command is the git clone beside Construct3-RAG
-        beside = (RAG.parent / "Construct-Example-Projects").as_posix()
-        assert f'git clone --depth 1 https://github.com/Scirra/Construct-Example-Projects "{beside}" clones it' in out, out
+        # setup.py prints the clone with its size, among every other clone that is missing
+        assert f"{INSTALLED}/scripts/setup.py prints the clone to make" in out, out
 
 
 def test_since_lists_what_changed_as_events(project):

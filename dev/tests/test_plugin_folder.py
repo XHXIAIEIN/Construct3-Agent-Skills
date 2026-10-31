@@ -10,11 +10,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import build_plugin
 from tests.skill_helpers import DATA, PLUGIN, REPO, SKILL
 
 NAMED = re.compile(r"Construct3-RAG/(data/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
-RAG_CLONE = 'git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "{}"'
 
 
 def test_the_plugin_holds_no_copy_of_the_guides():
@@ -97,11 +98,12 @@ def installed_plugin(tmp_path: Path, version: str = "1.0.0") -> Path:
 
 
 def plugin_runner(tmp_path: Path, plugin: Path):
-    """A script of the plugin run from tmp_path, with no CONSTRUCT3_RAG and no CONSTRUCT3_COOKBOOK: the scripts
-    find the clones beside the plugin's cache folder, as an installed plugin does."""
+    """A script of the plugin run from tmp_path, with no CONSTRUCT3_RAG and no CONSTRUCT3_COOKBOOK, and
+    tmp_path/home as the home of the clones: the scripts find the clones there or beside the plugin's cache
+    folder, as an installed plugin does."""
     scripts = plugin / "skills" / "construct3-agent-plugin" / "scripts"
     env = {k: v for k, v in os.environ.items() if k not in ("CONSTRUCT3_RAG", "CONSTRUCT3_COOKBOOK")}
-    env.update(PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_OFFLINE="1")
+    env.update(PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_OFFLINE="1", CONSTRUCT3_HOME=str(tmp_path / "home"))
 
     def run(script: str, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run([sys.executable, str(scripts / script), *args], cwd=tmp_path, env=env,
@@ -109,11 +111,14 @@ def plugin_runner(tmp_path: Path, plugin: Path):
     return run
 
 
-def test_the_installed_plugin_reads_the_construct3_rag_clone_beside_it(tmp_path):
-    """With a Construct3-RAG clone beside the plugin's cache folder every script finds the data, and a printed
-    path opens as it is. An example is its editor URL alone, since no example projects lie beside the plugin."""
+@pytest.mark.parametrize("place", ["home", "cache"])
+def test_the_installed_plugin_reads_the_construct3_rag_clone_in_the_home_or_beside_it(tmp_path, place):
+    """With a Construct3-RAG clone in the home, or beside the plugin's cache folder where installs made before
+    the home put it, every script finds the data, and a printed path opens as it is. An example is its editor
+    URL alone, since no example projects lie beside the data."""
     plugin = installed_plugin(tmp_path)
-    shutil.copytree(DATA, plugin.parent / "Construct3-RAG" / "data")
+    rag = tmp_path / "home" / "Construct3-RAG" if place == "home" else plugin.parent / "Construct3-RAG"
+    shutil.copytree(DATA, rag / "data")
     run = plugin_runner(tmp_path, plugin)
 
     def out(script: str, *args: str) -> str:
@@ -124,9 +129,10 @@ def test_the_installed_plugin_reads_the_construct3_rag_clone_beside_it(tmp_path)
     assert out("lookup_ace.py", "System", "wait").startswith("action wait - Wait [system]\n")
     text = out("lookup_script_api.py", "IRuntime.callFunction")
     path = re.match(r"IRuntime\.callFunction   (.+\.d\.ts):\d+\n", text)
-    assert path and Path(path[1]).is_file() and Path(path[1]).is_relative_to(plugin.parent / "Construct3-RAG"), text
+    assert path and Path(path[1]).is_file() and Path(path[1]).is_relative_to(rag), text
     text = out("search_guides.py", "wait", "platformer")
-    assert text.startswith("note: pitfalls not searched: no Construct3-Cookbook clone") and "git clone" in text, text
+    assert text.startswith("note: pitfalls not searched: no Construct3-Cookbook clone"), text
+    assert "scripts/setup.py prints the clone to make" in text, text
     assert "\n  https://editor.construct.net/#open=3d-platformer\n" in text, text
     # The pointers come from a Cookbook clone, which no copy of the plugin holds: an entry prints none
     text = out("lookup_ace.py", "Tween", "tween-one-property")
@@ -136,12 +142,15 @@ def test_the_installed_plugin_reads_the_construct3_rag_clone_beside_it(tmp_path)
     assert p.returncode == 0 and p.stdout.rstrip().splitlines()[-1].startswith("ok:"), p.stdout + p.stderr
 
 
-def test_the_installed_plugin_without_construct3_rag_prints_the_clone_command(tmp_path):
-    """The plugin never clones or downloads anything itself: each script that reads the data stops with the
-    git clone that puts Construct3-RAG beside the plugin's cache folder, where it looks first."""
+def test_the_installed_plugin_without_construct3_rag_points_to_setup(tmp_path):
+    """The plugin never clones or downloads anything itself: each script that reads the data stops with
+    setup.py, which prints every missing clone with its command, and with the places it tried, the home first
+    and the plugin's cache folder last."""
     plugin = installed_plugin(tmp_path)
     run = plugin_runner(tmp_path, plugin)
-    clone = RAG_CLONE.format((plugin.parent / "Construct3-RAG").as_posix())
+    setup = f"python {(plugin / 'skills' / 'construct3-agent-plugin' / 'scripts' / 'setup.py').relative_to(tmp_path).as_posix()}"
+    tried = (f"Tried CONSTRUCT3_HOME: {tmp_path / 'home' / 'Construct3-RAG'}; "
+             f"beside the plugin cache: {plugin.parent / 'Construct3-RAG'}")
     (tmp_path / "game").mkdir()
     (tmp_path / "game" / "project.c3proj").write_text("{}", encoding="utf-8")
     for script, *args in (("lookup_ace.py", "System", "wait"), ("lookup_script_api.py", "IRuntime"),
@@ -149,7 +158,8 @@ def test_the_installed_plugin_without_construct3_rag_prints_the_clone_command(tm
                           ("check_project.py", "--project", str(tmp_path / "game")),
                           ("print_sheet.py", "--project", str(tmp_path / "game"), "Game")):
         p = run(script, *args)
-        assert p.returncode != 0 and clone in p.stderr and "Traceback" not in p.stderr, (script, p.stdout + p.stderr)
+        assert p.returncode != 0 and f"{setup} prints the clones to make" in p.stderr, (script, p.stdout + p.stderr)
+        assert tried in p.stderr and "Traceback" not in p.stderr, (script, p.stderr)
     assert not (tmp_path / "MyGame").exists() and not (plugin.parent / "Construct3-RAG").exists()
 
 
@@ -226,14 +236,15 @@ def test_the_look_judge_only_reads_and_runs_the_measured_model():
 
 
 def test_every_installed_version_reads_one_construct3_rag_clone(tmp_path):
-    """Claude Code gives each plugin version a folder of its own. The clone lies beside those folders, so the
-    next version finds the clone the last one used, and no version asks for a copy inside its own folder."""
+    """Claude Code gives each plugin version a folder of its own, and cleans old ones. The clone goes into the
+    home, outside the cache, so each version's setup.py names the same folder, and the next version finds the
+    clone the last one used."""
     old, new = installed_plugin(tmp_path, "1.0.0"), installed_plugin(tmp_path, "1.0.1")
-    clone = RAG_CLONE.format((tmp_path / "cache" / "construct3" / "Construct3-RAG").as_posix())
+    clone = f'git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "{(tmp_path / "home" / "Construct3-RAG").as_posix()}"'
     for plugin in (old, new):
-        p = plugin_runner(tmp_path, plugin)("lookup_ace.py", "System", "wait")
-        assert p.returncode != 0 and clone in p.stderr, p.stdout + p.stderr
-    shutil.copytree(DATA, tmp_path / "cache" / "construct3" / "Construct3-RAG" / "data")
+        p = plugin_runner(tmp_path, plugin)("setup.py", "--locales", "zh-CN")
+        assert p.returncode == 1 and f"  {clone}\n" in p.stdout, p.stdout + p.stderr
+    shutil.copytree(DATA, tmp_path / "home" / "Construct3-RAG" / "data")
     for plugin in (old, new):
         p = plugin_runner(tmp_path, plugin)("lookup_ace.py", "System", "wait")
         assert p.returncode == 0 and p.stdout.startswith("action wait - Wait [system]\n"), p.stdout + p.stderr

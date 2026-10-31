@@ -547,19 +547,14 @@ EXAMPLES_CLONE = "Construct-Example-Projects"
 EXAMPLES_URL = "https://github.com/Scirra/Construct-Example-Projects"
 
 
-def examples_clone_command(rag: Path | None) -> str:
-    """The command that puts the examples clone beside the Construct3-RAG clone, where the scripts look for
-    it: bootstrap.py of the Construct3-Agent-Skills clone the scripts run from, else the git clone itself."""
-    own = own_plugin()
-    bootstrap = clone_root(own) / "scripts" / "bootstrap.py" if own else None
-    if bootstrap and bootstrap.is_file() and (rag is None or siblings_folder(own) == siblings_folder(rag)):
-        return f"python {bootstrap.as_posix()}"
-    if rag is None:
-        return "python <Construct3-Agent-Skills>/scripts/bootstrap.py"
-    return f'git clone --depth 1 {EXAMPLES_URL} "{(siblings_folder(rag) / EXAMPLES_CLONE).as_posix()}"'
+def companion(rag: Path, name: str) -> Path:
+    """A clone that lies beside the Construct3-RAG clone, Construct-Example-Projects or Construct3-Manual, or in
+    the home when Construct3-RAG lies elsewhere: where it is, else where setup.py clones it."""
+    places = [siblings_folder(rag) / name, clones_home() / name]
+    return next((p for p in places if p.is_dir()), places[0])
 
 
-def missing_example(folder: Path, override: str | None) -> str | None:
+def missing_example(folder: Path) -> str | None:
     """Why --project names no project when it is a folder of the examples clone that is not there, with
     the next step: the clone to get, or the search that lists the examples. None for any other folder."""
     parts = [p.lower() for p in folder.parts]
@@ -569,10 +564,8 @@ def missing_example(folder: Path, override: str | None) -> str | None:
     if clone.is_dir():
         return (f"no example project at {folder}; python {(SKILL_DIR / 'scripts' / 'search_guides.py').as_posix()} "
                 f"WORD lists the examples that hold a word, each with the folder to read")
-    rag = locate_rag(None, override)[0]
-    into = f" into {siblings_folder(rag) / EXAMPLES_CLONE}" if rag else ""
     return (f"no example project at {folder}: the {EXAMPLES_CLONE} clone is not at {clone}; "
-            f"{examples_clone_command(rag)} clones it{into}")
+            f"{setup_command()} prints the clone to make")
 
 
 # The data the scripts read lives in the Construct3-RAG clone, and the skill in the plugin/ folder of the
@@ -584,6 +577,8 @@ SKILLS_URL = "https://github.com/XHXIAIEIN/Construct3-Agent-Skills"
 # The oldest data the scripts read correctly: the "version" of Construct3-RAG's data/c3-schemas/_index.json.
 # Raise it when a script starts to read what a newer refresh added.
 RAG_DATA_FLOOR = "r506.3"
+# Names the folder that holds the clones, ~/Construct3 by default (docs/decisions/clones-home.md)
+HOME_VARIABLE = "CONSTRUCT3_HOME"
 
 
 def own_plugin() -> Path | None:
@@ -601,22 +596,45 @@ def plugin_in(folder: Path) -> Path | None:
     return None
 
 
-def rag_places(root: Path | None) -> list[Path]:
-    """Where a Construct3-RAG clone lies when no line names it: beside the Construct3-Agent-Skills clone
-    the scripts run from or that a `Construct3-Agent-Skills:` line names. For the plugin as Claude Code
-    installed it, that is beside the plugin's cache folder."""
-    bases = [own_plugin(), *(plugin_in(Path(c)) for _, c in instruction_lines(root, SKILLS_CLONE) if c)]
-    return list(dict.fromkeys(siblings_folder(base) / RAG_CLONE for base in bases if base))
+def clones_home() -> Path:
+    """The folder that holds the clones, where setup.py prints the commands that clone them: CONSTRUCT3_HOME,
+    else Construct3 in the user's home folder (docs/decisions/clones-home.md)."""
+    given = os.environ.get(HOME_VARIABLE)
+    return Path(given).expanduser() if given else Path.home() / "Construct3"
+
+
+def in_cache(plugin: Path) -> bool:
+    """Whether a plugin folder is a copy that Claude Code installed in its plugin cache, not plugin/ of a clone."""
+    return not (clone_root(plugin) / ".git").exists()
+
+
+def clone_places(name: str, root: Path | None, rag: Path | None = None) -> list[tuple[str, Path]]:
+    """Where the clone called name lies when no flag, variable or line names it, each with how it was found, in
+    order: the home; beside the Construct3-Agent-Skills clone the scripts run from or that a
+    `Construct3-Agent-Skills:` line names, as a developer's checkout has them; beside rag, the Construct3-RAG
+    clone found; beside the plugin's folder in Claude Code's plugin cache, where an install made before the
+    home put its clones. The first place is where a missing clone goes."""
+    own = own_plugin()
+    clones = [own if own and not in_cache(own) else None,
+              *(plugin_in(Path(c)) for _, c in instruction_lines(root, SKILLS_CLONE) if c), rag]
+    places = [(HOME_VARIABLE if os.environ.get(HOME_VARIABLE) else "the home", clones_home() / name)]
+    places += [("beside the clones", siblings_folder(base) / name) for base in clones if base]
+    if own and in_cache(own):
+        places.append(("beside the plugin cache", siblings_folder(own) / name))
+    first: dict[Path, str] = {}
+    for source, path in places:
+        first.setdefault(path, source)
+    return [(source, path) for path, source in first.items()]
 
 
 def locate_rag(root: Path | None, override: str | None) -> tuple[Path | None, list[str]]:
     """The Construct3-RAG clone or None, and the places tried before it; for a script that runs without
-    a clone. In order: --rag, CONSTRUCT3_RAG, the `Construct3-RAG:` line of an instruction file, a
-    Construct3-RAG folder beside the clones."""
+    a clone. In order: --rag, CONSTRUCT3_RAG, the `Construct3-RAG:` line of an instruction file, then
+    clone_places."""
     tried = []
     candidates = [("--rag", override), ("CONSTRUCT3_RAG", os.environ.get("CONSTRUCT3_RAG"))]
     candidates += instruction_lines(root, RAG_CLONE)
-    candidates += [("beside the clones", str(place)) for place in rag_places(root)]
+    candidates += [(source, str(place)) for source, place in clone_places(RAG_CLONE, root)]
     for source, c in candidates:
         if not c:
             continue
@@ -668,21 +686,14 @@ PITFALL_FOLDERS = ("plugins", "behaviors", "effects", "behavior-category", "plug
                    "primitives")
 
 
-def cookbook_places(rag: Path | None) -> list[Path]:
-    """Where a Cookbook clone lies when no line names it: beside the Construct3-RAG clone, and beside the
-    Construct3-Agent-Skills clone this skill runs from."""
-    bases = [b for b in (rag, own_plugin()) if b]
-    return list(dict.fromkeys(siblings_folder(base) / COOKBOOK_CLONE for base in bases))
-
-
 def locate_cookbook(rag: Path | None, root: Path | None = None,
                     override: str | None = None) -> tuple[Path | None, list[str]]:
     """The Cookbook clone or None, and the places tried before it. In order: --cookbook,
-    CONSTRUCT3_COOKBOOK, the `Construct3-Cookbook:` line of an instruction file, a Construct3-Cookbook
-    folder beside the clones. A folder counts when it holds the pitfalls index."""
+    CONSTRUCT3_COOKBOOK, the `Construct3-Cookbook:` line of an instruction file, then clone_places.
+    A folder counts when it holds the pitfalls index."""
     candidates = [("--cookbook", override), ("CONSTRUCT3_COOKBOOK", os.environ.get("CONSTRUCT3_COOKBOOK"))]
     candidates += instruction_lines(root, COOKBOOK_CLONE)
-    candidates += [("beside the clones", str(place)) for place in cookbook_places(rag)]
+    candidates += [(source, str(place)) for source, place in clone_places(COOKBOOK_CLONE, root, rag)]
     tried = []
     for source, c in candidates:
         if not c:
@@ -726,17 +737,16 @@ def pitfall_pages(guides: Path | None) -> list[Path]:
     return sorted(p for folder in PITFALL_FOLDERS for p in (guides / folder).rglob("*.md")) if guides else []
 
 
-def cookbook_clone_command(rag: Path | None) -> str:
-    """The git clone that puts the Cookbook where the scripts look for it."""
-    places = cookbook_places(rag)
-    into = places[0].as_posix() if places else f"<the folder that holds Construct3-RAG>/{COOKBOOK_CLONE}"
-    return f'git clone --depth 1 {COOKBOOK_URL} "{into}"'
+def setup_command() -> str:
+    """setup.py of this skill as it runs from the current directory: it prints every clone that is missing, with
+    its size and the command that clones it, so that a script that misses one points there."""
+    return f"python {shown_path(SKILL_DIR / 'scripts' / 'setup.py')}"
 
 
 def missing_cookbook(rag: Path | None) -> str:
-    """Why the guides are not there, with the clone to get and the ways to name a clone elsewhere."""
-    return (f"no {COOKBOOK_CLONE} clone (it holds the event sheet pitfalls and design guides). "
-            f"Run: {cookbook_clone_command(rag)}. For a clone elsewhere, set CONSTRUCT3_COOKBOOK or add "
+    """Why the guides are not there, with the ways to get or name a clone."""
+    return (f"no {COOKBOOK_CLONE} clone (it holds the event sheet pitfalls and design guides). {setup_command()} "
+            f"prints the clone to make; for a clone elsewhere, set CONSTRUCT3_COOKBOOK or add "
             f"'- {COOKBOOK_CLONE}: <folder>' to the project's AGENTS.md")
 
 
@@ -746,20 +756,30 @@ def guide_path(rag: Path | None, rel: str, root: Path | None = None) -> str:
     return (folder / rel).as_posix() if folder else f"{COOKBOOK_CLONE}/{GUIDES}/{rel}"
 
 
-def rag_clone_command(root: Path | None) -> str:
-    """The git clone that puts Construct3-RAG where the scripts look for it."""
-    places = rag_places(root)
-    into = places[0].as_posix() if places else f"<the folder that holds {SKILLS_CLONE}>/{RAG_CLONE}"
-    return f'git clone --depth 1 {RAG_URL} "{into}"'
-
-
 def missing_rag(root: Path | None) -> str:
-    """Why the data is not there, with the clone to get and the ways to name a clone elsewhere. The
-    plugin never clones it itself."""
-    return (f"no {RAG_CLONE} clone (it holds the schemas and the other data the scripts read). "
-            f"Run: {rag_clone_command(root)}. For a clone elsewhere, pass --rag <folder>, set CONSTRUCT3_RAG "
+    """Why the data is not there, with the ways to get or name a clone. The plugin never clones it itself."""
+    return (f"no {RAG_CLONE} clone (it holds the schemas and the other data the scripts read). {setup_command()} "
+            f"prints the clones to make; for a clone elsewhere, pass --rag <folder>, set CONSTRUCT3_RAG "
             f"or add '- {RAG_CLONE}: <folder>' to the project's AGENTS.md; the folder holds "
             f"data/c3-schemas/_index.json")
+
+
+def checked_out_locales(rag: Path) -> list[str]:
+    """The languages of the clone's data/c3-schemas/_index.json whose schemas the clone holds. setup.py's clone
+    command leaves out every language but en-US unless --locales names it, and the index still lists them."""
+    index = load(rag / "data" / "c3-schemas" / "_index.json")
+    return [lang for lang in index.get("languages", []) if (rag / "data" / "c3-schemas" / lang).is_dir()]
+
+
+def locale_missing(rag: Path, locale: str) -> str | None:
+    """Why the clone holds no data in locale, with the command that adds it; None when it holds it."""
+    if (rag / "data" / "c3-schemas" / locale).is_dir():
+        return None
+    if locale in load(rag / "data" / "c3-schemas" / "_index.json").get("languages", []):
+        return (f"the {RAG_CLONE} clone at {rag.as_posix()} was cloned without the {locale} files; run "
+                f'git -C "{rag.as_posix()}" sparse-checkout disable to add every language (about 4 MB), then run '
+                f"this again")
+    return f"no schemas for --locale {locale}; the clone has: {', '.join(checked_out_locales(rag))}"
 
 
 def find_rag(root: Path | None, override: str | None) -> Path:
@@ -1081,7 +1101,7 @@ def rag_behind(rag: Path | None) -> tuple[str, str] | None:
 
 def examples_behind(rag: Path | None) -> tuple[str, str] | None:
     """commits_behind for the Construct-Example-Projects clone beside Construct3-RAG, when there is one."""
-    clone = rag and siblings_folder(rag) / EXAMPLES_CLONE
+    clone = rag and companion(rag, EXAMPLES_CLONE)
     return commits_behind(clone if clone and clone.is_dir() else None, EXAMPLES_CLONE, "examples",
                           "the example search shows projects of an earlier release")
 
@@ -1655,7 +1675,7 @@ def block_lines(rag: Path, source: Path, skill_path: str, places: list[str] | No
     lines = text_lines(template)[0]
     if lines and not lines[-1]:
         lines.pop()
-    cookbook = locate_cookbook(rag)[0] or cookbook_places(rag)[0]
+    cookbook = locate_cookbook(rag)[0] or clone_places(COOKBOOK_CLONE, None, rag)[0][1]
     lines = [line.replace(f"<path-to>/{RAG_CLONE}", rag.as_posix())
              .replace(f"<path-to>/{SKILLS_CLONE}", clone_root(source).as_posix())
              .replace(f"<path-to>/{COOKBOOK_CLONE}", cookbook.as_posix()).replace(BLOCK_SKILL_DEFAULT, skill_path)
@@ -1724,7 +1744,8 @@ def argument_parser(description: str, epilog: str) -> argparse.ArgumentParser:
                          "else the 'Construct3-RAG:' line "
                          "of the project's AGENTS.md or CLAUDE.md)")
     ap.add_argument("--locale", default="en-US",
-                    help="schema locale, one of `languages` in data/c3-schemas/_index.json; ids are the same in "
+                    help="schema locale, one of `languages` in data/c3-schemas/_index.json that the clone holds; "
+                         "ids are the same in "
                          "every locale, names and wording differ (default: en-US)")
     ap.add_argument("--limit", type=int, default=LIMIT, metavar="CHARS",
                     help=f"stop after about this many characters and say how to get the rest, since a harness "
@@ -1761,8 +1782,9 @@ class Project:
         self._deprecated: dict[str, dict] = {}
         self._bundled: dict[tuple[str, str], tuple[int, str]] | None = None
         self.index = load(rag / "data" / "c3-schemas" / "_index.json")
-        if not self.schemas.is_dir():
-            sys.exit(f"no schemas for --locale {locale}; the clone has: {', '.join(self.index.get('languages', []))}")
+        missing = locale_missing(rag, locale)
+        if missing:
+            sys.exit(missing)
         self.common = self.schema("plugins", "_common")
         self.system = self.schema("plugins", "system")
         self.system_expression_names = self.expressions_of(self.system)
@@ -1782,7 +1804,7 @@ class Project:
     def open(cls, args: argparse.Namespace, findings: Findings, needs_project: bool = True) -> "Project":
         root = find_project(args.project)
         if root and not (root / "project.c3proj").exists():
-            example = missing_example(root, args.rag)
+            example = missing_example(root)
             if example:
                 sys.exit(example)
             sys.exit(f"no project.c3proj in {root}: --project is the folder the editor saved the project into"

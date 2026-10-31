@@ -138,6 +138,9 @@ def main() -> int:
     root = c3.find_project(args.project)
     game = root if root and (root / "project.c3proj").exists() else None
     rag = c3.find_rag(game, args.rag)
+    missing = c3.locale_missing(rag, args.locale)
+    if missing:
+        sys.exit(missing)
     c3.note_drift(game, rag)
 
     lines: list[str] = []
@@ -160,11 +163,11 @@ def main() -> int:
             lines += [f"{file}:{line}", f"  {text}", ""]
     found_examples = ranked(examples(rag, args.locale), example_text, args.words)[: args.examples]
     if found_examples:
-        clone = c3.siblings_folder(rag) / c3.EXAMPLES_CLONE / "example-projects"
+        clone = c3.companion(rag, c3.EXAMPLES_CLONE) / "example-projects"
         lines.append("examples:")
         if not clone.parent.is_dir():
-            lines.append(f"(no {c3.EXAMPLES_CLONE} clone at {clone.parent}; {c3.examples_clone_command(rag)} "
-                         f"clones it, and each example then gets the command that reads its events)")
+            lines.append(f"(no {c3.EXAMPLES_CLONE} clone at {clone.parent}; {c3.setup_command()} "
+                         f"prints the clone to make; with it, each example gets the command that reads its events)")
         for e in found_examples:
             lines.append(f"{e['id']}: {e.get('name', '')}. {e.get('description', '')}")
             # An example written in both languages is two folders, <id>-js and <id>-ts

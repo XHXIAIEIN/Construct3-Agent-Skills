@@ -560,7 +560,7 @@ def test_trace_leaves_the_cookbook_columns_null_without_a_clone(tmp_path: Path, 
     a clone has them even when the run read none of it."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
-    monkeypatch.setattr(tracer.c3project, "cookbook_places", lambda rag: [])
+    monkeypatch.setattr(tracer.c3project, "clone_places", lambda name, root, rag=None: [])
     calls = [{"tool": "Read", "what": "x", "failed": False, "result": "", "input": {"file_path": "/x/AGENTS.md"},
               "chars": 0, "loads_skill": False}]
     run_dir, _ = cookbook_run(tmp_path, line=False)

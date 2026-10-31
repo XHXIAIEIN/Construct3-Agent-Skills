@@ -100,8 +100,8 @@ def fake_rag(folder: Path, snake: bool = False) -> Path:
     """A folder that the scripts take for Construct3-RAG. With snake, it also holds the metadata file of the
     snake example."""
     schemas = folder / "data" / "c3-schemas"
-    schemas.mkdir(parents=True)
-    (schemas / "_index.json").write_text("{}", encoding="utf-8")
+    (schemas / "en-US").mkdir(parents=True)
+    (schemas / "_index.json").write_text('{"languages": ["en-US", "zh-CN"]}', encoding="utf-8")
     if snake:
         examples = folder / "data" / "c3-examples" / "en-US"
         examples.mkdir(parents=True)
@@ -109,6 +109,13 @@ def fake_rag(folder: Path, snake: bool = False) -> Path:
             json.dumps({"id": "template-snake", "name": "Snake", "description": "A snake game.",
                         "open": "https://editor.construct.net/#open=template-snake"}), encoding="utf-8")
     return folder
+
+
+def test_a_locale_the_clone_left_out_stops_the_search_with_the_command_that_adds_it(tmp_path):
+    rag = fake_rag(tmp_path / "Construct3-RAG", snake=True)
+    code, out = run(tmp_path, SKILL / "scripts" / "search_guides.py", "snake", "--rag", str(rag), "--locale", "zh-CN")
+    assert code == 1 and out.strip() == c3.locale_missing(rag, "zh-CN"), out
+    assert "sparse-checkout disable" in out, out
 
 
 def snake_output(rag: Path, cwd: Path) -> str:
@@ -145,15 +152,14 @@ def test_examples_are_found_beside_the_main_working_tree_from_a_git_worktree(tmp
 
 
 def test_examples_without_the_clone_say_how_to_get_it(tmp_path):
-    """Without the examples clone each example shows its editor URL, and one line gives the command that
-    clones it beside Construct3-RAG: git clone, or bootstrap.py of the Construct3-Agent-Skills clone the
-    scripts run from when Construct3-RAG lies beside that clone (test_skill_c3project.py)."""
+    """Without the examples clone each example shows its editor URL, and one line points to setup.py, which
+    prints the clone with its size."""
     rag = fake_rag(tmp_path / "Construct3-RAG", snake=True)
     clone = tmp_path / "Construct-Example-Projects"
     out = snake_output(rag, tmp_path)
     assert "https://editor.construct.net/#open=template-snake" in out, out
-    assert (f'(no Construct-Example-Projects clone at {clone}; git clone --depth 1 '
-            f'https://github.com/Scirra/Construct-Example-Projects "{clone.as_posix()}" clones it') in out, out
+    assert f"(no Construct-Example-Projects clone at {clone}; python " in out, out
+    assert "setup.py prints the clone to make; with it, each example gets the command" in out, out
 
 
 @NEEDS_COOKBOOK
@@ -166,7 +172,7 @@ def test_raw_data_override_keeps_pitfalls_for_source_and_installed_scripts(proje
         assert Path(location.rsplit(":", 1)[0]).is_file(), out
 
 
-def test_without_a_cookbook_the_pitfalls_give_the_clone_and_the_examples_still_print(project, tmp_path, monkeypatch):
+def test_without_a_cookbook_the_pitfalls_point_to_setup_and_the_examples_still_print(project, tmp_path, monkeypatch):
     """The installed copy, which lies in no Agent-Skills clone, so only the data's folder has siblings."""
     monkeypatch.delenv("CONSTRUCT3_COOKBOOK", raising=False)
     # install.py named the machine's clone in the block; without that line no clone is named
@@ -177,8 +183,7 @@ def test_without_a_cookbook_the_pitfalls_give_the_clone_and_the_examples_still_p
     code, out = run(project, project / INSTALLED / "scripts" / "search_guides.py", "snake", "--rag", str(rag))
     assert code == 0, out
     assert out.startswith("note: pitfalls not searched: no Construct3-Cookbook clone"), out
-    assert (f'git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-Cookbook '
-            f'"{(tmp_path / "clones" / "Construct3-Cookbook").as_posix()}"') in out, out
+    assert f"python {INSTALLED}/scripts/setup.py prints the clone to make" in out, out
     assert "\ntemplate-snake: " in out, out
 
 

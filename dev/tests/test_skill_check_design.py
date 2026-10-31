@@ -59,7 +59,7 @@ def test_check_design_without_the_clone_says_the_reference_example_is_not_checke
     path.write_text(json.dumps(example(), ensure_ascii=False), encoding="utf-8")
     code, out = run(tmp_path, scripts / "check_design.py", str(path))
     assert code == 0, out
-    assert re.search(r"^skipped: reference\.example is not checked: Construct3-RAG not found; pass --rag ", out, re.M), out
+    assert re.search(r"^skipped: reference\.example is not checked: no Construct3-RAG clone \(.*setup\.py.* pass --rag ", out, re.M), out
     last = out.splitlines()[-1]
     assert last.startswith("ok: design complete; 4 tests pass in the prototype"), out
     assert "; left for later: sounds; moles that get faster. reference.example is not checked (the skipped line above)." in last

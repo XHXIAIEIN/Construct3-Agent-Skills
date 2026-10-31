@@ -262,7 +262,7 @@ class Usage:
 
     def __init__(self, rag: Path) -> None:
         self.rag = rag
-        self.examples = c3.siblings_folder(rag) / c3.EXAMPLES_CLONE / "example-projects"
+        self.examples = c3.companion(rag, c3.EXAMPLES_CLONE) / "example-projects"
         self._files: dict[str, dict] = {}
 
     def tails(self, entries: list[tuple]) -> list[list[str]]:
@@ -293,8 +293,8 @@ class Usage:
         """The line under counts printed without their commands: the clone is missing."""
         if self.examples.is_dir():
             return None
-        return (f"(no {c3.EXAMPLES_CLONE} clone at {self.examples.parent}; {c3.examples_clone_command(self.rag)} "
-                f"clones it, and each count then gets the commands that print the examples' events)")
+        return (f"(no {c3.EXAMPLES_CLONE} clone at {self.examples.parent}; {c3.setup_command()} "
+                f"prints the clone to make; with it, each count gets the commands that print the examples' events)")
 
 
 def front_matter(path: Path) -> dict[str, str]:

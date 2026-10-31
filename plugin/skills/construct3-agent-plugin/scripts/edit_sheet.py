@@ -1029,7 +1029,7 @@ def main() -> int:
     def other_lines() -> dict[int, list[str]]:
         """What each event prints in the other locales: a "line" copied from a print in another --locale."""
         other: dict[int, list[str]] = {}
-        for locale in before.p.index.get("languages", []):
+        for locale in c3.checked_out_locales(project.rag):
             if locale != args.locale:
                 p = c3.Project(project.root, project.rag, locale, c3.Findings())
                 for n, lines in printed_lines(print_sheet.sheet_rows(p, sheet["events"], [0])).items():

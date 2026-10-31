@@ -84,7 +84,7 @@ def record(args: argparse.Namespace) -> int:
     # The data is the Construct3-RAG clone's, beside the checkout whose plugin/skills/<skill>/scripts run
     rag = c3.siblings_folder(scripts.parent.parent.parent) / c3.RAG_CLONE
     if not c3.is_clone(rag):
-        print(f"no Construct3-RAG clone at {rag}, beside the checkout of {scripts}: {c3.rag_clone_command(None)}",
+        print(f"no Construct3-RAG clone at {rag}, beside the checkout of {scripts}: {c3.missing_rag(None)}",
               file=sys.stderr)
         return 2
     projects = [p.parent for folder in args.examples for p in sorted(Path(folder).glob("*/project.c3proj"))]
