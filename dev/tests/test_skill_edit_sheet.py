@@ -70,7 +70,7 @@ def test_plan_puts_events_in_by_the_numbers_the_sheet_has_now(project):
                          {"id": "set-scale", "objectClass": "Coin", "parameters": {"scale": "1.5"}}]}]},
                      {"after": 9, "events": [{"eventType": "comment", "text": "Countdown."}, TIMER]})
     assert code == 0, out
-    assert out.splitlines()[0] == "Game: 4 operations, 13 events before and 16 now, 8 new sids"
+    assert out.splitlines()[0] == "Game: 4 operations, 16 events before and 19 now, 8 new sids"
     assert out.splitlines()[-1].startswith("ok:") and "open_in_editor" not in out     # check_project.py prints it
     sheet = printed(project)
     assert "== Game\n     global number timeLeft = 30\n     // Coins. Tap a coin" in sheet
@@ -271,7 +271,8 @@ def test_plan_moves_replaces_and_removes(project):
     assert code == 0, out
     sheet = printed(project)
     assert sheet.index("function AddScore") < sheet.index("custom action Coin.Collect") and "group Input" not in sheet
-    assert '% tokencount(ROUND_COINS, ",")\n             -> System: Restart layout' in sheet
+    restarted = sheet[sheet.index("System: Set beat to"):sheet.index("System: Restart layout")]
+    assert "Wait" not in restarted and "Fade: Tween" in restarted, restarted
     assert sids <= {c.get("sid") for ev in all_events(project) for c in ev.get("conditions", [])}, "a replaced event keeps the sids it is given"
 
 
@@ -379,7 +380,7 @@ def test_dry_run_checks_and_shows_and_writes_nothing(project):
 
 
 @pytest.mark.parametrize("operation, said", [
-    ({"after": 40, "events": [TIMER]}, "40 is not an event of the sheet, which has 13"),
+    ({"after": 40, "events": [TIMER]}, "40 is not an event of the sheet, which has 16"),
     ({"after": 8}, 'needs "events"'),
     ({"after": 8, "before": 2, "events": [TIMER]}, "an operation is one of"),
     ({"after": 8, "event": [TIMER]}, "an operation is one of"),
