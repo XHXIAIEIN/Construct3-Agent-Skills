@@ -32,7 +32,7 @@ to action, rounded cards, a landing hero.
 | Run it, steps 5 to 7 | Nine passes in order; check; at most three renders | Findings by tier, broken before ugly (`look.severity`); `fix-loop-cap.md` caps the rounds | None |
 | Direction | Product, character, world, one or two moments, one signature detail | `pick_look.py` draws directions from the user's references, measured | None. The user picks among references instead of a model deriving a world |
 | Spacing: a 4 px grid | Every value a multiple of 4 | `grid.unit`, 8 or 32 px; `grid.world-placement` for world layers | None |
-| Spacing: same thing, same size | All rows of a list share one height and one gap | `row()` spaces what it places; no check reads a run placed by hand | `layout.even-runs` proposed (below) |
+| Spacing: same thing, same size | All rows of a list share one height and one gap | `row()` spaces what it places | `layout.even-runs` and the `uneven` finding (below) |
 | Spacing: grouping | Gaps inside a group smaller than between groups | `layout.proximity`, 1.5 times | None |
 | Spacing: things line up | Icons in one column, labels on one line, nothing nudged off it | `grid.world-placement` checks world layers only | `layout.edge-snap` rejected (below) |
 | Colour | One tinted neutral ramp, three text roles, one accent used rarely, no hue gradients or glows | `colour.palette-only`, `colour.structure`, `text.contrast`; `colour.one-accent` and `colour.neutral-ground` rejected by measurement | None |
@@ -102,13 +102,18 @@ the edge that its alignment holds.
 
 Option 2. The manifest gains two rules:
 
-- `layout.even-runs`, proposed: three or more things of one type on one
-  line sit one gap apart. The examples hold it: 249 of 278 runs are even
-  within 0.5 px, and only 4 differ by less than a quarter of `UNIT`. The
-  check that it proposes is a finding of `review_look.py` at the ugly tier:
-  a run of one type whose gaps differ by 0.5 px to a quarter of `UNIT`, a
-  difference too small to be a skipped cell or a grouping. It reads the
-  boxes, so it needs no judge's calibration.
+- `layout.even-runs`, adopted since the owner chose it on 2026-11-01: three
+  or more things of one type on one line sit one gap apart. The examples
+  hold it: 249 of 278 runs are even within 0.5 px, and only 4 differ by
+  less than a quarter of `UNIT`. `review_look.py` reports the `uneven`
+  finding for a run of one type, not texts, on a HUD layer or a one-screen
+  layout, whose gaps differ by 0.5 px to a quarter of `UNIT`. A larger
+  difference skips a cell or groups the items, as the examples do. It reads
+  the runtime's boxes, so it needs no judge's calibration. It is fragile, a
+  finish of a pixel or two (`look-severity.md`), so it warns and the
+  hand-over names it: the 4 runs of the examples would otherwise fail the
+  review. The generator's `row()` spaces its runs evenly, so the finding
+  reports a run placed by hand.
 - `layout.edge-snap`, rejected: the rule that neighbouring HUD boxes share
   an edge or a centre exactly. 93 of 361 neighbouring HUD pairs, in 12 of
   20 examples, lie 0.5 to 8 px apart, so the check would flag most of the
@@ -127,8 +132,10 @@ The template and the sub-agents' prompts stay as they are.
 
 ## Re-evaluate when
 
-- The owner takes `layout.even-runs`: add the finding to `review_look.py`
-  with a test, and add it to `AGAIN` if a longer text moves a run.
+- A run of texts needs the check: `uneven` leaves out texts, whose box is
+  wider than their ink, so it would measure their ink as `optical` does.
+- An `uneven` warning on a generated game proves to be on purpose: raise the
+  lower bound or make the finding name the grouping it saw.
 - A generated game shows a misaligned HUD on a screenshot the user judges:
   measure the generated games' pairs against the examples' 93 of 361.
 - The owner takes proposal 1: the judges answer the regression set again.

@@ -435,6 +435,37 @@ def test_review_look_finds_text_gathered_in_one_ninth_while_two_corners_stand_em
     assert rules(rl, dict(title, layer="Game"), dict(sub, layer="Game"), size=(4000, 720)) == []
 
 
+def test_review_look_finds_a_row_of_one_type_whose_gaps_differ_by_a_few_pixels():
+    """Five hearts on the HUD with the first gap 3 px wider: one fragile finding naming them and the gap to
+    set. Even gaps, a grid cell skipped (a gap a whole unit wider), a run of two, mixed types, texts and a
+    row on a scrolling layer of a layout larger than the screen are no finding."""
+    gaps = (19, 16, 16, 16)
+    hearts, x = [], 40
+    for n, gap in enumerate((0,) + gaps):
+        x += gap
+        hearts.append(inst(n + 1, "Heart", [x, 40, x + 48, 88]))
+        x += 48
+    found = rl.findings(snap(*hearts))
+    assert pairs(found) == [("uneven", [1, 2, 3, 4, 5])], found
+    assert found[0]["tier"] == "fragile"
+    assert found[0]["line"] == ("Heart: 5 in a row on layer 'UI', uids 1, 2, 3, 4, 5, sit 19, 16, 16, 16 px apart: "
+                                "set every gap to 16 px, or place them with row()")
+    column = [inst(10 + n, "Button", [600, 200 + 80 * n + (2 if n == 2 else 0), 680, 264 + 80 * n
+                                      + (2 if n == 2 else 0)]) for n in range(3)]
+    assert pairs(rl.findings(snap(*column))) == [("uneven", [10, 11, 12])]
+    even = [inst(20 + n, "Heart", [40 + 64 * n, 40, 88 + 64 * n, 88]) for n in range(4)]
+    assert rules(rl, *even) == []
+    skipped = [inst(30 + n, "Tile", [40 + 64 * n + (32 if n > 1 else 0), 300, 88 + 64 * n + (32 if n > 1 else 0), 348])
+               for n in range(4)]
+    assert rules(rl, *skipped) == []
+    assert rules(rl, *hearts[:2]) == []
+    assert rules(rl, *[dict(h, type=f"Icon{n}") for n, h in enumerate(hearts)]) == []
+    assert rules(rl, *[text(h["uid"], "Count", h["box"], "3", [20, 30]) for h in hearts]) == []
+    world = [dict(h, layer="Game") for h in hearts]
+    assert rules(rl, *world, size=(4000, 720)) == []
+    assert pairs(rl.findings(snap(*world))) == [("uneven", [1, 2, 3, 4, 5])]
+
+
 def test_review_look_pairs_each_label_text_and_glyph_with_the_shape_it_is_centred_on():
     """A label, the one text inside a shape, pairs on each axis its alignment and its box centre; a
     text beside a shape in a row pairs down; a glyph alone on a shape pairs both ways. A card that

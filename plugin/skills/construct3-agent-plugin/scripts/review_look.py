@@ -30,12 +30,13 @@ the object type, the instance's UID and what to change:
   optical   a label, a text beside a shape in a row, or a glyph alone on a
             shape, whose ink sits off the face's centre by more than the larger
             of 1.5 px and 0.06 em
+  uneven    3 or more of one type, not texts, on a line, gaps up to a quarter unit off
   faint     a text that reads under text.contrast on what lies behind it on
             screen: its strokes' core pixels against them with every text hidden
   unlimited Texts that events set with no longest text in tools/texts.json
 
 Each finding has its rule's tier (look.severity in assets/look-manifest.json):
-broken and ugly ones fail the review, fragile ones (optical, unlimited) warn.
+broken and ugly ones fail the review, fragile ones (optical, uneven, unlimited) warn.
 Each layout is also shown in the other data states of --data: the longest
 text (or a guess), no text, and counts of 1. Without --viewport, it is also
 shown on two more screen shapes that its orientations allow. There text,
@@ -58,9 +59,6 @@ screenshot of the layout they are named after, else of the first, and the
 picked look (art/look.png) beside the first, in <layout>@reference.png,
 each under a question.
 
-A layout reached by goToLayout starts without what the game's flow sets up
-before it; play to such a scene with preview_project.py and a shot step.
-
 Screenshots go to --shots as <layout>.png, the whole result to --out.
 Beside the screenshots it writes brief.md: the screenshots, the questions and
 the form of the answer, for a reviewer that has not seen the project.
@@ -81,6 +79,7 @@ import base64
 import io
 import json
 import re
+import statistics
 import subprocess
 import sys
 import tarfile
@@ -171,7 +170,8 @@ BLANK_WAIT = 1.0
 TIERS = ("broken", "ugly", "fragile")
 BLOCKING = ("broken", "ugly")
 TIER = {"text": "broken", "stacked": "broken", "overlap": "broken", "edge": "broken", "frame": "broken",
-        "faint": "broken", "placeholder": "broken", "crowd": "ugly", "unlimited": "fragile", "optical": "fragile"}
+        "faint": "broken", "placeholder": "broken", "crowd": "ugly", "unlimited": "fragile", "optical": "fragile",
+        "uneven": "fragile"}
 # A Text's default text, in any case, or Lorem ipsum anywhere in it
 PLACEHOLDER = re.compile(r"^\s*text\s*$|lorem ipsum", re.I)
 
@@ -566,6 +566,49 @@ def crowd_findings(instances: list[dict], layers: dict, one_screen: bool) -> lis
                           f"({', '.join(name(i) for i in held[:4])}{' ...' if len(held) > 4 else ''}) while the "
                           f"{', '.join(empty)} corners stand empty: give each item its own corner or edge, and each "
                           f"text one thing rather than several joined by · or |"})
+    return found
+
+
+def uneven_findings(instances: list[dict], layers: dict, one_screen: bool, height: float) -> list[dict]:
+    """Three or more instances of one type that are not texts, on one layer and one centre line within 1 px,
+    whose gaps differ by 0.5 px to a quarter of the unit (layout.even-runs): a row of lives or a column of
+    buttons placed by hand. A wider difference skips a grid cell or groups the items, and the examples do both
+    on purpose. Read on a HUD layer, or on any layer of a layout one screen large. A run breaks where two
+    boxes overlap, an icon on its button, and where a gap is wider than the larger box beside it, so a score
+    and a timer at the two ends of the screen are no run."""
+    unit = 8 if height <= 360 else 32
+    lines: dict[tuple, list[dict]] = {}
+    for i in instances:
+        layer = layers.get(i["layer"])
+        if not (layer and sized(i) and "textSize" not in i and not i.get("angle")):
+            continue
+        if not (one_screen or tuple(layer["parallax"]) == (0, 0)):
+            continue
+        b = i["box"]
+        for axis in (0, 1):
+            across = round((b[1 - axis] + b[3 - axis]) / 2)
+            lines.setdefault((i["layer"], i["type"], axis, across), []).append(i)
+    found = []
+    for (layer, kind, axis, _), line in lines.items():
+        line.sort(key=lambda i: i["box"][axis])
+        runs, run = [], [line[0]]
+        for prev, i in zip(line, line[1:]):
+            gap = i["box"][axis] - prev["box"][axis + 2]
+            size = max(prev["box"][axis + 2] - prev["box"][axis], i["box"][axis + 2] - i["box"][axis])
+            if not 0 <= gap <= size:
+                runs.append(run)
+                run = []
+            run.append(i)
+        runs.append(run)
+        for run in (r for r in runs if len(r) >= 3):
+            gaps = [b["box"][axis] - a["box"][axis + 2] for a, b in zip(run, run[1:])]
+            if not 0.5 <= max(gaps) - min(gaps) < unit / 4:
+                continue
+            even = statistics.median(gaps)
+            found.append({"rule": "uneven", "uids": [i["uid"] for i in run], "line":
+                          f"{kind}: {len(run)} in a {('row', 'column')[axis]} on layer {layer!r}, uids "
+                          f"{', '.join(str(i['uid']) for i in run)}, sit {', '.join(f'{round(g, 1):g}' for g in gaps)} px "
+                          f"apart: set every gap to {round(even, 1):g} px, or place them with row()"})
     return found
 
 
@@ -975,7 +1018,8 @@ def findings(snap: dict, only: tuple[str, ...] | None = None) -> list[dict]:
     run = {"text": lambda: text_findings(instances), "stacked": lambda: stacked_findings(instances),
            "overlap": lambda: overlap_findings(instances, layers), "edge": lambda: edge_findings(instances, layers),
            "frame": lambda: frame_findings(instances), "placeholder": lambda: placeholder_findings(instances),
-           "crowd": lambda: crowd_findings(instances, layers, one_screen)}
+           "crowd": lambda: crowd_findings(instances, layers, one_screen),
+           "uneven": lambda: uneven_findings(instances, layers, one_screen, snap["viewport"][1])}
     return tiered([f for rule, find in run.items() if only is None or rule in only for f in find()])
 
 
