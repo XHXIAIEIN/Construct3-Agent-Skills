@@ -64,23 +64,27 @@ The second wording cuts the yeses on screens without a fault from 25 to 2
 (Opus) and from 19 to 5 (Haiku), and it finds as many faults. An agent that
 fixes every yes no longer changes screens that are done.
 
-Agreement with the labels under the second wording, out of 35 screenshots:
+Agreement with the labels under the second wording, out of 35 screenshots.
+A yes, a fault, is the positive class. The true positive rate (TPR) counts
+the labels' yes answers that the judge also said yes to. The true negative
+rate (TNR) counts their no answers that it also said no to.
 
-| Question | Labels yes | Haiku agrees | Opus agrees | All no agrees |
-|----------|------------|--------------|-------------|---------------|
-| 1. Text cut, wrapped, too small or faint, or partly hidden | 11 | 28 | 33 | 24 |
-| 2. An object hides a text, a number, a button or a card's face | 5 | 31 | 34 | 30 |
-| 3. A button, a text or the HUD cut by the screen's edge | 7 | 34 | 35 | 28 |
-| 4. A stand-in or an object drawn in a style of its own | 11 | 34 | 35 | 24 |
-| 5. A background or glow catches the eye first | 3 | 31 | 35 | 32 |
-| 6. Two kinds look identical with nothing to tell them apart | 1 | 33 | 34 | 34 |
+| Question | Labels yes | Haiku agrees | Haiku TPR | Haiku TNR | Opus agrees | Opus TPR | Opus TNR | All no agrees |
+|----------|------------|--------------|-----------|-----------|-------------|----------|----------|---------------|
+| 1. Text cut, wrapped, too small or faint, or partly hidden | 11 | 28 | 9/11 | 19/24 | 33 | 11/11 | 22/24 | 24 |
+| 2. An object hides a text, a number, a button or a card's face | 5 | 31 | 1/5 | 30/30 | 34 | 5/5 | 29/30 | 30 |
+| 3. A button, a text or the HUD cut by the screen's edge | 7 | 34 | 7/7 | 27/28 | 35 | 7/7 | 28/28 | 28 |
+| 4. A stand-in or an object drawn in a style of its own | 11 | 34 | 10/11 | 24/24 | 35 | 11/11 | 24/24 | 24 |
+| 5. A background or glow catches the eye first | 3 | 31 | 1/3 | 30/32 | 35 | 3/3 | 32/32 | 32 |
+| 6. Two kinds look identical with nothing to tell them apart | 1 | 33 | 0/1 | 33/34 | 34 | 0/1 | 34/34 | 34 |
 
 - Opus agrees with the labels on 33 to 35 screenshots a question, but the
   labellers are Opus too, so this is close to a model agreeing with itself.
   Haiku measures a judge that differs from the labellers.
-- Haiku beats the baseline on questions 1 to 4. On question 2 it says yes
-  on 1 screenshot to the labels' 5, so for the small model the question is
-  too narrow.
+- Agreement hides what a question misses, because most labels are no. On
+  question 2 Haiku agrees on 31 of 35, above the baseline's 30, yet it
+  finds 1 of the 5 hidden objects. For the small model the question is too
+  narrow.
 - Haiku stays below the baseline on question 5, with 2 missed and 2 extra,
   and on question 6. The one screenshot with two kinds alike is the copy
   whose map nodes all look the same. Both labellers found it, and neither
@@ -90,13 +94,22 @@ Agreement with the labels under the second wording, out of 35 screenshots:
 - The question about decoration repeated on every screenshot had one brief
   to answer it and is not measured.
 
-The sample is 35 screenshots with one run per brief, and the labels come
-from the model family of one judge. The second wording was written after
-the first was read on the same set. The numbers show a direction for these
-games, not a rate to expect elsewhere. The set, every reply, the labels and
-the scores are in `.local/docs/evidence/look-judge/`. `judge_look.py
---model` runs `claude -p` as the judge when the client is signed in. The
-runs here used sub-agents.
+Every question has fewer than 30 yes labels, and questions 5 and 6 have 3
+and 1. One answer moves the TPR of question 5 by a third, and that of
+question 6 from none to all. A TPR over so few screenshots cannot rank one
+wording or judge above another. The judge-validation method of the
+evals-skills repository (`github.com/ai-evals-course/evals-skills`) asks
+for 30 to 50 labels of each answer. `judge_look.py --score` marks a line
+"few" when it has fewer than 30 of either.
+
+The second wording was written after the first was read on the same set,
+so every number above was measured on the screenshots it was tuned on.
+The labels also come from the model family of one judge, with one run per
+brief. The numbers show a direction for these games, not a rate to expect
+elsewhere. The set, every reply, the labels and the scores are in
+`.local/docs/evidence/look-judge/`. `judge_look.py --model` runs `claude
+-p` as the judge when the client is signed in. The runs here used
+sub-agents.
 
 ## Options
 
@@ -116,10 +129,24 @@ Option 3. `review_look.py` asks the second wording, and its brief says that
 art layered on purpose is no mistake. The set in
 `.local/docs/evidence/look-judge/` is the regression set, labelled by agents
 with `label_look.py`. A change to the questions or the brief has both
-judges answer the set with `judge_look.py`. The change keeps Haiku's
-agreement at or above these numbers, and the yeses on screens without a
-fault at or below them. A new screenshot gets its labels the same way: two
-labellers apart, and the adjudicator where they differ.
+judges answer the set with `judge_look.py`. The change keeps Haiku's TPR
+and TNR on each question at or above these numbers, and the yeses on
+screens without a fault at or below them. These numbers are a floor that
+stops a change that makes the judge worse. They do not rank two wordings
+that both pass it. Agreement alone does not pass a change, because it
+rises when a question finds fewer faults.
+
+A new screenshot gets its labels the same way: two labellers apart, and the
+adjudicator where they differ. It enters the set with `"held_out": true`,
+because no wording has been shaped on it yet. The 35 screenshots above
+have all steered the wording, so none of them is held out. `judge_look.py`
+leaves the held-out briefs out until `--held-out`. A change is shaped and
+scored on the other briefs. Once its wording is settled, both judges answer
+the held-out briefs once, and that score is the change's measure on
+screenshots it was not shaped on. A held-out screenshot that the change
+gets wrong then joins the tuning part, and a new screenshot takes its
+place, as `docs/decisions/runtime-graded-evals.md` does with held-out
+cases.
 
 ## Re-evaluate when
 
@@ -128,5 +155,7 @@ labellers apart, and the adjudicator where they differ.
   so the agreement of an Opus judge then means little.
 - Haiku stays below the baseline on question 5 or 6 over a larger set.
   Reword the question, or replace it with a measurement.
+- A question's line is no longer marked "few". Its TPR and TNR then
+  replace the direction above with a rate.
 - A small-model judge keeps missing question 2. It then needs examples of
   what counts as hidden.

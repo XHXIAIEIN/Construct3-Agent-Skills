@@ -8,7 +8,9 @@ fragile, with the form to write instead, then fixed questions to answer.
 Run it after check_project.py passes and before the editor, or with --check,
 which runs check_project.py first and stops when it fails. It reads the files,
 starts no browser and edits no project file. What it writes stays under the
-project's .tmp/: --check keeps the checker's complete result in
+project's .tmp/: a review without --prepare writes the questions as a brief
+for a reviewer that has not seen the project, .tmp/scripts/review-design/brief.md;
+--check keeps the checker's complete result in
 .tmp/scripts/review-design/check.json, or in the --prepare folder, and --prepare
 writes the batches and the saved judgements there. A finding names its place as
 print_sheet.py numbers it, `sheet Game event 15`, says what to change and
@@ -38,7 +40,9 @@ What the examples also write, and a reader judges, becomes a question: an event
 with 4 to 11 conditions, sibling events of one trigger, sibling events that
 differ only in their numbers and texts, 3 or more inverted conditions, a
 global one function or one group uses, a UID kept in an instance variable.
-The questions name those events; answer each one from print_sheet.py.
+The questions name those events. The brief holds them with the sheets as
+print_sheet.py prints them, so a reviewer that has not seen the project answers
+them; without one, answer each from print_sheet.py.
 The measurement behind each threshold: references/verifying-a-change.md,
 "The design of the sheets".
 """
@@ -46,6 +50,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 import re
 import sys
 from collections import Counter
@@ -76,9 +81,10 @@ output:
     expression: sheet Combat event 30 action 2 (value): computes ...
   == Menu
     global: sheet Menu, global TMP: a scratch global ...
-  questions: answer each one yes or no, reading the events it names with print_sheet.py ...
+  questions: have each one answered yes or no through the brief, as the brief: line below says ...
     1. Could each of these events be split ...? Weapons 107 (11 conditions), ...
     ...
+  brief: if you can start a sub-agent, give it .tmp/scripts/review-design/brief.md as its whole task ...
   design: 3 findings on 2 sheets; the questions name 9 events
   next: <what to do>
 
@@ -98,7 +104,7 @@ DATA_ACTIONS = 20           # actions of one kind with literal values in one eve
 REPEATED_CALL = 30          # characters of a call written twice in one expression
 DEEP = 5                    # parentheses deep, together with a repeated call
 SHOWN = 8                   # events a question names before "and N more"
-CLOSING = 600               # characters kept for the cut line, the summary and next, about 500 together
+CLOSING = 1000              # characters kept for the cut line, brief, the summary and next, about 900 together
 
 # Parameter types that hold an expression
 EXPRESSION_TYPES = {"any", "number", "string", "layer", "animation", "animationframe", "groupname", "objecteffect",
@@ -914,24 +920,58 @@ def review(d: Design) -> list[dict]:
 
 
 # --- what it prints ----------------------------------------------------------------------
+def named(found: list[dict], shown: set[str]) -> list[tuple[str, str]]:
+    """Each fixed question with the events of the sheets shown that it asks about, the ones with the most
+    conditions or cases first, or "" when it names none."""
+    out = []
+    for ask, text in QUESTIONS.items():
+        here = [f for f in found if f["ask"] == ask and f["sheet"] in shown]
+        here.sort(key=lambda f: (-leading_count(f["short"]), f["sheet"], f["event"] or 0))
+        places = [f"{f['sheet']} {f['event']} ({f['short']})" if f["event"] else f"{f['sheet']} ({f['short']})"
+                  for f in here[:SHOWN]]
+        more = f" and {len(here) - SHOWN} more" if len(here) > SHOWN else ""
+        out.append((text, f"Events: {', '.join(places)}{more}." if places else ""))
+    return out
+
+
 def questions(found: list[dict], shown: set[str], root: Path) -> list[str]:
-    """The fixed questions, each naming the events of the sheets shown that it asks about,
-    the ones with the most conditions or cases first."""
+    """The fixed questions, each naming the events it asks about."""
     first = next((f for f in found if f["ask"] and f["event"] and f["sheet"] in shown), None)
     example = f"{c3.quoted(first['sheet'])} --events {first['event']}" if first else "<sheet> --events <number>"
-    lines = ["questions: answer each one yes or no, reading the events it names with print_sheet.py, for example "
+    lines = ["questions: have each one answered yes or no through the brief, as the brief: line below says, or "
+             "answer it yourself, reading the events it names with print_sheet.py, for example "
              f"{c3.script_command(root, 'print_sheet.py', ' ' + example)}. For each yes about an event or a "
              f"global your change wrote, change the sheet as the question says, with edit_sheet.py, and run this "
              f"review again. A yes about one you did not touch goes in the hand-over for the user, unchanged:"]
-    for n, (ask, text) in enumerate(QUESTIONS.items(), 1):
-        named = [f for f in found if f["ask"] == ask and f["sheet"] in shown]
-        named.sort(key=lambda f: (-leading_count(f["short"]), f["sheet"], f["event"] or 0))
-        places = [f"{f['sheet']} {f['event']} ({f['short']})" if f["event"] else f"{f['sheet']} ({f['short']})"
-                  for f in named[:SHOWN]]
-        more = f" and {len(named) - SHOWN} more" if len(named) > SHOWN else ""
-        lines.append(f"  {n}. {text}" + (f" Events: {', '.join(places)}{more}." if places else
-                                         " No event named: answer it for the sheets you changed."))
+    for n, (text, places) in enumerate(named(found, shown), 1):
+        lines.append(f"  {n}. {text} " + (places or "No event named: answer it for the sheets you changed."))
     return lines
+
+
+def brief(p: c3.Project, d: Design, found: list[dict], sheets: list[str]) -> str:
+    """The questions as a task for a reviewer that has not seen the project: the questions with the events they
+    name, the sheets as print_sheet.py prints them and the form of the answer, and nothing of what the change
+    was meant to do."""
+    lines = ["# Design review", "",
+             "You have not seen this game, the request that made it or how it was built, and you do not need to. "
+             "Judge only the event sheets printed below, as Construct 3 runs them: a condition keeps the instances "
+             "it picks, the actions run on the instances still picked, and a sub-event starts from what its parent "
+             "picked. Answer yes only where changing the events as the question says keeps what the game does and "
+             "leaves less to read: fewer events, conditions or variables. A form that the sheets use the same way "
+             "everywhere is no yes on its own. If the printed events do not show enough to decide, answer no.", "",
+             "Answer every question, yes or no:", ""]
+    for n, (text, places) in enumerate(named(found, set(sheets)), 1):
+        lines.append(f"{n}. {text} " + (places or "No event named: look for it in every sheet below."))
+    lines += ["", "Reply with one line per question, and nothing else. Start each line with the question's number. "
+                  "A yes names each event by its sheet and number, or the global by its name, and says what to "
+                  "change; a no is the word alone. The form, not the content:", "", "```", "1: no",
+              "2: yes - <sheet> <event number>: <what to change>", "...", "```", "",
+              "The sheets, as the editor numbers their events. A line marked [sub-events A-B] holds the events "
+              "numbered A to B; `->` starts an action:"]
+    for name in sheets:
+        rows = print_sheet.sheet_rows(p, d.sheets[name].get("events", []), [0])
+        lines += ["", f"## {name}", "", "```", *(line for row in rows for line in row.head + row.body), "```"]
+    return "\n".join(lines) + "\n"
 
 
 def leading_count(short: str) -> int:
@@ -1018,13 +1058,22 @@ def main() -> int:
         print(f"... {len(lines) - shown} more lines of findings not printed: fix these and run again, or pass "
               f"--limit 0, or name fewer sheets with --sheets")
     print("\n".join(asked))
+    path = c3.script_folder(project.root, "review-design") / "brief.md"
+    # The evals that review every official example set this, and the example clone gets no brief
+    if os.environ.get("CONSTRUCT3_RAG_NO_RECORD") != "1":
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(brief(project, d, found, sheets), encoding="utf-8")
+    print(f"brief: if you can start a sub-agent, give it {c3.shown_path(path)} as its whole task and take its "
+          f"answers. Tell it nothing more about the game: it has not seen the project or the request, so it judges "
+          f"the events as a reader of the sheet does. Otherwise answer the questions yourself from print_sheet.py.")
     hits = [f for f in found if f["ask"] is None and f["sheet"] in sheets]
     named = sum(1 for f in found if f["ask"] and f["sheet"] in sheets)
     print(f"design: {len(hits)} finding{'' if len(hits) == 1 else 's'} on "
           f"{len({f['sheet'] for f in hits})} of {len(sheets)} sheets; the questions name {named} "
           f"event{'' if named == 1 else 's'}")
     print("next: fix every finding line in one plan of edit_sheet.py, each names the event and what to write; "
-          "answer every question, change what you answered yes about the events and globals your change wrote, "
+          "have every question answered as the brief: line says, change what was answered yes about the events "
+          "and globals your change wrote, "
           f"and name a yes about any other in the hand-over; then run {c3.script_command(project.root, 'verify_change.py')}, "
           "which runs the checker and this review again and goes on once it prints no finding. A finding the user "
           "asked for on purpose stays, and the hand-over says why.")

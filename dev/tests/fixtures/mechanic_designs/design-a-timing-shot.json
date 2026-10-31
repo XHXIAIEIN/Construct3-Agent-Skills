@@ -1,0 +1,34 @@
+{"game": "Swing Shot", "request": "a cannon that swings by itself, tap to fire where it points, hit the target to score and move it, three misses end it, tap to play again",
+ "later": ["sound"],
+ "core_loop": "Wait for the swinging cannon to point at the target, then tap",
+ "reference": {"example": "laser-turret", "takes": "an aim that turns by itself and a shot taken along it"},
+ "screen": {"score": "top-left", "cannon": "bottom centre", "target": "top"},
+ "state": [
+  {"name": "aim", "start": 0, "stored_in": "Cannon.angle"},
+  {"name": "swing", "start": 1, "stored_in": "global", "means": "1 turning one way, -1 the other"},
+  {"name": "tx", "start": 360, "stored_in": "Target.x"},
+  {"name": "score", "start": 0, "stored_in": "global"},
+  {"name": "misses", "start": 0, "stored_in": "global"},
+  {"name": "line", "start": "Score 0", "stored_in": "ScoreText.text"},
+  {"name": "over", "start": 0, "stored_in": "global", "means": "0 playing, 1 over, 2 a tap restarts"}],
+ "inputs": [{"name": "fire", "player": "tap anywhere on the screen", "game": {"tap": [0.5, 0.5]}}],
+ "rules": [
+  {"id": "new-game", "on": "start", "do": ["swing = 1", "score = 0", "misses = 0", "over = 0"]},
+  {"id": "swing", "on": "tick", "if": ["over = 0"], "do": ["aim += swing * 90 * dt"],
+   "children": [
+    {"id": "turn-back", "if": ["aim >= 60"], "do": ["swing = -1"]},
+    {"id": "turn-forward", "if": ["aim <= -60"], "do": ["swing = 1"]}]},
+  {"id": "fire", "on": "fire", "if": ["over = 0"], "feedback": "a shot flies where the cannon points",
+   "children": [
+    {"id": "hit", "if": ["abs(aim - (tx - 360) / 5) < 8"], "do": ["score += 1", "line = \"Score \" & score", "tx = 60 + floor(random(11)) * 60"]},
+    {"id": "miss", "else": true, "do": ["misses += 1", "line = \"Missed \" & misses"],
+     "children": [{"id": "lose", "if": ["misses >= 3"], "do": ["over = 1", "line = \"Over: \" & score", "wait 0.5", "over = 2"]}]}]},
+  {"id": "again", "on": "fire", "if": ["over = 2"], "do": ["restart"], "feedback": "a new game starts"}],
+ "win": "none", "lose": "over >= 1",
+ "tests": [
+  {"name": "a shot on target scores", "steps": [{"set": "tx = 360"}, {"set": "aim = 0"}, {"do": "fire"}, {"expect": "score = 1"}, {"expect": "line = \"Score 1\""}]},
+  {"name": "the cannon swings back at each end", "steps": [{"set": "aim = 59"}, {"wait": 0.3}, {"expect": "aim < 59"},
+   {"set": "aim = -59"}, {"set": "swing = -1"}, {"wait": 0.3}, {"expect": "aim > -59"}]},
+  {"name": "three misses end it, a tap restarts", "steps": [{"set": "tx = 660"}, {"set": "aim = -60"}, {"do": "fire"}, {"expect": "line = \"Missed 1\""},
+   {"do": "fire"}, {"do": "fire"}, {"expect": "over >= 1"}, {"expect": "find(line, \"Over\") >= 0"},
+   {"wait": 0.6}, {"do": "fire"}, {"wait": 0.2}, {"expect": "over = 0"}, {"expect": "misses = 0"}]}]}

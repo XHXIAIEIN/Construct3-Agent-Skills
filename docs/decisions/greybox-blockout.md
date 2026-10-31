@@ -35,7 +35,7 @@ Over reference blockouts and mock-ups of the stand-in:
 - Pattern marks areas and edges, not objects, as Tiled Backgrounds.
 - The look is neutral and costs a model no decisions: a template default it
   keeps, not a style it chooses per game. It is the fallback for a game the
-  user gave no look (`paper-and-ink-is-the-fallback.md`).
+  user gave no look (`default-look-is-the-fallback.md`).
 - A game's screen is the scene, not a dashboard. Of six mock-ups of one
   coin screen, three drew an app interface, with rounded cards, a score
   pill and a shadow on everything; the user read them as a template and as
@@ -44,7 +44,7 @@ Over reference blockouts and mock-ups of the stand-in:
   scattered over the screen, or on a board as wide as the screen, they
   read as untidy.
 - The palette, the type, the HUD and the subjects' sizes are those of
-  `paper-and-ink-look.md`.
+  `default-look.md`.
 - Where something is transparent, a mask, or a background still to come,
   the backdrop is the grey-and-white checker editors show for transparency.
 - Where a game turns them on, the shadow is hard at half opacity and the
@@ -62,7 +62,7 @@ The outline, shadow, hit and squash values come from the evidence in
 
 ### Contrast of the values
 
-The roles' colours and their ratios are in `paper-and-ink-look.md`. Every
+The roles' colours and their ratios are in `default-look.md`. Every
 colour a `shape()` is drawn in reads at least 3:1 on the darker checker
 grey, `canvas_alt`, so a shape shows on the paper and on the checker
 alone.
@@ -174,19 +174,19 @@ from the boxes the generator writes.
 | `GAP_IN` | A quarter unit, 8 px at 32: between a value and its name. A line's box adds about a quarter of an em above and below its letters, so the gap a player sees is larger |
 | `GAP_OUT` | One unit: the least between the HUD and the playfield |
 | `GROUP_RATIO` | 1.5: the gap between two groups over the gap inside either, at least |
-| `OPTICAL_LIFT` | 0.05 of the play area's height: how far the playfield is raised above its middle |
+| `OPTICAL_LIFT` | 0: how far the playfield is raised above the middle of the play area, as a share of its height |
 
 - `hud_stat()` puts a value under its name as one group, each box one line
   high, so a caller does not place the second line with `dy`.
 - `play_area(hud)` is the viewport, `MARGIN` inside it, less the HUD's boxes
   and `GAP_OUT` around them; `centred(w, h, area)` puts a box in its middle
-  on the grid, raised by `OPTICAL_LIFT`.
+  on the grid, raised by `OPTICAL_LIFT`, 0, so not at all.
 - `spaced(groups)` stops the run when two groups sit closer than
   `GROUP_RATIO` times the gap inside either, with the helpers that fix it.
   It stops, as `no_overlap()` does, because the helpers always pass it and
   a failure is a placement made by hand.
 - `balanced(content, area)` prints a warning when the playfield's centre is
-  more than a unit from the lifted middle of the play area. It warns and
+  more than a unit from the middle of the play area. It warns and
   does not stop, because a game may hold its playfield off the middle on
   purpose, beside a panel or in a level wider than the screen, and the boxes
   do not say which.
@@ -206,16 +206,18 @@ A game screen fills more of the screen than a slide, so the band does not
 transfer, and the floor catches a board too small for the screen. The
 stand-in's board covers 24%.
 
-The 5% lift is a rule of thumb from design guides; no source found measures
-it. On the stand-in it raises the board one unit.
+The 5% lift of design guides was set first and turned down: the official
+examples centre their content, a median 0% off the middle
+([web-landing-and-redesign-skills.md](web-landing-and-redesign-skills.md)),
+and the user set `OPTICAL_LIFT` to 0 on 2026-10-31.
 
 The user found generated screens that gather their information in one
 place, such as a title and a subtitle, each joining two facts with a middle
 dot, stacked in one corner while the other three stood empty.
 Two checks count the items of the HUD in each ninth of the screen: a
 group is one, and each part a label joins to another with " · " or " | "
-that holds a word is one more, so a round's tag with its number,
-"Round · 03", is one. A group whose labels hold no word, a count beside its
+that holds a word is one more, so a count with its name, "Lives · 3",
+is one. A group whose labels hold no word, a count beside its
 icon, tells nothing, and a text across two thirds of the screen is a bar
 along an edge, in no one place.
 
@@ -247,7 +249,7 @@ official example. The stand-in's tag, score and keys hold one corner each.
 
 ### Colour
 
-`PALETTE` holds the roles of `paper-and-ink-look.md` plus `flash`, the
+`PALETTE` holds the roles of `default-look.md` plus `flash`, the
 fill of a hit. Keep the roles and change values only. The player is `ink`;
 a bar is an `ink` fill in a `solid` frame. A game gives a role a hue of its
 own only where the palette and the shapes leave two things alike. The run
@@ -347,9 +349,9 @@ and a global `beat` counts them.
 ### The manifest
 
 `plugin/skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
-this record and of `paper-and-ink-look.md` with a status and a scope: `enforced` when a check stops the generator,
+this record and of `default-look.md` with a status and a scope: `enforced` when a check stops the generator,
 `adopted` when the user decided it and the template holds it, `proposed`,
-`rejected`; `every-look`, or `paper-and-ink` for the fallback's taste,
+`rejected`; `every-look`, or `default-look` for the fallback's taste,
 which stops nothing once `USER_LOOK` names a look the user gave. Its `deliver` steps are what a model writing the generator is
 given, its `confirm` steps what the agent runs on the result, among them
 `scripts/check_look.py`, which confirms the strict rules on the project's
@@ -363,8 +365,6 @@ template value it names drift apart.
   `readable-on-a-dark-background` asks for a navy backdrop, on which the
   labels' `ink` reads 1.4:1: `readable()` stops the generator, and the case
   grades what the model does with that stop.
-- `OPTICAL_LIFT` waits on the user's choice between 0.05 and 0, `open` in
-  the manifest.
 - `measure_layout.py` reads the layout files, so content an example creates
   at runtime is not counted; a measurement from previews would raise the
   low end of the coverage.

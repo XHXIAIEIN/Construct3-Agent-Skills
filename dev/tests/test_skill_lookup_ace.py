@@ -36,6 +36,14 @@ def test_ace_lookup_names_combo_items_in_the_locale(built):
     assert code == 0 and "(top | bottom)" in out
 
 
+def test_ace_lookup_writes_a_grouped_combo_by_its_item_id(skill_only):
+    """Set cursor style's item is stored by its id like a combo's. Written as "0", the template
+    taught "16" for grabbing, which loads and checks clean but leaves the default cursor."""
+    code, out = tool(skill_only, "lookup_ace", "Mouse", "set-cursor-style2")
+    assert code == 0 and '"parameters": {"cursor-style": "normal"}' in out, out
+    assert "(normal | all-scroll | none | help | pointer | " in out and " grab | grabbing | " in out, out
+
+
 def test_ace_lookup_marks_shared_triggers_and_writes_expressions(built):
     code, out = tool(built, "lookup_ace", "Coin", "collision", "another")
     assert "condition on-collision-with-another-object - On collision with another object [_common]  <isTrigger>" in out
@@ -333,7 +341,7 @@ def test_a_behavior_looked_up_under_system_names_where_it_is(built):
     assert code == 1 and out.splitlines()[0].startswith(
         "Timer is a behavior, not part of System, and no object of the project has it: lookup_ace.py Timer lists")
     code, out = tool(built, "lookup_ace", "System", "tween", "two")
-    assert out.splitlines()[0] == "Tween is a behavior, not part of System; Coin, KeyBox have it: lookup_ace.py Coin tween two"
+    assert out.splitlines()[0] == "Tween is a behavior, not part of System; Coin, KeyBox, Fade have it: lookup_ace.py Coin tween two"
 
 
 def test_a_plugin_looked_up_under_another_object_names_the_object_that_is_one(built):

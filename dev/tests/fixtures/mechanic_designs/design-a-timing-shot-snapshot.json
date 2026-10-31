@@ -1,0 +1,41 @@
+{"game": "Swing Shot",
+ "request": "one tap game for my project at <project> : a cannon at the bottom keeps swinging left and right on its own, you tap to shoot wherever its pointing. hit the target up top and you score and the target moves, miss 3 times and its over, tap to play again. dont build it yet, design it first the way the skill says and check the design, then tell me what you left for later",
+ "later": ["sounds", "a best score kept between sessions", "the swing speeding up as the score grows", "a target that drifts or shrinks", "hit and miss effects: muzzle flash, screen shake, a burst on the target", "a title or how-to-play screen before the first shot", "the art: placeholder shapes this round"],
+ "core_loop": "The cannon sweeps its aim across the top on its own; tap when it points at the target. A hit scores and moves the target, a miss counts, three misses end the game and a tap starts a new one",
+ "reference": {"example": "marble-spiral-clash", "takes": "the shot as its own object created at the cannon's muzzle and flown to its end point, a shot in flight blocks the next one, the game-over state tested by a tap on the screen that restarts the layout"},
+ "screen": {"score": "top-left", "MissText": "top-right", "Target": "top centre, jumps along the top band when hit", "Cannon": "bottom centre, its barrel turned toward (aimX, the target's height)", "message": "centre"},
+ "state": [
+  {"name": "score", "start": 0, "stored_in": "global"},
+  {"name": "scoreLine", "start": "Score: 0", "stored_in": "ScoreText.text"},
+  {"name": "misses", "start": 0, "stored_in": "global"},
+  {"name": "missLine", "start": "Misses: 0/3", "stored_in": "MissText.text"},
+  {"name": "over", "start": 0, "stored_in": "global", "means": "0 playing, 1 over, 2 over and the message has shown 0.5 s, so the tap that ends the game does not restart it"},
+  {"name": "aimX", "start": 427, "stored_in": "global", "means": "the x on the target's line the cannon points at, swept 60 to 794 at 500 px/s; the Cannon's angle is angle(Cannon.X, Cannon.Y, aimX, Target.Y)"},
+  {"name": "dir", "start": 1, "stored_in": "global", "means": "1 swinging right, -1 swinging left"},
+  {"name": "shotX", "start": -1, "stored_in": "global", "means": "-1 with no shot in flight, else the aim taken when the shot was fired; the Shot object flies 0.3 s to (shotX, the target line) and goes"},
+  {"name": "tx", "start": 427, "stored_in": "Target.x", "means": "the target is 80 px wide, so a shot within 40 px of tx hits"},
+  {"name": "message", "start": "Tap to shoot", "stored_in": "Message.text"}],
+ "inputs": [
+  {"name": "tap", "player": "tap anywhere on the screen", "game": {"tap": [0.5, 0.5]}}],
+ "rules": [
+  {"id": "new-game", "on": "start", "do": ["score = 0", "misses = 0", "over = 0", "aimX = 427", "dir = 1", "shotX = -1"]},
+  {"id": "swing", "on": "tick", "if": ["over = 0"], "do": ["aimX = aimX + dir * 500 * dt"],
+   "children": [
+    {"id": "turn-left", "if": ["aimX >= 794"], "do": ["aimX = 794", "dir = -1"]},
+    {"id": "turn-right", "if": ["aimX <= 60"], "do": ["aimX = 60", "dir = 1"]}]},
+  {"id": "shoot", "on": "tap", "if": ["over = 0", "shotX < 0"], "do": ["shotX = aimX", "message = \"\"", "wait 0.3"],
+   "feedback": "a shot leaves the muzzle and flies to where the cannon pointed; on arrival the score or the miss count goes up",
+   "children": [
+    {"id": "hit", "if": ["abs(shotX - tx) <= 40"], "do": ["shotX = -1", "score += 1", "scoreLine = \"Score: \" & score", "tx = 80 + (tx - 80 + 150 + floor(random(395))) % 695"]},
+    {"id": "miss", "else": true, "do": ["shotX = -1", "misses += 1", "missLine = \"Misses: \" & misses & \"/3\""],
+     "children": [
+      {"id": "lose", "if": ["misses >= 3"], "do": ["over = 1", "message = \"Game over: \" & score & \" points. Tap to play again\"", "wait 0.5", "over = 2"]}]}]},
+  {"id": "restart", "on": "tap", "if": ["over = 2"], "do": ["restart"], "feedback": "a new game starts: score and misses back to 0, the cannon swinging again"}],
+ "win": "none",
+ "lose": "over >= 1",
+ "tests": [
+  {"name": "a hit scores and moves the target", "steps": [{"set": "tx = 427"}, {"set": "aimX = 427"}, {"do": "tap"}, {"expect": "shotX >= 0"}, {"wait": 0.3}, {"expect": "score = 1"}, {"expect": "scoreLine = \"Score: 1\""}, {"expect": "abs(tx - 427) >= 150"}, {"expect": "misses = 0"}, {"expect": "shotX = -1"}]},
+  {"name": "a miss counts and does not score", "steps": [{"set": "tx = 700"}, {"set": "aimX = 200"}, {"do": "tap"}, {"wait": 0.3}, {"expect": "misses = 1"}, {"expect": "missLine = \"Misses: 1/3\""}, {"expect": "score = 0"}, {"expect": "tx = 700"}]},
+  {"name": "no second shot while one flies", "steps": [{"set": "tx = 700"}, {"set": "aimX = 200"}, {"do": "tap"}, {"do": "tap"}, {"wait": 0.3}, {"expect": "misses = 1"}]},
+  {"name": "the aim swings back at each side", "steps": [{"set": "aimX = 780"}, {"set": "dir = 1"}, {"wait": 0.1}, {"expect": "dir = -1"}, {"expect": "aimX < 794"}, {"set": "aimX = 70"}, {"wait": 0.1}, {"expect": "dir = 1"}, {"expect": "aimX > 60"}]},
+  {"name": "three misses end it, a tap plays again", "steps": [{"set": "misses = 2"}, {"set": "score = 4"}, {"set": "tx = 700"}, {"set": "aimX = 200"}, {"do": "tap"}, {"wait": 0.3}, {"expect": "over >= 1"}, {"expect": "find(message, \"Game over\") >= 0"}, {"do": "tap"}, {"expect": "over >= 1"}, {"wait": 0.6}, {"do": "tap"}, {"wait": 0.3}, {"expect": "over = 0"}, {"expect": "misses = 0"}, {"expect": "score = 0"}, {"expect": "scoreLine = \"Score: 0\""}]}]}

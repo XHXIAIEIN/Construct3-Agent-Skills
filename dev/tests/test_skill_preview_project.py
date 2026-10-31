@@ -1,4 +1,5 @@
 """preview_project.py: the plan, checked before the editor opens, the steps it plays, the recording and the report."""
+import base64
 import json
 import os
 import re
@@ -7,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.skill_helpers import INSTALLED, run, script_module
+from tests.skill_helpers import INSTALLED, png, run, script_module
 
 pp = script_module("preview_project")
 SCRIPT = f"{INSTALLED}/scripts/preview_project.py"
@@ -150,6 +151,45 @@ def test_preview_project_drags_through_its_waypoints_and_can_release_moving(monk
     assert ("touchMove", 300, 200) in sent and ("touchMove", 100, 200) in sent and slept[-1] == 0
 
 
+def test_preview_project_moves_the_mouse_with_no_button_from_where_the_pointer_is(monkeypatch, tmp_path):
+    """A hover: mouseMoved events with no button, starting where the last mouse event
+    left the pointer; the first move of a run starts on its own first point, and 0
+    seconds sends one event a point."""
+    sent, slept = [], []
+    win = SimpleNamespace(call=lambda method, **e: sent.append((method, e)))
+    game = pp.Game(win, None, False, (1280, 720), "", None, tmp_path)
+    places = {"Menu": (100, 40), "Item": (150, 92), "Sub": (300, 200)}
+    monkeypatch.setattr(game, "aim", lambda t: places[t] if isinstance(t, str) else (t["x"], t["y"]))
+    monkeypatch.setattr(pp.time, "sleep", slept.append)
+
+    assert pp.do_step(game, {"move": "Item"}, 1, tmp_path) == ("at (150, 92), the run's first mouse event", None)
+    assert sent == [("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 150, "y": 92, "buttons": 0})]
+    sent.clear()
+    pp.do_step(game, {"tap": "Menu"}, 2, tmp_path)
+    sent.clear()
+    step = {"move": "Sub", "through": ["Item"], "seconds": 0.5, "rest": 0.3}
+    said, _ = pp.do_step(game, step, 3, tmp_path)
+    assert said == "(100, 40) through (150, 92) to (300, 200) in 0.5 s, then still 0.3 s"
+    assert pp.step_line(3, step) == "3 move through Item to Sub"
+    assert {e["type"] for _, e in sent} == {"mouseMoved"} and all("button" not in e and e["buttons"] == 0
+                                                                   for _, e in sent)
+    assert ((150, 92) in [(e["x"], e["y"]) for _, e in sent] and (sent[-1][1]["x"], sent[-1][1]["y"]) == (300, 200))
+    assert sum(slept[-len(sent) - 1:-1]) == pytest.approx(0.5) and slept[-1] == 0.3
+    assert game.pointer == (300, 200)
+    sent.clear()
+    said, _ = pp.do_step(game, {"move": {"x": 700, "y": 450}, "through": ["Item"], "seconds": 0}, 4, tmp_path)
+    assert said == "(300, 200) through (150, 92) to (700, 450) at once"
+    assert [(e["x"], e["y"]) for _, e in sent] == [(150, 92), (700, 450)]
+
+    _, problems = pp.check_plan({"touch": True, "steps": [{"move": "Item"}, {"move": "Item", "to": "Sub"},
+                                                          {"move": "Item", "through": "Sub"}, {"move": ""}]})
+    for expected in ('step 1 (move) moves the mouse with no button held, and a touch plan has no mouse',
+                     "step 2 (move) has 'to'", "step 3 (move): through is a list of targets like the one it moves to",
+                     "step 4 (move): the target is a type name"):
+        assert any(p.startswith(expected) for p in problems), (expected, problems)
+    assert pp.check_plan({"steps": [{"move": "Item", "through": ["Sub"], "seconds": 0, "rest": 1}]})[1] == []
+
+
 def opened(steps: list[dict], planned: int, seconds: float, touch: bool = False) -> dict:
     """The result of a run that opened the project and played `steps` in the page's runtime."""
     return {"project": "Game", "status": "opened", "title": "Game - Construct 3",
@@ -205,10 +245,12 @@ def test_preview_project_prints_an_error_raised_every_tick_once_with_its_count()
 
 
 class ReloadingGame:
-    """A game whose page reloads: each step's outcomes in turn, and what reloaded() answers after each try."""
+    """A game whose page reloads: each step's outcomes in turn, what reloaded() answers after each try, and
+    what pulse() reads after each step, None when there are no more."""
 
-    def __init__(self, outcomes: list, reloads: list) -> None:
+    def __init__(self, outcomes: list, reloads: list, pulses: list | None = None) -> None:
         self.outcomes, self.reloads, self.win, self.recording, self.tries = outcomes, reloads, None, None, []
+        self.pulses = pulses or []
 
     def reloaded(self) -> float | None:
         back = self.reloads.pop(0)
@@ -216,11 +258,18 @@ class ReloadingGame:
             raise back
         return back
 
+    def pulse(self) -> dict | None:
+        got = self.pulses.pop(0) if self.pulses else None
+        if isinstance(got, Exception):
+            raise got
+        return got
+
 
 def play_reloading(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, steps: list[dict], outcomes: list,
-                   reloads: list) -> tuple[ReloadingGame, list[dict]]:
+                   reloads: list, pulses: list | None = None, layout: str | None = None
+                   ) -> tuple[ReloadingGame, list[dict]]:
     """play_steps on a ReloadingGame, each try of a step kept in its tries."""
-    game = ReloadingGame(outcomes, reloads)
+    game = ReloadingGame(outcomes, reloads, pulses)
 
     def do_step(game, step, n, shots):
         game.tries.append(n)
@@ -232,7 +281,7 @@ def play_reloading(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, steps: list[
     monkeypatch.setattr(pp, "do_step", do_step)
     monkeypatch.setattr(pp.oe, "runtime_errors", lambda win: [])
     monkeypatch.setattr(pp, "screenshot", lambda game, path: str(path.name))
-    return game, pp.play_steps(game, steps, tmp_path)
+    return game, pp.play_steps(game, steps, tmp_path, layout)
 
 
 def test_preview_project_goes_on_after_the_game_reloads_its_page(monkeypatch, tmp_path):
@@ -294,6 +343,93 @@ def test_preview_project_stops_with_the_steps_kept_when_a_reload_breaks_off_a_js
                 "01-failed.png")]
 
 
+def ticked(layout: str, longest: float = 0.02) -> dict:
+    """What pulse() reads after a step of a second: the layout, and the ticks of a 140 Hz display."""
+    return {"ticks": 140, "seconds": 1.0, "longest": longest, "layout": layout}
+
+
+def test_preview_project_says_where_a_step_changed_the_layout_and_the_trail_where_one_failed(monkeypatch, tmp_path):
+    """A tap that goes to the next layout says so on its line; a step that fails later prints the layouts the game
+    went through, so an until that waits on the wrong layout shows where the game is."""
+    steps = [{"tap": "Start"}, {"wait": 1}, {"tap": "Next"}, {"until": "vars.won", "timeout": 2}]
+    _, played = play_reloading(monkeypatch, tmp_path, steps,
+                               ["at (215, 466)", "ok", "at (40, 600)", pp.StepFailed("still false after 2 s")],
+                               [None] * 4, [ticked("Menu"), ticked("Game"), ticked("Game"), ticked("Shop")], "Menu")
+    assert [(d["ok"], d["said"], d["layout"]) for d in played] == [
+        (True, "at (215, 466)", "Menu"), (True, "ok; layout 'Menu' -> 'Game'", "Game"),
+        (True, "at (40, 600)", "Game"),
+        (False, "still false after 2 s; layout 'Game' -> 'Shop'; the window then: 04-failed.png", "Shop")]
+    assert played[0]["ticks"] == {"ticks": 140, "seconds": 1.0, "longest": 0.02}
+    result = opened(played, 4, 4.1)
+    result["preview"]["first_layout"] = "Menu"
+    lines = pp.report(result)
+    at = lines.index(f"  4 until vars.won: FAILED, {played[3]['said']}")
+    assert lines[at + 1] == "    trail: 'Menu' at the start, 'Game' after step 2, 'Shop' after step 4", lines
+
+
+def test_preview_project_fails_a_step_in_which_the_game_stopped_ticking(monkeypatch, tmp_path):
+    """A loop in the events that holds the game's thread for seconds and ends: the step it fell in fails."""
+    steps = [{"key": "Space"}, {"wait": 1}]
+    _, played = play_reloading(monkeypatch, tmp_path, steps, ["held 0.1 s", "ok"], [None, None],
+                               [ticked("Game", pp.STALL + 1.5), ticked("Game")], "Game")
+    assert [(d["ok"], d["said"]) for d in played] == [
+        (False, "held 0.1 s; the game did not tick for 2.5 s during the step, as when a long loop in its events or a "
+                "script holds its thread; find the loop, and spread its work over ticks or end it sooner; the window then: "
+                "01-failed.png")]
+
+
+def test_preview_project_fails_a_step_after_which_the_game_does_not_answer(monkeypatch, tmp_path):
+    """An endless loop holds the thread for good: the page or worker that runs the game is there and gives no
+    answer, which is not a reload, so the run stops at once instead of waiting for a new page."""
+    _, played = play_reloading(monkeypatch, tmp_path, [{"key": "Space"}, {"wait": 1}], ["held 0.1 s"],
+                               [pp.StepFailed(pp.FROZEN)], [], "Game")
+    assert [(d["ok"], d["said"], d["layout"]) for d in played] == [
+        (False, f"held 0.1 s; {pp.FROZEN}; the window then: 01-failed.png", "Game")]
+
+    class Window:
+        def evaluate(self, js, wait=None, session=None):
+            raise pp.oe.NoAnswer(f"Runtime.evaluate: no answer in {wait:g} seconds")
+
+    game = pp.Game(Window(), "worker-1", False, (430, 932), "", None, tmp_path)
+    monkeypatch.setattr(pp.oe, "attach", lambda win, patience: pytest.fail("a held thread is not a reload"))
+    for read in (game.reloaded, game.pulse):
+        with pytest.raises(pp.StepFailed, match="the game stopped answering for 5 s: an endless loop"):
+            read()
+
+
+def test_preview_project_prints_how_the_game_ticked_over_a_recording():
+    steps = [{"step": 4, "ticks": {"ticks": 3, "seconds": 0.02, "longest": 0.007}},
+             {"step": 5, "ticks": {"ticks": 150, "seconds": 2.98, "longest": 2.004}}, {"step": 6}]
+    assert pp.tick_lines(steps) == ["the game ticked 153 times in 3.0 s, 51 a second, at most 2004 ms apart"]
+    assert pp.tick_lines([{"step": 1}]) == []
+
+
+def test_preview_project_prints_beside_a_shot_how_much_of_it_is_one_colour_and_how_its_luminance_deviates(
+        monkeypatch, tmp_path):
+    """A sprite alone on an empty screen leaves 99.98% one colour, which alone read as nothing drawn; with the
+    deviation of its luminance the shot shows something. A screen of one colour is named as not drawn yet."""
+    shot = base64.b64encode(png(2, 2, lambda x, y: (209, 209, 209, 255))).decode()
+    game = SimpleNamespace(win=SimpleNamespace(call=lambda method, **params: {"data": shot}))
+    monkeypatch.setattr(pp.oe, "fill", lambda win: (0.9998, 2.6))
+    assert pp.screenshot(game, tmp_path / "10-ship.png") == (
+        f"{tmp_path / '10-ship.png'} (99.98% one colour, luminance deviation 2.6)")
+    monkeypatch.setattr(pp.oe, "fill", lambda win: (1.0, 0.0))
+    assert pp.screenshot(game, tmp_path / "07-empty.png") == (
+        f"{tmp_path / '07-empty.png'}: 100.00% of it is one colour and its luminance deviates 0.0, under 2, so the "
+        f"game had not drawn yet or draws nothing in view here; add a wait or until step before this shot")
+
+
+def test_preview_project_counts_the_failed_requests_apart_from_the_runtime_errors():
+    steps = [{"step": 1, "line": "1 wait 1 s", "ok": True, "said": "ok", "errors": [
+        "network: HTTP 404 https://preview.construct.net/level3.json (Fetch)", "TypeError: x is null",
+        "network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Image)"]}]
+    lines = pp.report(opened(steps, 1, 1.0))
+    assert lines[3:] == ["    network: HTTP 404 https://preview.construct.net/level3.json (Fetch)",
+                         "    runtime: TypeError: x is null",
+                         "    network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Image)",
+                         "  ran: 1 of 1 steps in 1.0 s, 1 runtime error and 2 failed requests"], lines
+
+
 def test_preview_project_joins_a_recording_into_a_gif_without_ffmpeg(tmp_path, monkeypatch):
     """Each frame stays up for as long as the window showed it."""
     image = pytest.importorskip("PIL.Image", reason="Pillow is not installed; pip install pillow")
@@ -301,10 +437,68 @@ def test_preview_project_joins_a_recording_into_a_gif_without_ffmpeg(tmp_path, m
     for frame, colour in zip(frames, ("red", "blue")):
         image.new("RGB", (8, 8), colour).save(frame)
     monkeypatch.setattr(pp.shutil, "which", lambda name: None)
-    made = pp.make_video(frames, [0.25, 0.05], tmp_path / "02-merge")
+    made = pp.make_video(frames, tmp_path / "02-merge", [0.25, 0.05])
     assert made == str(tmp_path / "02-merge.gif")
     with image.open(made) as gif:
         assert gif.n_frames == 2 and gif.info["duration"] == 250
+
+
+def test_preview_project_takes_fps_only_on_a_record_step_that_starts_a_recording():
+    _, problems = pp.check_plan({"steps": [{"record": "a", "fps": 0}, {"record": "b", "fps": True},
+                                           {"record": False, "fps": 60}, {"record": "c", "fps": 300}]})
+    assert [p.split(":")[0] for p in problems] == [f"step {n} (record)" for n in (1, 2, 3, 4)], problems
+    assert all("fps is frames per second of game time" in p for p in problems), problems
+    assert pp.check_plan({"steps": [{"record": "a", "fps": 60}, {"record": "b", "fps": 30, "watch": {"t": "1"}}]})[1] == []
+
+
+def test_preview_project_puts_a_video_in_game_time_together_from_the_screenshots():
+    """A game slowed to a tenth: a screenshot every 3 ms of game time, read after it. Each
+    frame at 60 fps is the last screenshot at or before its instant; a frame of the reloaded
+    page and a frame whose read failed are left out."""
+    frames = [{"t": i * 0.03, "game": 1.0 + i * 0.003} for i in range(40)]
+    frames[7] = {"t": 0.21}
+    frames.append({"t": 1.2, "game": 0.01})
+    game = pp.game_frames(frames, 60)
+    instants = [1.0 + k / 60 for k in range(len(game["shots"]))]
+    assert game["start"] == 1.0 and len(game["shots"]) == 8 and instants[-1] <= frames[39]["game"]
+    for at, i in zip(instants, game["shots"]):
+        assert frames[i]["game"] <= at + 1e-9 and not any(
+            "game" in f and frames[i]["game"] < f["game"] <= at + 1e-9 for f in frames[:40])
+    assert game["repeats"] == 0 and game["lag"] < 0.003
+    assert pp.game_lines(game, 60, [0.03] * 41) == [
+        "8 frames at 60 fps of game time from 1.00 s, each the last screenshot at or before its instant, at most "
+        f"{game['lag'] * 1000:.1f} ms of game time before it: "]
+    assert pp.game_frames([{"t": 0, "game": 2.0}, {"t": 1, "game": 2.0}], 60) is None     # the game stood still
+
+
+def test_preview_project_says_how_far_to_slow_a_game_whose_frames_repeat():
+    """At full speed a screenshot every 30 ms leaves every other 60 fps frame without one; a quarter
+    of a frame of game time between two screenshots needs a scale of 1 / (4 * 60 * 0.03)."""
+    frames = [{"t": i * 0.03, "game": i * 0.03} for i in range(21)]
+    game = pp.game_frames(frames, 60)
+    assert len(game["shots"]) == 37 and game["repeats"] == 16      # 21 screenshots for 37 frames
+    said = pp.game_lines(game, 60, [0.03] * 20 + [0.05])
+    assert said[1] == ("16 of 37 frames repeat the one before, since no screenshot fell in them: set runtime.timeScale "
+                       "= 0.1 in a js step before this record step, and record again"), said
+
+
+def test_preview_project_writes_a_video_in_game_time_at_its_own_rate(tmp_path):
+    """measure_timing.py reads the frame rate from the file, and counts one frame per instant."""
+    image = pytest.importorskip("PIL.Image", reason="Pillow is not installed; pip install pillow")
+    if not (pp.shutil.which("ffmpeg") and pp.shutil.which("ffprobe")):
+        pytest.skip("ffmpeg is not installed")
+    frames = [tmp_path / f"{k + 1:04d}.jpg" for k in range(5)]
+    for k, frame in enumerate(frames):
+        image.new("RGB", (16, 16), (k * 60, k * 60, k * 60)).save(frame)
+    picked = [0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4]
+    made = pp.make_video([frames[i] for i in picked], tmp_path / "05-impact", fps=60)
+    mt = script_module("measure_timing")
+    info = mt.probe(pp.shutil.which("ffprobe"), Path(made))
+    assert info["fps"] == 60
+    grey = pp.subprocess.run(["ffmpeg", "-v", "error", "-i", made, "-vf", "scale=1:1", "-f", "rawvideo",
+                              "-pix_fmt", "gray", "-"], capture_output=True, check=True).stdout
+    assert len(grey) == len(picked)
+    assert [min(range(5), key=lambda k: abs(k * 60 - v)) for v in grey] == picked
 
 
 def test_preview_project_picks_the_frames_of_a_contact_sheet():
@@ -346,6 +540,83 @@ def test_preview_project_joins_the_sheet_frames_into_one_image(tmp_path, monkeyp
     assert made == str(tmp_path / "02-merge-sheet.png")
     with image.open(made) as sheet:
         assert max(sheet.size) <= pp.SHEET_SIDE and sheet.size[0] > sheet.size[1] / 2
+
+
+EXPECT = {"works": ["the bar's right edge moves right over several frames and stops"],
+          "broken": ["the bar is at its new length in the first frame after the coin"]}
+
+
+def test_preview_project_takes_expect_and_open_questions_on_a_record_step_that_starts_a_recording():
+    """What the frames would show is written before the run, and the questions are open, since a question a yes
+    answers tells the reviewer what to look for (docs/decisions/recording-describer.md)."""
+    ask = ["What moves between the frames, which way and how far?"]
+    assert pp.check_plan({"steps": [{"record": "hp", "expect": EXPECT, "ask": ask}]})[1] == []
+    _, problems = pp.check_plan({"steps": [
+        {"record": "a", "ask": ask}, {"record": "b", "expect": {"works": ["x"]}, "ask": ask},
+        {"record": "c", "expect": EXPECT, "ask": ["Does the bar slide?", "Is it red?", "血条会滑动吗？"]},
+        {"record": False, "expect": EXPECT, "ask": ask}, {"record": "e", "expect": EXPECT, "ask": []}]})
+    assert [p.split(":")[0] for p in problems] == [
+        "step 1 (record)", "step 2 (record)", "step 3 (record)", "step 3 (record)", "step 3 (record)",
+        "step 4 (record)", "step 5 (record)"], problems
+    assert 'expect is {"works": [...], "broken": [...]}' in problems[0], problems
+    assert "'Does the bar slide?' is answered yes or no" in problems[2], problems
+    assert "expect and ask go on a step that starts a recording" in problems[5], problems
+    assert "ask is a list of open questions" in problems[6], problems
+
+
+def test_preview_project_writes_a_brief_of_the_frames_and_questions_alone(tmp_path):
+    """The brief holds copies of the sheet's frames by absolute path, in a folder whose name does not tell the
+    recording's, and the questions; the expectations stay beside it for --reply."""
+    folder = tmp_path / "shots" / "04-hp-bar-slides"
+    folder.mkdir(parents=True)
+    frames = []
+    for k in range(3):
+        (folder / f"{k + 1:04d}.jpg").write_bytes(b"jpg %d" % k)
+        frames.append((folder / f"{k + 1:04d}.jpg", k * 0.25))
+    recorder = SimpleNamespace(folder=folder, project=tmp_path, asked={"expect": EXPECT, "ask": [
+        "What moves between the frames, which way and how far?", "What does the text at the top say?"]})
+    lines = pp.Recorder.write_brief(recorder, frames)
+    blinds = [p for p in (tmp_path / "shots").iterdir() if p.is_dir() and p != folder]
+    assert len(blinds) == 1 and blinds[0].name.startswith("described-"), blinds
+    brief = (blinds[0] / "brief.md").read_text(encoding="utf-8")
+    assert f"1. at 0 ms: {(blinds[0] / '01.jpg').resolve().as_posix()}" in brief, brief
+    assert "3. at 500 ms:" in brief and (blinds[0] / "03.jpg").read_bytes() == b"jpg 2"
+    assert f"3. {pp.LAST_QUESTION}" in brief and "2. What does the text at the top say?" in brief, brief
+    assert "hp" not in brief.lower() and "bar" not in brief and "works" not in brief, brief
+    described = json.loads(blinds[0].with_name(blinds[0].name + pp.EXPECT).read_text(encoding="utf-8"))
+    assert described["expect"] == EXPECT and len(described["ask"]) == 3
+    assert lines[0].startswith(f"described: {(blinds[0] / 'brief.md').resolve()} holds 3 frames and 3 questions")
+    assert lines[1].startswith("brief: if you can start a sub-agent, give it") and "--reply" in lines[1], lines
+
+
+def test_preview_project_checks_a_description_and_prints_it_with_the_expectations(project, tmp_path):
+    """--reply names each question left unanswered and each answer that cannot see what it was asked, and holds
+    the answers against what the plan wrote before the run; a reply outside a brief's folder is refused."""
+    blind = tmp_path / "described-0123456789"
+    blind.mkdir()
+    asked = ["What moves between the frames, which way and how far?", "What does the text say?", pp.LAST_QUESTION]
+    blind.with_name(blind.name + pp.EXPECT).write_text(json.dumps(
+        {"brief": (blind / "brief.md").as_posix(), "ask": asked, "expect": EXPECT}), encoding="utf-8")
+    reply = blind / "reply.md"
+    reply.write_text("**1:** A green rectangle at the top grows to the right\nfrom frame 2 to frame 5, then stops.\n"
+                     "4: something\n", encoding="utf-8")
+    code, out = run(project, SCRIPT, "--reply", str(reply))
+    assert code == 1, out
+    assert "  missing: 2, 3" in out and "  not in the brief: 4: something" in out, out
+    assert "    A green rectangle at the top grows to the right from frame 2 to frame 5, then stops." in out, out
+    assert "next: give the reviewer the same brief again" in out, out
+    reply.write_text("1: A green rectangle grows to the right.\n2: unreadable, too small\n3: Nothing else moves.\n",
+                     encoding="utf-8")
+    code, out = run(project, SCRIPT, "--reply", str(reply))
+    assert code == 0, out
+    assert "  answer 2 cannot make out part of what it was asked" in out, out
+    assert f"expect, works: {EXPECT['works'][0]}" in out and f"expect, broken: {EXPECT['broken'][0]}" in out, out
+    assert "answers: 3 of 3, 0 missing, 1 cannot make out" in out, out
+    assert "is open, not false" in out and "record it again" in out, out
+    stray = tmp_path / "reply.md"
+    stray.write_text("1: x\n", encoding="utf-8")
+    code, out = run(project, SCRIPT, "--reply", str(stray))
+    assert code == 2 and "save the reply in the folder of the recording whose brief.md it answers" in out, out
 
 
 def test_preview_project_prints_how_the_watched_values_changed():
@@ -393,15 +664,20 @@ def test_preview_project_replays_the_kept_plans_and_names_the_one_that_fails_now
     logged = {**ok, "errors": ["Event sheet 1, event 4, action 2: TypeError\n    at stack"]}
     result = {"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e", "preview": {
         "plans": {"merge": done([ok, bad], 3), "hint": done([ok]), "buy": done([logged])}}}
-    lines, failed = pp.replay_report(result, {"old": ["step 1 has none of tap, hold"]})
+    until = {"merge": 1, "hint": 2, "buy": 1}
+    lines, failed = pp.replay_report(result, {"old": ["step 1 has none of tap, hold"]}, until)
     assert failed == 3
     assert lines[1:] == [
         "  FAIL  buy (tools/plans/buy.json): runtime: Event sheet 1, event 4, action 2: TypeError",
-        "  ok    hint: 1 step in 2.0 s",
+        "  ok    hint: 1 step, 2 until checks in 2.0 s",
         "  FAIL  merge (tools/plans/merge.json): 2 until vars.merged: FAILED, still false after 10 s",
         "  FAIL  old (tools/plans/old.json): the plan is refused: step 1 has none of tap, hold",
-        "  replayed: 1 of 4 kept plans pass, 1 runtime error",
+        "  replayed: 1 of 4 kept plans pass with 2 until checks, 1 runtime error",
     ], lines
+    # a plan kept before --keep needed an until step passes on anything, and says so
+    lines, failed = pp.replay_report(result, {}, {**until, "hint": 0})
+    assert "  ok    hint: 1 step, no until after an input or wait, so it checks nothing, in 2.0 s" in lines, lines
+    assert lines[-1] == "  replayed: 1 of 3 kept plans pass with 0 until checks, 1 runtime error", lines
 
 
 def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(project, tmp_path):
@@ -413,6 +689,20 @@ def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(pro
     assert pp.kept_plans(project) == [kept]
     code, out = run(project, SCRIPT, "plan.json", "--keep", "a b")
     assert code == 2 and "--keep takes a NAME of letters, digits, - and _" in out, out
+    # a plan of keys and reads passes whatever the game does, so it is refused before the editor opens; so is
+    # one whose only until reads the start, as runs of fix-wasd-twitch wrote it once a plan needed an until
+    reads = tmp_path / "reads.json"
+    for steps in ([{"key": "KeyW", "seconds": 1}, {"js": "runtime.objects.Player.getFirstInstance().y"}],
+                  [{"until": "runtime.objects.Player.getFirstInstance() !== null"}, {"key": "KeyW", "seconds": 1},
+                   {"js": "runtime.objects.Player.getFirstInstance().y"}]):
+        reads.write_text(json.dumps({"steps": steps}), encoding="utf-8")
+        code, out = run(project, SCRIPT, str(reads), "--keep", "walk")
+        assert code == 2 and "not kept: no until step comes after an input or a wait" in out, out
+        assert "--keep walk" in out, out
+    assert not (project / "tools" / "plans" / "walk.json").exists()
+    assert pp.checks({"steps": [{"until": "a"}, {"key": "KeyW"}, {"until": "b"}, {"js": "1"}, {"until": "c"}]}) == 2
+    assert pp.checks({"steps": [{"wait": 3}, {"until": "vars.timer === 0"}]}) == 1
+    assert pp.checks({"steps": [{"until": "a"}, {"js": "b"}]}) == 0
     code, out = run(project, SCRIPT)
     assert code == 2 and "give a PLAN.json to play, or --all" in out, out
     kept.unlink()

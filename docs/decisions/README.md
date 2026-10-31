@@ -3,7 +3,34 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
-- [Art Drawn in Code and Rendered in the Browser: The Route to Try Next](art-drawn-in-code.md) — 2026-10-28
+- [The Contact Sheet Comes in Pages a Model Reads at Their Own Size](contact-sheet-pages.md) — 2026-10-31
+- [Emil Kowalski's Other Skills Checked Against a Game Screen](emil-skills-for-a-game-screen.md) — 2026-10-31
+- [An Export Passes Only When Its Game Boots](export-boots-the-game.md) — 2026-10-31
+- [The Generator Removes the Files It No Longer Writes](generator-removes-what-it-no-longer-writes.md) — 2026-10-31
+- [Each Kind of Text Has Its Own Leading](leading-by-kind.md) — 2026-10-31
+- [The Game's Look: What impeccable Adds to the Review and the Manifest](look-from-impeccable.md) — 2026-10-31
+- [Layout, Type, Colour and Motion Rules of Motion-Design Websites, Measured on Game Screens](motion-atlas-layouts.md) — 2026-10-31
+- [A Game Keeps the Facts a Check Showed, on the Events They Rest On](project-notes.md) — 2026-10-31
+- [What a Recording Shows Is Described by a Reviewer That Has Not Seen the Change](recording-describer.md) — 2026-10-31
+- [A Preview Run Names What Went Wrong in the Runtime](runtime-signals.md) — 2026-10-31
+- [The Guide Search Prints the Symptom Rows First](symptom-search.md) — 2026-10-31
+- [The Count Draws in Inter's Tabular Digits](tabular-count-digits.md) — 2026-10-31
+- [taste-skill and frontend-design Read in Full, Against the Game's Look](taste-skill-and-frontend-design.md) — 2026-10-31
+- [Title and Result Screens Get Their Own Type Rules](title-and-result-screens.md) — 2026-10-31
+- [ui-ux-pro-max's Data Describes a Game's Store Page, and Its Web Rules Fail on Game Screens](ui-ux-pro-max-data.md) — 2026-10-31
+- [What a Web Landing Page Skill and a Redesign Skill Add to the Game's Look](web-landing-and-redesign-skills.md) — 2026-10-31
+- [The Art of a Generated Game Is Drawn by a Sub-Agent on a Fixed Model](art-drawer-agent.md) — 2026-10-30
+- [Art Drawn in Code as SVG: The Route Without an Image Tool](art-drawn-in-code.md) — 2026-10-30
+- [One Script Moves Every Picture of a Generated Game](art-entry-point.md) — 2026-10-30
+- [The Look Step Fails Only on What the Change Brought](look-blocks-only-what-the-change-brought.md) — 2026-10-30
+- [The Look Manifest Owns Every Look Rule](look-manifest-owns-the-rules.md) — 2026-10-30
+- [The User Picks a Given Look on the First Play Screen in Three Directions](look-picker.md) — 2026-10-30
+- [The Look Review Ranks Its Faults and Checks Worst Data and Other Screens](look-severity.md) — 2026-10-30
+- [Motion by Class: Eases by What Moves, a Popup Helper and Five Motion Checks](motion-by-class.md) — 2026-10-30
+- [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
+- [The User's References Are Measured and Shown Beside the Game's Screens](reference-pairs.md) — 2026-10-30
+- [SKILL.md Holds Facts and Tool Entries Inside 5000 Tokens](skill-body-budget.md) — 2026-10-30
+- [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
 - [A game project's scratch goes in `.tmp/` by use, its products in `.build/`](scratch-and-build-folders.md) — 2026-10-28
 - [A User's Own Pitfalls Sit Beside the Cookbook's](own-pitfalls-folder.md) — 2026-10-27
@@ -11,17 +38,16 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-24
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
+- [The Default Look Is the Fallback](default-look-is-the-fallback.md) — 2026-10-23
 - [What Only Maintainers Use Lives Under `dev/`](dev-folder.md) — 2026-10-23
 - [The Game's Look: What Aesthetics Skills Add to the Template](look-from-aesthetics-skills.md) — 2026-10-23
 - [The Look Judge Is a Read-Only Sub-Agent Type on the Measured Model](look-judge-agent.md) — 2026-10-23
-- [Paper and Ink Is the Fallback Look](paper-and-ink-is-the-fallback.md) — 2026-10-23
 - [A Bundled Addon Is Installed Only on the User's Word](bundled-addon-consent.md) — 2026-10-22
 - [An Export Replaces Only the Folders It Recorded](export-folder-record.md) — 2026-10-22
 - [The Hand-Over Says What Ran](hand-over-says-what-ran.md) — 2026-10-22
 - [A Check That Did Not Run Does Not Pass](not-checked-is-not-a-pass.md) — 2026-10-22
 - [Pixel Art Draws Its Text in a Baked Sprite Font](pixel-art-sprite-font.md) — 2026-10-22
 - [The Event Sheet Guides Live in Construct3-Cookbook](guides-in-cookbook.md) — 2026-10-21
-- [The Check Loop Stays Inside the First 5000 Tokens of SKILL.md](skill-body-budget.md) — 2026-10-21
 - [--attach Names the Browser; the Script Reads No Browser Folder of the User's](attach-names-the-browser.md) — 2026-10-16
 - [The Type the Editor Records for a Listed File](file-types-in-project-c3proj.md) — 2026-10-16
 - [An Entry of the Lookup Ends With Its Pitfalls File and the Built-In Preferred to Its Addon](lookup-pointers.md) — 2026-10-16
@@ -31,9 +57,9 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A Map of the Sheets: Which Layouts Run Each, and What It Holds](sheet-map.md) — 2026-10-16
 - [Sound Files Are Measured, and Placeholders Pass the Measure](sound-files-measured.md) — 2026-10-16
 - [The Hand-Entry Format Prompt Is Removed](remove-event-sheet-assistant.md) — 2026-10-15
+- [The Default Look: The Generator Template's Fallback](default-look.md) — 2026-10-14
 - [A Game Project's Long Documents Are Read in Parts](long-docs-in-parts.md) — 2026-10-14
 - [A long sheet prints its groups, and --find names the events that use a name](long-sheet-contents.md) — 2026-10-14
-- [Paper and Ink: The Generator Template's Fallback Look](paper-and-ink-look.md) — 2026-10-14
 - [A picture of an event sheet comes from the editor, fitted and cropped](sheet-screenshot.md) — 2026-10-14
 - [Design Tokens for the Tool Pages](design-tokens.md) — 2026-10-13
 - [Lightweight review and optional complete evidence](design-review-packets.md) — 2026-10-10

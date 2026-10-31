@@ -62,7 +62,9 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   with the scripting `runtime`, a `vars` object kept between steps and
   `wait`. They are the way out for what the step kinds do not cover, such as
   calling a function of the project to set a scene up.
-- The output is one line per step, then the runtime errors logged during it.
+- The output is one line per step, then the runtime errors and the failed
+  requests logged during it. A step also says when it changed the layout,
+  and fails when the game stopped ticking (`runtime-signals.md`).
   The result file, `.tmp/scripts/preview-project/result.json` or the one
   `--out` names, keeps every value read, and a failed step leaves a
   screenshot.
@@ -72,23 +74,38 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   The browser's screencast cannot do it: with the window's size emulated it
   sends no frame, or a strip. Construct's Video Recorder plugin records the
   canvas with its sound, but only in a project that has the object.
+- `record` with `fps` writes its video in game time, for counting an
+  effect's frames. The recorder takes about 40 screenshots a second while
+  the preview ticks at the display's rate, so a video on the clock holds
+  about half the frames of a 60 fps effect, and `vfx-timing.md` in
+  Construct3-Cookbook shows that halving an impact moves its rise-to-fall
+  ratio out of its row. Each instant start + k / fps of game time takes the
+  last screenshot whose game time, read right after it, is at or before
+  it. The plan slows the game in a `js` step of its own, not the recorder,
+  because the timeouts of the steps after it count wall-clock seconds and
+  the audio clock is not scaled, and a reader of the plan sees the scale.
+  A frame with no screenshot of its own repeats the one before; the run
+  counts those and names the scale that puts a quarter of a frame of game
+  time between two screenshots. A probe of a pixel-art impact settled the
+  method: at `runtime.timeScale = 0.1` every screenshot fell 4.6 ms of game
+  time or less before its instant.
 - A recording is for reviewing what happened. Its `watch` expressions are
   read with every frame, and `timeline.json` puts the frames, the steps that
   ran and the errors on one clock; the agent gets the watched values' changes
   printed, the user a page beside the frames that plays them, steps through
   them and jumps to a step.
-- The agent judges a motion from a contact sheet, `NN-NAME-sheet.png`: up to
-  12 frames in one image, each numbered with its time. It holds the first
-  and last frames, the frames around the largest change between two frames,
-  the start and end of each step, and the cells left over spread over the
-  change, so a motion that runs between two steps is on it. The run asks for
-  the three worst defects, each with its time, what the frame shows and the
-  event to change, then a fix of only those and a new recording of that
-  part. Before it, the agent read the watched values and left the eye to the
-  user. The pattern is the contact sheet of code-rendered video production;
-  on a HealthBar recording of 70 frames, a sheet of the hit and the heal at
-  their step boundaries left out the lost-HP bar closing between them, and
-  spreading the spare cells over the change put it on the sheet.
+- A recording's contact sheet, `NN-NAME-sheet.png`, holds up to 12 frames
+  in one image, each numbered with its time. It holds the first and last
+  frames, the frames around the largest change between two frames, the
+  start and end of each step, and the cells left over spread over the
+  change, so a motion that runs between two steps is on it. The same frames
+  go to a reviewer that has not seen the change, who describes them
+  (`recording-describer.md`); the agent then names the three worst defects,
+  each with its time, what the frame shows and the event to change, and
+  fixes only those. The pattern is the contact sheet of code-rendered video
+  production; on a HealthBar recording of 70 frames, a sheet of the hit and
+  the heal at their step boundaries left out the lost-HP bar closing between
+  them, and spreading the spare cells over the change put it on the sheet.
 - What the user sees go wrong reaches the agent as a part of the recording.
   The user selects it on the page and copies it as a task for an agent that
   starts cold: what to find out, in their words or a default question, the
@@ -122,6 +139,26 @@ Option 3, `scripts/preview_project.py PLAN.json`.
   `.tmp/scripts/preview-project/shots/` and its result, so a plan that is not
   kept is played once. A passing run says how to keep it and how many plans
   are kept, and a refused kept plan fails the replay like a failed step.
+- Only a plan that checks the change is kept. An `until` step is the one
+  step that fails when the game does not do what it should, and one before
+  the first input or wait reads the start. So `--keep` refuses a plan with
+  no `until` after its first `tap`, `hold`, `drag`, `key` or `wait`, before
+  the editor opens, and `--all` gives each plan's checks; its last line,
+  which `verify_change.py` prints as the played line, gives the checks that
+  held. Of the 90 plans kept in eval runs before the rule, 21 held keys and
+  printed positions, checking nothing, and all were from fix-wasd-twitch.
+  On that case, three runs an arm:
+
+  | Rule | Runs whose kept plan checks the walking | Worker tokens, mean |
+  |------|------------------------------------------|---------------------|
+  | none (old skill) | 1 of 3, then 0 of 3 | 69 200 |
+  | an `until` anywhere | 1 of 3: two met it with an `until` at step 1 that the Player exists | not compared |
+  | an `until` after the first input or wait | 3 of 3, each a distance the Player must walk after a key | 78 700 |
+
+  Each of the three plans of the last rule fails on its run's project
+  before the fix, at the `until` after the first key. No `--keep` was
+  refused: every worker read `preview_project.py --help` first and wrote
+  the plan the help names.
 - The run's output tells the agent what the page does for the user, so the
   agent points the user to it: a part that looks wrong comes back as a task.
 - The review page follows the design language of the host UI kits (the

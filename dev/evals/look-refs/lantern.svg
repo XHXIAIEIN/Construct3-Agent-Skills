@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960" viewBox="0 0 960 960">
+  <defs>
+    <radialGradient id="lamp" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#F2A541" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#F2A541" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="960" height="960" fill="#2A1E3D"/>
+  <circle cx="300" cy="360" r="260" fill="url(#lamp)"/>
+  <!-- a lantern -->
+  <path d="M300 60 V150" stroke="#140E1F" stroke-width="8"/>
+  <g stroke="#140E1F" stroke-width="10" stroke-linejoin="round">
+    <ellipse cx="300" cy="320" rx="140" ry="170" fill="#D9472B"/>
+    <path d="M220 150 h160 v30 h-160 Z M220 460 h160 v30 h-160 Z" fill="#5B3424"/>
+    <path d="M300 150 Q220 320 300 490 M300 150 Q380 320 300 490" fill="none" stroke-width="6"/>
+  </g>
+  <ellipse cx="250" cy="280" rx="30" ry="70" fill="#F2A541"/>
+  <!-- a big coin -->
+  <g stroke="#140E1F" stroke-width="12">
+    <circle cx="660" cy="640" r="190" fill="#F2A541"/>
+    <circle cx="660" cy="640" r="110" fill="#C8782A" stroke-width="8"/>
+  </g>
+  <ellipse cx="590" cy="560" rx="46" ry="28" fill="#F3E6CF"/>
+  <rect x="640" y="600" width="40" height="80" fill="#F2A541" stroke="#140E1F" stroke-width="8"/>
+</svg>

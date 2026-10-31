@@ -259,6 +259,22 @@ def test_review_prints_findings_then_questions_and_exits_0(tmp_path):
     assert lines[-1].startswith("next: ")
 
 
+def test_review_writes_the_questions_as_a_brief_for_a_reviewer_that_has_not_seen_the_project(tmp_path):
+    """The brief holds what the reviewer judges, the questions with their events and the sheets as print_sheet.py
+    prints them, and the form of the reply; the run names it on a brief: line above its summary, where
+    verify_change.py keeps it (docs/decisions/design-judge-agent.md)."""
+    root = tictactoe(tmp_path)
+    code, out = run(root, SCRIPT, "--rag", str(PLUGIN))
+    assert code == 0, out
+    lines = out.splitlines()
+    assert lines[-3].startswith("brief: if you can start a sub-agent, give it ") and "brief.md" in lines[-3], out
+    text = (root / ".tmp" / "scripts" / "review-design" / "brief.md").read_text(encoding="utf-8")
+    assert "You have not seen this game" in text and "3. Do these events do the same thing" in text, text
+    assert "Events: Game 4 (with 5)." in text and "## Game" in text, text
+    assert "   4 Mouse: On Left button Clicked on Cell" in text and "-> Board: Set value at (Cell.Column" in text, text
+    assert "2: yes - <sheet> <event number>: <what to change>" in text, text
+
+
 def test_a_yes_about_what_the_change_did_not_touch_goes_to_the_hand_over(tmp_path):
     """Iteration 68: 8 of 32 runs moved a global that their request never named into a local, because the owner
     question asked about it and the review said to change each yes; that broke an event the user had."""

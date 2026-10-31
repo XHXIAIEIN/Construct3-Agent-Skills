@@ -93,8 +93,9 @@ Option 3. The template's helpers:
   proportions, and `stage_cell()` centres it.
 - `no_overlap()` names every box in the way at once.
 - `text_contrast()` asks 4.5:1, and 3:1 from 18 pt, the size WCAG counts as
-  large-scale text; its 14 pt bold case is not used. At a 32 px grid the body
-  size is 32 pt, so a label there needs 3:1.
+  large-scale text; its 14 pt bold case is not used. At 1920×1080 the body
+  size is 18 pt, so a label there needs 3:1 (rule `text.contrast` of
+  `assets/look-manifest.json`).
 
 A spec builder on these helpers lets a model write a band name, a `label` on a
 Sprite, a theme and a frame per state. It makes the lossless fixes itself: a

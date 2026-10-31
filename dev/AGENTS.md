@@ -103,7 +103,7 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 
 | Task | Responsibility and interface | Read together | Constraint and source |
 |------|------------------------------|---------------|-----------------------|
-| Check or resume a design review | `scripts/review_design.py --check` prints findings and questions. The optional `--prepare FOLDER --resume` supplies evidence and saved judgements | `design_review.py`, `print_sheet.py`, `c3project.py`, `dev/tests/test_skill_design_review.py`, `references/design-review.md` | A saved judgement is reused only while its input version matches. An edit carries the line that `print_sheet.py` printed for its event. `docs/decisions/plan-names-the-event-line.md` |
+| Check or resume a design review | `scripts/review_design.py --check` prints findings and questions, and writes the questions with the printed sheets into `brief.md` for `construct3:design-judge`. The optional `--prepare FOLDER --resume` supplies evidence and saved judgements | `design_review.py`, `print_sheet.py`, `c3project.py`, `dev/tests/test_skill_design_review.py`, `references/design-review.md`, `plugin/agents/design-judge.md` | A saved judgement is reused only while its input version matches. An edit carries the line that `print_sheet.py` printed for its event. `docs/decisions/plan-names-the-event-line.md` |
 | Check a change as a whole | `scripts/verify_change.py` runs, in order, the checker, the design review, the editor and its preview, the kept plays and the look. Its last line is the next step, and `--status` prints where the steps stand | `check_project.py`, `review_design.py`, `open_in_editor.py`, `review_look.py`, `dev/evals/trace.py`, `dev/tests/test_skill_verify_change.py` | An editor step runs again only when a file of the project outside `tools/plans/` changed after it passed, and the play step also when a kept plan changed. A design question waits for `--answered`, a look question for a reply that `review_look.py --reply` checked against the brief of the run that asked it. `docs/decisions/verify-change.md` |
 | Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `dev/tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem, but it can leave the problems that are already there. So keep the final full `check_project.py` run and its fix-loop record |
 | Open or play a game | `scripts/open_in_editor.py --preview`. `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `dev/evals/play_cases.py`, `dev/tests/test_skill_preview_project.py` | Opening without input tests the startup only. Reaching a scene directly does not test the path to it |
@@ -131,17 +131,19 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 
 - Keep `SKILL.md` under 500 lines, the limit of Anthropic's skill guidance
   (<https://code.claude.com/docs/en/skills>, "Add supporting files").
-- Keep everything through the section "Check after every change" inside the
-  first 5000 tokens of the body. After a compaction, Claude Code re-attaches
-  each invoked skill with only its first 5000 tokens (the same page, "Skill
-  content lifecycle"). So the check loop comes before the sections that
-  teach the tools, and the tools' output teaches them again.
+- Keep the whole body inside its first 5000 tokens. After a compaction,
+  Claude Code re-attaches each invoked skill with only its first 5000 tokens
+  (the same page, "Skill content lifecycle").
   `dev/tests/test_skill_spec.py` holds both limits, and
   `docs/decisions/skill-body-budget.md` gives the token estimate and its
   source.
 - Put into `SKILL.md` only what every activation needs and no script says at
   the moment it matters, because every run reads all of it before its first
-  command.
+  command. Write a fact or a tool entry, not an instruction to follow a step
+  that a script's last line already names: iterations 80 and 81 left out the
+  check loop and the runs still reached the look check. A rule the agent
+  cannot learn from the files or the output, such as the `agents` branch,
+  stays an instruction (`docs/decisions/skill-body-budget.md`).
 - Name every script in one of two tables, which a test holds. A script that
   most changes use gets a row in the table of scripts in `SKILL.md`. Any
   other script gets its row in `references/scripts.md`, and the sentence
@@ -173,7 +175,9 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 ### Scripts
 
 - Scripts use the standard library, with these exceptions:
-  - `prepare_art.py` needs Pillow to read, cut out and resample pictures.
+  - `art.py` needs Pillow to read, cut out and resample the pictures of an
+    image tool (`prepare_art.py`). It renders the drawings of the SVG route
+    in the browser that `open_in_editor.py` drives, without Pillow.
   - In `preview_project.py` Pillow is optional. It numbers the frames of a
     recording's contact sheet, which ffmpeg alone tiles without numbers, and
     it joins a recording into a GIF when ffmpeg is missing.
@@ -392,7 +396,7 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | File in `dev/evals/` | Holds |
 |----------------------|-------|
 | `evals.json` | The test cases: prompt, expected output, assertions that a script can check, and `held_out` on the cases kept out of tuning |
-| `make_fixtures.py` | One project per case and arm, outside the clone: the stand-in game, an official example, the empty project of `new_project.py`, or a game that keeps its generator, the stand-in at 1920×1080, 720×1280 portrait or 320×180 pixel art, or the scrolling level of `platformer_game.py`, with this skill from a worktree of the tested commit, the previous one or none |
+| `make_fixtures.py` | One project per case and arm, outside the clone: the stand-in game, an official example, the empty project of `new_project.py`, or a game that keeps its generator, the stand-in at 1920×1080, 720×1280 portrait or 320×180 pixel art, or the scrolling level of `platformer_game.py`, or the stand-in with the reference pictures of `look-refs/` beside it, with this skill from a worktree of the tested commit, the previous one or none |
 | `platformer_game.py` | The game part of the `platformer-generator` fixture: a level wider than the screen that the camera follows, which `make_fixtures.py` writes below the end marker of the arm's own template |
 | `play_cases.py` | The plan of `scripts/preview_project.py` for each case whose request changes what the game does, and the runtime verdicts read from it. `play_cases.py CASE --project FOLDER` plays one |
 | `trace.py` | What a run did, from its transcript, written to `trace.json` with the transcript kept beside it: every tool call, the calls that it lost, its turns, tokens and seconds, and its route. The route covers the first script, how far the check chain got, help reads, refused plans, hand edits, the calls before the first edit, reads of the clone, the Cookbook pages read, the `lookup_ace.py` and `search_guides.py` pointers followed, whether a passing check followed the last edit, and, for each compaction, what it kept of `SKILL.md` and what the run did after it |
@@ -401,9 +405,9 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | `grade.py` | `grading.json` per run, with the evidence and the level of each assertion, and `benchmark.json` per iteration: the mean and deviation per case and arm of every cost and route column, the Cookbook columns among them, the runs that passed everything with a 95% interval, the difference between arms, the verdict of the iteration's `decision.json`, the runs that lack a part under `incomplete_runs`, and under `meta` the commits and flags the grading ran with. `<arm>_2` is a second run of `<arm>` |
 | `compare.py` | The within-task permutation test of one column between two arms over a `benchmark.json`, which is the test that `grade.py` runs for the verdict |
 | `measure_design.py` | What each rule of `scripts/review_design.py` finds over the official examples and game projects, with looser variants, and every hit as JSON to read before a rule becomes a finding |
-| `measure_layout.py` | How much of the screen the one-screen layouts of the official 2D game examples cover, and how much larger their largest object is than the next: the thresholds of the generator template's playfield checks. `--text` measures their texts: each size against the viewport, the sizes of a layout, how near the edge the nearest text sits and how many items gather in one ninth of the screen |
+| `measure_layout.py` | How much of the screen the one-screen layouts of the official 2D game examples cover, and how much larger their largest object is than the next: the thresholds of the generator template's playfield checks. `--text` measures their texts: each size against the viewport, the sizes of a layout, how near the edge the nearest text sits and how many items gather in one ninth of the screen. `--screens` measures the largest text of each kind of screen and the title image of each title screen. `--frame` measures, by kind of screen, the texts on the vertical centre line, the corners they hold, their capitals, their faces and the ground's colour. `--labels` counts the labels in capitals, the spaced letters, the parts joined by a dot or a bar and the zero padding |
 | `label_look.py` | Briefs that have labeller agents answer the questions of `scripts/review_look.py` about a set of screenshots, and their replies merged into labels, with an adjudicator agent settling where they differ |
-| `judge_look.py` | Those questions put to a judge that has not seen the games, through the brief that `review_look.py` writes, and the judge's agreement with the labels per question (`docs/decisions/look-judge-calibration.md`) |
+| `judge_look.py` | Those questions put to a judge that has not seen the games, through the brief that `review_look.py` writes, and the judge's agreement, TPR and TNR against the labels per question, each line marked when it rests on too few labels. Held-out screenshots stay out of the briefs and the score until `--held-out` (`docs/decisions/look-judge-calibration.md`) |
 | `sweep_outputs.py` | What the scripts print over every example and game project, including a dry run of a small plan, recorded and compared |
 | `sweep_round_trip.py` | Every event of every example written back as `print_sheet.py --show` prints it, and the events after which `edit_sheet.py` would write a different sheet |
 | `train_queries.json`, `validation_queries.json` | The trigger queries, in a fixed 60/40 split, with near misses as the negatives |
@@ -453,6 +457,17 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
 - `--no-pin` lays out from the checkout as it stands, uncommitted changes
   included, and its fixtures name that checkout. The checker then gives the
   runs a pull of the checkout if its branch trails its upstream.
+- Start every `claude -p` session that runs a case or a trigger query with
+  `--setting-sources project,local`, in an iteration's own driver too. Without it the session
+  loads the user's `~/.claude/CLAUDE.md`, skills, hooks and plugins, which
+  can change its language and what it agrees to write. The project's
+  `CLAUDE.md` and `.claude/skills` and a `--plugin-dir` still load.
+  `run_session.py` and `run_trigger_eval.py` pass it.
+- If a driver's main session hands the case to a sub-agent, its prompt
+  tells the session to run the sub-agent in the foreground and wait for its
+  report. `claude -p` exits when the main turn ends, and a sub-agent left
+  in the background stops with it: its transcript ends mid-task and its
+  `timing.json` holds nulls, which `grade.py` counts as missing timing.
 - A case with `turns`, such as `keep-checking-after-compaction`, is not a
   sub-agent run. `run_session.py <run folder>` runs its turns as one `claude
   -p` session, writes `answer.md`, `timing.json` and `outputs/session.json`,

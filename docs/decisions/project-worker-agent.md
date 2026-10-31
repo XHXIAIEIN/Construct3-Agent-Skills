@@ -93,6 +93,16 @@ and `iteration-72/`.
 - The same definition written by `install.py` into a game project's
   `.claude/agents/`: it reaches a project that holds a copy of the skill and
   no plugin, but it is one more file `install.py` keeps current.
+- A sentence in `SKILL.md` that has the main agent run
+  `verify_change.py --status` when a worker returns, and send a line that
+  is not `ok:` back to the same worker, with the worker running `--status`
+  before it ends. Iteration 79 measured it on `fix-next-round` and
+  `fix-wasd-twitch`, two runs a cell, against the worker that starts its
+  judge in the foreground. Every run of both arms passed every assertion
+  and ended on `ok: looked`, and no main session ran `--status`, because
+  each worker's report already ended on that line. The sentence had no case
+  to act on, so it is not in `SKILL.md`. Measure it again when workers end
+  with a step not passed.
 
 ## Decision
 
@@ -106,9 +116,14 @@ before the first project file and keeps its files inside the project. When
 a script prints a `brief:` line, the prompt has the worker give the brief
 to `construct3:look-judge` as its whole task, without a model, because the
 judge has not seen the project (`look-judge-agent.md`). The worker starts
-the judge two layers below the main session. Claude Code allows three
-layers by default (<https://code.claude.com/docs/en/sub-agents>, "Let
-subagents spawn their own subagents").
+the judge in the foreground and waits for its reply. A sub-agent that starts
+another in the background can end first, and the other then runs to its end
+with no reader: on 2026-10-03 one ended 11 seconds after such a start, and
+the agent it started ran 4 more minutes and wrote about 94 000 output
+tokens. The worker starts the judge two layers below the main session.
+Claude Code allows three layers by default
+(<https://code.claude.com/docs/en/sub-agents>, "Let subagents spawn their
+own subagents").
 
 The eval iterations of the skill stay general-purpose: the first comparison
 above is small and ran off the owner's machine, and the runs of every

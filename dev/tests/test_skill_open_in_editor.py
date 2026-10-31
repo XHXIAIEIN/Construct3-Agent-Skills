@@ -1,4 +1,5 @@
 """open_in_editor.py: handing the project to the editor."""
+import base64
 import itertools
 import json
 import re
@@ -14,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.skill_helpers import DATA, REPO, SKILL, INSTALLED, SHEET, edit, run, script_module
+from tests.skill_helpers import DATA, REPO, SKILL, INSTALLED, SHEET, edit, png, run, script_module
 
 # The result of a project the editor opened, before a preview or the TypeScript definitions.
 OPENED = {"project": "Game", "status": "opened", "title": "Game - Construct 3",
@@ -82,6 +83,20 @@ def test_a_c3p_in_the_build_folder_keeps_its_scratch_in_the_project(tmp_path):
     assert oe.profile_folder(None, root / ".build", "C:/Edge/msedge.exe") == root / ".tmp" / "browsers" / "editor-msedge"
     assert (root / ".tmp" / ".gitignore").read_text(encoding="utf-8") == "*\n"
     assert not (root / ".build" / ".tmp").exists()
+
+
+def test_a_project_inside_another_folders_tmp_keeps_its_scratch_in_its_own_tmp(tmp_path):
+    """A test project in another repository's .tmp/ wrote the scratch of the editor steps into that
+    repository's .tmp/scripts/, while verify_change.py read the look result from the project's own
+    .tmp/, so its look step asked again on every run. The folder that holds project.c3proj stops the
+    search; a folder in that project's .build/ or .tmp/ still maps to the project."""
+    project = tmp_path.resolve() / ".tmp" / "demo"
+    (project / ".build").mkdir(parents=True)
+    (project / "project.c3proj").write_text("{}", encoding="utf-8")
+    scripts = project / ".tmp" / "scripts" / "open-in-editor"
+    for folder in (project, project / ".build", project / ".tmp" / "scripts"):
+        assert oe.scratch(folder) == scripts, folder
+    assert not (tmp_path / ".tmp" / "scripts").exists()
 
 
 def test_open_in_editor_refuses_the_profile_another_run_holds(project, tmp_path):
@@ -397,12 +412,103 @@ def test_open_in_editor_reports_the_crash_report_the_preview_left_in_the_editor(
     monkeypatch.setattr(oe, "start_preview", lambda b, target, page: ({"targetId": "preview"}, Win()))
     monkeypatch.setattr(oe, "attach", lambda win, patience=0: ([None], [None], False))
     monkeypatch.setattr(oe.time, "sleep", lambda seconds: None)
-    ran = oe.preview(browser, ("editor", Page()), 4)
+    ran = oe.preview(browser, ("editor", Page()), 0.2)
     assert ran["started"] and ran["editor"] == crash and ran["errors"] == [], ran
     lines = opened_with({"ticks": 389, "wallTime": 2.7, "editor": crash})
     assert lines[1:] == ["  preview: layout 'Game', runtime in the worker, 389 ticks in 2.7 s, 1 error",
                          f"  editor: {crash}"], lines
     assert oe.failed({"status": "opened", "preview": {"errors": [], "editor": crash}})
+
+
+def test_a_request_that_failed_is_a_network_line_named_by_its_url():
+    """A response of HTTP 400 or more, and a request that got no response, named by the URL its start gave. A
+    request the page cancelled is no failure. A request still running keeps its URL for the call that sees it
+    fail, and the rest of the events go."""
+    def sent(n, url, session=None):
+        return {"method": "Network.requestWillBeSent", **({"sessionId": session} if session else {}),
+                "params": {"requestId": n, "request": {"url": url}}}
+
+    attached = {"method": "Target.attachedToTarget", "params": {"sessionId": "w"}}
+    win = SimpleNamespace(events=[
+        attached, sent("1", "https://preview.construct.net/level3.json", "w"), sent("2", "https://nonexistent.invalid/a.png"),
+        sent("3", "https://preview.construct.net/b.png"),
+        {"method": "Network.responseReceived", "sessionId": "w", "params": {
+            "requestId": "1", "type": "Fetch", "response": {"status": 404, "url": "https://preview.construct.net/level3.json"}}},
+        {"method": "Network.loadingFinished", "sessionId": "w", "params": {"requestId": "1"}},
+        {"method": "Network.loadingFailed", "params": {"requestId": "3", "type": "Image", "errorText": "net::ERR_ABORTED",
+                                                       "canceled": True}}])
+    assert oe.runtime_errors(win) == ["network: HTTP 404 https://preview.construct.net/level3.json (Fetch)"]
+    win.events.append({"method": "Network.loadingFailed", "params": {"requestId": "2", "type": "Fetch",
+                                                                     "errorText": "net::ERR_NAME_NOT_RESOLVED"}})
+    failed = oe.runtime_errors(win)
+    assert failed == ["network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Fetch)"]
+    assert win.events == [attached]
+    assert oe.runtime_lines([*failed, "TypeError: x is null", *failed]) == [
+        "  network: net::ERR_NAME_NOT_RESOLVED https://nonexistent.invalid/a.png (Fetch) (2 times)",
+        "  runtime: TypeError: x is null"]
+
+
+def test_a_watched_preview_reports_each_workers_requests_and_lets_it_start_once():
+    """A worker of a watched window reports its requests only once its own session turned them on, so it
+    waits until serve() has; serve() starts it, once. An unwatched window's workers report none."""
+    class Window:
+        def __init__(self, network):
+            self.network, self.calls = network, []
+            self.events = [{"method": "Target.attachedToTarget", "params": {
+                "sessionId": "w1", "waitingForDebugger": True, "targetInfo": {"type": "worker"}}}]
+
+        def call(self, method, session=None, **params):
+            self.calls.append((method, session))
+
+    win = Window(True)
+    oe.serve(win)
+    oe.serve(win)
+    assert win.calls == [("Network.enable", "w1"), ("Runtime.runIfWaitingForDebugger", "w1")]
+    win = Window(False)
+    oe.serve(win)
+    assert win.calls == [("Runtime.runIfWaitingForDebugger", "w1")]
+
+
+@pytest.mark.parametrize("code, says", [
+    ("DNS_PROBE_FINISHED_NXDOMAIN", "host name did not resolve"), ("ERR_NAME_NOT_RESOLVED", "host name did not resolve"),
+    ("ERR_PROXY_CONNECTION_FAILED", "the proxy did not connect"), ("ERR_CERT_AUTHORITY_INVALID", "a certificate"),
+    ("ERR_CONNECTION_REFUSED", "the connection failed"), ("ERR_CONNECTION_TIMED_OUT", "the connection timed out"),
+    ("", "check the network connection and --release")])
+def test_an_editor_the_browser_could_not_reach_is_named_by_the_browsers_error(code, says):
+    """The browser's error page shows its error code; the message carries it and what to check for its kind."""
+    class Page:
+        def evaluate(self, expression, wait=None):
+            return ["chrome-error://chromewebdata/", "complete", 0] if expression.startswith("[location.href") else code
+
+    with pytest.raises(oe.EditorNotLoaded) as e:
+        oe.load(Page(), oe.EDITOR)
+    assert str(e.value).startswith(f"{oe.EDITOR} could not be reached{', ' + code if code else ''}: ")
+    assert says in str(e.value), e.value
+
+
+def test_an_editor_that_answered_404_names_the_release():
+    class Page:
+        def evaluate(self, expression, wait=None):
+            return [oe.EDITOR + "r999/", "complete", 404]
+
+    with pytest.raises(oe.EditorNotLoaded, match="answered HTTP 404: --release names no release of the editor"):
+        oe.load(Page(), oe.EDITOR + "r999/")
+
+
+def test_a_window_is_read_for_blank_to_a_multiple_of_8_on_each_side():
+    """At an eighth of its size a side that is not a multiple of 8 adds a row the window fills only in part."""
+    clips = []
+
+    class Window:
+        def evaluate(self, expression, wait=None):
+            return [430, 932]
+
+        def call(self, method, **params):
+            clips.append(params["clip"])
+            return {"data": base64.b64encode(png(53, 116, lambda x, y: (209, 209, 209, 255))).decode()}
+
+    assert oe.fill(Window()) == (1.0, 0.0) and oe.blank(Window()) == 1.0
+    assert (clips[0]["width"], clips[0]["height"], clips[0]["scale"]) == (424, 928, 0.125)
 
 
 # A player read by --state: a Sprite with the Platform behavior, as the probe returns it
@@ -627,3 +733,51 @@ def test_a_crash_report_while_building_the_preview_is_a_refusal_too(project):
 
 def test_the_report_goes_to_the_repository_skill_md_names():
     assert f"source: https://github.com/{oe.REPOSITORY}\n" in (SKILL / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_a_script_of_verify_change_leaves_the_browser_to_the_next(tmp_path, monkeypatch):
+    """With SHARED naming the project, a script leaves the browser running for the next one; without it, the
+    script closes the browser as it ends."""
+    project = tmp_path / "game"
+    project.mkdir()
+    assert not oe.sharing(project)
+    ended = []
+    fake = SimpleNamespace(leave=lambda: ended.append("leave"), close=lambda: ended.append("close"))
+    monkeypatch.setenv(oe.SHARED, str(project))
+    assert oe.sharing(project) and not oe.sharing(tmp_path / "other")
+    oe.Browser.end(fake)
+    monkeypatch.delenv(oe.SHARED)
+    oe.Browser.end(fake)
+    assert ended == ["leave", "close"]
+
+
+def test_the_next_script_takes_the_page_that_holds_the_same_files(tmp_path, monkeypatch):
+    """The page a script kept is taken while it holds the same files and still bears its mark; a page that
+    reloaded, or that holds other files, is closed and forgotten, so the next script opens the project again."""
+    class Page:
+        mark = ""
+
+        def __init__(self, url):
+            self.url, self.ws = url, SimpleNamespace(close=lambda: None)
+
+        def evaluate(self, expression):
+            return Page.mark
+
+    closed = []
+    devtools = SimpleNamespace(call=lambda method, **kw: {"targetInfos": [{"targetId": "T1"}]}
+                               if method == "Target.getTargets" else closed.append(kw["targetId"]))
+    browser = SimpleNamespace(profile=tmp_path, devtools=devtools, port=1)
+    monkeypatch.setattr(oe, "DevTools", Page)
+    monkeypatch.setattr(oe, "keep_active", lambda page: None)
+    kept = tmp_path / oe.SHARED_FILE
+    assert oe.kept_editor(browser, "k") is None
+    named = {"key": "k", "target": "T1", "editor": "e", "release": "r506", "result": {"opened": True}}
+    kept.write_text(json.dumps(named), encoding="utf-8")
+    Page.mark = "k"
+    target, page, opened = oe.kept_editor(browser, "k")
+    assert target == "T1" and page.url.endswith("/devtools/page/T1") and opened["release"] == "r506"
+    assert kept.is_file() and not closed
+    assert oe.kept_editor(browser, "other files") is None and closed == ["T1"] and not kept.exists()
+    kept.write_text(json.dumps(named), encoding="utf-8")
+    Page.mark = ""
+    assert oe.kept_editor(browser, "k") is None and closed == ["T1", "T1"] and not kept.exists()

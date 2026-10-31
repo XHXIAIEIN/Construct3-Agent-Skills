@@ -121,18 +121,23 @@ Option 3.
   prompts.
 - `ART_STYLE`, one sentence of art direction, leads every prompt, so the
   pictures share one style.
-- `scripts/prepare_art.py --list` prints the next step only, so that no
-  picture is made before what it depends on. While `ART_STYLE` is empty, it
-  asks for that. With more than one sprite to make and no
+- `scripts/art.py`, the entry point of both routes (`art-entry-point.md`),
+  runs this route through `prepare_art.py`. It prints the next step only, so that no
+  picture is made before what it depends on. When the user gave a look,
+  it first asks for the look to be picked on the first play screen
+  (`look-picker.md`), which writes `ART_STYLE` and keeps the picked screen
+  as `art/look.png`. While `ART_STYLE` is empty, it asks for that. In
+  the default look, with more than one sprite to make and no
   `art/raw/_key.png`, it asks for the key picture: a line-up of four
   subjects, the first of each object before a second of one, shown to the
   user when they are there to choose one. Then it prints a prompt per
   picture still to make, the aspect ratio to ask for, and where to save it,
   `art/raw/`. A sprite is asked for on a flat key colour, magenta, or green
   for a subject in pink or purple, with no ground shadow and no text. Its
-  prompt gives the key picture as the reference image, which sets the
-  style and the palette and is not a picture to copy. A scene's prompt
-  does not, because the key picture's background is the key colour.
+  prompt gives `art/look.png` or the key picture as the reference image,
+  which sets the style and the palette and is not a picture to copy. A
+  scene's prompt does not, because the key picture's background is the key
+  colour.
 - `--list` warns of three kinds of subject and prints the prompts all the
   same:
   - a sprite's subject that names a background or a shadow;
@@ -179,6 +184,20 @@ Option 3.
   to the first. After three
   refusals a picture keeps its stand-in, and both runs say so, count it
   and go on. A new subject in `art()` starts the count again.
+- Each fitted picture records in a PNG text chunk, `c3-art-prompt`, a
+  fingerprint of what it was made from: its prompt, which starts with
+  `ART_STYLE` and names its subject, and the reference image, `art/look.png`
+  or the key picture. A fitted picture newer than its raw picture whose
+  record differs from the current prompt is in the state `restyle`, and
+  its prompt is printed again. So a change of `ART_STYLE`, of the picked
+  look or of the subject puts each picture made before it in `restyle`. A
+  fitted picture without a record has nothing to compare, so it stays
+  done. The sentence that a refusal adds and the key colour that it names
+  are left out of the fingerprint, because they do not change the
+  picture's style.
+- A raw picture is turned upright by its EXIF orientation tag before it is
+  cut, because a phone or a camera can save a picture unturned and record
+  the turn in the tag.
 - Without an image tool, the stand-ins stay. `SKILL.md`, the reference on
   generating a project and the look manifest say that art is not drawn in
   code.

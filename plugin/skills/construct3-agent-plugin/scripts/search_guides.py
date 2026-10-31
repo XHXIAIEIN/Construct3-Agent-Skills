@@ -3,17 +3,21 @@
     python scripts/search_guides.py WORD [WORD ...] [--pitfalls N] [--examples N] [--locale en-US]
                                     [--limit CHARS] [--project FOLDER] [--rag FOLDER] [--cookbook FOLDER]
 
-Prints the pitfall entries of `Construct3-Cookbook/guides/` that hold the
-words, each in full with its file and line, and those of the user's own
-folder laid out the same way, which come first among entries that hold as
-many of the words (`--cookbook-extra`). Then it prints the official
+First it prints the rows of `Construct3-Cookbook/guides/symptoms.md` whose
+symptom holds the words, each with its causes in the order to check them and
+the page of each cause. Then it prints the pitfall entries of
+`Construct3-Cookbook/guides/` that hold the words, each in full with its
+file and line, and those of the user's own folder laid out the same way,
+which come first among entries that hold as many of the words
+(`--cookbook-extra`). Then it prints the official
 examples whose id, name, description, tags or addons hold them, each with the
 command that prints its events. Entries with more of the words come first. A
 word matches inside longer words too: `tap` finds "taps". The pitfalls are
 English whatever the --locale.
 
 Search before writing events for an interaction, a timing, a pick or a
-movement, and when events do not behave as expected. The pitfalls record
+movement, and with the words of what you see when events do not behave as
+expected, such as `click nothing` or `trigger never fires`. The pitfalls record
 runtime behaviour that differs from what a programmer expects. This prints
 only the entries that hold the words.
 """
@@ -30,6 +34,9 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 import c3project as c3
 
 ENTRY = re.compile(r"^- ", re.M)
+# A cause of a symptom row starts with its number after the sentence before it: "...: [Touch](...). 2. The ..."
+CAUSE = re.compile(r"(?<=\.) (?=\d+\. )")
+MD_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 
 def without_source(text: str) -> str:
@@ -56,6 +63,24 @@ def pitfalls(guides: Path | None) -> list[tuple[str, int, str]]:
             block = re.split(r"\n(?!  )", text[start:end].rstrip())[0]     # the bullet ends at an unindented line
             out.append((path.as_posix(), text.count("\n", 0, start) + 1,
                         without_source(" ".join(block[2:].split()))))
+    return out
+
+
+def symptoms(guides: Path | None) -> list[tuple[str, int, str, list[str]]]:
+    """Every row of the symptom table as (file, line, symptom, causes), each cause with its links replaced by
+    the full path of the page they name."""
+    path = guides / "symptoms.md" if guides else None
+    # A Cookbook clone from before 2026-10-31 has no symptom table
+    if not path or not path.is_file():
+        return []
+    out = []
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.startswith("| ") or line.startswith(("| Symptom |", "|---")):
+            continue
+        symptom, causes = (cell.strip() for cell in line.strip().strip("|").split(" | ", 1))
+        resolved = MD_LINK.sub(lambda m: (guides / m.group(1)).as_posix(), causes)
+        # The period after the last link goes, so that the printed path ends the line
+        out.append((path.as_posix(), n, symptom, [cause.removesuffix(".") for cause in CAUSE.split(resolved)]))
     return out
 
 
@@ -121,6 +146,11 @@ def main() -> int:
         print(f"note: {note}")
     if args.pitfalls and not guides:
         print(f"note: {'the Cookbook ' if own else ''}pitfalls not searched: {c3.missing_cookbook(rag)}")
+    found_symptoms = ranked(symptoms(guides), lambda s: s[2], args.words)[: args.pitfalls]
+    if found_symptoms:
+        lines.append("symptoms:")
+        for file, line, symptom, causes in found_symptoms:
+            lines += [f"{file}:{line}", f"  {symptom}", *(f"  {cause}" for cause in causes), ""]
     mine = pitfalls(own)
     found_pitfalls = ranked(mine + pitfalls(guides), lambda p: p[2], args.words, len(mine))[: args.pitfalls]
     if found_pitfalls:

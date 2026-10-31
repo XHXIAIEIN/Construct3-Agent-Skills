@@ -18,9 +18,9 @@ def test_a_label_off_its_button_says_so(project):
     # A generated menu can put its labels 100 px above the button and the panel
     path = project / "layouts" / "Game.json"
     layout = json.loads(path.read_text(encoding="utf-8"))
-    layer = layout["layers"][-1]
-    sprite = min((i for L in layout["layers"] for i in L["instances"] if "text" not in (i.get("properties") or {})),
-                 key=lambda i: i["world"]["width"] * i["world"]["height"], default=None)
+    layer, sprite = min(((L, i) for L in layout["layers"] for i in L["instances"]
+                         if "text" not in (i.get("properties") or {})),
+                        key=lambda p: p[1]["world"]["width"] * p[1]["world"]["height"], default=(None, None))
     assert sprite, "the stand-in game has a sprite"
     w = sprite["world"]
     label = {"type": sprite["type"], "properties": {"text": "Start"},

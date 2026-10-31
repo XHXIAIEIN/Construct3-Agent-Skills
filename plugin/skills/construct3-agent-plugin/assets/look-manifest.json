@@ -1,16 +1,41 @@
 {
-  "name": "paper-and-ink",
+  "name": "default-look",
   "version": 1,
-  "about": "The look of a generated game and the route its art takes: what the generator template holds, what stops its run, what the user has decided and what is still open. Paper and ink is the fallback, the game's look only when the user gave none: no style, no art direction, and no references or existing project to take one from. When the user gave one, the generator names where it comes from in USER_LOOK, PALETTE, the backdrop and the art take the user's look, and only the rules of scope every-look hold; a rule of scope paper-and-ink then stops and flags nothing, and its value is a default the user's look replaces. An agent hands the model the deliver steps and runs the confirm steps on what comes back.",
+  "about": "The look of a generated game and the route its art takes: what the generator template holds, what stops its run, what the user has decided and what is still open. The default look is the fallback, the game's look only when the user gave none: no style, no art direction, and no references or existing project to take one from. When the user gave one, the generator names where it comes from in USER_LOOK, PALETTE, the backdrop and the art take the user's look, and only the rules of scope every-look hold; a rule of scope default-look then stops and flags nothing, and its value is a default the user's look replaces. An agent hands the model the deliver steps and runs the confirm steps on what comes back. This file is the one owner of every look rule: the skill, its references, the template's comments and the guides cite a rule by its id and do not restate it, and a script that enforces a rule reads its value here.",
   "template": "assets/build_project.py",
   "decisions": [
-    "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
-    "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
+    "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
+    "Construct3-Agent-Skills/docs/decisions/art-entry-point.md",
+    "Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md",
+    "Construct3-Agent-Skills/docs/decisions/default-look-is-the-fallback.md",
+    "Construct3-Agent-Skills/docs/decisions/default-look.md",
+    "Construct3-Agent-Skills/docs/decisions/emil-skills-for-a-game-screen.md",
+    "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md",
+    "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md",
     "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
+    "Construct3-Agent-Skills/docs/decisions/input-controls.md",
+    "Construct3-Agent-Skills/docs/decisions/landscape-viewport.md",
+    "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
+    "Construct3-Agent-Skills/docs/decisions/leading-by-kind.md",
+    "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md",
+    "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md",
+    "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
+    "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md",
+    "Construct3-Agent-Skills/docs/decisions/look-picker.md",
+    "Construct3-Agent-Skills/docs/decisions/look-severity.md",
+    "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
+    "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
+    "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
+    "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
+    "Construct3-Agent-Skills/docs/decisions/tabular-count-digits.md",
+    "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md",
+    "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md",
+    "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md",
+    "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
-    "enforced": "held by the template, and a check stops the generator's run when it is broken; for a rule of scope paper-and-ink, only while USER_LOOK is empty",
+    "enforced": "held by the template, and a check stops the generator's run when it is broken; for a rule of scope default-look, only while USER_LOOK is empty",
     "adopted": "decided by the user; held by the template where it names a template value, else for the generator to follow; no check",
     "open": "the template holds a value the user has not chosen yet",
     "proposed": "evidence only; not in the template",
@@ -18,12 +43,7 @@
   },
   "scope": {
     "every-look": "holds whatever look the game has: contrast, the grid, a clean alpha channel, the screen, the layout's spacing, the art's route and the pacing",
-    "paper-and-ink": "the fallback look's taste: holds only while USER_LOOK is empty, the user having given no look; with USER_LOOK set, its check stops and flags nothing"
-  },
-  "grid": {
-    "UNIT": "8 when the viewport is 360 px high or less, else 32",
-    "world": "every instance outside the HUD starts on a whole UNIT, and a shape covers whole cells",
-    "hud": "held against the viewport's edges by anchor(), MARGIN inside them, and to the screen's edges by the Anchor behavior of anchored()"
+    "default-look": "the fallback look's taste: holds only while USER_LOOK is empty, the user having given no look; with USER_LOOK set, its check stops and flags nothing"
   },
   "rules": [
     {
@@ -33,7 +53,19 @@
       "strict": true,
       "says": "A clear pixel is (0, 0, 0, 0), with no colour hidden under it to bleed into the edge when the image is scaled. A pixel-art image holds three alpha values, 0, 255 and the shadow's, so its edges stay hard; in a viewport taller than 360 px the edges are antialiased, their alpha the share of the pixel the shape covers.",
       "template": "write_png(), alphas()",
-      "confirm": "check_look.py: alpha.pure"
+      "confirm": "check_look.py: alpha.pure",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
+    },
+    {
+      "id": "grid.unit",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "UNIT, the grid cell, is 8 px in a viewport 360 px high or less, which is pixel art, and 32 px in any other.",
+      "template": "UNIT",
+      "value": "8 if VIEW_H <= 360 else 32",
+      "confirm": "check_look.py: grid.world-placement",
+      "source": "Construct3-Agent-Skills/docs/decisions/landscape-viewport.md"
     },
     {
       "id": "grid.shape-size",
@@ -42,7 +74,8 @@
       "strict": true,
       "says": "A shape is whole UNITs wide and high; its shadow hangs outside those cells.",
       "template": "shape()",
-      "confirm": "check_look.py: grid.world-placement"
+      "confirm": "check_look.py: grid.world-placement",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "grid.world-placement",
@@ -51,7 +84,8 @@
       "strict": true,
       "says": "An instance of a world layer starts on the grid: a shape is placed by the grid cell of its top-left corner.",
       "template": "shape_inst(), on_grid(), units(), snap()",
-      "confirm": "check_look.py: grid.world-placement"
+      "confirm": "check_look.py: grid.world-placement",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "grid.runtime-spawn",
@@ -60,7 +94,8 @@
       "strict": true,
       "says": "An object created at runtime starts on the grid: its position is a random whole number of UNITs, never a raw random().",
       "template": "grid_random()",
-      "confirm": "check_look.py: grid.runtime-spawn"
+      "confirm": "check_look.py: grid.runtime-spawn",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "colour.palette-only",
@@ -68,24 +103,30 @@
       "scope": "every-look",
       "strict": true,
       "says": "Every pixel of an image the template draws is a colour of PALETTE, whichever look it holds, named by the role it plays. The runtime's blends are outside it: an instance's opacity, a fade and the shadow's alpha.",
-      "template": "PALETTE, rgb(), write_png()"
+      "template": "PALETTE, rgb(), write_png()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "text.contrast",
       "status": "enforced",
       "scope": "every-look",
       "strict": true,
-      "says": "A label reads 4.5:1 against what is behind it, a title 3:1 (WCAG 2.2, 1.4.3).",
-      "template": "readable(), hud_text()"
+      "says": "A label reads 4.5:1 against what is behind it, and 3:1 from 18 pt up, the size WCAG counts as large-scale text (WCAG 2.2, 1.4.3); bold does not lower it. The checker holds any project to a floor of 3:1 against the opaque layer behind a Text.",
+      "template": "(text_contrast(17), text_contrast(18))",
+      "value": "(4.5, 3)",
+      "helpers": "readable(), hud_text()",
+      "source": "Construct3-Agent-Skills/docs/decisions/layout-by-name.md",
+      "confirm": "review_look.py: faint, measured on what lies behind each text on screen"
     },
     {
       "id": "type.inter",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "Labels are Inter, which the skill ships in three weights as WOFF files: light for the count the player plays for, regular for labels, tags and verbs, medium for titles and keys. The generator copies them into fonts/ and lists them; Chinese falls back to the platform's face. Never bold: a weight is a file. In pixel art the labels are Sprite Fonts of PIXEL_FONT (type.pixel-font).",
+      "scope": "default-look",
+      "says": "Labels are Inter in three weights, WOFF files that the generator copies from the user's font cache into fonts/ and lists; the skill and the plugin carry no font file. Light for the count the player plays for, its digits tabular (type.counting-digits), regular for labels, tags and verbs, medium for titles and keys; a weight missing from the cache draws in system-ui with a warning, and Chinese falls back to the platform's face. Never bold: a weight is a file. In pixel art the labels are Sprite Fonts of PIXEL_FONT (type.pixel-font).",
       "template": "FONT",
       "value": "{'light': 'InterDisplay-Light', 'regular': 'Inter-Regular', 'medium': 'Inter-Medium'}",
-      "helpers": "face(), copy_fonts()"
+      "helpers": "face(), copy_fonts()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "type.pixel-font",
@@ -96,16 +137,18 @@
       "template": "PIXEL_FONT",
       "value": "'fusion-pixel-8px-proportional-zh_hans'",
       "helpers": "text_type(), text_inst(), bake_fonts(), pixel_font(), advance(), text_px(), em_px(), line_px()",
-      "confirm": "check_look.py: type.pixel-font"
+      "confirm": "check_look.py: type.pixel-font",
+      "source": "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md"
     },
     {
       "id": "type.sizes",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "Sizes by kind of text, the prototype's px at 720 high as points, scaled to the viewport's shorter side, so its tag reaches TEXT_MIN: a tracked tag 10, the name of a stat or a key 11, body text 12, a screen's title 20, the count 40; a banner two units.",
+      "scope": "default-look",
+      "says": "Sizes by kind of text, the prototype's px at 720 high as points, scaled to the viewport's shorter side, so its tag reaches TEXT_MIN: a tag 10, the name of a stat or a key 11, body text 12, a screen's title 20, the count 40; a banner two units.",
       "template": "TEXT_SIZE",
       "value": "{'tag': 15, 'name': 16, 'body': 18, 'title': 30, 'number': 60, 'display': 64}",
-      "helpers": "text_size(), tracked()"
+      "helpers": "text_size()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "type.scale",
@@ -114,61 +157,112 @@
       "strict": true,
       "says": "Every label takes one of TEXT_SIZE's sizes, one per kind of text, as every colour takes a role of PALETTE; a size set by hand stops the run with the kinds, and a kind of text the look lacks is a new key of TEXT_SIZE. The official 2D game examples use one text size in two of three layouts and two in a quarter, and each of 71 brands' design systems read as tokens names its sizes as a type scale.",
       "template": "TEXT_SIZE",
-      "helpers": "on_scale(), text_inst(), text_size()"
+      "helpers": "on_scale(), text_inst(), text_size()",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
       "id": "type.min-size",
       "status": "enforced",
       "scope": "every-look",
       "strict": true,
-      "says": "A label's letters are at least 1.75% of the viewport's shorter side high, in every look: the smallest text of every official 2D game example is at least 1.78%, and video styles set nothing meant to be read under 1/54 of the frame's height. A smaller label stops the run with the kinds of TEXT_SIZE to raise and the size they need. Paper and ink's tag is 1.85%, 15 pt at 1080; a pixel-art letter, one unit, is 2.2% or more of a viewport 360 px high or less.",
+      "says": "A label's letters are at least 1.75% of the viewport's shorter side high, in every look: the smallest text of every official 2D game example is at least 1.78%, and video styles set nothing meant to be read under 1/54 of the frame's height. A smaller label stops the run with the kinds of TEXT_SIZE to raise and the size they need. The default look's tag is 1.85%, 15 pt at 1080; a pixel-art letter, one unit, is 2.2% or more of a viewport 360 px high or less.",
       "template": "TEXT_MIN",
       "value": "0.0175",
-      "helpers": "on_scale(), em_px()"
+      "helpers": "on_scale(), em_px()",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "text.no-emoji",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "No Text shows an emoji, and the generator stops on one in a layout's Text or a text the events set: an emoji draws from the device's emoji font, so its picture differs between systems and from ART_STYLE, and a Sprite Font draws nothing for it. An icon is art in its own box. No string of the layouts and event sheets of the 544 official examples holds an emoji; the 13 strings with a symbol hold arrows naming keys in instructions and a Sprite Font's own drawn heart.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md",
+      "template": "EMOJI",
+      "helpers": "check_texts()"
+    },
+    {
+      "id": "type.counting-digits",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A number that count_up() counts is drawn in the number kind's weight, light, whose digits share one width: InterDisplay-Light.woff in the user's font cache has Inter's tabular digits as its own, so a centred or right-aligned count keeps its digits still and widens only when a digit is added. A count in a font whose digits differ in width, Inter's other weights or a stale cache file, is left-aligned, so the digits before the one that changes stay put; check_texts() reads the digits' advances from the font file and warns of a counted Text that is neither. Measured on the template's count of 0 to 999: the proportional digits move the count's left edge 30 px, the tabular ones 5 px.",
+      "helpers": "count_up(), counting(), check_texts(), tabular_ems(), digit_ems(), text_px()",
+      "source": "Construct3-Agent-Skills/docs/decisions/tabular-count-digits.md"
     },
     {
       "id": "lines.areas",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "A region or a range is a zone drawn as lines: a LINE px edge in solid over a canvas_alt fill, a 9-patch tiled at its size; a ring around the play is a ring in the line grey, a reach a dashed ring. A slot is a disc of canvas_alt the size of what fills it, and a board of slots has no frame.",
       "template": "LINE",
       "value": "max(1, round(min(VIEW_W, VIEW_H) / 720))",
-      "helpers": "zone_image(), zone(), ring(), ring_cover()"
+      "helpers": "zone_image(), zone(), ring(), ring_cover()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
-      "id": "hud.paper",
+      "id": "touch.target",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "No game name on the screen the player plays on: the round, the level or the mode top left as a small dim tag in tracked capitals; the count the player plays for top right, a small dim name over a large light number; the controls bottom left as keys in thin ink boxes with their verbs, dimmed to 35% once the player has used them; MARGIN a fifteenth of the shorter side in whole units.",
+      "scope": "every-look",
+      "says": "A tapped object is at least a finger wide: 48 dp, the viewport's shorter side counting as a phone's 360 dp, rounded up to whole units; 24 px at 320x180, 96 at 720x1280, 160 at 1920x1080.",
+      "template": "TOUCH",
+      "value": "math.ceil(48 * min(VIEW_W, VIEW_H) / 360 / UNIT) * UNIT",
+      "helpers": "shape(), button()",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-manifest-owns-the-rules.md"
+    },
+    {
+      "id": "touch.spacing",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "At least 8 dp between two things the player taps, from app guidelines: of 295 tapped objects on a screen of the official 2D game examples, 215 lie under 8 dp from the next, 175 touching or overlapping it, and 9 of 16 examples set buttons, tabs, pickers or icons that close, as a colour picker or a pad of arrows. row() keeps one UNIT between boxes, 10.7 dp or more, unless a game asks for less.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "hud.default",
+      "status": "adopted",
+      "scope": "default-look",
+      "says": "No game name on the screen the player plays on: the round, the level or the mode top left as a small dim tag in capitals, \"ROUND 1 / 6\" (hud.tag-plain); the count the player plays for top right, a small dim name over a large light number; the controls bottom left as keys in thin ink boxes with their verbs, dimmed to 35% once the player has used them; MARGIN a fifteenth of the shorter side in whole units.",
       "template": "MARGIN",
       "value": "max(1, int(min(VIEW_W, VIEW_H) / 15 / UNIT)) * UNIT",
-      "helpers": "hud_tag(), hud_stat(), hud_keys(), hints()"
+      "helpers": "hud_tag(), hud_stat(), hud_keys(), hints()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "subject.size",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "In an open field the player and what it meets are drawn about 6% of the viewport's shorter side across, in whole units, small in a large field, and one that is tapped keeps a box TOUCH wide around its drawing; what is tapped on a board fills its TOUCH box.",
       "template": "SUBJECT",
       "value": "max(UNIT, round(0.06 * min(VIEW_W, VIEW_H) / UNIT) * UNIT)",
-      "helpers": "shape(), art()"
+      "helpers": "shape(), art()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
+    },
+    {
+      "id": "subject.player-shape",
+      "status": "adopted",
+      "scope": "default-look",
+      "says": "The player's stand-in in the default look is an ink rectangle, not the prototype's disc. It stands for the player's collision box, so it matches the rectangles of the scene it collides with, and its width and height show the proportions the game is tuned to.",
+      "template": "shape()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "pointer.colours",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "A game the player points at things in shows the pointer as colours of the object itself: sky blue while the mouse is over it, amber for an instant when it is touched, then its own colour; frames of its image, so it keeps its shape, which need not read 3:1 on the paper. Off by default.",
       "template": "POINTER",
       "value": "False",
-      "helpers": "pointer_frames(), pointer_drawn(), pointer_types(), pointer_module(), hit()"
+      "helpers": "pointer_frames(), pointer_drawn(), pointer_types(), pointer_module(), hit()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "pixel-art.sampling",
       "status": "enforced",
       "scope": "every-look",
       "strict": true,
-      "says": "A viewport 360 px high or less samples Nearest at a whole-number scale.",
-      "template": "PIXEL_ART, build_project()"
+      "says": "A viewport 360 px high or less is pixel art: it samples Nearest at a whole-number scale.",
+      "template": "PIXEL_ART",
+      "value": "VIEW_H <= 360",
+      "helpers": "build_project()",
+      "source": "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
     },
     {
       "id": "screen.fill",
@@ -178,7 +272,8 @@
       "template": "FULLSCREEN",
       "value": "'integer-scale-outer' if PIXEL_ART else 'scale-outer'",
       "helpers": "anchored(), hud_text(), hud_bar(), labelled_bar(), band_text(), screen_box(), backdrop(), anchor_types()",
-      "confirm": "check_look.py: screen.fill (a warning)"
+      "confirm": "check_look.py: screen.fill (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md"
     },
     {
       "id": "screen.safe-area",
@@ -186,7 +281,8 @@
       "scope": "every-look",
       "says": "The whole viewport stays inside the safe area of a screen with a notch or rounded corners: Viewport fit Auto, as the empty project has it. A game that draws under the notch with Cover moves its HUD in by PlatformInfo's SafeAreaInset expressions.",
       "template": "PROPERTY_DEFAULTS",
-      "confirm": "check_look.py: screen.safe-area (a warning)"
+      "confirm": "check_look.py: screen.safe-area (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md"
     },
     {
       "id": "layer.z-order",
@@ -194,7 +290,8 @@
       "scope": "every-look",
       "says": "Each layer lists its instances as an editor user would arrange them, back to front: the backdrop, the areas and zones, then the rest by the Y of their feet; a child after its parent, a box inside another box after it unless the outer one is a label.",
       "template": "z_order()",
-      "helpers": "z_order(), build_all()"
+      "helpers": "z_order(), build_all()",
+      "source": "Construct3-Agent-Skills/docs/decisions/fill-the-screen.md"
     },
     {
       "id": "layout.proximity",
@@ -203,20 +300,18 @@
       "says": "A value and its name are one group, GAP_IN apart; two groups, a HUD group and the playfield among them, sit at least 1.5 times the gap inside either apart, so a name stays with its value and not with the board.",
       "template": "GROUP_RATIO",
       "value": "1.5",
-      "helpers": "hud_stat(), spaced(), play_area(), centred()"
+      "helpers": "hud_stat(), spaced(), play_area(), centred()",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
       "id": "layout.balance",
-      "status": "open",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, raised by OPTICAL_LIFT of that space's height; a centre more than a unit off prints a warning. The 5% lift is a rule of thumb with no measurement found behind it.",
+      "says": "The playfield's content is centred in what the HUD leaves, not on the whole screen, and not raised: OPTICAL_LIFT is 0. A centre more than a unit off prints a warning. The official 2D game examples' one-screen layouts centre their content a median 0% off the screen's middle, 44 of 81 within 3% of its height, 25 lower and 12 higher, so the 5% lift of design guides was turned down.",
       "template": "OPTICAL_LIFT",
-      "value": "0.05",
-      "options": [
-        "0.05: the board a little above the middle of the play area, where the eye puts the middle",
-        "0: the board exactly in the middle of the play area"
-      ],
-      "helpers": "play_area(), centred(), balanced()"
+      "value": "0",
+      "helpers": "play_area(), centred(), balanced()",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
     },
     {
       "id": "layout.fill",
@@ -225,91 +320,255 @@
       "says": "The box around the playfield's content covers at least 15% of the screen, else the run prints a warning. Of the official 2D game examples' one-screen layouts, 95 in 100 cover more and the median covers 80%; the 25 to 60% band of slide and poster skills would flag 83% of them, so it is not used.",
       "template": "PLAYFIELD_MIN",
       "value": "0.15",
-      "helpers": "filled()"
+      "helpers": "filled()",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "layout.spread",
       "status": "adopted",
       "scope": "every-look",
-      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty is a warning of the generator and a finding of the look review, naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Round · 03\" is one item; a count with no word, a bar across two thirds of the screen and, in the review, the one label of an object tell none. It fires on no official 2D game example's layout.",
+      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty is a warning of the generator and a finding of the look review, naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Lives · 3\" is one item and \"Wave 3 · 12 left\" two; a count with no word, a bar across two thirds of the screen and, in the review, the one label of an object tell none. It fires on no official 2D game example's layout.",
       "template": "HUD_CROWD",
       "value": "3",
       "helpers": "spaced(), spread(), items()",
-      "confirm": "review_look.py: crowd"
+      "confirm": "review_look.py: crowd",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "layout.focal",
       "status": "rejected",
       "scope": "every-look",
-      "says": "A check that the largest object is at least 1.5 times the area of the next: only 31% of the official 2D game examples' one-screen layouts pass it, since a grid of equal tiles, a deck of cards or two paddles is a sound game screen with no single largest object."
+      "says": "A check that the largest object is at least 1.5 times the area of the next: only 31% of the official 2D game examples' one-screen layouts pass it, since a grid of equal tiles, a deck of cards or two paddles is a sound game screen with no single largest object.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
       "id": "layout.title-safe",
       "status": "rejected",
       "scope": "every-look",
-      "says": "A title-safe margin of video, 5 to 10% of the frame: the text nearest the edge in the official 2D game examples' layouts sits a median 3% of the shorter side in, and 52 of 75 within 5%. MARGIN, a fifteenth of the shorter side, already holds the HUD further in than most of them."
+      "says": "A title-safe margin of video, 5 to 10% of the frame: the text nearest the edge in the official 2D game examples' layouts sits a median 3% of the shorter side in, and 52 of 75 within 5%. MARGIN, a fifteenth of the shorter side, already holds the HUD further in than most of them.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
       "id": "type.one-display",
       "status": "rejected",
       "scope": "every-look",
-      "says": "At most one text at a layout's largest size, from web design systems: of the official 2D game examples' layouts with two sizes or more, 41 of 69 pass; a menu of equal options or two players' scores share the largest size."
+      "says": "At most one text at a layout's largest size, from web design systems: of the official 2D game examples' layouts with two sizes or more, 41 of 69 pass; a menu of equal options or two players' scores share the largest size.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
     },
     {
       "id": "type.modular-scale",
       "status": "rejected",
       "scope": "every-look",
-      "says": "Each size of TEXT_SIZE at least 1.2 times the next smaller, a modular scale: the step between the sizes of an official 2D game example's layout runs from 1.03 to 3, a quarter of the steps under 1.25, and 71 brands' design systems step a median 1.17; no ratio holds."
+      "says": "Each size of TEXT_SIZE at least 1.2 times the next smaller, a modular scale: the step between the sizes of an official 2D game example's layout runs from 1.03 to 3, a quarter of the steps under 1.25, and 71 brands' design systems step a median 1.17; no ratio holds.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "type.two-families",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "The texts of a screen use at most two type families: of the official 2D game examples' 109 layouts that hold a Text, 95 use one face and 14 two, none three. One family alone, the web rule, fails 13% of them. The default look's FONT holds weights of one family.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
+    },
+    {
+      "id": "text.placeholder",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "No Text shows the Text object's default text or Lorem ipsum once its layout has run. 21 of the official 2D game examples' 448 Texts hold one in the layout files and events set them at runtime, so only the runtime can judge it. review_look.py reports a shown text that still reads so after the layout has run, a broken finding.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md",
+      "confirm": "review_look.py: placeholder"
+    },
+    {
+      "id": "type.leading",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "Lines of a Text lie LINE_EMS of their kind apart: body text 1.28 em, so a paragraph has room between its lines, the count and a banner 1.08, set tight, and every other kind 1.2. The runtime draws a Text's line 1 em + 4 px high and its line-height property adds px between lines only, so text_inst() sets line-height to the difference and the runtime draws the lines that label_box() and line_height() size the box for; a one-line label draws the same, its box sized by its kind.",
+      "template": "LINE_EMS",
+      "value": "{'body': 1.28, 'number': 1.08, 'display': 1.08}",
+      "helpers": "line_ems(), line_px(), leading(), text_inst(), label_box(), line_height()",
+      "source": "Construct3-Agent-Skills/docs/decisions/leading-by-kind.md"
+    },
+    {
+      "id": "type.line-height",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Lines of body text 1.5 to 1.75 times the letters apart, from web guidelines: 130 of the 137 texts of several lines in the official 2D game examples add no line height to the font's own, about 1.15 em, and none adds 0.3 em or more. text_inst() adds 0.11 em to body text and less to the other kinds (type.leading).",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "type.measure",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A line of body text 65 to 75 characters long, from web guidelines: the texts of several lines in the official 2D game examples hold a median 43 characters a line, 32 to 50 for the middle half; 47 of 137 fall in 45 to 75. A game's text box is a card, a dialogue or a tip, not a column to read.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "type.body-16",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Body text at least 16 px on a phone, 4.4% of a 360 dp shorter side, from web guidelines: the smallest text of 45 of 105 official 2D game examples is smaller, down to 1.78%. type.min-size holds 1.75%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
+    },
+    {
+      "id": "screen.title-name",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A title screen names the game in its largest letters, drawn as an image by the art route: the capitals of the official 2D game examples' title images are 7 to 35% of the viewport's shorter side, 18% at the median, and 1.6 to 12.6 times the size of the screen's largest text. The template has no title screen; display, its largest kind, sets capitals at 5.7%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
+    },
+    {
+      "id": "screen.result-headline",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A result screen states the moment in one line at text_size(\"display\"), centred on the screen, with at most a small tag under it: the official 2D game examples' result screens show their largest text at a median 8.3% of the shorter side, a quarter at 6.25% or less, and 21 of 23 use one size. display is 64 pt, 7.9% at 1080; in pixel art it is two units, 4.4% at 360. A menu keeps hud_header().",
+      "template": "result_headline()",
+      "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
+    },
+    {
+      "id": "screen.object-over-name",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "An object of the layout drawn over the game's name, as a poster's subject crosses its title: no official 2D game example's title image has another object over 5% of it, apart from fades and its own shine; one logo draws its mascot over its letters inside the image, so a subject that crosses the name belongs to the art.",
+      "source": "Construct3-Agent-Skills/docs/decisions/title-and-result-screens.md"
+    },
+    {
+      "id": "screen.menu-axis",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A title, menu or pause screen sets its texts and buttons on the vertical centre line: hud_header() centres its title at the top with the tag under it, button(..., \"center\", row) puts a button on the cell nearest the line, and the run warns of an instance of a layout or layer named title, menu or pause that sits more than half a unit off it. 51 of 63 texts on the official 2D game examples' title screens are centred within 2% of the width, and of the 10 such screens with two texts or more, 8 centre all and none centres none; 82 of 200 motion-design websites centre their headline or stack. A settings screen, rows of a name beside its control, is left out.",
+      "template": "hud_header()",
+      "helpers": "hud_header(), button(), on_axis()",
+      "confirm": "build_project.py: a warning",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "screen.edge-inset",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "MARGIN about 3% of the viewport's shorter side: the text nearest the edge in the official 2D game examples sits a median 3% in, and 200 motion-design websites inset theirs a median 24 px, 2.7% of a 900 px viewport. MARGIN, a fifteenth of the shorter side in whole units, is 4.4% at 720, 5.9% at 1080 and 6.7% in pixel art.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "screen.transition",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A change of layout passes through a cover over the whole screen: fade_to() fades it in over FADE's 0.3 s, then goes to the layout or restarts this one, and every layout the sheet runs opens under it and fades it away. 31 of the 51 official examples that go to another layout have an object type named as a fade, transition, curtain or wipe, and 41 of 200 motion-design websites wipe between pages, a median 0.8 s. A layout with no sheet gets no cover, since nothing would fade it away.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
+      "template": "FADE",
+      "helpers": "fade_to(), add_fade()",
+      "value": "{'seconds': 0.3, 'ease': 'easeinoutsine', 'role': 'ink'}"
+    },
+    {
+      "id": "type.scale-contrast",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A display size about 8 times the smallest label, as 200 motion-design websites set it (a median 8.4, 5.1 to 14.4 between the quartiles): a screen of the official 2D game examples shows its largest text a median 2 times its smallest, at most 5.3; a title image carries the larger contrast. display over tag is 4.3 at 1080, 6.4 at 720.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.small-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Labels at 11 px, a median 1.2% of the shorter side on motion-design websites: the smallest text of every official 2D game example is at least 1.78%, and type.min-size holds 1.75%.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.mono-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Counters and labels in a monospaced face, as 37 of 200 motion-design websites set them: 4 of 81 official 2D game examples show a monospaced face on a screen.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.caps-menu",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A menu's texts in capitals: 46 of 59 lettered texts on the official 2D game examples' title screens are capitals, but the 9 screens set all in capitals belong to 4 of 11 examples, and play screens set 20 of 219; it is a game's style, not a rule. hud_tag() already sets a tag in capitals.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "layout.corner-frame",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Small labels framing the content from the screen's corners, as 72 of 200 motion-design websites place them: of the official 2D game examples' 103 play screens, 50 hold a text in no corner, 31 in one, 19 in two and 3 in three or four. The template's play HUD holds three.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "type.caps-labels",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No label in capitals, from web design skills, where tracked capital labels read as a generated page: 138 of the 323 labels of 20 characters or fewer in the official 2D game examples are capitals, in 18 of 113 examples, \"GAME OVER\", \"START\" and \"SCORE:\" among them, and a pixel font often holds capitals only.",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
+    },
+    {
+      "id": "type.no-index-numbers",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No zero-padded number, from web design skills, where 01 / 02 / 03 marks reads as a generated page: 28 of 113 official 2D game examples call zeropad() in their events, on a score's fixed digits or a clock's seconds in all but at most 4, and 16 of their layouts' texts start padded, \"Score: 000\" or \"00:00\".",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
+    },
+    {
+      "id": "hud.tag-plain",
+      "status": "adopted",
+      "scope": "default-look",
+      "says": "The default look's tag, hud_tag(), is capitals with no space between the letters, no middle dot and no zero padding: \"ROUND 1 / 6\", and the events set it the same way. The user picked it on 2026-10-31 over \"ROUND · 01 / 06\", whose spaced capitals, middle-dot join and padded round frontend-design names as template chrome. Of the official 2D game examples' 679 texts, none spaces its letters apart and 2 join parts with a bar, none with a middle dot; at most 4 of 113 examples pad a level, round or wave.",
+      "template": "hud_tag()",
+      "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
     },
     {
       "id": "outline.width",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "An ink outline inside a shape's edge where SHAPE_STYLE turns it on, the prototype's 2 px at 720 scaled to the viewport; off on the paper, always on a hit frame.",
       "template": "SHAPE_STYLE['outline_width']",
-      "value": "max(1, round(min(VIEW_W, VIEW_H) / 360))"
+      "value": "max(1, round(min(VIEW_W, VIEW_H) / 360))",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.form",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "No cast shadow on the paper. A game that turns it on gets a hard one: one unblurred copy of the shape, one direction for the whole scene.",
       "template": "SHAPE_STYLE['shadow']",
-      "value": "False"
+      "value": "False",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.distance",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "The shadow's offset, 2.7% of the viewport's shorter side.",
       "template": "SHAPE_STYLE['shadow_distance']",
-      "value": "round(0.027 * min(VIEW_W, VIEW_H))"
+      "value": "round(0.027 * min(VIEW_W, VIEW_H))",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.opacity",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "The shadow at half opacity.",
       "template": "SHAPE_STYLE['shadow_opacity']",
-      "value": "0.5"
+      "value": "0.5",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.angle",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "The shadow's direction, degrees clockwise from rightwards: down and to the right.",
       "template": "SHAPE_STYLE['shadow_angle']",
-      "value": "45"
+      "value": "45",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "palette.greys",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
-      "says": "Paper and ink: a white paper and a faint grey fill, a 15% ink line grey for structure the eye reads past, a 62% ink grey for edges and structure, a neutral grey dim, ink, an electric blue for what is collected, a deep orange for what hurts, a sky blue for what the pointer is over and an amber for a press, plus the hit's flash; the hues a design system's A400 accents. The player in ink. The paper and its fill at most 1.2:1, so the checker reads as texture.",
+      "says": "The default look: a white paper and a faint grey fill, a 15% ink line grey for structure the eye reads past, a 62% ink grey for edges and structure, a neutral grey dim, ink, an electric blue for what is collected, a deep orange for what hurts, a sky blue for what the pointer is over and an amber for a press, plus the hit's flash; the hues a design system's A400 accents. The player in ink. The paper and its fill at most 1.2:1, so the checker reads as texture.",
       "template": "{role: '#%02X%02X%02X' % colour for role, colour in PALETTE.items()}",
       "value": "{'canvas': '#FFFFFF', 'canvas_alt': '#EFEFEF', 'line': '#D7D7D7', 'solid': '#757575', 'dim': '#616161', 'ink': '#212121', 'reward': '#3D5AFE', 'danger': '#FF3D00', 'hover': '#00B0FF', 'pressed': '#FFC400', 'flash': '#FFFFFF'}",
-      "helpers": "check_palette()"
+      "helpers": "check_palette()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "colour.structure",
@@ -317,7 +576,8 @@
       "scope": "every-look",
       "strict": true,
       "says": "solid, the role of edges and structure, reads at least 3:1 on canvas_alt, so structure shows without an outline, whatever colours the look gives them (WCAG 2.2, 1.4.11).",
-      "template": "check_palette()"
+      "template": "check_palette()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "colour.accent-contrast",
@@ -327,13 +587,36 @@
       "says": "An accent, a role that is a hue and not a grey, reads at least 3:1 on canvas_alt when drawn without an outline, or is drawn with its ink outline, except a hover or a press frame; every outlined fill reads at least 3:1 against the ink.",
       "template": "[role for role in PALETTE if accent(role)]",
       "value": "['reward', 'danger', 'hover', 'pressed']",
-      "helpers": "accent(), shape()"
+      "helpers": "accent(), shape()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "colour.one-accent",
       "status": "rejected",
       "scope": "every-look",
-      "says": "At most one thing in an accent colour per screen, from web design systems, where the accent marks the one call to action: a game's accents mark kinds of content, every coin in reward and every hazard in danger, so a screen shows many."
+      "says": "At most one thing in an accent colour per screen, from web design systems, where the accent marks the one call to action: a game's accents mark kinds of content, every coin in reward and every hazard in danger, so a screen shows many.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-aesthetics-skills.md"
+    },
+    {
+      "id": "colour.dark-ground",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A dark ground, as 105 of 200 motion-design websites have: the official 2D game examples' play screens spread over every lightness, a median 0.37, 36 of 99 dark and 14 light. A look the user gives or picks sets canvas.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "colour.neutral-ground",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A neutral ground for every look, the hue left to the accents, as motion-design websites keep theirs (ground chroma a median 0.02): the official 2D game examples' play screens reach a median 0.055 and 0.19 at the third quartile. The default look's grounds are grey already.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "colour.one-hue",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "One strong hue in the palette, as 113 of 200 motion-design websites have: a game's accent roles each mark a kind of thing, reward, danger, hover and press, so they need hues of their own.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {
       "id": "control.parts",
@@ -342,36 +625,40 @@
       "says": "A drawn control is a row TOUCH high whose whole box takes the finger, however small its drawing, and each of its parts reads at least 3:1 on what it lies on: a slider's fill on its track and its knob on canvas_alt, a toggle's switch on canvas_alt and its knob on the switch, off and on (WCAG 2.2, 1.4.11).",
       "template": "CONTROL_SIZE",
       "value": "{'bar': UNIT // 2, 'knob': units(2), 'switch': (units(4), units(2))}",
-      "helpers": "need_contrast(), slider_types(), toggle_types(), slider(), toggle(), text_input()"
+      "helpers": "need_contrast(), slider_types(), toggle_types(), slider(), toggle(), text_input()",
+      "source": "Construct3-Agent-Skills/docs/decisions/input-controls.md"
     },
     {
       "id": "backdrop.sheet",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
       "says": "The plain paper is the opaque Background layer's colour, canvas, and no object. In a game with something transparent, a mask or a background still to come, the backdrop is the transparency checker, cells of UNIT / 2 in canvas and canvas_alt: one Tiled Background behind everything and no area elsewhere, stretched to the screen in a one-screen layout, its cells following the screen's edge rather than the grid. With USER_LOOK set, backdrop() lays any Tiled Background of the user's look.",
       "template": "{kind: PATTERNS[kind] for kind in BACKDROPS}",
       "value": "{'checker': ('canvas', 'canvas_alt')}",
-      "helpers": "pattern(), pattern_type(), backdrop()"
+      "helpers": "pattern(), pattern_type(), backdrop()",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "pattern.areas",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
       "says": "Objects stay flat; an area with a rule of its own is a Tiled Background of a pattern: low stripes for a harmless special surface, ink stripes for what moves or triggers, accent stripes for what hurts. Stripes at 45 degrees, a one-unit tile, offset so pieces meet without a seam; the caution and hazard stripes cover strips and small zones, their shorter side a quarter of the viewport's at most. With USER_LOOK set, area() lays any Tiled Background of the user's look, at any size.",
       "template": "{kind: roles for kind, roles in PATTERNS.items() if kind not in BACKDROPS}",
       "value": "{'low': ('solid', 'dim'), 'caution': ('ink', 'canvas'), 'hazard': ('danger', 'ink')}",
-      "helpers": "pattern(), area(), tiledbg_inst()"
+      "helpers": "pattern(), area(), tiledbg_inst()",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "motion.squash",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "A squash sets a share of the image's size at once, holds it, and tweens back to the image's size: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
+      "scope": "default-look",
+      "says": "A squash sets a share of the object's rest size at once, holds it, and tweens back to the rest size, the size the instance has when its first squash starts, so a size set in the layout editor stays: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
       "template": "[(k['width'], k['height'], k['hold'], k['seconds'], k['ease']) for k in SQUASH.values()]",
       "value": "[(0.8, 1.2, 0, 0.25, 'easeoutback'), (1.2, 0.8, 0, 0.5, 'easeoutelastic'), (0.7, 1.3, 0.2, 0.75, 'easeoutelastic')]",
-      "helpers": "squash(), hit()"
+      "helpers": "squash(), hit()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "motion.squash-art",
@@ -382,39 +669,243 @@
       "template": "COLLIDING",
       "value": "('Platform', 'EightDir', 'Physics', 'Car', 'solid', 'jumpthru')",
       "helpers": "squash_the_art()",
-      "confirm": "check_look.py: motion.squash-art"
+      "confirm": "check_look.py: motion.squash-art",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "motion.hit",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
       "says": "A hit shows the shape's hit frame, filled in the flash role inside the ink outline with the same shadow, for 0.08 s of real time, then frame 0; never the Flash behavior.",
       "template": "HIT_FLASH['seconds']",
       "value": "0.08",
       "helpers": "hit_frame(), hit_flash(), beh_def()",
-      "confirm": "check_look.py: motion.hit"
+      "confirm": "check_look.py: motion.hit",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
-      "id": "art.image-tool",
+      "id": "motion.tween-style",
+      "status": "open",
+      "scope": "every-look",
+      "says": "A tween takes its ease and seconds from TWEEN_STYLE by the class of what it moves: the HUD fading or sliding in and out, a bar's fill, the camera, a world object, a popup, a banner. The HUD, a bar, the camera and the world keep easeinoutsine, 0.5 s for the HUD and the world, 0.25 s for a bar, 1 s for the camera, as the official examples tween them. A popup and a banner open with easeoutquint in 0.2 and 0.25 s, a strong ease-out under 0.3 s, where the examples fade a popup with easeinoutsine in 0.5 s at the median. The user judges the two on a recording; until then the template keeps the strong ease-out for popups and banners only.",
+      "template": "TWEEN_STYLE",
+      "value": "{'hud_in': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'hud_out': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'bar': {'ease': 'easeinoutsine', 'seconds': 0.25}, 'camera': {'ease': 'easeinoutsine', 'seconds': 1}, 'world': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'popup': {'ease': 'easeoutquint', 'seconds': 0.2}, 'banner': {'ease': 'easeoutquint', 'seconds': 0.25}}",
+      "helpers": "eased(), tween1(), tween2(), tween_width(), tween_value(), hints()",
+      "options": [
+        "measured: a popup and a banner take the HUD's easeinoutsine in 0.5 s, as the official examples' popups fade, nearly all with easeinoutsine, 0.25 to 1 s in the middle half, none scaled",
+        "strong ease-out: a popup and a banner take easeoutquint in 0.2 to 0.35 s, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) set for an element that enters or leaves; the template holds this one, for popups and banners only"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.popup",
+      "status": "open",
+      "scope": "every-look",
+      "says": "popup() opens a panel from 0.95 of its size at opacity 0 while its dim fades in to 50 %, in TWEEN_STYLE['popup'], and closes it the way it came; popup_closed() hides both once the close ends. The official examples fade their popups and never scale one.",
+      "template": "(POPUP['scale'], POPUP['dim'])",
+      "value": "(0.95, 50)",
+      "helpers": "popup(), popup_closed(), screen_box()",
+      "options": [
+        "scale and fade: the panel from 0.95 of its size and opacity 0, never from 0, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) open a dialog; the template holds this one",
+        "fade only: the panel fades in at its size, as the official examples' popups do"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.frequency",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "On the HUD only, how often a change happens decides its motion: a change on every action of the player, a score tick, an ammo count, shows at once or in the bar class; a moment of the session, a title card, a level clear, a new record, gets the popup or banner class and may overshoot. World juice on every jump or hit stays, as published games squash, shake and flash on each one. count_up() counts the score on every gain for 0.5 s, so the rule would change it.",
+      "options": [
+        "HUD only: a per-action HUD change is instant, a per-session moment gets the delight, and the world keeps its juice on every jump or hit",
+        "everywhere: motion that repeats on every action is cut in the world too, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) would cut it in an interface; this drops the squash and the flash on every jump and hit that published games keep",
+        "no rule: every helper keeps its motion whatever its frequency"
+      ],
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.hud-overshoot",
       "status": "adopted",
       "scope": "every-look",
-      "says": "A sprite is art(): its picture when it is in art/, else its stand-in, in the same box of whole units with the same origin and collision polygon. When the session has an image tool, the pictures come from it, prompted by prepare_art.py --list from ART_STYLE and each subject, then cut out and fitted by prepare_art.py. Art is not drawn in code.",
-      "template": "ART_STYLE, art()",
+      "says": "An overshoot ease, back, elastic or bounce, is for world objects and for the subject of a moment, such as a title card or a banner, never for the rest of the HUD. Which HUD object is the subject is not in the files, so the check warns.",
+      "helpers": "tween1(), tween2()",
+      "confirm": "check_look.py: motion.hud-overshoot (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.hud-ease-in",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "The HUD does not fade in with an ease-in, which starts slowest at the moment the player looks for it. A fader or a dim that covers the viewport is left out, and so is a fade or a slide out.",
+      "helpers": "tween1()",
+      "confirm": "check_look.py: motion.hud-ease-in (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.panel-from-zero",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "A HUD object never grows its size or its scale from 0 in both directions: it opens near its size at opacity 0, as popup() does. A width from 0 alone, a banner opening from its centre or a gauge, passes.",
+      "helpers": "popup()",
+      "confirm": "check_look.py: motion.panel-from-zero",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.value-restart",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "A value tween that starts from the number a Text shows, or from a tween's value, has Stop for its tag before it, or runs only while that tag is not playing: a second value tween under a tag that still plays runs beside the first, and the number jumps when the first ends. count_up() does it.",
+      "helpers": "count_up(), stop_tweens(), tween_value()",
+      "confirm": "check_look.py: motion.value-restart",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.size-on-dying",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "An object that a size tween destroys is not squashed back to its rest size by another event: a size tween stops the one running on that property, which then never destroys the instance. A squash in the same actions, or after On created or a tween's On finished, passes. The check warns, because an event's conditions may keep the squash off a dying instance.",
+      "helpers": "squash(), tween2()",
+      "confirm": "check_look.py: motion.size-on-dying (a warning)",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.reduced",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A MOTION scale from 0 to 1 for reduced motion multiplies the shake's magnitude, the camera's moves and the squash's share; the hit flash stays, since it shows the hit without moving anything. Proposed until the official examples are read for a setting of the kind.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "motion.duration-floor",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "No tween shorter than 0.2 s, from web design skills: 183 of the 1275 tween times the official 2D game examples write as numbers are under 0.2 s, and a game's feedback, the hit flash of 0.08 s and the press of 0.1 s, is faster than a page's hover.",
+      "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
+    },
+    {
+      "id": "motion.stagger",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "Items that enter together, the rows of a menu or the cards of a hand, start a step apart, and input does not wait for the last. Motion-design websites step a median 70 ms, 60 to 80 ms between the quartiles; the official examples' waits of a constant times loopindex step a median 0.125 s, their menus 0.1 to 0.25 s. Proposed until the owner picks the step.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.ease-out-entrance",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Entrances in a strong ease-out, expo.out on 91 of 200 motion-design websites: 1181 of the official examples' 2196 tweens, in 138 examples, use easeinoutsine, and 3 an expo ease. TWEEN_STYLE keeps its classes (motion.tween-style).",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.text-reveal",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "Headlines revealed by line, word or letter, as 78 of 200 motion-design websites do: one official example uses the Text typewriter action.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.pointer-drift",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "The scene tilting or drifting after the pointer, as 57 of 200 motion-design websites do: a touch screen has no pointer between touches, and a game's camera follows its play.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
+    },
+    {
+      "id": "motion.exit-faster",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A HUD object leaves faster than it enters, from web motion guides: of the 92 HUD objects of the official examples that fade both ways, 62 fade out in the same median time as in, 17 faster and 13 slower; fades in and out both take 0.5 s at the median.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
+    },
+    {
+      "id": "menu.hold-to-confirm",
+      "status": "proposed",
+      "scope": "every-look",
+      "says": "A menu action that destroys progress, such as quitting a run or deleting a save, takes a press held for about 1 s that fills the button in a linear tween, and a release before the end cancels it. Proposed until the official examples are read for a confirm of the kind.",
+      "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
+    },
+    {
+      "id": "art.routes",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A sprite is art(): its picture when it is in art/, else its stand-in, in the same box of whole units with the same origin and collision polygon. Each picture takes one of two routes. On the SVG route, the default, it is drawn in code as SVG by the game's tools/drawings.py with the skill's svg_kit and rendered in the browser at its box size; a construct3:art-drawer sub-agent draws them from the brief that art.py writes. On the image route, when the session has an image tool, the tool makes it from the prompt that art.py prints, and art.py cuts it out and fits it. An object whose frames must keep one box and baseline takes the SVG route on either. A picture is never computed pixel by pixel in Python.",
+      "template": "ART_ROUTE",
+      "value": "'svg'",
       "helpers": "art(), hit_frame(), write_wanted()",
-      "confirm": "prepare_art.py: ok"
+      "confirm": "art.py: ok",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "look.picker",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "When the user gave a look, in words or references, the user picks it before any art is drawn or made: the art agent draws the first play screen at the viewport's size in three named directions, the default look and two from the user's look. Every two directions differ in two or more dimensions of an art direction (rendering, linework, colour temperature, light direction, proportions, framing), never only in their colours, and each keeps the roles of PALETTE and the kinds of TEXT_SIZE. pick_look.py checks and renders them behind a picker with a brief for the look judge, and stops for the user; the pick alone becomes USER_LOOK, PALETTE and ART_STYLE, and its screen art/look.png, which every drawing and every prompt then follows. review_look.py puts art/look.png beside the screenshot of the layout the game starts on, in its pair picture. It asks the look judge whether the screenshot differs from it in colours, light, rendering, outlining, proportions or view, and a yes is ugly. When the user gave no look, the default look applies with no picker. A rule of status open may be shown on the directions; the pick does not decide it.",
+      "template": "USER_LOOK",
+      "confirm": "pick_look.py: stop; review_look.py: the picked look's question",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-picker.md"
+    },
+    {
+      "id": "art.roles",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "A drawing names the roles of PALETTE, never a colour: svg_kit writes each role as a CSS variable that art.py sets when it renders, and a shade() or light() of a role mixes it towards ink or canvas; in pixel art a drawing takes the roles alone. The hit frame is the same drawing with the picture's role in the flash colour.",
+      "template": "PALETTE",
+      "helpers": "art(), write_wanted()",
+      "confirm": "art.py: a drawing that names a colour is refused",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.ids",
+      "status": "enforced",
+      "scope": "every-look",
+      "strict": true,
+      "says": "Every id in a drawing starts with the drawing's own name, because two drawings inlined on one page that share an id both paint with the first one's definition.",
+      "template": "art()",
+      "confirm": "art.py: a drawing with another id is refused",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.contrast",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "In a game that draws no scene, half of a picture's edge, its shown pixels beside a clear one, reads at least 3:1 on the canvas, by its outline or by the body within two line widths inside it. Which scene a picture lies on is the layouts' and the events' to say, so a game with scenes leaves it to the look review of its screenshots. Three versions of a picture that keep the finding leave it for the hand-over.",
+      "template": "PALETTE['canvas']",
+      "confirm": "art.py: art.contrast",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
+    },
+    {
+      "id": "art.frames",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "The frames of one animation other than Default share their box, stand on one row within a sixteenth of a unit, at least 1 px, and are centred within a quarter of their width; one drawing function with pose parameters keeps them so. The frames of a Default animation are left out, because a game often keeps kinds there, a card or an enemy per frame, that events pick.",
+      "template": "art()",
+      "confirm": "art.py: art.frames",
+      "source": "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md"
+    },
+    {
+      "id": "art.icon",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "The art route draws the game's icons, icons/icon-16.png to icon-512.png, from its look: the owner keeps Construct's icon, as 104 of the 113 official 2D game examples and all 29 studio examples keep the empty project's icon, compared by their pixels.",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
     },
     {
       "id": "juice.functions",
       "status": "proposed",
       "scope": "every-look",
-      "says": "Screen shake, size impact, slow motion at time scale 0.1 to 0.2, zoom impact; shake magnitudes in tiers of the viewport's shorter side."
+      "says": "Screen shake, size impact, slow motion at time scale 0.1 to 0.2, zoom impact; shake magnitudes in tiers of the viewport's shorter side.",
+      "source": "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
     },
     {
       "id": "camera.zones",
       "status": "proposed",
       "scope": "every-look",
-      "says": "Camera regions as level data: zoom, zoom speed, X/Y locks, X/Y offsets, target, local game speed."
+      "says": "Camera regions as level data: zoom, zoom speed, X/Y locks, X/Y offsets, target, local game speed.",
+      "source": "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
     },
     {
       "id": "pacing.beats",
@@ -424,7 +915,8 @@
       "says": "BEATS gives each camera zone, or each round, wave or window of a one-screen game, a type and an intensity from 0 to 3. The first beat at 0; a beat of 2 or more followed by a rest that holds a pickup or a checkpoint, the climax by a rest or the exit; a mechanic taught alone before a beat combines it; with two beats or more, one climax, in the last third, and the last third more intense than the first; a toy with no rounds, levels or waves is one beat at 0. The generator prints the curve, one line a beat.",
       "template": "BEAT_TYPES",
       "value": "('intro', 'teach', 'practice', 'twist', 'rest', 'climax', 'exit')",
-      "helpers": "beat(), pace()"
+      "helpers": "beat(), pace()",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "level.reach",
@@ -433,42 +925,141 @@
       "says": "Every gap and step up of a level is measured against the player's reach from the Platform properties: easy up to half of it, hard from eight tenths, and the run stops past nine tenths. The reach is an approximation not yet measured in a preview.",
       "template": "round(jump_reach())",
       "value": "286",
-      "helpers": "jump_reach(), jump()"
+      "helpers": "jump_reach(), jump()",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "pacing.worlds",
       "status": "proposed",
       "scope": "every-look",
-      "says": "Five short levels a world, an ordinary victory in about 1 to 2 s, a world's in 4 to 6 s, failure restarting within about 1 s."
+      "says": "Five short levels a world, an ordinary victory in about 1 to 2 s, a world's in 4 to 6 s, failure restarting within about 1 s.",
+      "source": "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
     },
     {
       "id": "shadow.soft",
       "status": "rejected",
-      "scope": "paper-and-ink",
-      "says": "A blurred translucent cast shadow reads as a smear on the checker."
+      "scope": "default-look",
+      "says": "A blurred translucent cast shadow reads as a smear on the checker.",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "depth.parallax-layers",
       "status": "rejected",
-      "scope": "paper-and-ink",
-      "says": "Lighter parallax layers for depth."
+      "scope": "default-look",
+      "says": "Lighter parallax layers for depth.",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "copy.studio-assets",
       "status": "rejected",
       "scope": "every-look",
-      "says": "Characters, finished art, fonts, exact palettes and third-party effects of any existing game."
+      "says": "Characters, finished art, fonts, exact palettes and third-party effects of any existing game.",
+      "source": "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
+    },
+    {
+      "id": "look.severity",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Every finding of the look review and every yes of its judge has a tier. broken: the player cannot read, reach or tell apart what the screen shows, at some data state or shape of screen. ugly: it reads but looks wrong, the looks of rules avoid.* among them. fragile: right as shown and one realistic step from broken, as a text with no declared limit, or a finish of a pixel or two, as a label 2 px off its centre. broken and ugly fail the look step and are fixed broken first; fragile warns and goes into the hand-over, each fix in three parts: before, after and why. A yes with more than one right fix is the user's to pick.",
+      "confirm": "review_look.py: the tier of each finding and yes",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "look.before-the-change",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "The look step fails only on a yes the change brought. In a git repository the brief shows each layout also as it was at the commit where the change starts. That commit is the newest one of HEAD's history that another local branch holds. The judge marks each yes new or before. A yes from before is the project's own look, so it fails nothing and goes into the hand-over. Without git, or on a layout the change added, every yes is new.",
+      "confirm": "review_look.py --reply: new and before; verify_change.py: the ok: line names each yes from before",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-blocks-only-what-the-change-brought.md"
+    },
+    {
+      "id": "look.references",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "The user's reference pictures for the look are PNG, JPEG or WebP files in art/references/ of the project. pick_look.py names them in the draw brief with the colours measured from each. The two directions from the user's look take their colours from these. review_look.py puts the references beside each screenshot that has some, in a pair picture with the colours measured from each side. It asks the look judge whether the screenshot looks like another game, and a yes is ugly. A reference whose file name is a layout's name goes with that layout, every other with the layout the game starts on. With USER_LOOK empty, the user took the default look over the references, so no pair is made.",
+      "confirm": "review_look.py: reference lines, question 8",
+      "source": "Construct3-Agent-Skills/docs/decisions/reference-pairs.md"
+    },
+    {
+      "id": "look.worst-data",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Each layout is looked at with the texts that events set shown at four data states: demo as it starts, worst (the declared longest text, else a count at 9999999, a long hyphenated name or a long Chinese one), empty and one. A text, overlap, edge or crowd finding that only a guessed worst text causes warns. A Text whose text the events set takes the longest text it shows, which the generator writes to tools/texts.json; without it the generator warns and the review reports it as unlimited, a fragile finding.",
+      "template": "longest_text(), write_texts()",
+      "confirm": "review_look.py: @worst, @empty, @one, unlimited; build_project.py warns of a Text the events set with no longest",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "look.screen-shapes",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Without --viewport each layout is looked at on three shapes of screen: the project's viewport and two that its orientations allow (landscape: 4:3 and a phone's 19.5:9; portrait: 3:4 and 9:19.5; any: 4:3 or 16:9 and a phone held upright), at the viewport's shorter side, because Scale outer and Anchor move the HUD on each. The text, overlap, edge and crowd findings run on each.",
+      "confirm": "review_look.py: @4x3, @16x9, @phone",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "art.alike",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Two drawn pictures of one box for different subjects differ, cell by cell over 16 x 16 cells, by more than 3% of a channel on average: kinds a player tells apart. Two pictures of one object are poses of it and are left out, unless both are frames of its Default animation.",
+      "template": "art()",
+      "confirm": "art.py: art.alike",
+      "source": "Construct3-Agent-Skills/docs/decisions/look-severity.md"
+    },
+    {
+      "id": "avoid.dashboard",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "A game's screen is the scene, not an app's dashboard.",
+      "before": "The play area and the HUD sit in rounded cards, the score in a pill, a soft shadow under every panel.",
+      "after": "The scene fills the screen; the HUD is text and flat shapes held to the edges, a panel only where a popup needs one.",
+      "why": "Rounded cards, a score pill and a shadow under every panel read as an app template and as AI-made.",
+      "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md",
+      "confirm": "review_look.py: question 7"
+    },
+    {
+      "id": "avoid.style-mix",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Every picture on a screen is drawn in one style.",
+      "before": "Plain boxes beside finished art, a smooth shape among pixel art, four drawing styles on one screen.",
+      "after": "One route and one ART_STYLE for every picture; a stand-in waits as the template's shape until its picture comes.",
+      "why": "Several drawing styles on one screen read as unfinished, as parts taken from different places.",
+      "confirm": "review_look.py: question 4",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
+    },
+    {
+      "id": "avoid.same-decoration",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "A decoration belongs to a screen, not to every screen.",
+      "before": "One ornament, frame or glow repeated on every layout.",
+      "after": "Each screen's decoration comes from what the screen is; the HUD is the one thing every screen repeats.",
+      "why": "A decoration that repeats on every screen stops telling one screen from another.",
+      "confirm": "review_look.py: the question across screenshots",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
+    },
+    {
+      "id": "avoid.kinds-alike",
+      "status": "enforced",
+      "scope": "every-look",
+      "says": "Things that stand for different kinds look different.",
+      "before": "Every map node with the same icon; a set of enemies drawn from one template.",
+      "after": "Each kind has a shape, a colour or a mark of its own, set from its kind where it is created.",
+      "why": "A player cannot tell apart kinds that look the same, so a choice between them is a guess.",
+      "confirm": "review_look.py: frame, question 6; art.py: art.alike",
+      "source": "Construct3-Agent-Skills/docs/decisions/game-look-from-design-skills.md"
     }
   ],
   "deliver": [
-    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, PALETTE's values by role from it, canvas and canvas_alt the backdrop's, and ART_STYLE from it; the rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink.",
-    "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
+    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, and save the reference pictures in art/references/ (look.references). After the generator's first run and before any art, run pick_look.py and do what its last line says (look.picker): the art agent draws the first play screen in three directions, the user picks one, and the pick writes USER_LOOK, PALETTE's values by role, canvas and canvas_alt the backdrop's, and ART_STYLE. The rules of scope default-look are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes the default look, with no picker.",
+    "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, ART_ROUTE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
     "Keep SHAPE_STYLE and the helpers between the markers; a helper the game changes is defined again below the end marker. Give every sprite an art() in whole units, which draws its stand-in until its picture arrives, and place it with shape_inst() on a grid cell; create runtime objects at grid_random().",
-    "With an image tool in the session: run prepare_art.py --list, make each picture with the prompt it prints, run prepare_art.py, then the generator. Never draw the art in code: it looks worse than the stand-ins and mixes styles.",
-    "Keep PALETTE's roles, whatever their colours. In paper and ink: a rectangle for the player, in ink, and for structure, in solid; a circle for what is collected, a triangle for what hurts. An area or a range is drawn as lines, zone() of a zone_image(), and a reach a dashed ring(); a slot is a disc of canvas_alt the size of what fills it; an area with a rule of its own is area() of a pattern(); the backdrop is backdrop() of the plain pattern, or of the checker where something is transparent, a mask or a background still to come. With USER_LOOK set, draw the stand-ins in the user's colours, and lay the areas and the backdrop in the user's look: area() and backdrop() take any Tiled Background type.",
-    "Place the HUD with hud_tag() for the round or the level and no game name, hud_stat() for the count under its name, and hud_keys() with hints() for the controls. Place any other label with hud_text(), hud_bar(), labelled_bar() or band_text(); each holds it to the screen's edges with the Anchor behavior. Place the playfield at centred(w, h, play_area(hud)), and pass the HUD's groups and the playfield to spaced(). An instance placed by anchor() or row() takes behaviors=anchored(where). Lay a popup's dim over screen_box(), on the popup's own layer. Leave FULLSCREEN and z_order() as they are: they fill the screen and order each layer for any game.",
+    "Run art.py after the generator and do what its last line says. On the SVG route it writes a brief for the drawings still to make: give it to a construct3:art-drawer sub-agent as its whole task. On the image route, with an image tool in the session, make each picture with the prompt it prints, then run art.py again. Never compute a picture pixel by pixel in Python: with nothing to hold a style, it mixes styles on one screen.",
+    "Keep PALETTE's roles, whatever their colours. In the default look: the player in ink, in the shape that subject.player-shape gives, and structure a rectangle in solid; a circle for what is collected, a triangle for what hurts. An area or a range is drawn as lines, zone() of a zone_image(), and a reach a dashed ring(); a slot is a disc of canvas_alt the size of what fills it; an area with a rule of its own is area() of a pattern(); the plain paper is the opaque Background layer's colour and no object, and backdrop() of the checker lies behind everything only where something is transparent, a mask or a background still to come. With USER_LOOK set, draw the stand-ins in the user's colours, and lay the areas and the backdrop in the user's look: area() and backdrop() take any Tiled Background type.",
+    "Place the HUD with hud_tag() for the round or the level and no game name, hud_stat() for the count under its name, and hud_keys() with hints() for the controls. Place any other label with hud_text(), hud_bar(), labelled_bar() or band_text(); each holds it to the screen's edges with the Anchor behavior. Give each Text whose text the events set longest=, the widest text it shows at runtime (look.worst-data). Place the playfield at centred(w, h, play_area(hud)), and pass the HUD's groups and the playfield to spaced(). An instance placed by anchor() or row() takes behaviors=anchored(where). Lay a popup's dim over screen_box(), on the popup's own layer. Leave FULLSCREEN and z_order() as they are: they fill the screen and order each layer for any game.",
     "Write BEATS for the game's zones or rounds, and read the curve the generator prints; measure every gap of a platformer level with jump().",
-    "Give every object that can be hit a hit_frame() after its shape and the Tween behavior, and show a hit with hit(obj), last in its block; in paper and ink, never the Flash behavior.",
+    "Give every object that can be hit a hit_frame() after its shape and the Tween behavior, and show a hit with hit(obj), last in its block; in the default look, never the Flash behavior.",
     "Squash a landing and a jump with squash(art, \"land\") and squash(art, \"jump\"), on the art pinned to the collision mask, never on the mask.",
     "Pass painted=True only for a picture meant to hold its own colours and soft edges.",
     "Do not decide a rule whose status is open; ask the user, or keep the template's value."
@@ -476,7 +1067,7 @@
   "confirm": [
     "python tools/build_project.py: the last line starts with ok:",
     "python <skill>/scripts/check_look.py --project <folder>: the last line starts with ok:",
-    "python <skill>/scripts/prepare_art.py --list --project <folder>, where the art is meant to come from an image tool: no picture left to make",
+    "python <skill>/scripts/art.py --project <folder>: the last line starts with ok:",
     "python <skill>/scripts/open_in_editor.py --project <folder>: opened",
     "The look itself is the user's call on a screenshot; no script scores it."
   ]

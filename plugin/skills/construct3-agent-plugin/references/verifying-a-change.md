@@ -52,8 +52,13 @@ about the editor or the preview goes to `editor-and-preview.md`.
    fails as reported. Then change the events and play the same plan until
    it passes. [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`,
    the bullet on a bug's plan]
-3. **Reach each scene the way the game does.** Play to it when that is
-   short; otherwise call the game's own functions with
+3. **Reach each scene the way the game does.** Start from what earlier
+   checks showed: the notes of the game, each on the function, group or
+   event it rests on. `print_sheet.py` ends a whole print with the notes on
+   its sheets, and `scripts/notes.py` prints them all. A note marked
+   changed rests on events that changed since it was verified, so check it
+   in the game before you rely on it. Play to the scene when that is short; otherwise call
+   the game's own functions with
    `runtime.callFunction`, which run the events that keep related values in
    step. Write a value directly only when no event reaches it, and then
    write every value the events tie to it as well: a value written alone
@@ -116,23 +121,45 @@ about the editor or the preview goes to `editor-and-preview.md`.
    events it reached: a run that ends before the event fires has checked
    nothing yet, so extend the plan until it fires, and an error that
    follows a direct write comes from the write until the same steps without
-   it show it too (step 3). Judge a motion's feel and timing from the recording
-   first: where it starts, overshoots and rests, and how long each part
-   takes, against the row for the same effect in
-   `Construct3-Cookbook/guides/recipes/feel.md` where there is one. Then
-   open the recording's contact sheet, `NN-NAME-sheet.png`, with the image
-   tool and judge only what the frames show, not what the events were
-   meant to do. Name the three worst defects, each with its time, what the
-   frame shows and the event to change; fix only those and record that
-   part again, until the values and the sheet show no defect. The
-   hand-over names the cases played, what each read, and any value the
-   plan forced, one line each, with the recording's review page,
-   `NN-NAME.html`, where the user plays it frame by frame, selects a part
-   that looks wrong and copies it back as a task.
-   [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
+   it show it too (step 3). Judge a motion's feel and timing from the
+   watched values first: where it starts, overshoots and rests, and how
+   long each part takes, against the row for the same effect in
+   `Construct3-Cookbook/guides/recipes/feel.md` where there is one.
+   Have a reviewer that has not seen the change describe the frames, and
+   judge what they show from that description, because the agent that
+   wrote the events reads its own frames by what it meant them to show.
+   Before the run, write `expect` on the `record` step: what a frame would
+   show if the change works and if it does not, as visible features. Write
+   `ask` too: open questions about the frames, such as what moves and which
+   way, what is at a place, what a text says. Leave out what you hope to
+   see and any question a yes answers, because both tell the reviewer what
+   to look for. The run writes a brief of the frames and the questions
+   alone. Have it answered as its `brief:` line says, and check the reply
+   with `--reply`. Then hold the description against `expect`. A
+   description in which the thing is not seen (too small, covered, off the
+   frame, too fast) is no verdict: record that part closer or slower and
+   play it again. Name the three worst defects the description shows, each
+   with its time and frame and the event to change. Fix only those and
+   record that part again, until the values and the description show no
+   defect. If a run did something once (the player reached the ledge, the
+   door opened), state the claim that it can happen as shown. If the plan
+   did not reach it or do it, the claim is open, not false, because the
+   plan is as likely at fault as the game: improve the plan. Say it cannot
+   happen only when the game's own values show it, such as a jump's
+   strength and gravity against a platform's height or a speed against a
+   timer, and name those values. The hand-over names the cases played, what each read, any
+   value the plan forced and each claim left open, one line each, with the
+   recording's review page, `NN-NAME.html`, where the user plays it frame
+   by frame, selects a part that looks wrong and copies it back as a task.
+   [design: `Construct3-Agent-Skills/docs/decisions/recording-describer.md`;
+   `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
    on `record` and the review page]
 8. **Keep the plan, and replay every kept plan after each change.** Once a
-   plan passes, run it again with `--keep NAME`. It is copied to
+   plan passes, run it again with `--keep NAME`. Only an `until` step after
+   an input or a wait fails when the game does not do what the change
+   should make it do, so a plan without one is refused: an `until` before
+   the first input reads the start, and a `js` or `state` step prints a
+   value and checks nothing. The plan is copied to
    `tools/plans/NAME.json` in the project, beside the generator and the
    design, and is committed with the change it checks; the editor ignores
    the folder. After every later change, `preview_project.py --all` plays
@@ -142,6 +169,20 @@ about the editor or the preview goes to `editor-and-preview.md`.
    only when the game was meant to change what it checks.
    [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullet
    on kept plans]
+9. **Keep the facts a later check needs.** Once a probe or a passing plan
+   has shown a fact that a later check of this game would search for
+   again, keep it as a note: how a scene is reached, the parameters a
+   function takes, the trigger that starts a flow, the tutorial to skip,
+   the variable behind a feel. Run `scripts/notes.py --add "FACT" --sheet
+   SHEET --function NAME`, or `--group TITLE` or `--event N` in place of
+   `--function`. The note goes into `tools/notes.json`, which is committed
+   with the change. One note holds one fact. A fact read from the events
+   alone goes in only after the game showed it, because the events are what
+   the check tests. If a note is marked changed, check it in the game, then
+   run `--confirm N`, or `--rewrite N "FACT"` with what holds now. If a note
+   is marked gone, rewrite it on the events it rests on now, or remove it
+   with `--remove N`. [design:
+   `Construct3-Agent-Skills/docs/decisions/project-notes.md`]
 
 ## The look of each layout
 
@@ -152,16 +193,44 @@ instances from the runtime. Its finding lines are measured, each naming the layo
 type and the UID: a text its box cuts (`text`), instances of one type on one
 box (`stacked`), overlaps on the HUD and texts over texts (`overlap`), a HUD
 instance the screen's edge cuts (`edge`), a type whose kinds show one
-frame (`frame`), and texts gathered in one ninth of the screen while two
-corners stand empty (`crowd`). None of them fires on the official examples.
-Fix every one.
+frame (`frame`), texts gathered in one ninth of the screen while two
+corners stand empty (`crowd`), a text whose letters, measured on what lies
+behind them on screen, read under `text.contrast` (`faint`), a label or
+glyph whose ink sits off the centre of the shape it is centred on
+(`optical`), and Texts that events set with no declared longest text
+(`unlimited`). Except `optical`, none of the first six fires on the official
+examples. The generator's helpers centre their labels by ink, and `optical`
+reports a label placed off the centre by hand.
+
+Each finding and each yes of the questions has a tier (`look.severity` in
+`assets/look-manifest.json`): `broken`, the player cannot read, reach or
+tell it apart; `ugly`, it reads but looks wrong; `fragile`, right as shown
+and one step from broken, or a finish of a pixel or two. Fix every broken
+one, then every ugly one: both fail the review. A fragile one warns, and
+the hand-over names it. A yes with more than one right fix, such as cutting
+a text short or wrapping it, is the user's to pick, so ask before you spend
+a round on it.
+
+Each layout is also looked at in three more data states and on two more
+shapes of screen (`look.worst-data`, `look.screen-shapes`): the Texts that
+events set show their longest text, nothing, and a count of one, and the
+screen takes the shapes the project's orientations allow, such as 4:3 and a
+phone's. A finding that arises only there carries `@` and where, as
+`@phone worst`, and its screenshot is `<layout>@phone-worst.png`. The
+longest text of a Text comes from `tools/texts.json`, which the generator
+writes from each helper's `longest=`; without it the worst text is a guess,
+and what only the guess causes warns. `--viewport` looks at one screen and
+`--data demo` at the layout as it starts.
 
 The script asks what a measurement cannot judge, in one list of yes/no
 questions about what a player sees as a mistake: text cut, too small, too
 faint or partly hidden; an object over a text, a button or a card's face;
 the HUD cut by the screen's edge; a stand-in or an object drawn in a style
 of its own; a backdrop that catches the eye before what the player acts on;
-kinds that look alike; decoration repeated on every layout; and, when the
+kinds that look alike; a screen that looks like an app's dashboard;
+decoration repeated on every layout; when the user's reference pictures
+are in `art/references/`, a screenshot that looks like another game beside
+them (`look.references`); and, when the
 project has a design, the screen entries that `play_design.py` cannot
 measure. Art layered on purpose, such as scenery running past the edge, is
 no mistake. The agent that wrote the events reads its own screenshots by
@@ -178,7 +247,26 @@ image tool, answer each question from the picture, and name the same for
 each yes. Save these answers to `.tmp/scripts/review-look/reply.md` in the
 form the brief gives and check them with `--reply` as well, because `verify_change.py`
 passes its look step only on a reply that `--reply` checked: one that
-answers every question, each yes saying where. A question answered from
+answers every question, each yes saying where, with no new yes. In a git
+repository the brief also gives each screenshot the same layout before the
+change. That layout comes from the commit where the branch `agents` left the
+user's branch. The reviewer marks each yes new or before. A yes from before
+is the project's own look, not a fault of the change. It fails nothing, and
+the `ok:` line names it for the hand-over. A new yes fails the step: fix it and
+run `verify_change.py` again, which looks again. After three replies with a
+new yes the step passes, and its `ok:` line names each yes left and each
+fragile finding, for the hand-over to give with each fix in three parts:
+before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
+a finding of it stops the step before the review. When `scripts/art.py`
+has written a contact sheet of the game's pictures, the brief shows its
+pages after the screenshots, under the same questions. When there are references,
+the brief names a pair picture, `<layout>@reference.png`, beside each
+screenshot that has references, and the run prints the colours measured on
+each side. When the user picked a look with `scripts/pick_look.py`, the
+pair picture of the layout the game starts on also holds `art/look.png`, under a
+question of its own. A yes to either question is fixed in `PALETTE`,
+`ART_STYLE` and the drawings, toward the references' colours or the picked
+look. A question answered from
 memory of the events, not from the picture, is not answered.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up
@@ -237,8 +325,11 @@ events that differ only in their numbers and texts (53 in 27; the style
 ladder of `check_project.py --style` takes 5 or more), 3 or more inverted
 conditions (34 in 21), a global one function or one group reads and writes
 (262 in 92), and a UID kept in an instance variable (19 in 16). A question
-is answered from `print_sheet.py` for the events it names, never from
-memory of the plan. Two candidates were dropped: a global that several
+is answered from the printed events it names, never from memory of the
+plan. So the review writes the questions and the sheets as `print_sheet.py`
+prints them into `brief.md`, for a reviewer that has not seen the project or
+the request; `construct3:design-judge` is such a reviewer. Without a
+sub-agent, answer them from `print_sheet.py`. Two candidates were dropped: a global that several
 functions write and others read (20 in 6 examples, 15 in the editor-made game,
 all of them game state), and 10 or more globals on a layout's sheet (45
 examples; the examples keep shared globals on a sheet with no layout,
@@ -259,14 +350,18 @@ kinds takes the rows of each.
 | Physics | as above | positions and velocities against a range | the Physics time step |
 | Rhythm, music, sound | input on the beat, timed from `Audio.CurrentTime` | the sound itself, recorded in the page | the audio clock's start |
 | Spawners, random levels, loot | play or `callFunction` | what spawned and where | the random seed |
-| Menus, several layouts | `tap` on buttons | the current layout and layer visibility | the layout the preview starts on |
+| Menus, several layouts | `tap` on buttons; `move` for a menu that opens on hover, with `seconds` and `rest` for its delays | the current layout and layer visibility | the layout the preview starts on |
 
 - Frame rate: a preview ticks at the display's rate, so a move that
   integrates `dt` lands at a slightly different place each run. Compare
   positions against a range, and use `until` instead of a fixed wait.
   `runtime.timeScale` slows the game for a closer look; the audio clock is
-  not scaled. [editor-and-preview.md, the bullet on the display's rate;
-  manual: scripting/scripting-reference/iruntime.md `timeScale`]
+  not scaled. To count an effect's frames, as `scripts/measure_timing.py`
+  does, slow the game and give the `record` step `"fps": 60`, because a
+  recording on the clock holds about half of a 60 fps effect's frames.
+  [editor-and-preview.md, the bullet on the display's rate and "Recording
+  an effect's frames"; manual: scripting/scripting-reference/iruntime.md
+  `timeScale`]
 - Physics time step: with the default *Framerate independent* stepping the
   simulation can differ between runs; *Set stepping mode* to *Fixed* makes
   it deterministic for the check. [manual:

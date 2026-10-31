@@ -89,6 +89,7 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 import compare
 import play_cases
@@ -97,6 +98,8 @@ REPO = Path(__file__).resolve().parents[2]
 SKILL = REPO / "plugin" / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
+import check_design as cd           # noqa: E402
+import game_model as gm             # noqa: E402
 # The scripts get plugin/ as the clone, which holds the skill and the built data; the raw data
 # files are in the Construct3-RAG clone beside this one (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
@@ -389,14 +392,16 @@ def grade_name_the_restart_event(run: Path) -> list[tuple[bool, str]]:
 
 def unchanged(run: Path, allowed: tuple[str, ...] = ()) -> tuple[bool, str]:
     """Whether no project file differs from the fixture, with the list of those that do. A path that starts
-    with one of `allowed` is skipped, and so are .tmp, where the skill's scripts write their results, and .git,
-    which SKILL.md tells a run to create."""
+    with one of `allowed` is skipped, and so are .tmp, where the skill's scripts write their results, .git,
+    which SKILL.md tells a run to create, and tools/plans/, where preview_project.py --keep keeps a plan that
+    verify_change.py replays."""
     want = {k: v for k, v in json.loads((run / "fixture.json").read_text(encoding="utf-8")).items() if not k.endswith((".sids", ".warnings", ".commit"))}
     project = run / "project"
     have = {p.relative_to(project).as_posix(): hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
             for p in sorted(project.rglob("*"))
             if p.is_file() and p.name != "AGENTS.md" and not {".agents", "__pycache__", ".tmp", ".git"} & set(p.parts)}
-    changed = sorted(k for k in set(want) | set(have) if want.get(k) != have.get(k) and not k.startswith(allowed))
+    changed = sorted(k for k in set(want) | set(have)
+                     if want.get(k) != have.get(k) and not k.startswith(("tools/plans/", *allowed)))
     return not changed, f"files that differ from the fixture: {changed or 'none'}"
 
 
@@ -408,10 +413,12 @@ def answer_of(run: Path) -> str:
 
 
 def event_numbers(answer: str) -> list[int]:
-    """Every number that follows "event" or "events" in the answer: "event 103", "events 104 and 105",
-    "Events 103-105"; and the number that opens a bullet of a list of events: "- **12** `On drop`", "- 15: ..."."""
-    after_word = {int(n) for span in re.findall(r"\bevents?\b[^.\n]{0,40}", answer, re.I)
-                  for n in re.findall(r"(?<![\w.])\d{1,3}(?![\w.]|\s*(?:seconds?|s\b|px|%))", span)}
+    """Every number that follows "event" or "events", or "事件" in a Chinese answer, up to the end of its sentence:
+    "event 103", "events 104 and 105", "Events 103-105", "事件 102–105", "事件108"; and the number that opens a
+    bullet of a list of events: "- **12** `On drop`", "- 15: ..."."""
+    # ASCII word characters, so that a number written against a Chinese character ("在事件108") still counts
+    after_word = {int(n) for span in re.findall(r"(?:\bevents?\b|事件)[^.。\n]{0,40}", answer, re.I)
+                  for n in re.findall(r"(?<![\w.])\d{1,3}(?![\w.]|\s*(?:seconds?|s\b|px|%|秒))", span, re.A)}
     bullets = {int(n) for n in re.findall(r"^\s*[-*+]\s+\*{0,2}(\d{1,3})\*{0,2}(?=[:\s])", answer, re.M)}
     return sorted(after_word | bullets)
 
@@ -1100,22 +1107,23 @@ def colours_of(project: Path, kind: str) -> set[tuple]:
     return set()
 
 
-def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str]:
+def background_colours(layout: dict, project: Path) -> tuple[set[tuple], str, str | None]:
     """What the viewport shows behind the game: from the Background layer down through the layers under it,
     such as the template's parallax-0 layer of a checker, the image of the first instance that covers the
-    viewport (a backdrop), else the colour of the first opaque layer (the template's paper)."""
+    viewport (a backdrop), else the colour of the first opaque layer (the template's paper). The colours, where
+    they come from, and the backdrop's type when one covers the viewport."""
     layers = layout.get("layers", [])
     names = [layer.get("name", "").lower() for layer in layers]
     if "background" not in names:
-        return set(), "no Background layer"
+        return set(), "no Background layer", None
     for layer in reversed(layers[:names.index("background") + 1]):
         cover = next((i for i in reversed(layer.get("instances", []))
                       if contains(box_of(i), (0, 0, *view_of(project))) and colours_of(project, i["type"])), None)
         if cover:
-            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport"
+            return colours_of(project, cover["type"]), f"{cover['type']} covering the viewport", cover["type"]
         if not layer.get("isTransparent", True):
-            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour"
-    return set(), "a transparent Background layer and nothing covering the viewport"
+            return {rgb255(layer["backgroundColor"])}, f"the {layer['name']} layer's colour", None
+    return set(), "a transparent Background layer and nothing covering the viewport", None
 
 
 def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
@@ -1127,7 +1135,7 @@ def grade_readable_on_a_dark_background(run: Path) -> list[tuple[bool, str]]:
         return results + [(False, "layouts/Game.json is not readable JSON")] * 5
     # The template's paper is the Background layer's colour, unless a backdrop covers the layer. Its labels
     # are dark ink on white, so the navy is what puts readability at stake.
-    shown, source = background_colours(layout, project)
+    shown, source, _ = background_colours(layout, project)
     dark = bool(shown) and all(abs(a - b) <= 40 for colour in shown for a, b in zip(colour, NAVY))
     results.append((dark, f"{source}: {sorted(shown) or 'no colour'}"))
     hud = hud_of(layout)
@@ -1604,6 +1612,39 @@ def grade_platform_state_in_chinese(run: Path) -> list[tuple[bool, str]]:
             unchanged(run)]
 
 
+def grade_check_the_third_round(run: Path) -> list[tuple[bool, str]]:
+    """The stand-in's third round deals 6 coins and its RoundTag reads ROUND 3 / 6, or
+    R O U N D · 0 3 / 0 6 in a stand-in from before the tag was plain."""
+    scripts = run / "project" / ".tmp" / "scripts"
+    played = [name for name in ("preview-project", "open-in-editor") if (scripts / name).is_dir()]
+    answer = answer_of(run)
+    six = re.search(r"(?<![\d.])6(?![\d.])\s*(?:coins?|枚|个)|\bsix\b|六", answer, re.I)
+    text = re.search(r"(?<!\d)0?\s*3\s*/\s*0?\s*6(?!\d)", answer)
+    return [(bool(played), f"result folders under .tmp/scripts: {played or 'none'}"),
+            (bool(six), f"six coins: {six.group(0) if six else 'not said'}"),
+            (bool(text), f"round text: {text.group(0) if text else 'no 3 / 6'}"),
+            unchanged(run, ("tools/notes.json",))]
+
+
+def grade_four_coins_in_round_two(run: Path) -> list[tuple[bool, str]]:
+    """The checker passes, the run played its change, and no event of the fixture is gone: the first-launch hint
+    is the game's, not the fault. What each round deals is the plan's to read."""
+    project = run / "project"
+    scripts = project / ".tmp" / "scripts"
+    played = [name for name in ("preview-project", "open-in-editor") if (scripts / name).is_dir()]
+    events = sheet_of(project)
+    kept = (original_sids(run, list(walk(events)), "Game.json") if events is not None
+            else (False, "eventSheets/Game.json is not readable JSON"))
+    return [*checker_and_warnings(project), (bool(played), f"result folders under .tmp/scripts: {played or 'none'}"),
+            kept]
+
+
+def grade_five_coins_in_round_two(run: Path) -> list[tuple[bool, str]]:
+    """As four-coins-in-round-two, and the coin keeps its hole: a run that fills it to make its taps land has
+    changed the game, not checked it."""
+    return [*grade_four_coins_in_round_two(run), unchanged(run, ("eventSheets/Game.json", "tools/"))]
+
+
 def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
     project = run / "project"
     design = project / "tools" / "design.json"
@@ -1623,6 +1664,138 @@ def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
     return [checked,
             (isinstance(example, str) and example in ids, f"reference.example: {example!r}"),
             unchanged(run, ("tools/",))]
+
+
+def grade_design_a_hold_game(run: Path) -> list[tuple[bool, str]]:
+    """The catch game's three checks, then the hold: a rule on NAME held and one on NAME released, and a test
+    that holds the input."""
+    try:
+        data = json.loads((run / "project" / "tools" / "design.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    ons = [r.get("on") for r in data.get("rules") or [] if isinstance(r, dict) and isinstance(r.get("on"), str)]
+    phases = {phase for on in ons for phase in ("held", "released") if on.strip().endswith(" " + phase)}
+    holds = [s for t in data.get("tests") or [] if isinstance(t, dict) for s in t.get("steps") or []
+             if isinstance(s, dict) and "hold" in s]
+    return [*grade_design_a_catch_game(run),
+            (phases == {"held", "released"}, f"rule triggers: {ons or 'none'}"),
+            (bool(holds), f"{len(holds)} hold steps in the tests")]
+
+
+class Mechanic(NamedTuple):
+    design: gm.Design
+    name: str                   # the first input's name
+    tapped: list                # the rules it fires that do not restart, with their sub-rules
+    auto: list                  # the tick and every rules, with their sub-rules
+
+
+def mechanic_of(run: Path) -> Mechanic | None:
+    """The run's design as check_design reads it, or None when it does not read or binds no input"""
+    try:
+        design = gm.Design(gm.read_design(run / "project" / "tools" / "design.json"))
+    except gm.DesignUnreadable:
+        return None
+    if not design.inputs:
+        return None
+    name = next(iter(design.inputs))
+    return Mechanic(design, name, cd.below(cd.playing(design, name)),
+                    cd.below([r for r in design.rules if r.input is None and r.on != "start"]))
+
+
+def one_input(m: Mechanic | None) -> tuple[bool, str]:
+    names = list(m.design.inputs) if m else []
+    return len(names) == 1, f"inputs: {names or 'none'}"
+
+
+def flipped(m: Mechanic) -> list[str]:
+    """The rows the input's rules flip between values.
+
+    A flip is `row = -row`, `row = C - row`, a ternary on the row, or two rules under a condition on the row that
+    set it to different numbers or texts. `x = x + 100` moves the row, and `over = 1` then `over = 2` under
+    `if over = 0` is one rule, so neither is a flip."""
+    out: set[str] = set()
+    branches: dict[str, set] = {}
+
+    def walk(r: gm.Rule, tested: set[str]) -> None:
+        tested = tested | {n for c in r.when for n in gm.names_in(c)}
+        last: dict[str, object] = {}
+        for e in r.do:
+            if e[0] != "set" or e[2] != "=" or e[1][1]:
+                continue
+            row, v = e[1][0], e[3]
+            mine = gm.Node("name", row)
+            if (v.kind == "un" and v.args[0] == mine or v.kind == "cond" and row in gm.names_in(v)
+                    or v.kind == "bin" and v.value == "-" and v.args[0].kind == "num" and v.args[1] == mine):
+                out.add(row)
+            elif row in tested and v.kind in ("num", "str"):
+                last[row] = v.value
+            elif row in tested and v.kind == "un" and v.args[0].kind == "num":
+                last[row] = -v.args[0].value
+        for row, value in last.items():
+            branches.setdefault(row, set()).add(value)
+        siblings: set[str] = set()      # an "else" rule tests what the rules before it tested
+        for c in r.children:
+            walk(c, tested | siblings if c.otherwise else tested)
+            siblings |= {n for x in c.when for n in gm.names_in(x)}
+    for r in cd.playing(m.design, m.name):
+        walk(r, set())
+    return sorted(out | {row for row, values in branches.items() if len(values) > 1})
+
+
+def drifting(rules: list) -> set[str]:
+    """The rows these rules change from their own value, such as `aim += swing * 90 * dt`"""
+    return {e[1][0] for r in rules for e in r.do
+            if e[0] == "set" and (e[2] in ("+=", "-=") or e[1][0] in gm.names_in(e[3]))}
+
+
+def in_conditions(rules: list) -> set[str]:
+    return {n for r in rules for c in r.when for n in gm.names_in(c)}
+
+
+def in_effects(rules: list) -> set[str]:
+    return {n for r in rules for e in r.do if e[0] == "set" for n in gm.names_in(e[3])}
+
+
+def grade_design_a_reverse_runner(run: Path) -> list[tuple[bool, str]]:
+    """A row the tap flips is read by an effect of a rule without an input"""
+    m = mechanic_of(run)
+    flips = flipped(m) if m else []
+    turn = [n for n in flips if n in in_effects(m.auto)] if m else []
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(turn), f"rows the tap flips that an effect of a rule without an input reads: {turn or 'none'} "
+                         f"(flipped: {flips or 'none'})")]
+
+
+def grade_design_a_timing_shot(run: Path) -> list[tuple[bool, str]]:
+    """A row that a rule without an input changes from its own value is read by the tap's rules, in a condition or
+    in an effect that keeps it for later, such as `shotX = aimX`"""
+    m = mechanic_of(run)
+    timing = sorted(drifting(m.auto) & (in_conditions(m.tapped) | in_effects(m.tapped))) if m else []
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(timing), f"rows that a rule without an input changes from their own value and the tap's "
+                           f"rules read: {timing or 'none'}")]
+
+
+def grade_design_a_colour_switch(run: Path) -> list[tuple[bool, str]]:
+    """A row the tap flips is read by a condition of a rule without an input"""
+    m = mechanic_of(run)
+    flips = flipped(m) if m else []
+    switch = [n for n in flips if n in in_conditions(m.auto)] if m else []
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(switch), f"rows the tap flips that a condition of a rule without an input reads: "
+                           f"{switch or 'none'} (flipped: {flips or 'none'})")]
+
+
+def grade_design_a_hold_to_rise(run: Path) -> list[tuple[bool, str]]:
+    """A rule on NAME held and a rule without an input change the same row, and a test holds the input"""
+    m = mechanic_of(run)
+    held = cd.below([r for r in m.design.rules if r.input == m.name and r.phase == "held"]) if m else []
+    both = sorted(set(cd.changes(held)) & set(cd.changes(m.auto))) if m else []
+    holds = [s for t in (m.design.tests if m else []) for s in t["steps"] if s["kind"] == "hold"]
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(both), f"held rules: {[r.id for r in held] or 'none'}; rows that they and a rule without an "
+                         f"input both change: {both or 'none'}"),
+            (bool(holds), f"{len(holds)} hold steps in the tests")]
 
 
 def object_types(project: Path) -> dict[str, dict]:
@@ -1794,6 +1967,199 @@ def grade_report_two_enemies(run: Path) -> list[tuple[bool, str]]:
     return results + [unchanged(run)]
 
 
+# --- the art cases ----------------------------------------------------------------------------
+def art_module():
+    """The skill's art.py, whose checks of a drawing the graders reuse."""
+    import art
+    return art
+
+
+def opaque(path: Path) -> list[tuple]:
+    """The opaque pixels of a PNG as (x, y, rgb), [] for a missing or unreadable one."""
+    read = c3.png_rgba(path.read_bytes()) if path.is_file() else None
+    if not read:
+        return []
+    w, _, px = read
+    return [(i % w, i // w, p[:3]) for i, p in enumerate(px) if p[3] >= 128]
+
+
+def wanted_items(project: Path) -> dict[str, dict]:
+    try:
+        return {i["file"]: i for i in json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))["images"]}
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def drawn_as_svg(project: Path, files: list[str]) -> tuple[bool, str]:
+    """Whether each picture has a drawing art.py accepts, and images/ holds the render of it."""
+    art, items, bad = art_module(), wanted_items(project), []
+    for rel in files:
+        svg = project / "art" / (rel[:-4] + ".svg")
+        if rel not in items or not svg.is_file():
+            bad.append(f"{rel}: no art/{svg.name}")
+            continue
+        problems = art.svg_problems(svg.read_text(encoding="utf-8"), items[rel])
+        if problems:
+            bad.append(f"{rel}: {problems[0]}")
+        elif not (project / "art" / rel).is_file() or (project / "images" / rel).read_bytes() != \
+                (project / "art" / rel).read_bytes():
+            bad.append(f"{rel}: images/ does not hold its render")
+    return bool(files) and not bad, f"{len(files)} picture(s); not drawn on the SVG route: {bad or 'none'}"
+
+
+def no_pixel_scripts(project: Path) -> tuple[bool, str]:
+    pil = [f.name for f in (project / "tools").glob("*.py")
+           if re.search(r"^\s*(from PIL|import PIL)", f.read_text(encoding="utf-8", errors="replace"), re.M)]
+    return not pil, f"scripts of tools/ that import PIL: {pil or 'none'}"
+
+
+def grade_art_without_an_image_tool(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    coin = "coin-default-000.png"
+    colours = {c for _, _, c in opaque(project / "images" / coin)}
+    return [checker_line(project),
+            (len(colours) > 8, f"images/{coin}: {len(colours)} opaque colours"),
+            drawn_as_svg(project, [coin]),
+            no_pixel_scripts(project),
+            generator_is_source(run)]
+
+
+# The references of look-from-references, as art.measure counts them: the plum their dark backdrop is, and the
+# amber of their coins and lanterns. 32 keeps the deep navy of readable-on-a-dark-background out of the plum.
+PLUM, PLUM_SLACK = (0x2A, 0x1E, 0x3D), 32
+AMBER, AMBER_SLACK = (0xF2, 0xA5, 0x41), 48
+# A painted backdrop shows a scene on the plum, as stall.png does (73% of it within PLUM_SLACK)
+MOSTLY = 0.5
+# The references outline each shape in ink 6 to 12 px wide: within EDGE px of the clear, most of a drawn coin is dark
+EDGE, INK_MAX = 3, 80
+
+
+def near(a: tuple, b: tuple, slack: int) -> bool:
+    return all(abs(x - y) <= slack for x, y in zip(a, b))
+
+
+def commonest(pixels: list[tuple]) -> tuple | None:
+    """The mean colour of the commonest bin of 3 bits a channel, as art.measure counts a picture's colours."""
+    bins: dict[tuple, list] = {}
+    for _, _, c in pixels:
+        bins.setdefault(tuple(v >> 5 for v in c), []).append(c)
+    if not bins:
+        return None
+    top = max(bins.values(), key=len)
+    return tuple(round(sum(c[i] for c in top) / len(top)) for i in range(3))
+
+
+def ink_edge(pixels: list[tuple]) -> float:
+    """The share of the opaque pixels within EDGE px of a clear one, or of the picture's edge, that are ink-dark."""
+    at = {(x, y): c for x, y, c in pixels}
+    edge = [c for (x, y), c in at.items()
+            if any((x + dx, y + dy) not in at for dx in range(-EDGE, EDGE + 1) for dy in range(-EDGE, EDGE + 1))]
+    return sum(max(c) < INK_MAX for c in edge) / len(edge) if edge else 0.0
+
+
+def grade_look_from_references(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    results = [checker_line(project)]
+    try:
+        layout = json.loads((project / "layouts" / "Game.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return results + [(False, "layouts/Game.json is not readable JSON")] * 5
+    shown, source, cover = background_colours(layout, project)
+    picture = next(iter(sorted((project / "images").glob(f"{cover.lower()}*.png"))), None) if cover else None
+    pixels = [c for _, _, c in opaque(picture)] if picture else list(shown)
+    share = sum(near(c, PLUM, PLUM_SLACK) for c in pixels) / len(pixels) if pixels else 0
+    results.append((share >= MOSTLY, f"{source}: {share:.0%} within {PLUM_SLACK} of the plum, commonest "
+                                     f"{commonest([(0, 0, c) for c in pixels])}"))
+    coin = next(iter(sorted((project / "images").glob("coin*-000.png"))), project / "images" / "coin-default-000.png")
+    pixels = opaque(coin)
+    main = commonest(pixels)
+    results.append((main is not None and near(main, AMBER, AMBER_SLACK), f"{coin.name}: commonest colour {main}"))
+    share = ink_edge(pixels)
+    results.append((share > 0.5, f"{coin.name}: {share:.0%} of its edge ink-dark"))
+    import check_look
+    look = check_look.user_look(project)
+    results.append((bool(look), f"USER_LOOK = {look!r}"))
+    results.append(generator_is_source(run))
+    return results
+
+
+def animations_of(project: Path) -> dict[str, dict[str, list[Path]]]:
+    """Each Sprite type's animations by name, with the image file of each frame as the editor names it."""
+    out = {}
+    for path in (project / "objectTypes").glob("*.json"):
+        item = json.loads(path.read_text(encoding="utf-8-sig"))
+        if item.get("plugin-id") != "Sprite":
+            continue
+        name = item["name"]
+        out[name] = {a["name"]: [project / "images" / f"{name.lower()}-{a['name'].lower()}-{i:03d}.png"
+                                 for i in range(len(a.get("frames", [])))]
+                     for a in (item.get("animations") or {}).get("items", [])}
+    return out
+
+
+def grade_walk_cycle_frames(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    results = [checker_line(project)]
+    found = [(t, a, files) for t, anims in animations_of(project).items() for a, files in anims.items()
+             if len(files) >= 4 and len(anims) >= 2]
+    walk = next(((t, a, files) for t, a, files in found
+                 if len({f.read_bytes() if f.is_file() else b"" for f in files}) == len(files)), None)
+    results.append((walk is not None, f"types with a 4-frame animation beside another: "
+                                      f"{[f'{t}.{a}' for t, a, _ in found] or 'none'}; frames all differ: "
+                                      f"{walk[0] + '.' + walk[1] if walk else 'none'}"))
+    if walk is None:
+        return results + [(False, "no walk"), (False, "no walk"), (False, "no walk"), generator_is_source(run)]
+    kind, anim, files = walk
+    sizes = {c3.png_rgba(f.read_bytes())[:2] for f in files}
+    feet = [max(y for _, y, _ in px) for px in (opaque(f) for f in files) if px]
+    results.append((len(sizes) == 1 and len(feet) == len(files) and max(feet) - min(feet) <= 2,
+                    f"{kind}.{anim}: sizes {sorted(sizes)}, feet on rows {sorted(feet)}"))
+    results.append(drawn_as_svg(project, [f.name for f in files]))
+    rows = sheet_rows(project)
+    sets = {str(params(a).get("animation", "")).strip('"').lower()
+            for ev, _ in rows for a in ev.get("actions", [])
+            if a.get("id") == "set-animation" and a.get("objectClass") == kind}
+    others = sets - {anim.lower()}
+    results.append((anim.lower() in sets and bool(others), f"set-animation on {kind}: {sorted(sets) or 'none'}"))
+    results.append(generator_is_source(run))
+    return results
+
+
+def grade_card_game_art(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    results = [checker_line(project)]
+    items = wanted_items(project)
+    enemies = sorted(rel for rel in items if re.search(r"slime|skeleton|bat|knight|enemy|foe", rel, re.I)
+                     and items[rel]["kind"] != "scene")
+    masks = {rel: {(x, y) for x, y, _ in opaque(project / "images" / rel)} for rel in enemies}
+    alike = [(a, b) for i, a in enumerate(enemies) for b in enemies[i + 1:]
+             if masks[a] and len(masks[a] & masks[b]) >= 0.9 * max(len(masks[a]), len(masks[b]))]
+    results.append((len([m for m in masks.values() if m]) >= 4 and not alike,
+                    f"enemy pictures {enemies}; alike: {alike or 'none'}"))
+    cards = sorted(rel for rel in items if re.search(r"card", rel, re.I) and items[rel]["kind"] != "scene")
+    results.append(drawn_as_svg(project, enemies + cards))
+    results.append(no_pixel_scripts(project))
+    results.append(looked_no(project, (4, 6)))
+    return results
+
+
+def looked_no(project: Path, questions: tuple[int, ...]) -> tuple[bool, str]:
+    """Whether the run's reply to the brief of review_look.py, beside the brief, answers each of `questions` no on
+    every picture of the brief, read as review_look.py --reply reads it."""
+    folder = project / ".tmp" / "scripts" / "review-look"
+    reply, result = folder / "shots" / "reply.md", folder / "result.json"
+    if not (reply.is_file() and result.is_file()):
+        return False, f"no reply to the look review's brief in {folder}: the run did not have the look judged"
+    import review_look as rl
+    _, _, verdict = rl.check_reply(json.loads(result.read_text(encoding="utf-8")), reply.read_text(encoding="utf-8"),
+                                   str(reply), None)
+    # Each yes reads "<picture> <question>, <tier> - <what>"
+    yeses = [y for y in verdict["yeses"] + verdict["before"] if int(y.split(",")[0].rsplit(" ", 1)[1]) in questions]
+    return verdict["complete"] and not yeses, (f"yes to {', '.join(yeses)}" if yeses else
+                                               f"every answer to questions {questions} no" if verdict["complete"] else
+                                               "the reply leaves answers out")
+
+
 GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_load_errors,
            "keep-checking-after-compaction": grade_keep_checking_after_compaction,
            "name-the-restart-event": grade_name_the_restart_event, "find-in-a-long-sheet": grade_find_in_a_long_sheet,
@@ -1812,9 +2178,17 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "two-player-turn-limit": grade_two_player_turns, "find-a-drag-example": grade_find_a_drag_example,
            "script-shift-and-edges": grade_script_shift_and_edges,
            "platform-state-in-chinese": grade_platform_state_in_chinese,
-           "design-a-catch-game": grade_design_a_catch_game, "report-two-enemies": grade_report_two_enemies,
+           "design-a-catch-game": grade_design_a_catch_game, "design-a-hold-game": grade_design_a_hold_game,
+           "design-a-reverse-runner": grade_design_a_reverse_runner, "design-a-timing-shot": grade_design_a_timing_shot,
+           "design-a-colour-switch": grade_design_a_colour_switch, "design-a-hold-to-rise": grade_design_a_hold_to_rise,
+           "report-two-enemies": grade_report_two_enemies,
            "double-jump": grade_kept, "key-opens-door": grade_kept, "stay-on-screen": grade_kept, "walls-stop-the-player": grade_kept,
-           "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False)}
+           "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
+           "art-without-an-image-tool": grade_art_without_an_image_tool,
+           "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art,
+           "look-from-references": grade_look_from_references, "check-the-third-round": grade_check_the_third_round,
+           "four-coins-in-round-two": grade_four_coins_in_round_two,
+           "five-coins-in-round-two": grade_five_coins_in_round_two}
 
 
 # The columns trace.py counts from a transcript: four cost columns, then the route columns.
@@ -2093,6 +2467,8 @@ def main() -> int:
             (run / "grading.json").write_text(json.dumps({"assertion_results": graded, "summary": summary},
                                                          indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             timing = optional_json(run / "timing.json")
+            if timing.get("duration_ms") is None:   # a worker cut off before its end reported no totals
+                timing = {}
             trace = optional_json(run / "trace.json")
             arm = re.sub(r"_\d+$", "", run.name)           # with_skill_2 is a second run of with_skill
             seconds = round(timing["duration_ms"] / 1000, 1) if timing else trace.get("seconds")

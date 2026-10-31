@@ -41,7 +41,8 @@ def test_questions_are_answered_once_for_the_files_they_were_asked_about(project
     change to a file asks them again."""
     code, out = tool(project, "verify_change", "--upto", "reviewed")
     assert code == 1 and steps(out) == {"checked": "passed", "reviewed": "asked"}, out
-    assert out.splitlines()[-1].startswith("next: answer the ") and out.splitlines()[-1].endswith(" --answered")
+    assert out.splitlines()[-1].startswith("next: have the ") and out.splitlines()[-1].endswith(" --answered")
+    assert any(line.startswith("brief: ") and "review-design/brief.md" in line for line in out.splitlines()), out
     code, out = tool(project, "verify_change", "--upto", "reviewed", "--answered")
     lines = out.splitlines()
     assert code == 0 and steps(out) == {"checked": "passed", "reviewed": "passed"}, out
@@ -70,6 +71,7 @@ class Editor:
                    "open_in_editor.py": (0, "opened   coins  (coins, r506)\n  preview: layout 'Game', 0 errors\n"
                                             "1 of 1 opened and ran without errors"),
                    "preview_project.py": (0, "keep: every kept plan passes"),
+                   "check_look.py": (0, "ok: 4 images, 2 world instances on a 32 px grid, 1 runtime creations"),
                    "review_look.py": (0, "look: 0 findings on 2 layouts, 0 runtime errors")}
         return self.given.get(name, passing[name])
 
@@ -94,7 +96,7 @@ def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: 
     assert out.splitlines()[-1].startswith("ok: looked on these files; not run: played.")
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and editor.runs == {"check_project.py": 2, "review_design.py": 2, "open_in_editor.py": 1,
-                                         "review_look.py": 1}, editor.runs
+                                         "check_look.py": 1, "review_look.py": 1}, editor.runs
     assert "opened    passed: on these files, earlier" in out
     (project / "tools" / "plans").mkdir()
     (project / "tools" / "plans" / "collect.json").write_text("{}", encoding="utf-8")
@@ -105,6 +107,23 @@ def test_an_editor_step_that_passed_is_not_run_again_on_the_same_files(project: 
     (project / "tools" / "plans" / "collect.json").write_text('{"steps": []}', encoding="utf-8")
     code, out = drive(project, monkeypatch, editor)
     assert code == 0 and editor.runs["preview_project.py"] == 2 and editor.runs["open_in_editor.py"] == 1, editor.runs
+
+
+def test_a_run_cut_off_in_the_look_keeps_the_steps_that_passed(project: Path,
+                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    """A caller's timeout can kill the run in its longest step; the next run does not open the editor again."""
+    class CutOff(Editor):
+        def __call__(self, name: str, *extra: str) -> tuple[int, str]:
+            if name == "review_look.py":
+                raise KeyboardInterrupt
+            return editor(name, *extra)
+
+    editor = Editor()
+    with pytest.raises(KeyboardInterrupt):
+        drive(project, monkeypatch, CutOff())
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 0 and "opened    passed: on these files, earlier" in out, out
+    assert editor.runs["open_in_editor.py"] == 1 and editor.runs["review_look.py"] == 1, editor.runs
 
 
 def test_no_browser_hands_over_the_last_step_that_passed(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -162,12 +181,73 @@ def test_the_look_step_passes_on_a_checked_reply_alone(project: Path, monkeypatc
     editor.replied(complete=False, yes=0)
     code, out = drive(project, monkeypatch, editor)
     assert code == 1 and steps(out)["looked"] == "asked" and editor.runs["review_look.py"] == 3, out
-    editor.replied(complete=True, yes=1)
+    # A yes is a fault to fix: the step fails and looks again, and passes with the yes left after three rounds
+    for round in (1, 2):
+        editor.replied(complete=True, yes=1)
+        code, out = drive(project, monkeypatch, editor)
+        assert code == 1 and steps(out)["looked"] == "failed", out
+        assert f"looked    failed: look: reply.md has 1 yes, round {round} of 3" in out
+        assert out.splitlines()[-1].startswith("next: fix each yes that review_look.py --reply printed"), out
+        code, out = drive(project, monkeypatch, editor)
+        assert code == 1 and steps(out)["looked"] == "asked" and editor.runs["review_look.py"] == 3 + round, out
+    editor.replied(complete=True, yes=1, yeses=["Game 4, ugly - the coin: a grey box"])
+    result = json.loads(editor.result.read_text(encoding="utf-8"))
+    editor.result.write_text(json.dumps({**result, "preview": {"layouts": [{"layout": "Game", "findings": [
+        {"rule": "optical", "tier": "fragile"}, {"rule": "text", "tier": "broken"}]}]}}), encoding="utf-8")
     code, out = drive(project, monkeypatch, editor)
-    assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 3, out
-    assert "looked    passed: look: reply.md answers every question; name its 1 yes in the hand-over" in out
+    assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 5, out
+    assert ("looked    passed: look: reply.md answers every question and still has 1 yes after 3 rounds: name each "
+            "in the hand-over") in out
+    assert "  left: Game 4, ugly - the coin: a grey box" in out
+    # The ok: line names what the look left: the yes after three rounds and the fragile findings, which warn
+    assert out.splitlines()[-1].split(". Hand over")[0].endswith(
+        "name in the hand-over, each fix in three parts, before, after and why: look yes Game 4, ugly - the coin: a grey "
+        "box; warns Game: optical"), out
     record = json.loads((project / verify_change.RECORD).read_text(encoding="utf-8"))
-    assert record["steps"]["looked"]["state"] == "passed"
+    assert record["steps"]["looked"]["state"] == "passed" and record["look_rounds"] == 0
+
+
+def test_a_yes_from_before_the_change_passes_the_look_step(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A yes the reviewer saw on the screen before the change is no fault of the change: the step passes in the
+    first round and the ok: line names it for the hand-over."""
+    editor = Look(project)
+    drive(project, monkeypatch, editor, "--answered")
+    editor.replied(complete=True, yes=0, yeses=[], before=["Game 4, ugly - the player: a plain blue box"])
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 0 and steps(out)["looked"] == "passed" and editor.runs["review_look.py"] == 1, out
+    assert ("looked    passed: look: reply.md answers every question with no new yes; name the 1 yes from before "
+            "in the hand-over") in out
+    assert "  from before: Game 4, ugly - the player: a plain blue box" in out
+    assert "look yes from before Game 4, ugly - the player: a plain blue box" in out.splitlines()[-1], out
+
+
+def test_the_editor_steps_share_one_browser_closed_as_the_run_ends(project: Path,
+                                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """The scripts run with SHARED naming the project, so each leaves the browser and the open project to the
+    next; the run closes that browser as it ends, also when a step stops it."""
+    seen, closed = {}, []
+    init = verify_change.Run.__init__
+
+    def spy(self, *a) -> None:
+        init(self, *a)
+        seen.update(self.env)
+    monkeypatch.setattr(verify_change.Run, "__init__", spy)
+    monkeypatch.setattr(verify_change.oe, "browser_path", lambda: "msedge.exe")
+    monkeypatch.setattr(verify_change.oe, "close_shared", lambda exe, profile: closed.append((exe, profile)))
+    code, out = drive(project, monkeypatch, Look(project))
+    assert code == 1 and steps(out)["looked"] == "asked", out
+    assert Path(seen[verify_change.oe.SHARED]).resolve() == project.resolve()
+    assert [exe for exe, _ in closed] == ["msedge.exe"] and closed[0][1].name == "editor-msedge"
+
+
+def test_the_look_step_stops_on_a_finding_of_check_look(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A generated game's look check runs before the look review, and a finding stops the step there."""
+    editor = Editor(**{"check_look.py": (1, "grid.world-placement: layout Game, layer Game: Coin uid 3 is off the "
+                                            "32 px grid\n1 findings: 4 images")})
+    code, out = drive(project, monkeypatch, editor)
+    assert code == 1 and steps(out)["looked"] == "failed" and "review_look.py" not in editor.runs, out
+    assert "grid.world-placement: layout Game" in out
+    assert out.splitlines()[-1].startswith("next: fix every line above in tools/build_project.py"), out
 
 
 def test_a_look_whose_preview_did_not_run_is_skipped(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:

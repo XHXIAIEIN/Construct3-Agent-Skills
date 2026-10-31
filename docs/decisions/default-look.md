@@ -1,4 +1,4 @@
-# Paper and Ink: The Generator Template's Fallback Look
+# The Default Look: The Generator Template's Fallback
 
 Date: 2026-10-14
 Schema: Construct 3 r495.2
@@ -14,7 +14,7 @@ references that show the taste meant.
 Task: a game the template generates looks designed before its art arrives,
 when the user gave it no look of its own. The look is the one the user
 picked on screenshots, and it is the fallback: a style, an art direction or
-references the user gives replace it (`paper-and-ink-is-the-fallback.md`). Values of the template
+references the user gives replace it (`default-look-is-the-fallback.md`). Values of the template
 and checks where the generator writes hold it, so that a small model gets
 it by default.
 
@@ -147,10 +147,10 @@ a phone's size in the preview.
 ## Options
 
 1. **Keep the plain sheet.** The user rejected its type and layout.
-2. **Paper and ink in the platform face.** No file to ship, but every
+2. **The default look in the platform face.** No file to ship, but every
    reference ships its own font, and the platform face changes the look on
    every system.
-3. **Paper and ink with a subset of Inter.** Chosen.
+3. **The default look with a subset of Inter.** Chosen.
 4. **The dark direction.** The user picked paper.
 5. **A Chinese font subset as well.** A subset depends on the game's text
    and must be rebuilt when the text changes, and a full Chinese face is
@@ -176,7 +176,7 @@ Open Font License 1.1 text, and each weight is a subset of that release:
 |------|--------|----------|
 | `Inter-Regular.woff` | 400 | body text, names, tags, verbs |
 | `Inter-Medium.woff` | 500 | titles, keys, button labels, banners |
-| `InterDisplay-Light.woff` | 300 | the count the player plays for |
+| `InterDisplay-Light.woff` | 300 | the count the player plays for, in tabular digits |
 
 Source: Inter 4.1, `https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip`,
 sha256 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`,
@@ -188,6 +188,10 @@ the minus, and keeps the copyright and license entries of the name table:
 ```bash
 python -m fontTools.subset extras/ttf/Inter-Regular.ttf --unicodes="U+0020-007E,U+00A0-00FF,U+0152-0153,U+2002-200A,U+2013-2014,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2030,U+2039-203A,U+20AC,U+2122,U+2190-2193,U+2212" --name-IDs="*" --flavor=woff --output-file=Inter-Regular.woff
 ```
+
+`InterDisplay-Light.woff` is subset from a copy of its TTF whose digits
+are mapped to Inter's tabular figures first, so a count keeps its width
+(`tabular-count-digits.md`).
 
 When the game has a Text or a Text input, the template copies each file
 that `FONT` names from the font cache into the project's `fonts/`, unless
@@ -249,7 +253,7 @@ fills it, and a board of slots has no frame.
 
 | Kind | Prototype px at 720 | `TEXT_SIZE` pt at 1080 | Weight |
 |------|--------------------:|-----------------------:|--------|
-| `tag`, tracked | 10 | 15 | regular, `dim` |
+| `tag` | 10 | 15 | regular, `dim` |
 | `name`, of a stat or a key | 11 | 16 | regular; a key medium |
 | `body`, body text and a verb | 12 | 18 | regular |
 | `title`, a screen's title | 20 | 30 | medium |
@@ -267,10 +271,14 @@ bold that Inter lacks.
 - `MARGIN` is a fifteenth of the shorter side in whole units, rounded down:
   64 px at 1080, as the prototype's 48 px at 720.
 - `hud_tag()` sets what the player is on, a round, a level or a mode, top
-  left as a small dim tag in tracked capitals: `tracked()` spaces them by
-  U+2005, and `tracked_expr()` does it to a text the events set.
-  `hud_header()` adds a title before a tag, on its baseline, for a menu or a
-  result screen.
+  left as a small dim tag in capitals with no space between the letters,
+  no middle dot and no zero padding, such as `ROUND 1 / 6`, and the events
+  set it the same way. The prototype's tag, spaced 0.3 em apart, was
+  dropped on 2026-10-31 (`taste-skill-and-frontend-design.md`).
+  `hud_header()` sets a title, menu or pause screen's title on the
+  vertical centre line at the top, with a tag under it
+  (`motion-atlas-layouts.md`). A result screen takes `result_headline()`
+  (`title-and-result-screens.md`).
 - `hud_stat()` sets the count top right: its name small and dim over a
   large light number.
 - `hud_keys()` sets the controls bottom left: a key in a `LINE` px ink box

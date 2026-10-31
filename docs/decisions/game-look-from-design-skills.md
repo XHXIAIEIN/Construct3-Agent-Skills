@@ -103,13 +103,13 @@ once their exceptions were in place.
 ## Decision
 
 Option 3, with one bullet of option 2 in
-`prompts/references/new-project.md`. In `assets/build_project.py`:
+`Construct3-Cookbook/guides/project-files/new-project.md`. In `assets/build_project.py`:
 
 - `PALETTE`, the game's colours by role; `rgb(role)` stops the run on a role
   that is not there and lists those that are; `rgba()` writes a colour as a
-  layout does. The roles and values are those of `paper-and-ink-look.md`,
+  layout does. The roles and values are those of `default-look.md`,
   the fallback; a look the user gave sets its own values by role, named in
-  `USER_LOOK` (`paper-and-ink-is-the-fallback.md`).
+  `USER_LOOK` (`default-look-is-the-fallback.md`).
 - `write_png()` stops on a shown pixel whose colour is not in `PALETTE`,
   naming the nearest role and the two ways out: that role, or the colour
   added under the role it plays. `painted=True` lets a painting, a gradient
@@ -118,7 +118,7 @@ Option 3, with one bullet of option 2 in
   `art()` puts the art of the image tool or the user in their boxes
   (`art-from-the-image-tool.md`).
 - `FONT` and `TEXT_SIZE`: the font files and the sizes by kind of text of
-  `paper-and-ink-look.md`. `text_inst()` and `hud_text()` take their size
+  `default-look.md`. `text_inst()` and `hud_text()` take their size
   from it and stop below 4.5:1, or 3:1 from 18 pt up (`text_contrast()`;
   WCAG 2.2, 1.4.3), naming the roles that would read, and on a size that
   is none of its kinds or under 1.75% of the viewport's shorter side
@@ -191,9 +191,10 @@ questions.
   can measure it: it becomes a finding line.
 - Most faults sit in scenes `goToLayout` cannot reach: let the script play a
   plan to a scene before it reviews it.
-- The art of the image tool reads poorly against the backdrop on the
-  user's screenshots: a 3:1 check of a picture against the backdrop goes
-  into `prepare_art.py`.
+- The art reads poorly against the backdrop on the user's screenshots of a
+  game with scenes: `art.py` checks a picture's edge at 3:1 against the
+  canvas only (rule `art.contrast`), so it learns which scene lies under
+  each picture from the layouts.
 - A HUD sprite of one colour does not show on the layer behind it: check
   the UI layer's images in `no_overlap()`.
 - The example clone updates: rerun the survey under "What the official

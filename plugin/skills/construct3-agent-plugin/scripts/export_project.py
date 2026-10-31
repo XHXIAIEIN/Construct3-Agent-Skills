@@ -40,12 +40,20 @@ to every player. Before the browser starts, a string shaped like a key stops the
 run with its place, as check_project.py warns of it; allow-secret in the comment
 above the event, in a variable's comment or on the line keeps one meant to be
 public. The hosts of the addresses the game holds are named, for the user to
-confirm.
+confirm, and release: lines warn of Construct's own icons and an empty Author, ID or
+Description.
+
+A build that packages can still fail to start, so the export is then served on
+127.0.0.1 and opened in a headless, muted browser on a fresh profile, as a player's
+browser would: the script waits until its runtime ticks, names the console errors and
+failed requests of the page and its workers, and keeps a screenshot of the first layout
+in .tmp/scripts/export-project/boot.png.
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import http.server
 import io
 import json
 import re
@@ -53,6 +61,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import zipfile
@@ -86,14 +95,19 @@ output:
   the game holds addresses of <host> (<place>), ...: tell the user which hosts the game contacts
   logged in as <name>, exporting <version>
   exported <version> into <folder>, runtime in the worker|page; project.c3proj version <version>
+  release: <what a published game should not ship>          a warning, which keeps the exit code
+    runtime: <console error>  /  request: <status or error> <path>
+  booted: | boot failed: | boot not checked: the export ..., <layout and where it ticked>; screenshot <png>
 
-exit codes: 0 exported; 1 a string of the project is shaped like a key, before the browser
+exit codes: 0 exported and booted; 1 a string of the project is shaped like a key, before the browser
 starts, or the export did not finish: no subscription within 5 minutes,
 the project did not open, or a dialog stopped it; the copy is closed, the window is left
 open, and a run again goes on in it; 2 no project, a flag that cannot be used, a --to that
-holds the project or files other than an export, or the editor did not load; 3 no Edge, Chrome or Chromium here;
-4 exported, but project.c3proj could not be written and keeps its old version, which the last line says how to set;
-5 another run holds the browser profile, named in the line with its pid: wait for it to end, then run again
+holds the project or files other than an export, or the editor did not load; 3 no Edge, Chrome or Chromium here,
+or exported but the boot could not run; 4 exported and booted, but project.c3proj could not be written and keeps its
+old version, which its line says how to set; 5 another run holds the browser profile, named in the line with its
+pid: wait for it to end, then run again; 6 exported, but the game did not tick in 30 seconds, or logged a console
+error or a failed request as it booted: fix what the lines above the last name, and export again
 """
 
 LOGIN_WAIT = 300        # seconds the user has to log in
@@ -139,14 +153,27 @@ def editor_url(project: Path) -> str:
     return f"{oe.EDITOR}r{major}{f'-{minor}' if minor else ''}/" if major else oe.EDITOR
 
 
-def own_page(b: oe.Browser, url: str) -> tuple[str, oe.DevTools]:
-    """The editor page a run before left in the browser, with its login, else a new one.
-    The login lives in the page, so it is never reloaded."""
+def page_release(page: Page) -> int:
+    """The release of the editor in page, 50603 for r506.3; 0 while it has loaded no script."""
+    major, minor = (page.evaluate(oe.RELEASE_JS) + [0, 0])[:2]
+    return major * 100 + minor
+
+
+def own_page(b: oe.Browser, project: Path) -> tuple[str, oe.DevTools]:
+    """The editor page a run before left in the browser, with its login, if its release opens the
+    project, else a new one. The login lives in the page, so it is never reloaded. The release is
+    read from the page, not its URL: Update on the editor's update prompt takes a page of an older
+    release to editor.construct.net/, the latest one."""
+    saved = oe.saved_release(project)
     for t in b.devtools.call("Target.getTargets")["targetInfos"]:
-        if t["type"] == "page" and t["url"].startswith(url):
-            page = oe.DevTools(f"ws://127.0.0.1:{b.port}/devtools/page/{t['targetId']}")
+        if t["type"] != "page" or not t["url"].startswith(oe.EDITOR):
+            continue
+        page = oe.DevTools(f"ws://127.0.0.1:{b.port}/devtools/page/{t['targetId']}")
+        if page_release(page) >= saved:
             oe.keep_active(page)
             return t["targetId"], page
+        page.ws.close()
+    url = editor_url(project)
     target, page = b.page(url)
     oe.load(page, url)
     return target, page
@@ -228,8 +255,7 @@ def attached_page(devtools: oe.DevTools, project: Path) -> tuple[SessionPage, bo
             continue
         page = SessionPage(devtools, t["targetId"])
         oe.keep_active(page)
-        major, minor = (page.evaluate(oe.RELEASE_JS) + [0, 0])[:2]
-        if major * 100 + minor >= saved:
+        if page_release(page) >= saved:
             return page, False
         devtools.call("Target.detachFromTarget", sessionId=page.session)
     url = editor_url(project)
@@ -722,6 +748,161 @@ def unpack(data: bytes, folder: Path, version: str) -> None:
             print(f"the earlier export is left in {old}: {e}; delete it by hand", flush=True)
 
 
+# --- the boot -------------------------------------------------------------------------
+BOOT_WAIT = 30      # seconds the export has to load and tick
+BOOT_RUN = 2        # seconds it runs after its first tick, before the screenshot
+SHOWN = 10          # failed requests named before the rest are counted
+BOOT_FAILED = 6     # exit code of an export that did not tick, or logged errors or failed requests as it booted
+
+
+class Served(http.server.ThreadingHTTPServer):
+    """The export folder over HTTP at 127.0.0.1 and a port the system picks, keeping the status of every
+    request it answered: a file the export lacks shows here whichever context asked for it, the page, a
+    worker, or the service worker of Offline support."""
+
+    def __init__(self, folder: Path) -> None:
+        self.answered: list[tuple[int, str]] = []
+        served = self
+
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            # Python takes these types from the Windows registry, where .js may be text/plain, which the
+            # browser refuses for a module script
+            extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript",
+                              ".mjs": "text/javascript", ".json": "application/json", ".wasm": "application/wasm",
+                              ".webmanifest": "application/manifest+json", ".css": "text/css"}
+
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, directory=str(folder), **kwargs)
+
+            def log_request(self, code="-", size="-") -> None:
+                served.answered.append((int(code), self.path.split("?")[0]))
+
+            def log_message(self, *args) -> None:
+                pass
+
+        super().__init__(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.server_address[1]}/"
+        threading.Thread(target=self.serve_forever, daemon=True).start()
+
+    def close(self) -> None:
+        self.shutdown()
+        self.server_close()
+
+
+def failed_requests(events: list[dict], served: Served) -> list[str]:
+    """`<status or error> <path>` of each request that failed: answered 400 or more by the server or another
+    host, or failed to load, as a blocked or refused one. A path under the export is relative to it."""
+    urls, failed = {}, []
+    for e in events:
+        p, key = e["params"], (e.get("sessionId"), e["params"].get("requestId"))
+        if e["method"] == "Network.requestWillBeSent":
+            urls[key] = p["request"]["url"]
+        elif e["method"] == "Network.responseReceived" and p["response"]["status"] >= 400:
+            failed.append(f"{p['response']['status']} {p['response']['url']}")
+        elif e["method"] == "Network.loadingFailed" and not p.get("canceled"):
+            failed.append(f"{p.get('blockedReason') or p['errorText']} {urls.get(key, '')}")
+    failed += [f"{code} {served.url}{path.lstrip('/')}" for code, path in served.answered if code >= 400]
+    # The browser asks for favicon.ico by itself when a page links no icon; the game does not
+    return [f for f in dict.fromkeys(f.replace(served.url, "") for f in failed) if not f.endswith(" favicon.ico")]
+
+
+def console_errors(events: list[dict]) -> list[str]:
+    """The uncaught exceptions and console errors of the page and its workers, and the browser's own errors
+    other than a failed request, which failed_requests() names, and a worker's, which its own console gave."""
+    errors = [text[:600] for text in map(oe.message_text, events) if text]
+    return errors + [e["params"]["entry"]["text"][:600] for e in events if e["method"] == "Log.entryAdded"
+                     and e["params"]["entry"]["level"] == "error"
+                     and e["params"]["entry"]["source"] not in ("network", "worker")]
+
+
+def boot(folder: Path, exe: str, profile: Path, shot: Path) -> dict:
+    """Serve the export, open its index.html in a headless, muted browser on a fresh profile, and wait
+    until the runtime ticks, then let it run BOOT_RUN seconds and screenshot it into shot. The page and
+    each worker it starts are watched from their first line: a worker waits for the debugger until its
+    console and requests are watched. Returns when it ticked, in seconds after loading began, or None;
+    where, the layout, the console errors, the failed requests, and the screenshot's one-colour share."""
+    shutil.rmtree(profile, ignore_errors=True)      # a run that was killed left it
+    served, browser = Served(folder), oe.Browser(exe, profile, headed=False)
+    try:
+        _, page = browser.page("about:blank")
+        for domain in ("Runtime", "Network", "Log"):
+            page.call(f"{domain}.enable")
+        page.call("Target.setAutoAttach", autoAttach=True, waitForDebuggerOnStart=True, flatten=True)
+        page.call("Page.navigate", url=served.url + "index.html")
+        start, sessions, seen, live, ticked = time.monotonic(), [None], 0, None, None
+        while time.monotonic() - start < (BOOT_WAIT if ticked is None else ticked + BOOT_RUN):
+            for e in page.events[seen:]:
+                if e["method"] == "Target.attachedToTarget":
+                    session = e["params"]["sessionId"]
+                    if e["params"]["targetInfo"]["type"] == "worker":
+                        page.call("Runtime.enable", session=session)
+                        page.call("Network.enable", session=session)
+                        sessions.append(session)
+                    page.call("Runtime.runIfWaitingForDebugger", session=session)
+            seen = len(page.events)
+            if ticked is None:
+                for session in sessions:
+                    try:
+                        if page.evaluate(oe.PROBE_JS, wait=6, session=session) is True:
+                            live, ticked = session, time.monotonic() - start
+                            break
+                    except oe.DevToolsError:    # the page is between documents, or the worker ended
+                        pass
+            time.sleep(0.2)
+        snap = page.evaluate("c3probe.snapshot([], 0)", wait=6, session=live) if ticked is not None else None
+        shot.write_bytes(base64.b64decode(page.call("Page.captureScreenshot")["data"]))
+        share = oe.blank(page)
+        page.evaluate("0")      # the events the last calls left unread
+        return {"ticked": ticked, "runtime": None if ticked is None else "the worker" if live else "the page",
+                "layout": snap and snap["layout"], "errors": console_errors(page.events),
+                "failed": failed_requests(page.events, served), "blank": share}
+    finally:
+        browser.close()
+        served.close()
+        shutil.rmtree(profile, ignore_errors=True)
+
+
+def boot_lines(result: dict, folder: Path, browser: str, shot: Path) -> list[str]:
+    """A line per distinct console error and per failed request, then the verdict."""
+    lines = oe.runtime_lines(result["errors"])
+    failed = result["failed"]
+    lines += [f"  request: {f}" for f in failed[:SHOWN]] + ([f"  and {len(failed) - SHOWN} more failed requests"]
+                                                         if len(failed) > SHOWN else [])
+    found = [f"{len(result['errors'])} console error{'s' * (len(result['errors']) != 1)}" if result["errors"] else "",
+             f"{len(failed)} failed request{'s' * (len(failed) != 1)}" if failed else ""]
+    found = " and ".join(filter(None, found))
+    ran = (f"layout {result['layout']} ticking in {result['runtime']} {result['ticked']:.1f} s after loading began"
+           if result["ticked"] is not None else f"no runtime ticked in {BOOT_WAIT} seconds")
+    blank = (f"; {c3.BLANK:.1%} or more of the screenshot is one colour, so the first layout drew nothing in view"
+             if result["blank"] else "")
+    verdict = "booted" if result["ticked"] is not None and not found else "boot failed"
+    return lines + [f"{verdict}: the export in {folder}, served on 127.0.0.1 to a headless {browser}: {ran}"
+                    f"{', with ' + found + ' (above)' if found else ', no console error and no failed request'}"
+                    f"{blank}; screenshot {shot}"]
+
+
+def release_lines(project: Path) -> list[str]:
+    """`release:` warnings of what a published game should not ship: the icons and loading logo of a new
+    project, which are Construct's, and an empty Author, ID or Description in the project properties."""
+    lines = []
+    rag, _ = c3.locate_rag(project, None)
+    template = rag / "data" / "c3-new-project" / "icons" if rag else None
+    if template and template.is_dir():
+        same = [f.name for f in sorted(template.iterdir())
+                if (project / "icons" / f.name).is_file() and (project / "icons" / f.name).read_bytes() == f.read_bytes()]
+        if same:
+            lines.append(f"release: icons/ holds Construct's default {', '.join(same)}, which the export ships as the "
+                         f"game's icons and loading logo; replace them before the game is published")
+    properties = c3.load(project / "project.c3proj").get("properties", {})
+    empty = [label for key, label in (("author", "Author"), ("appId", "ID"), ("description", "Description"))
+             if not str(properties.get(key) or "").strip()]
+    if empty:
+        named = ", ".join(empty[:-1]) + " and " + empty[-1] if len(empty) > 1 else empty[0]
+        lines.append(f"release: {named} {'is' if len(empty) == 1 else 'are'} empty in the project "
+                     f"properties; fill {'it' if len(empty) == 1 else 'them'} before the game is published")
+    return lines
+
+
 # --- the run --------------------------------------------------------------------------
 def run(project: Path, folder: Path, version: str, spec: str | None, exe: str | None) -> bool | None:
     """Exports; whether the export runs in a worker, as its main.js says."""
@@ -734,7 +915,7 @@ def run(project: Path, folder: Path, version: str, spec: str | None, exe: str | 
         page, opened = attached_page(devtools, project)
     else:
         b = own_browser(project, exe)
-        target, page = own_page(b, editor_url(project))
+        target, page = own_page(b, project)
         show_window(b, target, "normal")
         close_project(page)     # one a run that was killed left, before the login is read: a restart loses it
     print(f"logged in as {wait_for_login(page)}, exporting {version}", flush=True)
@@ -844,10 +1025,13 @@ def main() -> int:
         return 1
     if hosts:
         print(hosts)
+    release = release_lines(project)
     if args.dry_run:
         current = project_version(project)
         print(f"would export {version} in {editor_url(project)} into {folder}; project.c3proj version "
               f"{current}{f' -> {version}' if version != current else ''}")
+        for line in release:
+            print(line)
         return 0
     if args.take_over:
         take_over(folder)
@@ -878,17 +1062,39 @@ def main() -> int:
         return 1
     where = {True: "the worker", False: "the page", None: "a place scripts/main.js does not name"}[in_worker]
     before = project_version(project)
+    code = 0
     try:
         write_version(project, version)
+        print(f"exported {version} into {folder}, runtime in {where}; project.c3proj version {version}")
     except OSError as e:
         # The export is in place and carries the new version; only the project's own line was not written
         print(f"exported {version} into {folder}, runtime in {where}; project.c3proj was not changed and still "
               f"says version {before or 'nothing'}: {e}. Make the file writable and set Version to {version}, in the "
               f"editor's project properties or on the \"version\" line of project.c3proj; the export needs nothing "
               f"more, and --bump goes on from the version in {folder}")
-        return 4
-    print(f"exported {version} into {folder}, runtime in {where}; project.c3proj version {version}")
-    return 0
+        code = 4
+    for line in release:
+        print(line)
+    return booted(project, folder, exe or oe.browser_path()) or code
+
+
+def booted(project: Path, folder: Path, exe: str | None) -> int:
+    """Run the export as a player's browser would and print what it found; 0 when it ticked with no
+    console error and no failed request, BOOT_FAILED when not, 3 when it could not be run."""
+    if not exe:
+        print(f"boot not checked: no Edge, Chrome or Chromium here to run the export in; serve {folder} over HTTP, "
+              f"open its index.html in a browser and read its console")
+        return 3
+    scratch = pp.script_folder(project, "export-project")
+    shot = scratch / "boot.png"
+    try:
+        result = boot(folder, exe, scratch / f"boot-{Path(exe).stem.lower()}", shot)
+    except (oe.DevToolsError, oe.ProfileBusy, OSError) as e:
+        print(f"boot not checked: the browser that runs the export stopped: {e}; run the export again")
+        return 3
+    lines = boot_lines(result, folder, Path(exe).stem.lower(), shot)
+    print("\n".join(lines))
+    return BOOT_FAILED if lines[-1].startswith("boot failed") else 0
 
 
 if __name__ == "__main__":

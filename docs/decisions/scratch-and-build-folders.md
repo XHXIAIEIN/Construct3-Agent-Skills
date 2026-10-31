@@ -64,7 +64,10 @@ its gitignore block as well.
 
 A folder inside a project's `.build/` or `.tmp/`, such as the folder of a
 packed `.c3p`, keeps its scratch in that project's `.tmp/`
-(`c3project.project_folder`). A pack leaves both folders out, and
+(`c3project.project_folder`). The search upward stops at the first folder
+that holds `project.c3proj`, so a test project that lives in another
+repository's `.tmp/` keeps its scratch in its own `.tmp/`, where
+`verify_change.py` reads it. A pack leaves both folders out, and
 `open_in_editor.py` skips them when it searches a folder for projects. An
 `--out` inside the project but outside both is written, with a note on
 stdout that Git commits it.

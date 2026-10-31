@@ -62,6 +62,7 @@ PLUGIN = REPO / "plugin"        # what the scripts get as the clone: the skill a
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
+import notes                        # noqa: E402
 CASES = json.loads((Path(__file__).parent / "evals.json").read_text(encoding="utf-8"))["evals"]
 
 
@@ -546,6 +547,142 @@ def seed_big_sheet(root: Path) -> None:
     edit_json(root / "project.c3proj", lambda p: p["eventSheets"]["items"].append(BIG_SHEET))
 
 
+# The facts a check of the third round needs, as the notes of an earlier session hold them
+ROUND_NOTES = (
+    ("group", "Setup", "On start of layout deals int(tokenat(ROUND_COINS, beat, \",\")) coins on random grid cells; "
+                       "ROUND_COINS is 1,3,6,2,10,1 and beat counts the rounds from 0"),
+    ("function", "Coin.Collect", "a tap on a Coin runs Coin.Collect, which scores it and destroys it 0.5 s later; a "
+                                 "coin under a Tween ignores taps, so a plan taps each Coin by its UID in turn"),
+    ("group", "Restart", "a round ends 1.3 s after its last coin is gone (a 1 s wait, a 0.3 s fade, Restart layout); "
+                         "beat is static, so it keeps its count across the restart"))
+
+
+def seed_notes(root: Path, facts: tuple = ROUND_NOTES) -> None:
+    """tools/notes.json with the facts, stamped on the project's events as notes.py stamps them."""
+    sheet = read_json(root / "eventSheets" / "Game.json")
+    kept = []
+    for kind, name, fact in facts:
+        note = {"sheet": "Game", "kind": kind, "name": name}
+        place = notes.located(sheet, {**note, "stamp": ""})
+        kept.append({"fact": fact, **note, "stamp": notes.stamp_of(place.event), "verified": "2026-10-30"})
+    notes.write(root, kept)
+
+
+def seed_first_tap(root: Path) -> None:
+    """A first-launch hint in the stand-in's Hints group: the coins of the first round pulse with a looping Tween
+    until the first touch ends. Input's NOT Is any Tween playing then ignores that first touch on a coin, which
+    the events state in two groups and a probe in the game shows at once."""
+    path = root / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+
+    def titled(events: list, title: str) -> dict | None:
+        for ev in events:
+            if ev.get("title") == title:
+                return ev
+            found = titled(ev.get("children", []), title)
+            if found:
+                return found
+        return None
+
+    hints = titled(sheet["events"], "Hints")["children"]
+    sid = iter(range(677777777777701, 677777777777799))
+    first_input = next(n for n, ev in enumerate(hints) if ev.get("text") == "Dim the keys on the player's first input")
+    hints[first_input]["text"] = "Dim the keys and stop the pulse once the player's first touch ends"
+    block = hints[first_input + 1]
+    block["conditions"][0] = {"id": "on-any-touch-end", "objectClass": "Touch", "sid": next(sid)}
+    block["actions"] += [
+        {"id": "stop-tweens", "objectClass": "Coin", "sid": next(sid), "behaviorType": "Tween",
+         "parameters": {"tags": "\"pulse\""}},
+        {"id": "set-opacity", "objectClass": "Coin", "sid": next(sid), "parameters": {"opacity": "100"}}]
+    hints[first_input:first_input] = [
+        {"eventType": "comment", "text": "Pulse the coins on a first launch, to show what to tap"},
+        {"eventType": "block", "conditions": [
+            {"id": "on-start-of-layout", "objectClass": "System", "sid": next(sid)},
+            {"id": "compare-boolean-eventvar", "objectClass": "System", "sid": next(sid),
+             "parameters": {"variable": "used"}, "isInverted": True}],
+         "actions": [{"id": "tween-one-property", "objectClass": "Coin", "sid": next(sid), "behaviorType": "Tween",
+                      "parameters": {"tags": "\"pulse\"", "property": "offsetOpacity", "end-value": "40",
+                                     "time": "0.6", "ease": "easeinoutsine", "destroy-on-complete": "no",
+                                     "loop": "yes", "ping-pong": "yes", "repeat-count": "1"}}],
+         "sid": next(sid)}]
+    write_json(path, sheet)
+
+
+# The fact a check of the second round needs beyond ROUND_NOTES, as a probe in the game showed it
+FIRST_TAP_NOTE = ("group", "Hints", "on a first launch the first round's coin pulses (Tween \"pulse\", looping) "
+                                    "until the first touch ends, and a coin under a Tween ignores taps: a plan taps "
+                                    "an empty spot first, else its first tap on the coin does nothing")
+
+
+def seed_first_tap_notes(root: Path) -> None:
+    seed_first_tap(root)
+    seed_notes(root, (*ROUND_NOTES, FIRST_TAP_NOTE))
+
+
+# A coin with a square hole: the hole spans HOLE of the coin's box on each axis
+HOLE = (0.3, 0.7)
+
+
+def holed_poly() -> list[float]:
+    """The coin's round collision polygon with the hole cut out through a slit on its right: a tap in the hole is
+    outside the polygon, so Touch's On touched Coin does not fire there."""
+    lo, hi = HOLE
+    outer = [(1, 0.52), (0.9619, 0.6913), (0.8536, 0.8536), (0.6913, 0.9619), (0.5, 1), (0.3087, 0.9619),
+             (0.1464, 0.8536), (0.0381, 0.6913), (0, 0.5), (0.0381, 0.3087), (0.1464, 0.1464), (0.3087, 0.0381),
+             (0.5, 0), (0.6913, 0.0381), (0.8536, 0.1464), (0.9619, 0.3087), (1, 0.48)]
+    hole = [(hi, 0.48), (hi, lo), (lo, lo), (lo, hi), (hi, hi), (hi, 0.52)]
+    return [v for point in outer + hole for v in point]
+
+
+def holed_png(size: int, face: tuple[int, int, int]) -> bytes:
+    """A coin of the given face colour with a dark rim and the square hole of HOLE, as an RGBA PNG."""
+    import struct
+    import zlib
+    lo, hi = (round(size * f) for f in HOLE)
+    r = size / 2
+    rows = bytearray()
+    for y in range(size):
+        rows.append(0)
+        for x in range(size):
+            d = ((x + 0.5 - r) ** 2 + (y + 0.5 - r) ** 2) ** 0.5
+            in_hole = lo <= x < hi and lo <= y < hi
+            rim = d > r - 8 or (lo - 6 <= x < hi + 6 and lo - 6 <= y < hi + 6)
+            rows += bytes((0, 0, 0, 0)) if d > r or in_hole else bytes((*(c // 2 for c in face), 255) if rim
+                                                                       else (*face, 255))
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(bytes(rows), 9)) + chunk(b"IEND", b""))
+
+
+def seed_holed(root: Path) -> None:
+    """The stand-in's coins as cash coins with a square hole that takes no tap. The sheet stays as it is, so no
+    print of it says why a tap on a coin's middle collects nothing: the coin's object type and images hold it,
+    and a probe in the game shows it."""
+    path = root / "objectTypes" / "Coin.json"
+    coin = read_json(path)
+    frames = coin["animations"]["items"][0]["frames"]
+    for frame in frames:
+        frame["collisionPoly"]["points"] = holed_poly()
+    for frame, face in zip(frames, ((236, 178, 54), (255, 226, 140))):
+        name = f"coin-default-{frames.index(frame):03d}.png"
+        (root / "images" / name).write_bytes(holed_png(frame["width"], face))
+    write_json(path, coin)
+
+
+# The fact a check of any round past the first needs, as a probe in the game showed it
+HOLE_NOTE = ("group", "Input", "a Coin is a cash coin whose square hole (the middle 40% of its box) is outside its "
+                               "collision polygon: a tap at its middle, as a tap on \"Coin\" or \"uid N\" lands, "
+                               "collects nothing; tap 15% of its width in from its left edge")
+
+
+def seed_holed_notes(root: Path) -> None:
+    seed_holed(root)
+    seed_notes(root, (ROUND_NOTES[0], ROUND_NOTES[2], HOLE_NOTE))
+
+
 # fixture -> (the fixture it starts from, the fault written into it). The seeded entries' sids start
 # with 6333, 6444, 6555, 6666, 6777, 6888 or 6999, so a grader can tell the example's own events from them.
 SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
@@ -556,7 +693,13 @@ SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "coins-loop-flag": ("coins", seed_loop_flag),
          "persistent-walls": ("example:persistent-layouts", seed_no_solid),
          "platformer-door": ("example:template-platformer", seed_door),
-         "coins-big-sheet": ("coins", seed_big_sheet)}
+         "coins-big-sheet": ("coins", seed_big_sheet),
+         "coins-notes": ("coins", seed_notes),
+         "coins-first-tap": ("coins", seed_first_tap_notes),
+         "coins-holed": ("coins", seed_holed_notes)}
+# Fixtures whose tools/notes.json only the with_... arms keep. The notes stand for what an earlier session of the
+# skill under test left, and an arm without that skill reads them as a file in tools/ all the same (iteration 96).
+NOTES_WITH_ONLY = {"coins-first-tap", "coins-holed"}
 
 
 def seed_inverted_start(root: Path) -> None:
@@ -613,7 +756,11 @@ GENERATED: dict[str, Callable[[str], str]] = {
     "coins-portrait": lambda template: with_settings(template, VIEW="720, 1280", ORIENTATION='"portrait"'),
     "coins-pixel": lambda template: with_settings(template, VIEW="320, 180"),
     "platformer-generator": platformer,
+    "coins-look-refs": lambda template: template,
 }
+# fixture of GENERATED -> the folder of pictures copied into the project after its generator ran, and its name there:
+# the user's references, which the user leaves where they like
+PICTURES = {"coins-look-refs": (Path(__file__).parent / "look-refs", "look-refs")}
 
 
 def digest(project: Path) -> dict:
@@ -715,6 +862,9 @@ def main() -> int:
                     seed_load_errors(target)
                 if seed:
                     seed(target)
+                if case["fixture"] in NOTES_WITH_ONLY and not arm.startswith("with_"):
+                    (target / "tools" / "notes.json").unlink()
+                    (target / "tools").rmdir()
                 prefix = next((prefix for prefix in installers if arm.startswith(prefix)), None)
                 installer = installers.get(prefix)
                 if installer:
@@ -740,6 +890,9 @@ def main() -> int:
                     (target / "tools" / "build_project.py").write_bytes(
                         GENERATED[case["fixture"]](template).encode("utf-8"))
                     run("tools/build_project.py", cwd=target)
+                    if case["fixture"] in PICTURES:
+                        source_folder, name = PICTURES[case["fixture"]]
+                        shutil.copytree(source_folder, target / name, ignore=shutil.ignore_patterns("*.svg"))
                 commit = {"clone.commit": commits[prefix]} if commits.get(prefix) else {}
                 (target.parent / "fixture.json").write_text(json.dumps(digest(target) | commit | {
                     "check_project.warnings": warnings_of(target, plugin)}, indent=2), encoding="utf-8")

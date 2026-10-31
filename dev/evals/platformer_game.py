@@ -26,7 +26,7 @@ GROUND_ROWS = 6                            # down past the viewport's bottom edg
 GOAL_COLS = 4
 # HUD groups: the level as a tag top left, the score top right, the controls bottom left, which dim
 # once used (hints())
-HUD = [[hud_tag("LevelTag", "Level · 01", longest="Level · 10")],
+HUD = [[hud_tag("LevelTag", "Level 1", longest="Level 10")],
        hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"),
        hud_keys("KeyBox", "KeyText", "KeyVerb", [("Arrows", "run"), ("Up", "jump")])]
 

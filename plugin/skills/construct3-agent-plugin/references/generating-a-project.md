@@ -115,24 +115,49 @@ avoid").
 
 The look is the user's when the user gives one: a style, an art
 direction, or references or an existing project to take it from. The plan
-then names where it comes from in `USER_LOOK` and takes `PALETTE` from it,
-`canvas` and `canvas_alt` from the backdrop. When the user gives none,
-`USER_LOOK` stays empty and the game takes paper and ink, the template's
-fallback. Only paper and ink is held to its taste: with `USER_LOOK` set, the
-white paper's ratio, the checker backdrop, the stripes' sizes and
-the ban on the Flash behavior stop nothing, and contrast, the grid and a
-clean alpha channel still stop the run. The `scope` of each rule of
-`assets/look-manifest.json` says which it is.
+then names where it comes from in `USER_LOOK`, and the user picks the look
+before any art (`look.picker`): after the generator's first run,
+`python scripts/pick_look.py` has the first play screen drawn in three
+directions, the default look and two from the user's look, and stops for the
+user's pick. The pick writes `USER_LOOK`, `PALETTE` with `canvas` and
+`canvas_alt` from the backdrop, and `ART_STYLE`, and keeps its screen as
+`art/look.png`, which every picture then follows. Save the user's
+reference pictures as PNG, JPEG or WebP in `art/references/`
+(`look.references`): the draw brief gives the colours measured from them,
+and the look review shows each screen beside them. When the user gives none,
+`USER_LOOK` stays empty and the game takes the default look, the template's
+fallback, with no picker. `assets/look-manifest.json` holds every rule of
+the look, each under an id that this file cites, with its value and its
+record. With `USER_LOOK` set, a rule of scope `default-look` stops
+nothing, and a rule of scope `every-look` still stops the run.
 
-The plan names the art direction in one sentence, `ART_STYLE`, and each
-sprite with what its picture shows and its box in units. Every sprite is an
-`art()`, which shows its stand-in until its picture is in `art/`. The
-session that has an image tool makes the pictures; the plan does not draw
-them in code. Art drawn in code looks worse than the stand-ins and mixes
-drawing styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-from-the-image-tool.md`).
-When this session has an image generation tool, run
-`python scripts/prepare_art.py --list` and follow its output; without one,
-keep the stand-ins.
+The plan names the art direction in one sentence, `ART_STYLE`, which the
+pick writes for a look the user gave, and each sprite with what its picture
+shows and its box in units. Every sprite is an
+`art()`, which shows its stand-in until its picture is in `art/`, and each
+picture takes one of two routes (`art.routes`):
+
+- `ART_ROUTE = "svg"`, the template's default: the pictures are drawn in
+  code as SVG and rendered in the browser. An object whose frames must keep
+  one box and baseline, such as a character that walks, takes
+  `art(..., route="svg")` on either route.
+- `ART_ROUTE = "image"`, when this session has an image generation tool:
+  the tool makes each picture from the prompt that `scripts/art.py` prints.
+
+After the generator has run, run `python scripts/art.py` and do what its
+last line says. It runs the game's `tools/drawings.py`, renders every
+drawing, fits every picture of the image tool, runs the generator again so
+that `art()` takes them, and writes a contact sheet of every picture, in
+pages that a model reads without scaling them down. For the drawings still to make,
+it writes a brief: give it as the whole task to a `construct3:art-drawer`
+sub-agent, which draws them all in one style with `scripts/svg_kit.py` and
+reads every page of its contact sheet before it returns. A picture of the
+image tool made from another `ART_STYLE`, picked look or subject than the
+current ones is in the state `restyle`, and the table prints its prompt
+again.
+Without that agent type, draw them yourself as the brief says. Never compute
+a picture pixel by pixel in Python: with nothing to hold a style, it mixes
+styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md`).
 
 ## Build, check, open
 
@@ -267,7 +292,7 @@ parameters are in the template.
   every frame.
 - Before placing, sizing or colouring anything on the screen, read
   `Construct3-Cookbook/guides/project-files/new-project.md`, "Viewport, look and
-  HUD": the layout, and the paper-and-ink look that the helpers below draw
+  HUD": the layout, and the default-look look that the helpers below draw
   when the user gave no look, with the numbers behind them.
 - Positions and sizes are whole units of the placement grid, never numbers
   picked one by one. `UNIT` follows the viewport (8 px for pixel art, 32 px
@@ -292,9 +317,15 @@ parameters are in the template.
   value_type, name, where, longest=...)`: the name in `TEXT_SIZE["name"]`,
   `GAP_IN` above the value in `TEXT_SIZE["number"]` and the light weight.
   What the player is on, a round, a level or a mode, is `hud_tag(type,
-  text)` top left, a small tracked tag, and the events set it with
-  `tracked_expr()`. On a menu or a result screen, `hud_header()` puts a
-  title before a tag. The controls are `hud_keys(box_type, key_type,
+  text)` top left, a small tag in capitals such as `ROUND 1 / 6`, and
+  the events set its text in capitals. A title, menu or pause screen sets
+  its texts and buttons on the vertical centre line (`screen.menu-axis`): `hud_header()`
+  centres its title at the top with a tag under it, and a button takes
+  `"center"` for its column. The run warns of an instance of a layout or
+  layer named title, menu or pause that sits off the line.
+  A result screen states its moment with `result_headline(title_type,
+  tag_type, text, tag, longest=...)`, one line at `display` size centred
+  on the screen (`screen.result-headline`). The controls are `hud_keys(box_type, key_type,
   verb_type, [(key, verb), ...])` bottom left, and `hints(box_type)` is the
   group that dims the keys once the player has used them.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,
@@ -316,20 +347,32 @@ parameters are in the template.
   maximum, LENGTH))`, or slides it with `tween_width()`. A bar with its
   name in front of it is `labelled_bar(label, text, frame, fill, where,
   length)`.
-- The project fills the screen: `FULLSCREEN` is *Scale outer*, or *Integer
-  scale outer* for pixel art, so the screen shows more than the viewport on
-  its longer side. A viewport 360 px high or less is pixel art:
-  `PIXEL_ART` has the project sample *Nearest* at a whole-number scale. The
+- The project fills the screen (`screen.fill`): `FULLSCREEN` is *Scale
+  outer*, or *Integer scale outer* for pixel art, so the screen shows more
+  than the viewport on its longer side. `PIXEL_ART` has a pixel-art project
+  sample *Nearest* at a whole-number scale (`pixel-art.sampling`). The
   HUD helpers and `band_text()` hold their element to the screen's edge
   with the Anchor behavior of `anchored(where)`; an instance placed by
   `anchor()` or `row()` takes `behaviors=anchored(where)`, and the run gives
   its type the behavior.
 - A number that counts to its new value takes `count_up(text, value)` in
   the actions where the value changes, and `counting(text, value)` among a
-  module's events. The Text shows the number alone and has the Tween
-  behavior.
+  module's events. The Text shows the number alone, has the Tween behavior
+  and draws in the number kind's weight, light, whose digits share one
+  width, or is left-aligned, or its other digits shift as one changes
+  (`type.counting-digits`; the run warns).
+- Every change of layout is `*fade_to(layout)`, or `*fade_to()` to restart
+  this one, in place of `go_to_layout()` and `restart_layout()`
+  (`screen.transition`). The run then puts a cover on a top layer of every
+  layout the sheet runs and fades it away as each starts.
+- A text holds no emoji: the run stops on one in a layout or in a text the
+  events set (`text.no-emoji`). An icon is art in its own box beside the
+  text. A Text that the events set starts with real text, never `Text` or
+  Lorem ipsum, which `review_look.py` reports if it is still shown
+  (`text.placeholder`).
 - A button is `button(type, file, label, text, col, row)`, its shape drawn
-  at `button_size(text)`. The label is centred on the shape, in the colour
+  at `button_size(text)`; col `"center"` puts it on the cell nearest the
+  vertical centre line. The label is centred on the shape, in the colour
   `text_on()` picks for its fill, at the size `label_size()` gives. It is
   the shape's child in the layout's hierarchy (`link()`), so the events that
   hide, move, squash or destroy the button take the label along.
@@ -366,12 +409,13 @@ parameters are in the template.
   colour stops the run with the nearest role: a new object reuses the
   game's colours or adds one under the role it plays. A painting, a
   gradient or a photograph passes `painted=True`. `check_palette()` stops
-  the run when `solid` falls under 3:1 on the fill, and in paper and ink
-  when the paper and its fill pass 1.2:1.
+  the run on a palette that breaks `colour.structure`, and in the default look
+  `palette.greys`.
 - A sprite is `art(file, kind, w, h, role, subject)` in `build_images()`. It
-  takes the picture `art/<file>` when it is there, which
-  `scripts/prepare_art.py` fits to the box; until then it draws the
-  stand-in. Both have the same box, origin and collision polygon, so the
+  takes the picture `art/<file>` when it is there, which `scripts/art.py`
+  renders or fits to the box; until then it draws the stand-in. `role` is
+  the picture's body, which its hit frame shows in the flash, and
+  `route="svg"` or `"image"` overrides `ART_ROUTE` for one object. Both have the same box, origin and collision polygon, so the
   layouts and events do not change when the art arrives. `subject` says in
   words what the picture shows, for its prompt. Kind `"scene"` is an opaque
   backdrop that fills its box.
@@ -380,16 +424,13 @@ parameters are in the template.
   image, since Construct's effects have neither; both are off by default.
   The type takes `drawn(file)` as its frame and an instance is that frame's
   size, the shadow included; a sprite that rotates is drawn with
-  `shadow=False`. `shape()` stops on an accent under 3:1 on `canvas_alt`
-  drawn without an ink outline, or on a fill under 3:1 against the ink. In
+  `shadow=False`. `shape()` stops on a fill that breaks
+  `colour.accent-contrast`. In
   an open field the player, a pickup and a hazard are each drawn `SUBJECT`
   across, and one that is tapped is drawn `inset` inside a `TOUCH` box,
   `shape(file, kind, TOUCH, TOUCH, role, inset=(TOUCH - SUBJECT) // 2)`.
   What is tapped on a board fills its `TOUCH` box, as the stand-in's coins;
-  structure takes the size it needs. A pixel-art image holds three alpha
-  values, clear, opaque and the shadow's; in a viewport taller than 360 px
-  the edges are antialiased. A clear pixel is written with no colour under
-  it.
+  structure takes the size it needs. Every image keeps `alpha.pure`.
 - A region or a range is a zone drawn as lines, `zone(type, col, row, cols,
   rows)` of a `zone_image(type)` and `zone_type(type)`, a `LINE` px edge in
   `solid` over the fill, and a reach is a dashed `ring()`. A slot is a disc
@@ -398,27 +439,37 @@ parameters are in the template.
 - A hit shows as a colour: `hit_frame(file)` draws the shape's second frame
   in the `flash` role, tagged `hit`, and `hit_flash(obj)` gives the actions
   that show it for `HIT_FLASH["seconds"]` and return to frame 0.
-  `squash(obj, kind)` sets the share of the image's size that `SQUASH`
+  `squash(obj, kind)` sets the share of the object's rest size that `SQUASH`
   gives for `"hit"`, `"land"` or `"jump"`, and `SQUASH_PRESS` for `"press"`
-  unless `SQUASH` has one, holds it and tweens back, and `hit(obj)` gives
+  unless `SQUASH` has one, holds it and tweens back. The rest size is the
+  size the instance has when its first squash starts, kept in its instance
+  variables `restWidth` and `restHeight`, so a size the user sets in the
+  layout editor stays. `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
-  `Collect` does; the object needs the Tween behavior. In paper and ink the
-  Flash behavior stops the run. A squash acts on the art, never on an object that
-  collides: a player is an invisible mask with Platform and its art, drawn
+  `Collect` does; the object needs the Tween behavior. In the default look the
+  Flash behavior stops the run (`motion.hit`). A squash acts on the art,
+  never on an object that collides (`motion.squash-art`): a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of
   the mask.
+- A tween takes the ease and the seconds of its class from `TWEEN_STYLE`:
+  `style="hud_in"`, `"hud_out"`, `"bar"`, `"camera"`, `"world"` (the
+  default), `"popup"` or `"banner"` (`motion.tween-style`). A popup is
+  `popup(panel, dim)` to open and `popup(panel, dim, show=False)` to close,
+  with `popup_closed(panel, dim)` among the module's events. The motion
+  checks of `check_look.py` are the rules whose ids start with `motion.`.
+  [motion-vocabulary.md](motion-vocabulary.md) names each motion with its
+  helper and value: a pop, a float, a hit stop, a shake, a ticker, a stagger.
 - A label is `TEXT_SIZE["body"]`, a screen's title `TEXT_SIZE["title"]`, the
   count `TEXT_SIZE["number"]` and a banner `TEXT_SIZE["display"]`, each in
   the weight `TEXT_WEIGHT` gives it, a font of `FONT`, never bold. `FONT`
   names Inter's three files, which the generator copies from the user's
   font cache into `fonts/` and lists; a file in neither place draws in
   `system-ui` with a warning; `FONT = "system-ui"` ships none. `hud_text()`
-  stops the run on a colour that reads below 4.5:1 on what is behind it,
-  3:1 from 18 pt up (`text_contrast()`), and names the roles that would
-  read there. A size outside `TEXT_SIZE` stops the run too, as does one
-  whose letters are under `TEXT_MIN` of the viewport's shorter side, in any
-  look; a kind of text the look lacks is a new key of `TEXT_SIZE`, as a
-  colour is a new role.
+  stops the run on a colour that breaks `text.contrast` on what is behind
+  it, and names the roles that would read there. A size outside
+  `TEXT_SIZE` stops the run too (`type.scale`), as does one under
+  `TEXT_MIN` (`type.min-size`), in any look; a kind of text the look lacks
+  is a new key of `TEXT_SIZE`, as a colour is a new role.
 - In pixel art every text type is a Sprite Font of `PIXEL_FONT`, an 8 px
   pixel font with Chinese, when the user's font cache holds its BDF file.
   Without the file the run warns and draws Texts. A text size of 8 draws
@@ -436,7 +487,7 @@ parameters are in the template.
   template's default is `False`, and the `pointer_*()` helpers then add
   nothing. On, `pointer_frames(file)` in `build_images()`, after
   `hit_frame(file)`, draws the image's hover frame and its pressed frame,
-  which need not read 3:1 on the paper; `*pointer_drawn(file)` ends the
+  (`pointer.colours`); `*pointer_drawn(file)` ends the
   type's animation, `types |= pointer_types()` declares the Mouse, and
   `*pointer_module(type)` in the sheet shows the hovered one's hover frame
   and, for an instant, a touched one's pressed frame. An object a touch
@@ -554,6 +605,13 @@ the file's layout is no change, and a removed file is written again, which
 loses nothing. `project.c3proj` is not in the record, because a run changes
 only its own keys there. A generator that has no record yet writes over a
 changed file on its first run, then writes the record.
+
+A file under `objectTypes/`, `families/`, `layouts/`, `eventSheets/` or
+`images/` that the last run wrote and this run did not, such as the file of
+a type the generator no longer makes, is removed at the end of a complete
+run, with a `removed` line for each. A file changed since the last run stays.
+`files/` and `fonts/` keep such a file, because `project.c3proj` keeps
+listing it.
 
 `json.dumps(obj, indent="\t", ensure_ascii=False)` written with
 `newline="\n"` and no trailing newline is the editor's own file layout, so

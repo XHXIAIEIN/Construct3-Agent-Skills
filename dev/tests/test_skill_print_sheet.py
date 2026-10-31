@@ -28,8 +28,8 @@ def test_a_miss_of_print_sheet_prints_on_stdout(project):
     committed(project)
     for args, said in ((("Gmae",), "no event sheet named 'Gmae'; sheets: Game"),
                        (("Gmae", "--since", "HEAD"), "no event sheet named 'Gmae' on disk or in HEAD ("),
-                       (("Game", "--show", "40"), "sheet Game has 13 events; --show 40 is not one of them"),
-                       (("Game", "--events", "40"), "sheet Game has 13 events; --events 40 starts past its end"),
+                       (("Game", "--show", "40"), "sheet Game has 16 events; --show 40 is not one of them"),
+                       (("Game", "--events", "40"), "sheet Game has 16 events; --events 40 starts past its end"),
                        (("Game", "--show", "1", "--limit", "20"), "characters of JSON, over the limit of 20 (--limit)")):
         p = streams(project, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(PLUGIN), *args)
         assert p.returncode == 1 and p.stderr == "" and said in p.stdout, (args, p.stdout, p.stderr)
@@ -86,8 +86,8 @@ def test_print_says_every_tick_only_where_an_event_without_conditions_runs_every
     assert "   7       (runs with its parent)\n               -> Coin: Set scale to 1.5" in out
     assert "   9   function AddScore(points: number)\n" in out
     assert "  10     (runs with its parent)\n             -> Coin: Set scale to 1.5" in out
-    assert "  16 (every tick)\n         -> Coin: Set scale to 1.5" in out
-    assert "  17 group Idle\n  18   (every tick)\n           -> Coin: Set scale to 1.5" in out
+    assert "  19 (every tick)\n         -> Coin: Set scale to 1.5" in out
+    assert "  20 group Idle\n  21   (every tick)\n           -> Coin: Set scale to 1.5" in out
     assert out.count("(every tick)") == 2 and out.count("(runs with its parent)") == 2, out
 
 
@@ -121,7 +121,8 @@ def test_print_stops_at_the_limit_and_names_the_part_that_continues(built):
     parts, span = [], "1-"
     while span:
         code, out = tool(built, "print_sheet", "Game", "--events", span, "--limit", "900")
-        assert code == 0 and len(out) < 1500, out
+        # An event is never cut, so a part of one event can run past the limit
+        assert code == 0 and (len(out) < 1500 or re.match(r"== Game: events (\d+)-\1 ", out)), out
         parts.append(out)
         last = out.splitlines()[-1]
         span = re.search(r"--events (\d+-)", last).group(1) if last.startswith("-- stopped at the limit") else None
@@ -133,14 +134,14 @@ def test_print_stops_at_the_limit_and_names_the_part_that_continues(built):
 def test_print_of_a_part_starts_with_the_events_it_sits_in(built):
     code, out = tool(built, "print_sheet", "Game", "--events", "10")
     assert code == 0
-    assert out.splitlines()[:5] == ["== Game: events 10-10 of 13; a [context] row is an event these sit in, without its actions",
+    assert out.splitlines()[:5] == ["== Game: events 10-10 of 16; a [context] row is an event these sit in, without its actions",
                                     "   1 group Coins  [context]", "   9   group Restart  [context]",
                                     "         // Start the next round when the last coin is gone",
                                     "  10     System: Coin.Count = 0"]
     assert "Touch: On touched" not in out
 
 
-@pytest.mark.parametrize("span, said", [("40-", "has 13 events"), ("x", "40-80, 40- or 40"), ("5-2", "ends before it starts")])
+@pytest.mark.parametrize("span, said", [("40-", "has 16 events"), ("x", "40-80, 40- or 40"), ("5-2", "ends before it starts")])
 def test_print_refuses_a_range_it_cannot_read(built, span, said):
     code, out = tool(built, "print_sheet", "Game", "--events", span)
     assert code == 1 and said in out
@@ -164,8 +165,8 @@ def test_print_without_a_name_prints_the_map_when_the_sheets_do_not_fit(project)
     with_menu_sheet(project)
     code, out = tool(project, "print_sheet", "--limit", "900")
     assert code == 0
-    assert out.startswith("== Coins: 2 sheets, 26 events, 2 layouts.") and "-> " not in out
-    assert re.search(r"\n  Game +13 events +\d+ chars; layouts Game; ", out)
+    assert out.startswith("== Coins: 2 sheets, 32 events, 2 layouts.") and "-> " not in out
+    assert re.search(r"\n  Game +16 events +\d+ chars; layouts Game; ", out)
     code, out = tool(project, "print_sheet")
     assert code == 0 and "== Game\n" in out and "== Menu\n" in out
 
@@ -360,7 +361,7 @@ def test_since_stops_at_the_limit_and_names_the_part_that_continues(project):
     code, out = tool(project, "print_sheet", "--since", "HEAD", "--limit", "1500")
     assert code == 0 and len(out) < 1500, out
     last = out.splitlines()[-1]
-    assert re.search(r"before event (\d+) of 53\. The rest: python \S+print_sheet.py Game --since HEAD --events \1- "
+    assert re.search(r"before event (\d+) of 56\. The rest: python \S+print_sheet.py Game --since HEAD --events \1- "
                      r".*--limit 1500$", last), last
     start = re.search(r"--events (\d+)-", last).group(1)
     code, rest = tool(project, "print_sheet", "Game", "--since", "HEAD", "--events", f"{start}-", "--limit", "0")

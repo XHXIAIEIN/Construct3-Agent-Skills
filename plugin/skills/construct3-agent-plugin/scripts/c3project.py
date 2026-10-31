@@ -171,6 +171,18 @@ def stop_with_a_sentence(script: str, findings: Findings) -> None:
     sys.excepthook = stopped
 
 
+def png_text(data: bytes) -> dict[str, str]:
+    """The tEXt chunks of a PNG, by key."""
+    pos, out = 8, {}
+    while pos + 8 <= len(data):
+        n, tag = struct.unpack(">I", data[pos:pos + 4])[0], data[pos + 4:pos + 8]
+        if tag == b"tEXt":
+            key, _, value = data[pos + 8:pos + 8 + n].partition(b"\0")
+            out[key.decode("latin-1")] = value.decode("latin-1")
+        pos += 12 + n
+    return out
+
+
 def png_rgba(data: bytes) -> tuple[int, int, list[tuple]] | None:
     """Width, height and RGBA pixels of an 8-bit, non-interlaced PNG; None for another kind."""
     if data[:8] != b"\x89PNG\r\n\x1a\n":
@@ -228,16 +240,21 @@ def png_rgba(data: bytes) -> tuple[int, int, list[tuple]] | None:
     return w, h, pixels
 
 
-# A screenshot is not drawn yet when this share of its pixels or more is one colour, dark or clear.
-# Over the screenshots the scripts took of games, the most one-coloured one that showed something
-# was 99.03%, a layout holding one coin; a layout that drew only a 4 px bar was 99.99%.
+# A screenshot is not drawn yet when this share of its pixels or more is one colour, dark or clear,
+# and the luminance of its pixels deviates less than SPREAD (0 to 255) from their mean. Over the
+# screenshots the scripts took of games, at an eighth of their size: the most one-coloured one that
+# showed something was 99.03%, a layout holding one coin, with a deviation of 7.9 or more for each at
+# 99% and above; a layout that drew only a 4 px bar was 99.99% with 0.3, and an empty one 100% with 0.
+# The share alone takes a 20 x 20 ship sprite alone on a 430 x 932 screen, 76 screen pixels drawn,
+# for nothing drawn: 99.98% at an eighth of the size, with a deviation of 2.6.
 BLANK = 0.999
+SPREAD = 2.0
 
 
-def blank_share(data: bytes) -> float | None:
-    """The share of a PNG's pixels that are one colour, dark or clear, when it is BLANK or more.
-    One colour is within 8 in each channel of the commonest. None for a picture that shows
-    something, or a PNG of a kind png_rgba does not read."""
+def fill(data: bytes) -> tuple[float, float] | None:
+    """How much a PNG shows: the share of its pixels that are one colour, dark or clear, and the
+    standard deviation of their luminance, each pixel's taken over black by its alpha. One colour
+    is within 8 in each channel of the commonest. None for a PNG of a kind png_rgba does not read."""
     read = png_rgba(data)
     if not read or not read[2]:
         return None
@@ -245,8 +262,20 @@ def blank_share(data: bytes) -> float | None:
     top = Counter(pixels).most_common(1)[0][0]
     shares = (sum(all(abs(p[i] - top[i]) <= 8 for i in range(4)) for p in pixels),
               sum(max(p[:3]) < 16 for p in pixels), sum(p[3] < 16 for p in pixels))
-    share = max(shares) / len(pixels)
-    return share if share >= BLANK else None
+    lum = [(0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) * p[3] / 255 for p in pixels]
+    mean = sum(lum) / len(lum)
+    return max(shares) / len(pixels), math.sqrt(sum((v - mean) ** 2 for v in lum) / len(lum))
+
+
+def is_blank(share: float, spread: float) -> bool:
+    """Whether a picture of fill() shows nothing: both numbers say so."""
+    return share >= BLANK and spread < SPREAD
+
+
+def blank_share(data: bytes) -> float | None:
+    """The one-colour share of fill() when the PNG shows nothing (is_blank), else None."""
+    read = fill(data)
+    return read[0] if read and is_blank(*read) else None
 
 
 def utf8_output() -> None:
@@ -406,12 +435,15 @@ def browsers_folder(root: Path) -> Path:
 
 
 def project_folder(folder: Path) -> Path:
-    """The project a folder belongs to: the folder above its .tmp/ or .build/, so that a .c3p packed
-    into .build/ keeps its scratch in the project's .tmp/ and not in .build/.tmp/."""
-    parts = folder.parts
-    for i, part in enumerate(parts):
-        if part in (SCRATCH, BUILD) and i:
-            return Path(*parts[:i])
+    """The project a folder belongs to: the nearest folder upward that holds project.c3proj, or the
+    folder above the nearest .tmp/ or .build/, so that a .c3p packed into .build/ keeps its scratch
+    in the project's .tmp/ and not in .build/.tmp/. A project that lives in another repository's
+    .tmp/ stops the search, so its scratch stays in its own .tmp/."""
+    for f in (folder, *folder.parents):
+        if (f / "project.c3proj").is_file():
+            return f
+        if f.name in (SCRATCH, BUILD) and f.parent != f:
+            return f.parent
     return folder
 
 

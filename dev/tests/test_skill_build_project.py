@@ -5,6 +5,7 @@ import json
 import math
 import re
 import shutil
+import struct
 import symtable
 from pathlib import Path
 
@@ -240,8 +241,8 @@ NIGHT = {"canvas": (14, 18, 48), "canvas_alt": (30, 40, 92), "line": (52, 64, 12
          "hover": (0, 229, 255), "pressed": (255, 145, 0), "flash": (255, 255, 255)}
 
 
-def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_rest(tmp_path):
-    """Paper and ink is the fallback look. With USER_LOOK naming the look the user gave, the
+def test_a_look_the_user_gave_lifts_the_checks_of_default_look_and_keeps_the_rest(tmp_path):
+    """The default look is the fallback look. With USER_LOOK naming the look the user gave, the
     checks of its taste stop nothing: a palette of the user's colours, a backdrop and an area of
     the user's tiles, stripes over a large area and the Flash behavior pass. The checks every look
     keeps still stop the run: structure and text contrast, an accent's contrast, the grid and a
@@ -336,6 +337,119 @@ def test_template_deals_the_coins_of_each_beat_round_after_round(built):
     assert 'Set beat to (beat + 1) % tokencount(ROUND_COINS, ",")' in out
 
 
+def test_template_fades_between_layouts(built):
+    """screen.transition: the round restarts through fade_to(), so the Game layout gets an opaque
+    cover on a top layer of parallax 0 and the sheet a group that fades it away on start and hides
+    it after; a layout with no sheet gets no cover."""
+    t = template_module()
+    game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
+    top = game["layers"][-1]
+    assert (top["name"], top["parallaxX"], [i["type"] for i in top["instances"]]) == ("Fade", 0, ["Fade"])
+    cover = top["instances"][0]
+    assert cover["world"]["color"][3] == 1 and "Tween" in cover["behaviors"]
+    assert (cover["world"]["width"], cover["world"]["height"]) == t.screen_box()[2:]
+    objects = json.loads((built / "layouts" / "Objects.json").read_text(encoding="utf-8"))
+    assert all(layer["name"] != "Fade" for layer in objects["layers"])
+    fade = json.loads((built / "objectTypes" / "Fade.json").read_text(encoding="utf-8"))
+    assert fade["plugin-id"] == "TiledBg" and (built / "images" / "fade.png").is_file()
+    code, out = tool(built, "print_sheet", "Game")
+    assert "Fade the cover away as the layout starts" in out and "Hide the cover once it has faded away" in out
+    acts = t.fade_to("Menu")
+    assert [a["id"] for a in acts] == ["set-visible", "tween-one-property", "wait", "go-to-layout"]
+    assert acts[1]["parameters"]["time"] == f"{t.FADE['seconds']:g}" and acts[2]["parameters"]["use-timescale"] is False
+    assert t.fade_to()[-1]["id"] == "restart-layout"
+
+
+def test_template_stops_on_an_emoji_and_warns_of_a_shifting_count(tmp_path, capsys):
+    """text.no-emoji: an emoji in a layout's Text or in a text the events set stops the run, naming
+    it; an arrow or a Chinese character does not. type.counting-digits: a counted Text that is not
+    left-aligned warns."""
+    t = template_module()
+    t.ROOT = tmp_path
+    lay = t.layout("Game", [t.layer("UI", parallax=0)], sheet="Game")
+    lay["layers"][0]["instances"] += [t.text_inst("Hint", "← 移动 →", 0, 0, 320, 64),
+                                      t.text_inst("Lives", "Lives", 0, 64, 320, 64, halign="right")]
+    plain = {"name": "Game", "events": [*t.event("Show", [t.on_start()], [t.set_text("Lives", '"x 3"')])]}
+    t.check_texts(plain, {"Game": lay})
+    with pytest.raises(SystemExit, match="the events: Lives"):
+        t.check_texts({"name": "Game", "events": [*t.event("Show", [t.on_start()],
+                                                            [t.set_text("Lives", '"❤️ x 3"')])]},
+                      {"Game": lay})
+    lay["layers"][0]["instances"].append(t.text_inst("Star", "⭐", 0, 128, 64, 64))
+    with pytest.raises(SystemExit, match="layout Game: Star"):
+        t.check_texts(plain, {"Game": lay})
+    lay["layers"][0]["instances"].pop()
+    capsys.readouterr()
+    t.counting("Lives", "lives")
+    t.check_texts(plain, {"Game": lay})
+    assert "counting() counts Lives, which is not left-aligned" in capsys.readouterr().out
+    t.COUNTED.discard("Lives")
+
+
+def font_with_digits(advances: list[int]) -> bytes:
+    """A TTF of 2048 units per em whose cmap maps the digits 0 to 9 to glyphs 1 to 10 with these advances:
+    the tables digit_ems() reads, and no glyph outlines."""
+    cmap = struct.pack(">HHHHI", 0, 1, 3, 1, 12) + struct.pack(">7H", 4, 32, 0, 4, 4, 1, 0)
+    cmap += struct.pack(">HH", 0x39, 0xFFFF) + b"\0\0" + struct.pack(">HH", 0x30, 0xFFFF)
+    cmap += struct.pack(">HH", (1 - 0x30) % 65536, 1) + struct.pack(">HH", 0, 0)
+    tables = {b"cmap": cmap,
+              b"head": bytes(18) + struct.pack(">H", 2048) + bytes(34),
+              b"hhea": bytes(34) + struct.pack(">H", 11),
+              b"hmtx": b"".join(struct.pack(">Hh", a, 0) for a in [500, *advances])}
+    out, at = struct.pack(">IHHHH", 0x10000, len(tables), 0, 0, 0), 12 + 16 * len(tables)
+    body = b""
+    for tag, data in tables.items():
+        out += struct.pack(">4sIII", tag, 0, at + len(body), len(data))
+        body += data + bytes(-len(data) % 4)
+    return out + body
+
+
+def test_template_counts_in_a_font_whose_digits_share_one_width(tmp_path, capsys):
+    """type.counting-digits: the template reads the digits' advances from the font file. A counted Text
+    that is not left-aligned warns when its font's digits differ in width and keeps quiet when they
+    share one, as InterDisplay-Light's do once its tnum digits are frozen; a label at the number size
+    takes the digits at that width, so its box holds the count."""
+    t = template_module()
+    t.ROOT = tmp_path
+    (tmp_path / "fonts").mkdir()
+    (tmp_path / "fonts" / "InterDisplay-Light.woff").write_bytes(font_with_digits([1320] * 10))
+    (tmp_path / "fonts" / "Inter-Regular.woff").write_bytes(font_with_digits([1292, 833, *[1249] * 8]))
+    t._tabular.clear()
+    assert t.digit_ems(tmp_path / "fonts" / "InterDisplay-Light.woff") == [1320 / 2048] * 10
+    assert t.tabular_ems("InterDisplay-Light") == 1320 / 2048 and t.tabular_ems("Inter-Regular") is None
+    assert t.digit_ems(FONT_CACHE / "Inter-Medium.woff") is None
+    size = t.TEXT_SIZE["number"]
+    assert t.text_px("999", size) == pytest.approx(3 * 1320 / 2048 * size * 4 / 3)
+    assert t.text_px("999", t.TEXT_SIZE["body"]) == pytest.approx(3 * 0.63 * t.TEXT_SIZE["body"] * 4 / 3)
+    lay = t.layout("Game", [t.layer("UI", parallax=0)], sheet="Game")
+    lay["layers"][0]["instances"] += [t.text_inst("Score", "0", 0, 0, 320, 96, size=size, halign="right",
+                                                  weight="light"),
+                                      t.text_inst("Coins", "0", 0, 96, 320, 64, halign="right")]
+    sheet = {"name": "Game", "events": []}
+    t.counting("Score", "score")
+    t.check_texts(sheet, {"Game": lay})
+    assert capsys.readouterr().out == ""
+    t.counting("Coins", "coins")
+    t.check_texts(sheet, {"Game": lay})
+    assert "counting() counts Coins, which is not left-aligned" in capsys.readouterr().out
+    t.COUNTED.difference_update({"Score", "Coins"})
+
+
+def test_template_sets_the_leading_of_each_kind():
+    """type.leading: lines of body text 1.28 em apart, the count and a banner 1.08, every other kind 1.2;
+    a box is sized from that, and the Text's line-height adds what the runtime's own line, 1 em + 4 px,
+    lacks, so the runtime draws the lines the box assumes."""
+    t = template_module()
+    assert t.LINE_EMS == {"body": 1.28, "number": 1.08, "display": 1.08}
+    for kind, ems in (("tag", 1.2), ("body", 1.28), ("title", 1.2), ("number", 1.08)):
+        size = t.TEXT_SIZE[kind]
+        assert t.line_px(size) == pytest.approx(size * 4 / 3 * ems)
+        assert t.leading(size) == round(size * 4 / 3 * ems - size * 4 / 3 - 4, 2)
+    assert (t.leading(t.TEXT_SIZE["tag"]), t.leading(t.TEXT_SIZE["body"]), t.leading(t.TEXT_SIZE["number"])) ==         (0, 2.72, 2.4)
+    hint = t.text_inst("Hint", "Collect every coin", 0, 0, 640, 128)
+    assert hint["properties"]["line-height"] == 2.72
+
+
 def test_template_measures_a_gap_against_the_players_reach():
     """The reach from PLATFORM's properties: 650 px/s, gravity 1500, no sustain, 330 px/s rise
     141 px and stay 0.87 s in the air, 286 px or 8.9 units across; a gap is easy to half of it,
@@ -351,9 +465,12 @@ def test_template_measures_a_gap_against_the_players_reach():
 
 def test_stand_in_project_holds_a_string_variable_as_the_editor_writes_it(built):
     coin = json.loads((built / "objectTypes" / "Coin.json").read_text(encoding="utf-8"))
-    assert [(v["name"], v["type"]) for v in coin["instanceVariables"]] == [("value", "number"), ("kind", "string")]
+    # restWidth and restHeight are the rest size that the coin's hit() squashes from
+    assert [(v["name"], v["type"]) for v in coin["instanceVariables"]] == [
+        ("value", "number"), ("kind", "string"), ("restWidth", "number"), ("restHeight", "number")]
     objects = json.loads((built / "layouts" / "Objects.json").read_text(encoding="utf-8"))
-    assert objects["layers"][0]["instances"][0]["instanceVariables"] == {"value": 1, "kind": "gold"}
+    assert objects["layers"][0]["instances"][0]["instanceVariables"] == {"value": 1, "kind": "gold", "restWidth": 0,
+                                                                         "restHeight": 0}
 
 
 def test_stand_in_project_writes_containers_where_the_editor_reads_them(project):
@@ -502,6 +619,38 @@ def test_generator_writes_nothing_over_a_file_changed_since_its_last_run(project
     assert code == 0, out
 
 
+def test_generator_removes_the_files_of_a_type_it_no_longer_makes(project):
+    """A generator that stops making a type leaves no file of it, so the checker does not warn of an
+    object type that project.c3proj does not list. A file changed since the last run stays."""
+    source = project / "tools" / "build_project.py"
+    game = source.read_text(encoding="utf-8")
+    source.write_text(game.replace("\n\nif __name__", '''
+
+def with_spare(make):
+    def build():
+        types, families, containers = make()
+        return types | {"Keyboard": single_global_type("Keyboard", "Keyboard", {})}, families, containers
+    return build
+
+
+build_object_types = with_spare(build_object_types)
+
+if __name__''', 1), encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and (project / "objectTypes" / "Keyboard.json").is_file(), out
+    source.write_text(game, encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
+    assert "removed objectTypes/Keyboard.json: the last run wrote it, and this run did not" in out.splitlines()
+    assert not (project / "objectTypes" / "Keyboard.json").exists() and warnings(out) == [], out
+    assert "objectTypes/Keyboard.json" not in json.loads((project / "tools" / "generated.json").read_text())["files"]
+    spare = project / "objectTypes" / "Spare.json"
+    spare.write_text("{}", encoding="utf-8")
+    edit(project, "tools/generated.json", lambda g: g["files"].update({"objectTypes/Spare.json": "0" * 16}))
+    code, out = run(project, "tools/build_project.py", "--replace-edited")
+    assert spare.exists() and "removed" not in out, out
+
+
 def test_template_run_where_it_sits_says_to_copy_it(project):
     """Run from the skill's assets/, the template would look for project.c3proj in the skill."""
     code, out = run(project, f"{INSTALLED}/assets/build_project.py")
@@ -536,7 +685,7 @@ def test_template_places_the_hud_on_the_grid(built):
     score = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "ScoreText")["world"]
     # The number at the number size, GAP_IN under its label, each box one line high, held to the top
     # right: the HUD is off the grid.
-    assert (score["x"], score["y"], score["width"], score["height"]) == (1696, 98, 160, 96)
+    assert (score["x"], score["y"], score["width"], score["height"]) == (1696, 98, 160, 87)
     # Two HUD boxes that meet, or one past the viewport, stop the generator and name them.
     with pytest.raises(SystemExit, match=r"ScoreText \(64,64\)-\(192,96\) overlaps TimerText .* Move TimerText down 2 units: dy=2"):
         t.no_overlap([t.hud_text("ScoreText", "Score: 0", "top-left", longest="Score: 999"),
@@ -646,7 +795,7 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     assert t.z_order(ordered) == ordered
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [],
-         ["KeyBox", "KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"]]
+         ["KeyBox", "KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"], ["Fade"]]
 
 
 def test_template_orders_a_zone_before_a_slider_whose_knob_covers_its_track(tmp_path):
@@ -669,7 +818,7 @@ def test_template_orders_a_zone_before_a_slider_whose_knob_covers_its_track(tmp_
 
 def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path):
     """button() puts a label on its shape as one part: the shape at least button_size() of its
-    text, the label centred on the same box in a colour that reads on the fill, and linked as the
+    text, the label centred on the same box by its ink in a colour that reads on the fill, and linked as the
     shape's child in the layout's hierarchy, as the editor writes it, so the events that hide or
     move the button take the label along."""
     t = template_module()
@@ -679,7 +828,7 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     t.shape("resume-default-000.png", "rect", *t.button_size("继续"), "solid")
     shape, label = t.button("Resume", "resume-default-000.png", "ResumeLabel", "继续", 3, 10)
     assert (label["world"]["x"], label["world"]["y"], label["world"]["width"], label["world"]["height"]) == \
-        (96, 320, 160, 160)
+        (96, 328, 160, 152)                                 # shrunk from the top by twice optical_drop()
     assert label["properties"]["horizontal-alignment"] == "center" and label["properties"]["size"] == t.TEXT_SIZE["title"]
     assert (label["properties"]["font"], label["properties"]["bold"]) == ("Inter-Medium", False)
     assert t.contrast(tuple(round(c * 255) for c in label["properties"]["color"][:3]), t.PALETTE["solid"]) >= 3
@@ -696,6 +845,13 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     with pytest.raises(SystemExit, match=r"needs a shape of 160x160 px and images/small-default-000.png is 96x96; "
                                          r"draw it at button_size\('重新开始'\)"):
         t.button("Small", "small-default-000.png", "SmallLabel", "继续", 0, 0, longest="重新开始")
+    # On a title, menu or pause screen a button takes the cell nearest the vertical centre line.
+    t.shape("play-default-000.png", "rect", *t.button_size("Play"), "solid")
+    play, _ = t.button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 12)
+    pb = t.box_of(play)
+    assert pb[0] % t.UNIT == 0 and abs((pb[0] + pb[2]) / 2 - t.VIEW_W / 2) <= t.UNIT / 2
+    with pytest.raises(SystemExit, match=r"col 'middle'; a cell number or \"center\""):
+        t.button("Play", "play-default-000.png", "PlayLabel", "Play", "middle", 12)
     # A hidden button starts with its label hidden.
     hidden = t.sprite_inst("Panel", 0, 0, 96, 96)
     hidden["properties"]["initially-visible"] = False
@@ -704,27 +860,74 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     assert child["properties"]["initially-visible"] is False
 
 
+def test_template_warns_of_a_menu_item_off_the_centre_line(tmp_path, capsys):
+    """on_axis() warns of an instance of a title, menu or pause screen, by the layout's or the
+    layer's name, centred more than half a unit off the vertical centre line, and leaves out a
+    backdrop or a dim and every other screen, a settings screen among them (screen.menu-axis)."""
+    t = template_module()
+    t.ROOT = tmp_path
+    t.shape("play-default-000.png", "rect", *t.button_size("Play"), "solid")
+    centred = [*t.hud_header("MenuTitle", "MenuTag", "Coins", "Round 3"),
+               *t.button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 12),
+               t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))]
+    menu = t.layout("Menu", [t.layer("UI", parallax=0)], sheet=None)
+    menu["layers"][0]["instances"] = centred
+    game = t.layout("Game", [t.layer("Game"), t.layer("Pause", parallax=0)], sheet=None)
+    game["layers"][0]["instances"] = [t.hud_tag("RoundTag", "Round 1")]
+    t.on_axis({"Menu": menu, "Game": game})
+    assert capsys.readouterr().out == ""
+    game["layers"][1]["instances"] = [t.hud_text("BackText", "Back", "top-left")]
+    t.on_axis({"Game": game})
+    assert capsys.readouterr().out.startswith(
+        f"warning: layout Game: a title, menu or pause screen sets its texts and buttons on the vertical centre line, "
+        f"x {t.VIEW_W / 2:g}, and BackText at x ")
+
+
+def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
+    """Center centres a Text's em box, where capitals, digits and Chinese sit high, so optical_drop()
+    lowers a label on or beside a shape: inside a button or a control's row by shrinking its box from
+    the top, so it stays inside; a bar's name and a stage label by moving the box. Short lowercase
+    letters sit centred and stay. A triangle is placed by its centroid, not its box."""
+    t = template_module()
+    t.ROOT = tmp_path
+    title, body = t.TEXT_SIZE["title"], t.TEXT_SIZE["body"]                   # 40 and 24 px high at 1080
+    assert [t.optical_drop(s, title) for s in ("Play", "开始游戏", "42", "menu")] == [4, 4, 4, 0]
+    assert t.optical_drop("Play", body) == 3
+    name = t.labelled_bar("HpName", "HP", "HpFrame", "HpFill", "top-left", 192)[0]
+    assert (name["world"]["y"], name["world"]["height"]) == (64 + 3, 32)
+    big, small = t.band_text("Big", "GO", "stage"), t.band_text("Small", "go", "stage")
+    assert big["world"]["y"] - small["world"]["y"] == t.optical_drop("GO", t.text_size("display")) == 9
+    t.toggle_types()
+    switch, label = t.toggle("sound", 2, 3, text="Sound")
+    assert (label["world"]["y"], label["world"]["height"]) == (t.units(3) + 6, t.TOUCH - 6)
+    frame = t.shape("tri-default-000.png", "triangle", 192, 192, "solid")
+    assert frame["originY"] == 2 / 3
+    tri = t.shape_inst("Tri", "tri-default-000.png", 2, 3)
+    assert tri["world"]["y"] - 2 / 3 * 192 == t.units(3) - 32                 # a sixth of its height higher
+    t.on_grid([tri], "layer Game")
+
+
 def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_the_hud(built, capsys):
     """hud_stat() puts a value GAP_IN under its name as one group; play_area() is what the HUD leaves,
-    GAP_OUT clear of it; centred() puts the board in its middle on the grid, raised by OPTICAL_LIFT.
+    GAP_OUT clear of it; centred() puts the board in its middle on the grid, raised by OPTICAL_LIFT, 0.
     spaced() stops groups that sit closer than GROUP_RATIO times the gap inside one, the stand-in's
     old fault of a name far from its number and the number near the board; balanced() warns on a
     board off the middle of the play area."""
     t = template_module()
-    assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0.05)
+    assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0)
     assert t.GAP_OUT >= t.GROUP_RATIO * t.GAP_IN
     name, value = t.hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-left", longest="999")
-    assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 194)
+    assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 185)
     assert (name["properties"]["size"], value["properties"]["size"]) == (t.TEXT_SIZE["name"], t.TEXT_SIZE["number"])
     assert (name["properties"]["font"], value["properties"]["font"]) == ("Inter-Regular", "InterDisplay-Light")
     best = t.hud_stat("BestLabel", "BestText", "BEST", "top-right", longest="999")
     assert t.box_of(best[0])[2] == t.box_of(best[1])[2] == 1856
     assert best[1]["properties"]["horizontal-alignment"] == "right" and "Anchor" in best[1]["behaviors"]
     area = t.play_area([name, value, t.hud_text("RoundText", "ROUND 1 / 6", "top-right")])
-    assert area == (64, 194 + 32, 1920 - 128, 1016 - 226)
+    assert area == (64, 185 + 32, 1920 - 128, 1016 - 217)
     assert t.play_area([t.hud_text("Hint", "Tap", "bottom")])[1::2] == (64, 1080 - 64 - 32 - 32 - 64)
-    assert t.centred(928, 544, area) == (512, 320) and t.centred(928, 544, area, lift=0) == (512, 352)
-    with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x790 px play area"):
+    assert t.centred(928, 544, area) == (512, 352) and t.centred(928, 544, area, lift=0.05) == (512, 320)
+    with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x799 px play area"):
         t.centred(2000, 100, area)
     board = t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)
     t.spaced([[name, value], [best[0], best[1]], [board]])
@@ -735,7 +938,7 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert t.gap((0, 0, 10, 10), (100, 15, 200, 20)) == 5 and t.gap((0, 0, 10, 10), (40, 0, 50, 10)) == 30
     with pytest.raises(SystemExit, match=r"ScoreLabel \+ ScoreText and Board are 4 px apart, and ScoreLabel \+ "
                                          r"ScoreText holds its parts 8 px apart: groups need 1.5 times that"):
-        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 198, 928, 544, 0, 0)]])
+        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 189, 928, 544, 0, 0)]])
     # A name a unit above its number, and the board a unit under the number.
     label = t.hud_text("ScoreLabel", "SCORE", "top-left")
     number = t.hud_text("ScoreText", "0", "top-left", size=t.TEXT_SIZE["number"], dy=3)
@@ -754,7 +957,7 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     # The stand-in's board is where centred() puts it, under the tag and over the keys.
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     placed = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "Board")["world"]
-    assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 288, 928, 544)
+    assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 320, 928, 544)
 
 
 def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_empty(capsys):
@@ -764,14 +967,14 @@ def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_e
     number is one item and a header of two facts a line is three."""
     t = template_module()
     assert t.HUD_CROWD == 3
-    tag = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
+    tag = t.hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")
     assert t.items([tag]) == 1 and t.items([t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)]) == 0
     header = t.hud_header("TitleText", "SubTag", "二十拍 · 十二种动法", "八个空拍 · 同一套 7 / 2 / 5 / 4")
     assert t.items(header) == 3
     t.spaced([header])
     assert capsys.readouterr().out == (
-        "warning: layout Game: the top-left of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
-        "top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
+        "warning: layout Game: the top of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
+        "top-left, top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
         "of hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several joined by "
         "· or |\n")
     # Three labels stacked in one corner warn; the same three in three corners do not.
@@ -862,7 +1065,7 @@ def test_template_slider_is_a_row_a_finger_holds_with_its_knob_on_the_track(tmp_
     track_png = png_pixels(tmp_path / "images" / "slidertrack.png")
     assert [row[0][3] for row in track_png].count(255) == t.CONTROL_SIZE["bar"]  # the bar across the middle alone
     track, fill, knob, label, shown = t.slider("volume", 4, 5, t.units(24), value=50, text="Volume", label_cols=6)
-    assert t.box_of(label) == (128, 160, 320, 320)
+    assert t.box_of(label) == (128, 166, 320, 320)                            # lowered by its ink
     assert t.box_of(track) == (448, 160, 1216, 320)                            # label, a unit, the knob's reach
     assert (knob["world"]["x"], knob["world"]["y"], knob["world"]["width"]) == (832, 240, 160)
     assert knob["instanceVariables"] == {"name": "volume", "value": 50, "lo": 0, "hi": 100, "step": 1}
@@ -1164,8 +1367,8 @@ def build_object_types() -> tuple[dict, dict, list]:
 def build_layouts() -> dict[str, dict]:
     lay = layout("Menu", [layer("Background", transparent=False), layer("UI", parallax=0)], sheet="Menu")
     ui = lay["layers"][1]["instances"]
-    ui += button("Play", "play-default-000.png", "PlayLabel", "Play", 4, 5, behaviors=dict(TWEEN))
-    ui += button("Quit", "quit-default-000.png", "QuitLabel", "Quit", 4, 12, behaviors=dict(TWEEN))
+    ui += button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 5, behaviors=dict(TWEEN))
+    ui += button("Quit", "quit-default-000.png", "QuitLabel", "Quit", "center", 12, behaviors=dict(TWEEN))
     no_overlap(ui)
     return {"Menu": lay}
 
@@ -1305,7 +1508,7 @@ def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
 def test_look_manifest_matches_the_template():
     """assets/look-manifest.json is what an agent hands a model and confirms against: every value
     it names in the template is the template's, and every status and scope is one it defines. The
-    rules that stop the run in paper and ink alone are its taste; legibility and the grid hold in
+    rules that stop the run in the default look alone are its taste; legibility and the grid hold in
     every look."""
     manifest = json.loads((SKILL / "assets" / "look-manifest.json").read_text(encoding="utf-8"))
     t = template_module()
@@ -1321,13 +1524,23 @@ def test_look_manifest_matches_the_template():
         named = rule.get("helpers", "") + ("" if "value" in rule else rule.get("template", ""))
         for name in re.findall(r"(\w+)\(\)", named):
             assert callable(getattr(t, name, None)), (rule["id"], name)
+        assert rule["source"] in manifest["decisions"], rule["id"]
+    for record in manifest["decisions"]:
+        if record.startswith("Construct3-Agent-Skills/"):
+            assert (REPO / record.removeprefix("Construct3-Agent-Skills/")).is_file(), record
+    # check_look.py enforces the manifest's values, so they cannot drift from the template's
+    check_look = script_module("check_look")
+    assert check_look.COLLIDING == t.COLLIDING
+    for view in ("VIEW_W, VIEW_H = 320, 180", "VIEW_W, VIEW_H = 720, 1280", "VIEW_W, VIEW_H = 1920, 1080"):
+        sized = template_module(VIEW=view)
+        assert check_look.rule_value("grid.unit", VIEW_W=sized.VIEW_W, VIEW_H=sized.VIEW_H) == sized.UNIT
     assert {r["id"] for r in manifest["rules"] if r.get("strict")} >= {
         "alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn"}
     enforced = {r["scope"]: set() for r in manifest["rules"]}
     for r in manifest["rules"]:
         if r["status"] == "enforced":
             enforced[r["scope"]].add(r["id"])
-    assert enforced["paper-and-ink"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
+    assert enforced["default-look"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
     assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
                                       "colour.palette-only", "colour.structure", "colour.accent-contrast",
                                       "text.contrast", "type.scale", "type.min-size", "control.parts", "pixel-art.sampling"}
@@ -1396,29 +1609,38 @@ def test_template_art_shows_the_stand_in_until_its_picture_is_there(tmp_path):
     assert png_pixels(tmp_path / "images" / "gem-default-001.png")[0][20] == (255, 255, 255, 255)
     inst = t.shape_inst("Gem", "gem-default-000.png", 2, 3)
     assert (inst["world"]["x"], inst["world"]["y"]) == (96, 160)
-    with pytest.raises(SystemExit, match=r"art/gem-default-000.png is 64x64, and art\(\) asks 96x96: put the picture "
-                                         r"in art/raw/ and run the skill's scripts/prepare_art.py.* or delete"):
+    with pytest.raises(SystemExit, match=r"art/gem-default-000.png is 64x64, and art\(\) asks 96x96: run the skill's "
+                                         r"scripts/art.py, which renders its drawing .* or delete"):
         t.art("gem-default-000.png", "circle", 96, 96, "reward", "a red gem")
 
 
 def test_template_squashes_the_art_on_a_hit_a_landing_and_a_jump():
-    """A squash stops the one the object is in, sets a share of the image's size, holds it for a
-    jump, and tweens back under "squash"; one acting on an object that collides stops the run."""
+    """A squash stops the one the object is in, keeps the size it rests at from its first squash,
+    sets a share of that size, holds it for a jump, and tweens back to it under "squash"; one
+    acting on an object that collides stops the run."""
     t = template_module()
-    stop, squash, back = t.squash("Coin", "hit")
+    stop, note, rest_w, rest_h, squash, back = t.squash("Coin", "hit")
+    assert note["text"].startswith("Squash Coin from the size it rests at")
     assert stop == {**stop, "id": "stop-tweens", "behaviorType": "Tween", "parameters": {"tags": '"squash"'}}
-    assert squash["parameters"] == {"width": "Self.ImageWidth * 0.8", "height": "Self.ImageHeight * 1.2"}
-    assert (back["parameters"]["tags"], back["parameters"]["end-x"], back["parameters"]["time"],
-            back["parameters"]["ease"]) == ('"squash"', "Self.ImageWidth", "0.25", "easeoutback")
-    _, land, back = t.squash("PlayerArt", "land")
-    assert land["parameters"]["width"] == "Self.ImageWidth * 1.2" and back["parameters"]["ease"] == "easeoutelastic"
-    _, jump, hold, back = t.squash("PlayerArt", "jump")
+    assert [(a["id"], a["parameters"]) for a in (rest_w, rest_h)] == [
+        ("set-instvar-value", {"instance-variable": "restWidth",
+                               "value": "Self.restWidth = 0 ? Self.Width : Self.restWidth"}),
+        ("set-instvar-value", {"instance-variable": "restHeight",
+                               "value": "Self.restHeight = 0 ? Self.Height : Self.restHeight"})]
+    assert squash["parameters"] == {"width": "Self.restWidth * 0.8", "height": "Self.restHeight * 1.2"}
+    assert (back["parameters"]["tags"], back["parameters"]["end-x"], back["parameters"]["end-y"],
+            back["parameters"]["time"], back["parameters"]["ease"]) == \
+        ('"squash"', "Self.restWidth", "Self.restHeight", "0.25", "easeoutback")
+    *_, land, back = t.squash("PlayerArt", "land")
+    assert land["parameters"]["width"] == "Self.restWidth * 1.2" and back["parameters"]["ease"] == "easeoutelastic"
+    *_, jump, hold, back = t.squash("PlayerArt", "jump")
     assert (jump["parameters"]["height"], hold["parameters"]["seconds"], back["parameters"]["time"]) == \
-        ("Self.ImageHeight * 1.3", "0.2", "0.75")
+        ("Self.restHeight * 1.3", "0.2", "0.75")
     with pytest.raises(SystemExit, match=r"squash\('PlayerArt', 'spin'\): the kinds are hit, land, jump, press"):
         t.squash("PlayerArt", "spin")
     # Two events can share a squash: the actions up to the hold, and the tween back.
-    assert [a["id"] for a in t.squash("PlayerArt", "jump", half="down")] == ["stop-tweens", "set-size", "wait"]
+    assert [a.get("id") for a in t.squash("PlayerArt", "jump", half="down")] == [
+        "stop-tweens", None, "set-instvar-value", "set-instvar-value", "set-size", "wait"]
     assert [a["id"] for a in t.squash("PlayerArt", "jump", half="back")] == ["tween-two-properties"]
     with pytest.raises(SystemExit, match=r"half is both, down or back"):
         t.squash("PlayerArt", "jump", half="up")
@@ -1426,6 +1648,28 @@ def test_template_squashes_the_art_on_a_hit_a_landing_and_a_jump():
     with pytest.raises(SystemExit, match=r"squash\('Player'\): Player has Platform and collides, .* squash its art"):
         t.squash("Player", "land")
         t.squash_the_art({"Player": {"behaviorTypes": [t.beh_def("Platform"), t.beh_def("Tween")]}}, {})
+
+
+def test_template_gives_a_squashed_type_or_family_its_rest_size():
+    """build_all() gives each type or family that squash() acts on restWidth and restHeight, and
+    every instance of it, a family's members included, the value 0: no squash yet."""
+    t = template_module()
+    t.squash("Button", "press")
+    t.squash("Gems", "hit")
+    types = {name: t.sprite_type(name, []) for name in ("Button", "Ruby", "Coin")}
+    families = {"Gems": t.family("Gems", "Sprite", ["Ruby"])}
+    insts = {name: t.sprite_inst(name, 0, 0, 96, 96) for name in ("Button", "Ruby", "Coin")}
+    lay = t.layout("Menu", [t.layer("UI", parallax=0)], sheet=None)
+    lay["layers"][0]["instances"] += list(insts.values())
+    t.squash_types(types, families, {"Menu": lay})
+    t.squash_types(types, families, {"Menu": lay})
+    for item in (types["Button"], families["Gems"]):
+        assert [(v["name"], v["type"]) for v in item["instanceVariables"]] == [("restWidth", "number"),
+                                                                               ("restHeight", "number")]
+    assert types["Ruby"]["instanceVariables"] == [] and types["Coin"]["instanceVariables"] == []
+    assert insts["Button"]["instanceVariables"] == insts["Ruby"]["instanceVariables"] == {"restWidth": 0,
+                                                                                          "restHeight": 0}
+    assert insts["Coin"]["instanceVariables"] == {}
 
 
 def test_template_presses_a_button_down_while_the_finger_holds_it():
@@ -1439,13 +1683,14 @@ def test_template_presses_a_button_down_while_the_finger_holds_it():
     assert note["text"] == "Press Restart down under the finger"
     assert down["conditions"] == [{**down["conditions"][0], "id": "on-touched-object", "objectClass": "Touch",
                                    "parameters": {"object": "Restart", "type": "start"}}]
-    assert [a["id"] for a in down["actions"]] == ["set-boolean-instvar", "stop-tweens", "set-size"]
+    assert [a.get("id") for a in down["actions"]] == ["set-boolean-instvar", "stop-tweens", None, "set-instvar-value",
+                                                  "set-instvar-value", "set-size"]
     assert down["actions"][0]["parameters"] == {"instance-variable": "pressed", "value": "true"}
-    assert down["actions"][2]["parameters"] == {"width": "Self.ImageWidth * 0.9", "height": "Self.ImageHeight * 0.9"}
+    assert down["actions"][5]["parameters"] == {"width": "Self.restWidth * 0.9", "height": "Self.restHeight * 0.9"}
     assert [(c["id"], c.get("parameters")) for c in up["conditions"]] ==         [("on-any-touch-end", None), ("is-boolean-instance-variable-set", {"instance-variable": "pressed"})]
     assert up["actions"][0]["parameters"] == {"instance-variable": "pressed", "value": "false"}
     back = up["actions"][1]["parameters"]
-    assert (back["property"], back["end-x"], back["time"], back["ease"]) == ("size", "Self.ImageWidth", "0.1",
+    assert (back["property"], back["end-x"], back["time"], back["ease"]) == ("size", "Self.restWidth", "0.1",
                                                                              "easeoutsine")
     act_on_it = up["children"][0]
     assert act_on_it["conditions"][0]["id"] == "is-touching-object" and         act_on_it["conditions"][0]["parameters"] == {"object": "Restart"}
@@ -1460,7 +1705,7 @@ def test_template_presses_a_button_down_while_the_finger_holds_it():
     assert restart["instanceVariables"] == {"pressed": False} and coin["instanceVariables"] == {}
     assert types["Coin"]["instanceVariables"] == []
     t.SQUASH["press"] = {"width": 0.8, "height": 0.8, "hold": 0, "seconds": 0.2, "ease": "easeoutback"}
-    assert t.press("Restart", [])[1]["actions"][2]["parameters"]["width"] == "Self.ImageWidth * 0.8"
+    assert t.press("Restart", [])[1]["actions"][5]["parameters"]["width"] == "Self.restWidth * 0.8"
 
 
 def test_template_counts_a_number_up_from_the_number_it_shows():
@@ -1479,6 +1724,57 @@ def test_template_counts_a_number_up_from_the_number_it_shows():
     assert (ended["conditions"][0]["id"], ended["actions"][0]["parameters"]["text"]) == ("on-tweens-finished", "score")
 
 
+def test_template_eases_a_tween_by_the_class_of_what_it_moves():
+    """A tween helper takes its time and ease from TWEEN_STYLE by class: the HUD, a bar, the camera
+    and the world keep easeinoutsine, a popup and a banner open with easeoutquint in under 0.35 s.
+    A time or an ease given wins, and a class TWEEN_STYLE lacks stops the run."""
+    t = template_module()
+    assert {k: (s["ease"], s["seconds"]) for k, s in t.TWEEN_STYLE.items()} == {
+        "hud_in": ("easeinoutsine", 0.5), "hud_out": ("easeinoutsine", 0.5), "bar": ("easeinoutsine", 0.25),
+        "camera": ("easeinoutsine", 1), "world": ("easeinoutsine", 0.5), "popup": ("easeoutquint", 0.2),
+        "banner": ("easeoutquint", 0.25)}
+    timed = lambda a: (a["parameters"]["time"], a["parameters"]["ease"])
+    assert timed(t.tween1("Coin", "t", "offsetY", "0")) == ("0.5", "easeinoutsine")
+    assert timed(t.tween1("Coin", "t", "offsetY", "0", "2", "easeoutback")) == ("2", "easeoutback")
+    assert timed(t.tween2("Title", "t", "position", "0", "0", style="banner")) == ("0.25", "easeoutquint")
+    assert timed(t.tween_width("HpFill", "hp", "10")) == ("0.25", "easeinoutsine")
+    assert timed(t.tween_value("Camera", "zoom", "1", "2", style="camera")) == ("1", "easeinoutsine")
+    dims = t.hints("KeyBox")["children"][-1]["actions"][-1]
+    assert (dims["parameters"]["property"], timed(dims)) == ("offsetOpacity", ("0.5", "easeinoutsine"))
+    with pytest.raises(SystemExit, match="tween style 'menu': the classes are hud_in, hud_out, bar"):
+        t.tween1("Coin", "t", "offsetY", "0", style="menu")
+
+
+def test_template_opens_a_popup_from_near_its_size_and_closes_it_the_way_it_came():
+    """popup() shows the dim and the panel at opacity 0, the panel at POPUP["scale"] of its size,
+    and tweens both in with the popup class; closing tweens them back the same way, and
+    popup_closed() hides both when the panel's fade out ends, which an open in the meantime stops."""
+    t = template_module()
+    panel = t.sprite_inst("Panel", 960, 540, 640, 384)
+    dim = t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))
+    opened = t.popup(panel, dim)
+    assert [(a["id"], a["objectClass"]) for a in opened] == [
+        ("set-visible", "Dim"), ("set-opacity", "Dim"), ("tween-one-property", "Dim"),
+        ("set-visible", "Panel"), ("set-opacity", "Panel"), ("set-size", "Panel"),
+        ("tween-two-properties", "Panel"), ("tween-one-property", "Panel")]
+    assert opened[5]["parameters"] == {"width": "608", "height": "364.8"}
+    dim_in, size_in, fade_in = opened[2]["parameters"], opened[6]["parameters"], opened[7]["parameters"]
+    assert (dim_in["property"], dim_in["end-value"]) == ("offsetOpacity", "50")
+    assert (size_in["property"], size_in["end-x"], size_in["end-y"]) == ("size", "640", "384")
+    assert (fade_in["tags"], fade_in["end-value"]) == ('"popup-in"', "100")
+    assert {(p["time"], p["ease"]) for p in (dim_in, size_in, fade_in)} == {("0.2", "easeoutquint")}
+    closed = t.popup(panel, dim, show=False)
+    assert [(a["objectClass"], a["parameters"].get("end-value", a["parameters"].get("end-x"))) for a in closed] == [
+        ("Dim", "0"), ("Panel", "608"), ("Panel", "0")]
+    assert {(a["parameters"]["time"], a["parameters"]["ease"]) for a in closed} == {("0.2", "easeoutquint")}
+    comment, hide = t.popup_closed(panel, dim)
+    assert comment["text"] == "Hide Panel once it has closed"
+    assert (hide["conditions"][0]["id"], hide["conditions"][0]["parameters"]["tags"]) == ("on-tweens-finished",
+                                                                                         '"popup-out"')
+    assert [(a["objectClass"], a["parameters"]["visibility"]) for a in hide["actions"]] == [
+        ("Panel", "invisible"), ("Dim", "invisible")]
+
+
 def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     """A hit is the shape's second frame, the same outline and shadow filled in HIT_FLASH's role
     and tagged "hit", shown for HIT_FLASH["seconds"] of real time and then frame 0 again; the
@@ -1495,10 +1791,11 @@ def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     show, pause, back = t.hit_flash("Coin")
     assert (show["parameters"], back["parameters"]) == ({"frame-number": '"hit"'}, {"frame-number": "0"})
     assert pause["parameters"] == {"seconds": "0.08", "use-timescale": False}
-    assert [a["id"] for a in t.hit("Coin")] == ["stop-tweens", "set-size", "tween-two-properties",
-                                                "set-animation-frame", "wait", "set-animation-frame"]
+    assert [a.get("id") for a in t.hit("Coin")] == ["stop-tweens", None, "set-instvar-value", "set-instvar-value",
+                                                "set-size", "tween-two-properties", "set-animation-frame", "wait",
+                                                "set-animation-frame"]
     code, out = tool(built, "print_sheet")
-    assert 'Coin: Set size to (Self.ImageWidth * 0.8, Self.ImageHeight * 1.2)' in out
+    assert 'Coin: Set size to (Self.restWidth * 0.8, Self.restHeight * 1.2)' in out
     assert 'Coin: Set animation frame to "hit"' in out and "System: Wait 0.08 seconds (use time scale: False)" in out, out
     t.ROOT = tmp_path
     with pytest.raises(SystemExit, match=r"hit_frame\('ball.png'\): draw the frame first"):
@@ -1661,23 +1958,34 @@ def test_template_helpers_take_the_look_of_a_game_made_before_it():
 
 
 def test_template_header_keys_and_hints(tmp_path):
-    """hud_header() sets the title and, on its baseline, a tag in tracked capitals; hud_keys() a row of
+    """hud_header() sets the title on the vertical centre line at the top and a tag in capitals
+    under it (screen.menu-axis); hud_keys() a row of
     keys in thin ink boxes, every part a child of the first box, which alone carries the Anchor; hints()
     dims that box on the first input and keeps it dim across a restart in a static local."""
     t = template_module()
     t.ROOT = tmp_path
-    title, tag = t.hud_header("TitleText", "RoundTag", "Coins", "Round · 01")
-    assert tag["properties"]["text"] == " ".join("ROUND · 01")
+    title, tag = t.hud_header("TitleText", "RoundTag", "Coins", "Round 1")
+    assert tag["properties"]["text"] == "ROUND 1"
     assert (title["properties"]["font"], tag["properties"]["font"]) == ("Inter-Medium", "Inter-Regular")
     assert tag["properties"]["color"] == t.rgba(t.PALETTE["dim"]) and title["properties"]["bold"] is False
     tb, gb = t.box_of(title), t.box_of(tag)
-    # The tag's box lifted by the difference of the two lines' descents, so the baselines meet
-    assert gb[0] - tb[2] == round(0.6 * t.TEXT_SIZE["title"] * t.PX_PER_PT)
-    assert tb[3] - gb[3] == round(0.24 * (t.TEXT_SIZE["title"] - t.TEXT_SIZE["tag"]) * t.PX_PER_PT) == 5
+    assert title["properties"]["horizontal-alignment"] == tag["properties"]["horizontal-alignment"] == "center"
+    assert abs((tb[0] + tb[2]) / 2 - t.VIEW_W / 2) <= 1 and abs((gb[0] + gb[2]) / 2 - t.VIEW_W / 2) <= 1
+    assert tb[1] == t.MARGIN and gb[1] - tb[3] == t.GAP_IN
+    assert title["behaviors"] == tag["behaviors"] == t.anchored("top")
     assert len(t.hud_header("TitleText", "RoundTag", "Coins")) == 1          # no tag, no second Text
-    assert t.tracked_expr('"Round " & beat') == 'RegexReplace(uppercase("Round " & beat), "(.)(?=.)", "g", "$1 ")'
-    round_ = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
-    assert round_["properties"]["text"] == "\u2005".join("ROUND · 01 / 06")
+    # A result screen's headline: display size, centred on the screen with its tag under it
+    head, under = t.result_headline("ResultTitle", "ResultTag", "Round clear", "Round 3", longest="Game over")
+    hb, ub = t.box_of(head), t.box_of(under)
+    assert (head["properties"]["size"], under["properties"]["size"]) == (t.text_size("display"), t.TEXT_SIZE["tag"])
+    assert t.em_px(t.text_size("display")) / min(t.VIEW_W, t.VIEW_H) >= 0.06
+    assert head["properties"]["horizontal-alignment"] == under["properties"]["horizontal-alignment"] == "center"
+    assert abs((hb[0] + hb[2]) / 2 - t.VIEW_W / 2) <= 1 and abs((ub[0] + ub[2]) / 2 - t.VIEW_W / 2) <= 1
+    assert abs((hb[1] + ub[3]) / 2 - t.VIEW_H / 2) <= 1 and ub[1] - hb[3] == t.GAP_IN
+    assert t.LONGEST["ResultTitle"] == "Game over" and "Anchor" not in head.get("behaviors", {})
+    assert len(t.result_headline("ResultTitle", "ResultTag", "Game over")) == 1
+    round_ = t.hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")
+    assert round_["properties"]["text"] == "ROUND 1 / 6"
     assert (round_["properties"]["size"], round_["properties"]["color"]) == (t.TEXT_SIZE["tag"], t.rgba(t.PALETTE["dim"]))
     assert t.box_of(round_)[:2] == (t.MARGIN, t.MARGIN) and "Anchor" in round_["behaviors"]
     assert t.box_of(t.hud_tag("ModeTag", "Hard", "top-right"))[2] == t.VIEW_W - t.MARGIN
@@ -1782,3 +2090,25 @@ def test_a_data_file_is_listed_with_the_type_the_editor_writes_for_its_extension
         template.general_file(name, "")
     assert [(e["name"], e["type"]) for e in template._general_files] == [
         ("Cards.json", "application/json"), ("notes.TXT", "text/plain"), ("photo.jpg", "application/octet-stream")]
+
+
+def test_template_declares_the_longest_text_of_each_text_the_events_set(built, tmp_path, capsys):
+    """tools/texts.json holds the widest text each helper's `longest` gave, which review_look.py shows in its
+    worst data; a Text whose text the events set with no `longest` gets a warning."""
+    assert json.loads((built / "tools" / "texts.json").read_text(encoding="utf-8"))["longest"]["ScoreText"] == "999"
+    t = template_module()
+    t.ROOT = tmp_path
+    t.LONGEST.clear()
+    t.hud_text("Hint", "Tap", "bottom-left", longest="Tap and hold")
+    t.hud_text("Hint", "Tap", "bottom-left", longest="Hold")
+    assert t.LONGEST == {"Hint": "Tap and hold"}
+    sheet = {"events": [{"actions": [{"id": "set-text", "objectClass": "Hint"}, {"id": "set-text", "objectClass": "Log"},
+                                     {"id": "set-text", "objectClass": "Board"}]}]}
+    types = {"Hint": {"plugin-id": "Text"}, "Log": {"plugin-id": "Text"}, "Board": {"plugin-id": "Sprite"}}
+    t.write_texts(sheet, types)
+    assert "warning: the events set the text of Log, and no helper says how long it gets" in capsys.readouterr().out
+    del types["Log"]
+    t.write_texts(sheet, types)
+    assert capsys.readouterr().out == ""
+    assert json.loads((tmp_path / "tools" / "texts.json").read_text(encoding="utf-8")) == {
+        "longest": {"Hint": "Tap and hold"}}

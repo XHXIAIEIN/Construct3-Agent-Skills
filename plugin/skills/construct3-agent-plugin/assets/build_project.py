@@ -5,7 +5,8 @@ layouts, event sheets and the parts of project.c3proj that list them.
     python tools/build_project.py --replace-edited
 
 Copy this template to tools/ of a project that the editor saved as a folder,
-then rewrite it for the game. A run replaces the files it generates and keeps
+then rewrite it for the game. A run replaces the files it generates, removes
+the type, layout, sheet and image files that it no longer generates, and keeps
 the editor's own: uistate, icons, scripts. A run writes nothing when a file
 that the last run wrote, as tools/generated.json records, has changed since;
 --replace-edited writes over such files. A run that writes ends with the
@@ -61,13 +62,13 @@ COIN_SIZE = TOUCH                          # a coin is tapped, so it fills the b
 # Where the game's look comes from when the user gave one: a style or an art direction the user
 # named, or references or an existing project to take it from. For example "the user's: neon
 # synthwave, from their three reference images". Empty when the user gave none: the game then
-# takes paper and ink, the fallback below. With it set, PALETTE takes the user's colours by role,
-# canvas and canvas_alt those of the backdrop, and the checks of paper and ink's taste stop
+# takes the default look, the fallback below. With it set, PALETTE takes the user's colours by role,
+# canvas and canvas_alt those of the backdrop, and the checks of the default look's taste stop
 # nothing; contrast, the grid and a clean alpha channel still do.
 USER_LOOK = ""
 # Colours by role. Every image, label and layer takes its colour from here, and write_png()
 # stops the run on any other colour, so a new object reuses a role or adds one.
-# Paper and ink, the fallback: flat shapes on white paper, the player and labels in ink, areas
+# The default look, the fallback: flat shapes on white paper, the player and labels in ink, areas
 # and ranges drawn as lines over a faint fill, slots as discs of that fill.
 # solid and the accents read at least 3:1 on canvas_alt, so a shape shows without an outline;
 # check_palette() stops solid below that, and shape() an accent drawn without its outline,
@@ -105,8 +106,8 @@ SHAPE_STYLE = {
 # time. hit_frame() draws it with the outline, so a white flash shows on the sheet.
 # A frame, not the object's colour: the colour multiplies the image and cannot turn it white.
 HIT_FLASH = {"role": "flash", "seconds": 0.08}
-# Squash and stretch by kind: the size set to a share of the image's size, held, then tweened
-# back. squash(obj, kind) plays one; hit() plays the hit's with its flash.
+# Squash and stretch by kind: the size set to a share of the object's rest size, held, then
+# tweened back. squash(obj, kind) plays one; hit() plays the hit's with its flash.
 # Squash the art, never the object that collides: a Platform or Solid object that grows sinks
 # into the floor. The art is a second object, origin at its feet with shape(..., oy=1), pinned
 # to an invisible collision mask.
@@ -133,7 +134,7 @@ FONT = {"light": "InterDisplay-Light", "regular": "Inter-Regular", "medium": "In
 # scripts/bake_font.py, which bakes the characters the game uses into the Sprite Fonts' images.
 # Without the file, pixel art's text is a Text in FONT.
 PIXEL_FONT = "fusion-pixel-8px-proportional-zh_hans"
-# Text size in points by kind, scaled to the viewport's shorter side: a tracked tag, the name of a
+# Text size in points by kind, scaled to the viewport's shorter side: a tag, the name of a
 # stat or a key, body text and a key's verb, a screen's title, the count the player plays for, a
 # banner. At 720 px the tag is 10 pt, 13 px; a label whose letters are under TEXT_MIN of the shorter
 # side stops the run. In pixel art the small kinds are one unit and the large two: a Sprite Font's
@@ -152,9 +153,15 @@ PIXEL_ART = UNIT == 8
 # light direction, proportions and framing, never a subject. For example "flat vector with soft
 # cel shading, thick dark outlines, warm colours, light from the top left, chunky proportions,
 # side view", or "ink wash on rice paper, dry brush edges, cool muted greens, light from above,
-# slender proportions, three-quarter view from above". Every image prompt of the skill's
-# scripts/prepare_art.py starts with it; prepare_art.py --list warns of a dimension it leaves out.
+# slender proportions, three-quarter view from above". The skill's scripts/art.py starts every
+# prompt of an image tool with it, gives it to the drawings' brief, and warns of a dimension it
+# leaves out.
 ART_STYLE = ""
+# Where the pictures come from: "svg", drawn in code by the game's tools/drawings.py with the skill's
+# scripts/svg_kit.py, or "image", made by the session's image tool; the skill's scripts/art.py
+# renders or fits them. An object whose frames must keep one box and baseline takes
+# art(..., route="svg") on either route.
+ART_ROUTE = "svg"
 
 
 # ==== construct3-agent-plugin helpers: begin ======================================================
@@ -183,7 +190,8 @@ TEXT_WEIGHT = globals().get("TEXT_WEIGHT", {})
 LINE = globals().get("LINE", max(1, round(min(VIEW_W, VIEW_H) / 720)))
 PIXEL_FONT = globals().get("PIXEL_FONT", "fusion-pixel-8px-proportional-zh_hans")
 USER_LOOK = globals().get("USER_LOOK", "")
-# Px of this viewport per px of the paper-and-ink prototype, which was drawn at 720 px high: the
+ART_ROUTE = globals().get("ART_ROUTE", "svg")
+# Px of this viewport per px of the default-look prototype, which was drawn at 720 px high: the
 # gaps of the keys and the header scale by it.
 REF = min(VIEW_W, VIEW_H) / 720
 
@@ -488,13 +496,30 @@ def digest(path: Path) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
 
-def edited_since_last_run() -> list[str]:
+def last_run() -> dict[str, str]:
+    """The digest of each file the last run wrote, by its path from ROOT."""
+    return json.loads(GENERATED.read_text(encoding="utf-8"))["files"] if GENERATED.is_file() else {}
+
+
+def edited_since(last: dict[str, str]) -> list[str]:
     """The files the last run wrote that changed since. A removed one is no change: writing it again
     loses nothing."""
-    if not GENERATED.is_file():
-        return []
-    last = json.loads(GENERATED.read_text(encoding="utf-8"))["files"]
     return [rel for rel, was in sorted(last.items()) if (ROOT / rel).is_file() and digest(ROOT / rel) != was]
+
+
+# The folders that only this run's project.c3proj and object types point into. files/ and fonts/
+# are not among them: project.c3proj keeps listing a file there that a run no longer writes.
+REMOVABLE = ("objectTypes/", "families/", "layouts/", "eventSheets/", "images/")
+
+
+def remove_unwritten(last: dict[str, str]) -> None:
+    """Removes each file in REMOVABLE that the last run wrote, this run did not, and nobody changed
+    since: nothing points to it any more, and the checker warns of it."""
+    for rel, was in sorted(last.items()):
+        path = ROOT / rel
+        if rel.startswith(REMOVABLE) and rel not in _written and path.is_file() and digest(path) == was:
+            path.unlink()
+            print(f"removed {rel}: the last run wrote it, and this run did not")
 
 
 def record_written(complete: bool) -> None:
@@ -621,9 +646,10 @@ EQ, NE, LT, LE, GT, GE = 0, 1, 2, 3, 4, 5
 
 
 # --- images ----------------------------------------------------------------------
-# Stand-in images, each a PNG drawn from an RGBA function. The game's art comes from the
-# session's image tool through art() and the skill's scripts/prepare_art.py, or from the user.
-# Do not draw the game's art in code: it looks worse than the stand-ins and mixes styles.
+# Stand-in images, each a PNG drawn from an RGBA function. The game's art comes through art() and
+# the skill's scripts/art.py: drawn as SVG in tools/drawings.py, made by an image tool, or given by
+# the user. Do not compute the game's art pixel by pixel here: nothing holds a style, so it mixes
+# styles on one screen.
 def rgb(role: str) -> tuple[int, int, int]:
     """The colour of a role of PALETTE: rgb("danger")."""
     if role not in PALETTE:
@@ -644,22 +670,22 @@ def accent(role: str) -> bool:
     return max(c) - min(c) > 48
 
 
-def paper_and_ink() -> bool:
-    """Whether the game takes paper and ink, the fallback look: USER_LOOK is empty. Only then do
+def default_look() -> bool:
+    """Whether the game takes the default look, the fallback: USER_LOOK is empty. Only then do
     the checks of its taste stop the run."""
     return not USER_LOOK.strip()
 
 
-# Said by a stop of paper and ink's taste, which a look the user gave lifts
+# Said by a stop of the default look's taste, which a look the user gave lifts
 NOT_THE_USERS = "If the user gave the game a look of its own, name where it comes from in USER_LOOK"
 
 
 def check_palette() -> None:
     """Stops the run when PALETTE's greys lose their contrast: solid at least 3:1 on canvas_alt, so
-    structure shows without an outline; in paper and ink, canvas and canvas_alt at most 1.2:1, so
+    structure shows without an outline; in the default look, canvas and canvas_alt at most 1.2:1, so
     the checker reads as texture."""
     ratio = contrast(rgb("canvas"), rgb("canvas_alt"))
-    if ratio > 1.2 and paper_and_ink():
+    if ratio > 1.2 and default_look():
         sys.exit(f"PALETTE: canvas {PALETTE['canvas']} and canvas_alt {PALETTE['canvas_alt']} are {ratio:.2f}:1; the "
                  f"backdrop's two greys stay at most 1.2:1, so the checker reads as texture, not as things. Bring "
                  f"canvas_alt nearer canvas. {NOT_THE_USERS}")
@@ -766,7 +792,7 @@ def corners(kind: str) -> list[tuple[float, float]]:
                        for a in (i * math.pi / 8 for i in range(16))]}[kind]
 
 
-def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: float = 0.5,
+def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: float | None = None,
           outline: bool | None = None, shadow: bool | None = None, inset: int = 0, state: bool = False) -> dict:
     """images/<rel>: a flat `kind` of SHAPES, w x h px in whole units, in the colour of `role`,
     with SHAPE_STYLE's outline and shadow unless `outline` or `shadow` says otherwise. `inset` px
@@ -774,7 +800,8 @@ def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: f
     inset=(TOUCH - SUBJECT) // 2. Edges are antialiased above 360 px. state=True draws a hover or
     a press frame, which need not read 3:1 on the paper. Returns its frame, also kept in
     FRAMES[rel]: origin (ox, oy) of the box, the shape's collision polygon across the box, and the
-    image's size with the shadow, which is the instance's size."""
+    image's size with the shadow, which is the instance's size. `oy` defaults to the middle, and for
+    a triangle to its centroid, two thirds down, so one placed by its origin looks centred."""
     if kind not in SHAPES:
         sys.exit(f"{rel}: {kind!r} is no shape; shape() draws {', '.join(SHAPES)}")
     if w % UNIT or h % UNIT:
@@ -783,6 +810,7 @@ def shape(rel: str, kind: str, w: int, h: int, role: str, ox: float = 0.5, oy: f
     if inset < 0 or 2 * inset >= min(w, h):
         sys.exit(f"{rel}: inset {inset} leaves nothing of a {w}x{h} box to draw; keep it under {min(w, h) // 2}, "
                  f"(TOUCH - SUBJECT) // 2 for a small drawing in a box a finger hits")
+    oy = oy if oy is not None else 2 / 3 if kind == "triangle" else 0.5
     style = SHAPE_STYLE
     edge = style["outline_width"] if (style["outline"] if outline is None else outline) else 0
     ratio = contrast(rgb(role), rgb("canvas_alt"))
@@ -840,10 +868,10 @@ def hit_frame(rel: str) -> dict:
                  f"<type>-<animation>-000.png")
     hit = rel[:-len("000.png")] + "001.png"
     if DRAWN_AS[rel][0] == "art":
-        # Silhouette in the flash colour, written by prepare_art.py
+        # the picture in the flash colour, written by the skill's scripts/art.py
         source = ROOT / "art" / (rel[:-len(".png")] + ".hit.png")
         if not source.exists():
-            sys.exit(f"art/{source.name} is missing: run the skill's scripts/prepare_art.py, which writes each "
+            sys.exit(f"art/{source.name} is missing: run the skill's scripts/art.py, which writes each "
                      f"picture's hit frame beside it")
         (ROOT / "images" / hit).write_bytes(source.read_bytes())
         wrote(ROOT / "images" / hit)
@@ -939,26 +967,31 @@ def zone(name: str, col: int, row: int, cols: int, rows: int, ivars=None, behavi
 
 # --- art -------------------------------------------------------------------------------
 # art() asks for a picture of `subject` and shows the stand-in shape() until the picture is in
-# art/. The skill's scripts/prepare_art.py --list prints a prompt per picture; without --list it
-# cuts each picture out and fits it to its box. The picture keeps the stand-in's box, origin and
-# collision polygon, so layouts and events stay as they are.
+# art/. The skill's scripts/art.py renders each drawing of the SVG route and fits each picture of
+# the image route to its box, then runs this file again. The picture keeps the stand-in's box,
+# origin and collision polygon, so layouts and events stay as they are.
 ART: dict[str, dict] = {}                  # what art() asked for, by file name: art/wanted.json
 
 
 def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float = 0.5, oy: float = 0.5,
-        outline: bool | None = None, shadow: bool | None = None, inset: int = 0) -> dict:
+        outline: bool | None = None, shadow: bool | None = None, inset: int = 0, route: str | None = None) -> dict:
     """images/<rel>: the picture art/<rel> when it is there, else the stand-in
     shape(rel, kind, w, h, role, ..., inset). `subject` says what the picture shows, for its prompt:
     "a gold coin seen from the front". The picture fills its box; `inset` keeps the stand-in's
     drawing that far inside it. Kind "scene" is an opaque picture that fills its box, such as a
-    backdrop, with a flat rectangle of `role` as its stand-in. Returns the frame."""
+    backdrop, with a flat rectangle of `role` as its stand-in. `route` is "svg" or "image", ART_ROUTE
+    by default; `role` is the drawing's body, which its hit frame shows in the flash. Returns the frame."""
     scene = kind == "scene"
+    route = route or ART_ROUTE
+    if route not in ("svg", "image"):
+        sys.exit(f"art({rel!r}): route {route!r} is neither 'svg', drawn in code, nor 'image', made by an image tool")
     if kind not in SHAPES and not scene:
         sys.exit(f"art({rel!r}): {kind!r} is no kind; art() takes {', '.join(SHAPES)} or scene")
     if not subject.strip():
         sys.exit(f"art({rel!r}): say what the picture shows, the words its prompt is made of: art({rel!r}, "
                  f"{kind!r}, {w}, {h}, {role!r}, \"a gold coin seen from the front\")")
-    ART[rel] = {"file": rel, "kind": kind, "width": w, "height": h, "origin": [ox, oy], "subject": subject}
+    ART[rel] = {"file": rel, "kind": kind, "width": w, "height": h, "origin": [ox, oy], "subject": subject,
+                "role": role, "route": route}
     picture = ROOT / "art" / rel
     if not picture.exists():
         if scene:
@@ -966,13 +999,13 @@ def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float 
         return shape(rel, kind, w, h, role, ox, oy, outline, shadow, inset)
     if w % UNIT or h % UNIT:
         sys.exit(f"art({rel!r}): {w}x{h} is not whole units of {UNIT} px; give it units(n) or TOUCH, "
-                 f"{math.ceil(w / UNIT) * UNIT}x{math.ceil(h / UNIT) * UNIT} here, then run prepare_art.py again")
+                 f"{math.ceil(w / UNIT) * UNIT}x{math.ceil(h / UNIT) * UNIT} here, then run the skill's scripts/art.py")
     data = picture.read_bytes()
     size = struct.unpack(">II", data[16:24]) if data[:8] == b"\x89PNG\r\n\x1a\n" else None
     if size != (w, h):
-        sys.exit(f"art/{rel} is {'not a PNG' if size is None else '%dx%d' % size}, and art() asks {w}x{h}: put the "
-                 f"picture in art/raw/ and run the skill's scripts/prepare_art.py, which fits it to its box, or "
-                 f"delete art/{rel} to show the stand-in")
+        sys.exit(f"art/{rel} is {'not a PNG' if size is None else '%dx%d' % size}, and art() asks {w}x{h}: run the "
+                 f"skill's scripts/art.py, which renders its drawing or fits the picture of art/raw/ to the box, "
+                 f"or delete art/{rel} to show the stand-in")
     target = ROOT / "images" / rel
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
@@ -986,17 +1019,21 @@ def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float 
 
 
 def write_wanted() -> None:
-    """Writes art/wanted.json for the skill's scripts/prepare_art.py and prints how many sprites
-    still show their stand-in."""
+    """Writes art/wanted.json for the skill's scripts/art.py, with the roles and the grid its drawings
+    take, and prints how many sprites still show their stand-in."""
     if not ART:
         return
     write_json("art/wanted.json", {"style": ART_STYLE, "flash": list(rgb(HIT_FLASH["role"])),
-                                   "pixel_art": PIXEL_ART, "images": list(ART.values())})
+                                   "flash_role": HIT_FLASH["role"], "pixel_art": PIXEL_ART, "unit": UNIT,
+                                   "line_width": SHAPE_STYLE["outline_width"], "view": [VIEW_W, VIEW_H],
+                                   "user_look": USER_LOOK, "text_size": TEXT_SIZE, "text_weight": TEXT_WEIGHT,
+                                   "palette": {role: list(c) for role, c in PALETTE.items()},
+                                   "images": list(ART.values())})
     waiting = [rel for rel in ART if not (ROOT / "art" / rel).exists()]
     if waiting:
         print(f"art: {len(waiting)} of {len(ART)} images show their stand-in ({', '.join(waiting[:3])}"
-              f"{' ...' if len(waiting) > 3 else ''}); with an image tool in this session, run the skill's "
-              f"scripts/prepare_art.py --list for their prompts")
+              f"{' ...' if len(waiting) > 3 else ''}); run the skill's scripts/art.py, which says what "
+              f"each needs")
     else:
         print(f"art: all {len(ART)} images from art/")
 
@@ -1007,7 +1044,7 @@ def write_wanted() -> None:
 # pointer_types() declares the Mouse, pointer_module() plays them. With POINTER off each adds
 # nothing, so a game calls them either way.
 POINTER = globals().get("POINTER", False)
-POINTER_STYLE = globals().get("POINTER_STYLE", {"hover": "ink", "pressed": "pressed", "seconds": 0.15})
+POINTER_STYLE = globals().get("POINTER_STYLE", {"hover": "hover", "pressed": "pressed", "seconds": 0.15})
 POINTED: dict[str, list[str]] = {}         # the hover and pressed frames drawn for an image, by its file name
 
 
@@ -1026,11 +1063,11 @@ def pointer_frames(rel: str) -> None:
     for tag, role in (("hover", POINTER_STYLE["hover"]), ("pressed", POINTER_STYLE["pressed"])):
         file = f"{base}{n:03d}.png"
         if DRAWN_AS[rel][0] == "art":
-            # the picture's silhouette in the role's colour, written by prepare_art.py
+            # the picture's silhouette in the role's colour, from the hit frame of the skill's scripts/art.py
             source = ROOT / "art" / (rel[:-len(".png")] + ".hit.png")
             if not source.exists():
-                sys.exit(f"art/{source.name} is missing: run the skill's scripts/prepare_art.py, which writes each "
-                         f"picture's silhouette beside it")
+                sys.exit(f"art/{source.name} is missing: run the skill's scripts/art.py, which writes each "
+                         f"picture's hit frame beside it")
             w, h, alpha = png_alpha(source)
             write_png(file, w, h, lambda x, y: (*rgb(role), alpha[y * w + x]), painted=True)
             FRAMES[file] = {**FRAMES[rel], "imageSpriteId": image_id(), "tag": tag}
@@ -1043,7 +1080,7 @@ def pointer_frames(rel: str) -> None:
 
 
 def png_alpha(path: Path) -> tuple[int, int, list[int]]:
-    """Width, height and the alpha of each pixel of an 8-bit RGBA or RGB PNG, as prepare_art.py writes one."""
+    """Width, height and the alpha of each pixel of an 8-bit RGBA or RGB PNG, as the skill's scripts/art.py writes one."""
     data = path.read_bytes()
     pos, idat, w, h, kind = 8, b"", 0, 0, 6
     while pos + 8 <= len(data):
@@ -1360,7 +1397,7 @@ def hit_flash(obj: str, frame: str = "hit") -> list:
             act("set-animation-frame", obj, {"frame-number": "0"})]
 
 
-SQUASHED: set[str] = set()                 # objects squash() acts on, checked in build_all()
+SQUASHED: set[str] = set()                 # objects squash() acts on; build_all() gives them their rest size
 # Behaviors whose object collides, by behaviorId; squash() stops the run on one
 COLLIDING = ("Platform", "EightDir", "Physics", "Car", "solid", "jumpthru")
 # Squash of a button under a finger, press(); a game tunes it as SQUASH["press"]
@@ -1369,9 +1406,11 @@ SQUASH_PRESS = {"width": 0.9, "height": 0.9, "hold": 0, "seconds": 0.1, "ease": 
 
 def squash(obj: str, kind: str, tween: str = "Tween", half: str = "both") -> list:
     """Actions of a squash of SQUASH ("hit", "land", "jump" or "press") on obj: stop its running
-    squash, set its size to the kind's share of its image size, hold, and tween back under the tag
+    squash, set its size to the kind's share of its rest size, hold, and tween back under the tag
     "squash". obj is the art, not the object that collides, and has the Tween behavior `tween`.
-    The tween ends at the image's size, the size shape_inst() places obj at.
+    The rest size is the size obj has when its first squash starts, kept in its instance variables
+    restWidth and restHeight, so a size set in the layout editor survives the squash.
+    A later resize that should last sets restWidth and restHeight too.
     The hold waits, so put the actions last in their block.
     half="down" gives the actions up to the hold, "back" the tween back; press() uses both halves.
 
@@ -1385,12 +1424,37 @@ def squash(obj: str, kind: str, tween: str = "Tween", half: str = "both") -> lis
     k = kinds[kind]
     SQUASHED.add(obj)
     down = [act("stop-tweens", obj, {"tags": q("squash")}, beh=tween),
-            act("set-size", obj, {"width": f"Self.ImageWidth * {k['width']:g}",
-                                  "height": f"Self.ImageHeight * {k['height']:g}"}),
+            {"type": "comment", "text": f"Squash {obj} from the size it rests at. A rest size of 0 is a first "
+                                        f"squash, so the size it has now is its rest size"},
+            *(set_ivar(obj, f"rest{side}", f"Self.rest{side} = 0 ? Self.{side} : Self.rest{side}")
+              for side in ("Width", "Height")),
+            act("set-size", obj, {"width": f"Self.restWidth * {k['width']:g}",
+                                  "height": f"Self.restHeight * {k['height']:g}"}),
             *([wait(f"{k['hold']:g}", use_timescale=False)] if k["hold"] else [])]
-    back = [tween2(obj, "squash", "size", "Self.ImageWidth", "Self.ImageHeight", f"{k['seconds']:g}", k["ease"],
+    back = [tween2(obj, "squash", "size", "Self.restWidth", "Self.restHeight", f"{k['seconds']:g}", k["ease"],
                    beh=tween)]
     return {"both": down + back, "down": down, "back": back}[half]
+
+
+def squash_types(types: dict, families: dict, layouts: dict) -> None:
+    """Gives each type or family squash() acts on the number instance variables restWidth and
+    restHeight, 0 on every instance, because an instance lists every instance variable of its type
+    and of its families."""
+    squashed = set()
+    for name in sorted(SQUASHED & (set(types) | set(families))):
+        item = types.get(name) or families[name]
+        ivars = item.setdefault("instanceVariables", [])
+        for side in ("Width", "Height"):
+            if not any(v["name"] == f"rest{side}" for v in ivars):
+                ivars.append(ivar_def(f"rest{side}", "number", f"{side} it rests at, the size squash() returns "
+                                                               f"to; 0 until its first squash keeps it."))
+        squashed |= set(families[name]["members"]) if name in families else {name}
+    for lay in layouts.values():
+        for layer_ in layers_in(lay["layers"]):
+            for inst in layer_["instances"]:
+                if inst["type"] in squashed:
+                    inst["instanceVariables"].setdefault("restWidth", 0)
+                    inst["instanceVariables"].setdefault("restHeight", 0)
 
 
 def squash_the_art(types: dict, families: dict) -> None:
@@ -1417,7 +1481,7 @@ def press(obj: str, actions: list, tween: str = "Tween") -> list:
     """The two events of a press on obj, a button()'s shape with Tween. The touch that lands on
     it marks it pressed and squashes it; the touch's end springs it back and runs `actions` only
     if the touch ends on it, so a finger that slides off cancels.
-        module("Menu", events=[*press("Restart", [restart_layout()])])"""
+        module("Menu", events=[*press("Restart", fade_to())])"""
     PRESSED.add(obj)
     return [*event(f"Press {obj} down under the finger", [on_touched(obj)],
                    [set_bool(obj, "pressed", True), *squash(obj, "press", tween, "down")]),
@@ -1459,7 +1523,9 @@ def count_up(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> 
 def counting(obj: str, value: str, tag: str = "count", tween: str = "Tween") -> list:
     """The two events that show count_up()'s count on obj: during it, the tween's value rounded
     towards `value`, so a gain of 1 shows at once; at its end, `value`, because the tween's value
-    reads 0 once the tween has ended."""
+    reads 0 once the tween has ended. Draw obj in the number kind's weight, light, whose digits share one
+    width, or align it left: check_texts() warns otherwise."""
+    COUNTED.add(obj)
     v = f"Self.{tween}.Value({q(tag)})"
     return [*event(f"Show {obj}'s count while it runs", [is_playing(obj, tag, beh=tween)],
                    [set_text(obj, f"{v} < {value} ? ceil({v}) : floor({v})")]),
@@ -1505,6 +1571,49 @@ def restart_layout() -> dict:
 
 def go_to_layout(name: str) -> dict:
     return act("go-to-layout", "System", {"layout": name})
+
+
+# A change of layout passes through a cover over the whole screen in FADE's role
+# (look-manifest.json, screen.transition): fade_to() fades the cover in, then changes the layout,
+# and each layout of the sheet opens under it and fades it away. The wait ignores the time scale,
+# so a pause menu's quit still leaves.
+FADE = {"seconds": 0.3, "ease": "easeinoutsine", "role": "ink"}
+_fades = False                             # fade_to() was called, so add_fade() adds the cover
+
+
+def fade_to(layout: str | None = None) -> list:
+    """Actions that fade the screen to FADE's role, then go to `layout`, or restart this one when it
+    is None. Use them for every change of layout, in place of go_to_layout() and restart_layout():
+    write_all() then puts the cover on a top layer of every layout the sheet runs and fades it away
+    when the layout starts.
+        event("Start the next round", [...], [set_var("beat", "beat + 1"), *fade_to()])"""
+    global _fades
+    _fades = True
+    seconds = f"{FADE['seconds']:g}"
+    return [set_visible("Fade", True), tween1("Fade", "fade-out", "offsetOpacity", "100", seconds, FADE["ease"]),
+            wait(seconds, use_timescale=False), go_to_layout(layout) if layout else restart_layout()]
+
+
+def add_fade(types: dict, layouts: dict, sheet: dict) -> None:
+    """The cover fade_to() fades in: the type Fade, a Tiled Background of FADE's role with the Tween
+    behavior, over screen_box() on a top layer of parallax 0 in each layout that runs `sheet`, opaque
+    at the start; and the group that fades it away when a layout starts and hides it after. A layout
+    with no sheet has no cover, because nothing would fade it away. Nothing without fade_to()."""
+    if not _fades:
+        return
+    write_png("fade.png", UNIT, UNIT, lambda x, y: (*rgb(FADE["role"]), 255))
+    types["Fade"] = image_type("Fade", "TiledBg", UNIT, UNIT, 0, 0, behaviors=[beh_def("Tween")])
+    for lay in layouts.values():
+        if lay["eventSheet"] == sheet["name"]:
+            lay["layers"].append(layer("Fade", parallax=0) | {"instances": [
+                tiledbg_inst("Fade", *screen_box(), 0, 0, behaviors=dict(TWEEN))]})
+    seconds = f"{FADE['seconds']:g}"
+    sheet["events"].append(module("Fade", events=[
+        *event("Fade the cover away as the layout starts", [on_start()],
+               [tween1("Fade", "fade-in", "offsetOpacity", "0", seconds, FADE["ease"])]),
+        *event("Hide the cover once it has faded away", [on_tween_finished("Fade", "fade-in")],
+               [set_visible("Fade", False)]),
+    ]))
 
 
 def set_group_active(title: str, state: str = "activated") -> dict:
@@ -1565,18 +1674,47 @@ def set_text(obj: str, text: str) -> dict:
     return act("set-text", obj, {"text": text})
 
 
+# Ease and seconds of a tween by the class of what it moves (motion.tween-style). Each class keeps
+# one kind of motion, so the player can tell what matters: the HUD fades and slides in and out, a
+# bar's fill slides, the camera moves slowly and evenly, a world object moves as the game needs, and
+# a popup or a banner, the subject of a moment, opens fast and settles. A tween helper takes
+# style=<class>; a time or an ease passed to it wins over the class's.
+# An overshoot ease (back, elastic, bounce) is for world objects and the subject of a moment, never
+# for the HUD, and the HUD never eases in; check_look.py warns of both.
+TWEEN_STYLE = {
+    "hud_in": {"ease": "easeinoutsine", "seconds": 0.5},
+    "hud_out": {"ease": "easeinoutsine", "seconds": 0.5},
+    "bar": {"ease": "easeinoutsine", "seconds": 0.25},
+    "camera": {"ease": "easeinoutsine", "seconds": 1},
+    "world": {"ease": "easeinoutsine", "seconds": 0.5},
+    "popup": {"ease": "easeoutquint", "seconds": 0.2},
+    "banner": {"ease": "easeoutquint", "seconds": 0.25},
+}
+
+
+def eased(style: str, time: str | None, ease: str | None) -> tuple[str, str]:
+    """The time and ease of a tween of class `style` in TWEEN_STYLE, unless given."""
+    if style not in TWEEN_STYLE:
+        sys.exit(f"tween style {style!r}: the classes are {', '.join(TWEEN_STYLE)}; add one to TWEEN_STYLE")
+    s = TWEEN_STYLE[style]
+    return (f"{s['seconds']:g}" if time is None else time), ease or s["ease"]
+
+
 # Tween behavior; beh is the behavior's name on the object
-def tween1(obj: str, tag: str, prop: str, end: str, time: str, ease: str = "easeinoutsine",
-           destroy: bool = False, beh: str = "Tween") -> dict:
-    """prop: offsetX, offsetY, size, offsetWidth, offsetHeight, offsetAngle, offsetOpacity, offsetScaleX, ..."""
+def tween1(obj: str, tag: str, prop: str, end: str, time: str | None = None, ease: str | None = None,
+           destroy: bool = False, beh: str = "Tween", style: str = "world") -> dict:
+    """prop: offsetX, offsetY, size, offsetWidth, offsetHeight, offsetAngle, offsetOpacity, offsetScaleX, ...
+    time in seconds and ease default to TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-one-property", obj, {
         "tags": q(tag), "property": prop, "end-value": end, "time": time, "ease": ease,
         "destroy-on-complete": "yes" if destroy else "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
 
 
-def tween2(obj: str, tag: str, prop: str, end_x: str, end_y: str, time: str, ease: str = "easeinoutsine",
-           destroy: bool = False, beh: str = "Tween") -> dict:
-    """prop: position, size or scale."""
+def tween2(obj: str, tag: str, prop: str, end_x: str, end_y: str, time: str | None = None, ease: str | None = None,
+           destroy: bool = False, beh: str = "Tween", style: str = "world") -> dict:
+    """prop: position, size or scale. time and ease default to TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-two-properties", obj, {
         "tags": q(tag), "property": prop, "end-x": end_x, "end-y": end_y, "time": time, "ease": ease,
         "destroy-on-complete": "yes" if destroy else "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
@@ -1592,14 +1730,19 @@ def bar_width(value: str, maximum: str, length: float) -> str:
     return f"clamp({value} / {maximum}, 0, 1) * {length:g}"
 
 
-def tween_width(obj: str, tag: str, width: str, time: str = "0.25", ease: str = "easeinoutsine", beh: str = "Tween") -> dict:
+def tween_width(obj: str, tag: str, width: str, time: str | None = None, ease: str | None = None, beh: str = "Tween",
+                style: str = "bar") -> dict:
     """Slides a fill to a new width instead of jumping: tween_width("HpFill", "hp", bar_width("hp", "HP_MAX", 380))."""
-    return tween1(obj, tag, "offsetWidth", width, time, ease, beh=beh)
+    return tween1(obj, tag, "offsetWidth", width, time, ease, beh=beh, style=style)
 
 
-def tween_value(obj: str, tag: str, start: str, end: str, time: str, ease: str = "easeinoutsine", beh: str = "Tween") -> dict:
+def tween_value(obj: str, tag: str, start: str, end: str, time: str | None = None, ease: str | None = None,
+                beh: str = "Tween", style: str = "world") -> dict:
     """A tween of a number, for what Tween has no property for. Read it as Obj.Tween.Value("tag")
-    while it plays; it reads 0 after it ends."""
+    while it plays; it reads 0 after it ends. A second value tween under a tag that still plays runs
+    beside the first, so stop_tweens() the tag before a restart. time and ease default to
+    TWEEN_STYLE[style]."""
+    time, ease = eased(style, time, ease)
     return act("tween-value", obj, {
         "tags": q(tag), "start-value": start, "end-value": end, "time": time, "ease": ease,
         "destroy-on-complete": "no", "loop": "no", "ping-pong": "no", "repeat-count": "1"}, beh=beh)
@@ -1619,6 +1762,40 @@ def on_any_tween_finished(obj: str, beh: str = "Tween") -> dict:
 
 def stop_tweens(obj: str, tag: str, beh: str = "Tween") -> dict:
     return act("stop-tweens", obj, {"tags": q(tag)}, beh=beh)
+
+
+# A popup's panel opens from `scale` of its size at opacity 0 while its dim fades in to `dim` %, in
+# the time and ease of TWEEN_STYLE["popup"], and closes the way it came.
+POPUP = {"scale": 0.95, "dim": 50}
+
+
+def popup(panel: dict, dim: dict, show: bool = True, tween: str = "Tween") -> list:
+    """Actions that open the popup, or close it with show=False. `panel` and `dim` are their layout
+    instances, each with the Tween behavior `tween` and placed hidden, properties["initially-visible"]
+    False before link(): the dim over screen_box() on the popup's layer, the panel with its origin at
+    its centre and its labels and buttons link()ed to it, so they follow its position, opacity and
+    visibility. popup_closed() among the module's events hides both once the close ends.
+        event("Open the pause menu", [on_touched("PauseButton")], popup(PAUSE_PANEL, PAUSE_DIM))"""
+    p, d = panel["type"], dim["type"]
+    w, h = panel["world"]["width"], panel["world"]["height"]
+    k = POPUP["scale"]
+    if show:
+        return [set_visible(d, True), act("set-opacity", d, {"opacity": "0"}),
+                tween1(d, "popup", "offsetOpacity", f"{POPUP['dim']:g}", beh=tween, style="popup"),
+                set_visible(p, True), act("set-opacity", p, {"opacity": "0"}),
+                act("set-size", p, {"width": f"{w * k:g}", "height": f"{h * k:g}"}),
+                tween2(p, "popup", "size", f"{w:g}", f"{h:g}", beh=tween, style="popup"),
+                tween1(p, "popup-in", "offsetOpacity", "100", beh=tween, style="popup")]
+    return [tween1(d, "popup", "offsetOpacity", "0", beh=tween, style="popup"),
+            tween2(p, "popup", "size", f"{w * k:g}", f"{h * k:g}", beh=tween, style="popup"),
+            tween1(p, "popup-out", "offsetOpacity", "0", beh=tween, style="popup")]
+
+
+def popup_closed(panel: dict, dim: dict, tween: str = "Tween") -> list:
+    """The event that hides the popup's panel and dim once popup(..., show=False) has faded the
+    panel out. An open during the close stops that fade, so the popup stays shown."""
+    return event(f"Hide {panel['type']} once it has closed", [on_tween_finished(panel["type"], "popup-out", beh=tween)],
+                 [set_visible(panel["type"], False), set_visible(dim["type"], False)])
 
 
 # Timer behavior
@@ -1668,7 +1845,7 @@ def ivar_def(name: str, vtype: str, desc: str = "") -> dict:
 
 def beh_def(behavior_id: str, name: str | None = None) -> dict:
     """name is what events refer to; two Sine behaviors on one object need two names."""
-    if behavior_id == "Flash" and paper_and_ink():
+    if behavior_id == "Flash" and default_look():
         sys.exit(f"{name or behavior_id}: a hit shows as a colour, not the Flash behavior's blinking; draw the "
                  f"object's hit frame with hit_frame() and show it with hit_flash(obj) in the sheet. {NOT_THE_USERS}")
     return {"behaviorId": behavior_id, "name": name or behavior_id, "sid": sid()}
@@ -1844,19 +2021,33 @@ def canvas_inst(otype: str, x: float = 0, y: float = 0, w: float | None = None, 
 def shape_inst(otype: str, rel: str, col: int, row: int, ivars=None, behaviors=None,
                collisions: bool = True) -> dict:
     """An instance of the shape images/<rel> with its top-left corner on grid cell (col, row), at
-    the image's size and the frame's origin; the shadow hangs off the cells."""
+    the image's size and the frame's origin; the shadow hangs off the cells. A triangle sits
+    centroid_lift() px higher, so the centre of its area, not of its box, is the centre of its cells."""
     f, (left, top) = drawn(rel), PADS[rel]
     x = col * UNIT - left + f["originX"] * f["width"]
-    y = row * UNIT - top + f["originY"] * f["height"]
-    return instance(otype, {"initially-visible": True, "initial-animation": "Default", "initial-frame": 0,
+    y = row * UNIT - top + f["originY"] * f["height"] - centroid_lift(rel)
+    inst = instance(otype, {"initially-visible": True, "initial-animation": "Default", "initial-frame": 0,
                             "enable-collisions": collisions, "live-preview": False},
                     world(x, y, f["width"], f["height"], f["originX"], f["originY"]), ivars, behaviors)
+    if centroid_lift(rel):
+        LIFTED[inst["uid"]] = centroid_lift(rel)
+    return inst
+
+
+LIFTED: dict[int, int] = {}                # px shape_inst() raised each triangle, by uid
+
+
+def centroid_lift(rel: str) -> int:
+    """Px shape_inst() raises a triangle that shape() drew as images/<rel>, so that its centroid, a
+    sixth of its height below its box's centre, sits on the centre of its cells; 0 for another
+    image."""
+    return round(DRAWN_AS[rel][2] / 6) if rel in DRAWN_AS and DRAWN_AS[rel][0] == "triangle" else 0
 
 
 def on_grid(instances: list, where: str) -> None:
     """Stops the run when an instance of a world layer starts off the grid: its box's left and
-    top, or its shape's past a shadow, are whole UNITs. Skips a rotated instance. Do not pass the
-    HUD, which anchor() holds to the edges."""
+    top, or its shape's past a shadow, are whole UNITs; a triangle's top may sit centroid_lift()
+    above. Skips a rotated instance. Do not pass the HUD, which anchor() holds to the edges."""
     dx, dy = shadow_offset()
     pads_x, pads_y = {0, max(0, -dx)}, {0, max(0, -dy)}
 
@@ -1868,7 +2059,7 @@ def on_grid(instances: list, where: str) -> None:
         if not w or w.get("angle"):
             continue
         left = w["x"] - w.get("originX", 0) * w["width"]
-        top = w["y"] - w.get("originY", 0) * w["height"]
+        top = w["y"] - w.get("originY", 0) * w["height"] + LIFTED.get(inst["uid"], 0)
         if not (fits(left, pads_x) and fits(top, pads_y)):
             sys.exit(f"{where}: {inst['type']} starts at ({left:g},{top:g}), off the {UNIT} px grid. Place a shape "
                      f"with shape_inst(type, image, col, row), which puts its corner on cell (col, row), and "
@@ -1942,7 +2133,7 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
                                 "initially-visible": True, "origin": "top-left", "read-aloud": False},
                         world(x, y, w, h, 0, 0, color=(*(v / 255 for v in rgb(color)), 1)), ivars, behaviors)
     return instance(otype, {"text": text, "enable-bbcode": False, "font": face(weight), "size": size,
-                            "line-height": 0, "bold": bold, "italic": False, "color": rgba(rgb(color)),
+                            "line-height": leading(size), "bold": bold, "italic": False, "color": rgba(rgb(color)),
                             "horizontal-alignment": halign, "vertical-alignment": valign, "wrapping": "word",
                             "text-direction": "ltr", "icon-set": -1, "initially-visible": True, "origin": "top-left",
                             "read-aloud": False},
@@ -1951,7 +2142,12 @@ def text_inst(otype: str, text: str, x: float, y: float, w: float, h: float, siz
 
 # A Text's size is in points, drawn at 96 px per 72 pt: 1 em is size * PX_PER_PT px
 PX_PER_PT = 4 / 3
-LINE_EMS = 1.2                             # line height in em
+# Line height in em by kind of text, 1.2 for a kind not listed: the count and a banner sit tight, body
+# text has room between its lines. text_inst() sets the Text's line-height to draw it.
+LINE_EMS = {"body": 1.28, "number": 1.08, "display": 1.08}
+# The runtime draws a Text's line 1 em + RUNTIME_LINE_PX high, and line-height adds px between lines
+# only, so a one-line label draws the same whatever its line-height (measured at 15 to 60 pt)
+RUNTIME_LINE_PX = 4
 
 
 # The advance of each printable ASCII character in em, space to tilde, measured in Inter Medium, the
@@ -1979,6 +2175,7 @@ def text_ems(text: str) -> float:
 
 
 _advances: dict[str, int] = {}
+_boxes: dict[str, tuple] = {}              # BBX of each glyph of PIXEL_FONT: width, height, x and y offset
 _sprite_fonts: list[str] = []              # the text types text_type() made Sprite Fonts
 
 
@@ -1993,22 +2190,35 @@ def advance(c: str) -> int:
     """Advance in px of `c` in PIXEL_FONT at scale 1: the font's own, SPACE_EMS * UNIT for a space
     of U+2002 to U+200A, UNIT for a character the font lacks. The font is read once."""
     if not _advances:
-        cp = None
-        with pixel_font().open(encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if line.startswith("ENCODING "):
-                    cp = int(line.split()[1])
-                elif line.startswith("DWIDTH ") and cp is not None and 0 <= cp <= 0x10FFFF:
-                    _advances[chr(cp)] = int(line.split()[1])
+        read_pixel_font()
     return _advances.get(c) or (max(1, round(SPACE_EMS[c] * UNIT)) if c in SPACE_EMS else UNIT)
+
+
+def read_pixel_font() -> None:
+    """Reads each glyph's advance and box from PIXEL_FONT into _advances and _boxes."""
+    cp = None
+    with pixel_font().open(encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if line.startswith("ENCODING "):
+                cp = int(line.split()[1])
+            elif cp is None or not 0 <= cp <= 0x10FFFF:
+                continue
+            elif line.startswith("DWIDTH "):
+                _advances[chr(cp)] = int(line.split()[1])
+            elif line.startswith("BBX "):
+                _boxes[chr(cp)] = tuple(map(int, line.split()[1:5]))
 
 
 def text_px(text: str, size: float) -> float:
     """Width in px of one line of `text` at `size`: a Sprite Font's advances at its scale in pixel
-    art with PIXEL_FONT, else text_ems() of a Text."""
+    art with PIXEL_FONT, else text_ems() of a Text, its digits at the number kind's size as wide as
+    its font's when they share one width."""
     if pixel_font():
         return sum(map(advance, text)) * size / UNIT
-    return text_ems(text) * size * PX_PER_PT
+    ems = text_ems(text)
+    if kind_of(size) == "number" and (digit := tabular_ems(face_of("number"))):
+        ems += sum(digit - LATIN_EMS[c] for c in text if c in "0123456789")
+    return ems * size * PX_PER_PT
 
 
 def em_px(size: float) -> float:
@@ -2016,9 +2226,49 @@ def em_px(size: float) -> float:
     return size if pixel_font() else size * PX_PER_PT
 
 
+def kind_of(size: float) -> str | None:
+    """The kind of text whose TEXT_SIZE is `size`, the first such kind when two share it."""
+    return next((k for k, v in TEXT_SIZE.items() if v == size), None)
+
+
+def line_ems(size: float) -> float:
+    """LINE_EMS of the kind of text at `size`."""
+    return LINE_EMS.get(kind_of(size), 1.2)
+
+
 def line_px(size: float) -> float:
-    """Height in px of one line at `size`: a Sprite Font's cell, size px; a Text's LINE_EMS em."""
-    return size if pixel_font() else size * PX_PER_PT * LINE_EMS
+    """Height in px of one line at `size`: a Sprite Font's cell, size px; a Text's line_ems() em."""
+    return size if pixel_font() else size * PX_PER_PT * line_ems(size)
+
+
+def leading(size: float) -> float:
+    """A Text's line-height at `size`: the px that make its lines line_px() apart, where the runtime
+    draws them 1 em + RUNTIME_LINE_PX apart."""
+    return round(line_px(size) - em_px(size) - RUNTIME_LINE_PX, 2)
+
+
+# Share of the em by which capitals, digits and Chinese sit above the centre of a Text's em box, by
+# face. A face not listed takes system-ui's.
+OPTICAL_EMS = {"system-ui": 0.11}
+
+
+def optical_drop(text: str, size: float, weight: str = "regular") -> int:
+    """Px a one-line label of `text` at `size` in FONT's `weight` moves down to look centred on
+    its shape. Center centres the em box, where capitals, digits and Chinese sit high, so a text of
+    none of these returns 0. In pixel art with PIXEL_FONT, whole font pixels times the scale: the
+    cell's centre less the centre of "H" as bake_font.py bakes it. Shrink the box of a label on a
+    shape from the top by twice this, so it stays inside. Move a label beside a shape down by this
+    and keep its box one line high, because a line taller than its box draws from the box's top."""
+    if not any(c.isascii() and (c.isupper() or c.isdigit()) or unicodedata.east_asian_width(c) in ("W", "F")
+               and unicodedata.category(c).startswith("L") for c in text):
+        return 0
+    if pixel_font():
+        if not _boxes:
+            read_pixel_font()
+        descent = max(0, -min(_boxes[c][3] for c in map(chr, range(32, 127)) if c in _boxes))
+        _, gh, _, gy = _boxes["H"]
+        return round(UNIT / 2 - (UNIT - descent - gy - gh) - gh / 2) * round(size / UNIT)
+    return round(OPTICAL_EMS.get(face(weight), OPTICAL_EMS["system-ui"]) * em_px(size))
 
 
 def text_size(kind: str) -> float:
@@ -2043,6 +2293,126 @@ def face_of(kind: str) -> str:
     return face(TEXT_WEIGHT.get(kind, "regular"))
 
 
+LONGEST: dict[str, str] = {}               # the widest text of each Text type
+
+
+def longest_text(otype: str, longest: str | None, size: float) -> None:
+    """Records `longest` as the widest text of the Text type `otype`, the widest of its instances."""
+    if longest and text_px(longest, size) >= text_px(LONGEST.get(otype, ""), size):
+        LONGEST[otype] = longest
+
+
+def text_actions(node) -> list[dict]:
+    """Every action of `node`, a sheet or part of one, that sets a text: Set text, Append text and
+    Typewriter text."""
+    if isinstance(node, list):
+        return [a for value in node for a in text_actions(value)]
+    if not isinstance(node, dict):
+        return []
+    own = [node] if node.get("id") in ("set-text", "append-text", "typewriter-text") else []
+    return own + [a for value in node.values() for a in text_actions(value)]
+
+
+def write_texts(sheet: dict, types: dict) -> None:
+    """Writes tools/texts.json, which review_look.py shows as the worst data. Warns of a Text the events set
+    that has no `longest`: review_look.py then guesses its worst text."""
+    set_by = {a.get("objectClass") for a in text_actions(sheet)}
+    open_ = sorted(n for n in set_by if n in types and types[n].get("plugin-id") in FONT_PLUGINS and n not in LONGEST)
+    if open_:
+        print(f"warning: the events set the text of {', '.join(open_)}, and no helper says how long it gets: "
+              f"pass longest=, the widest text it shows at runtime (\"Score: 999999\", the longest card name), to "
+              f"the hud_text(), hud_stat(), hud_tag(), band_text() or button() that places it, so its box holds "
+              f"that text")
+    write_json("tools/texts.json", {"longest": dict(sorted(LONGEST.items()))})
+
+
+# The characters a device draws as emoji (Unicode's Emoji_Presentation, and U+FE0F, which asks for
+# the emoji form of the one before it): each system draws its own picture, unlike ART_STYLE, and a
+# Sprite Font draws nothing (look-manifest.json, text.no-emoji)
+EMOJI = re.compile("[⌚⌛⏩-⏬⏰⏳◽◾☔☕♈-♓♿⚓⚡"
+                   "⚪⚫⚽⚾⛄⛅⛎⛔⛪⛲⛳⛵⛺⛽✅"
+                   "✊✋✨❌❎❓-❕❗➕-➗➰➿⬛⬜⭐"
+                   "⭕️\U0001f000-\U0001faff]")
+COUNTED: set[str] = set()                  # the Text types counting() counts
+
+
+def font_tables(data: bytes) -> dict[str, bytes]:
+    """The tables of a WOFF, TTF or OTF file by tag, a WOFF's inflated."""
+    if data[:4] == b"wOFF":
+        entries = [struct.unpack_from(">4sIII", data, 44 + 20 * i) for i in range(struct.unpack_from(">H", data, 12)[0])]
+        return {tag.decode(): (zlib.decompress(data[at:at + size]) if size < full else data[at:at + size])
+                for tag, at, size, full in entries}
+    entries = [struct.unpack_from(">4s4xII", data, 12 + 16 * i) for i in range(struct.unpack_from(">H", data, 4)[0])]
+    return {tag.decode(): data[at:at + size] for tag, at, size in entries}
+
+
+def digit_ems(path: Path) -> list[float] | None:
+    """The advances of the digits 0 to 9 in the font file in em, through the format 4 cmap of Windows
+    Unicode; None for a file this cannot read."""
+    try:
+        t = font_tables(path.read_bytes())
+        cmap = t["cmap"]
+        at = next(off for i in range(struct.unpack_from(">H", cmap, 2)[0])
+                  for pid, eid, off in [struct.unpack_from(">HHI", cmap, 4 + 8 * i)]
+                  if (pid, eid) in ((3, 1), (0, 3)) and struct.unpack_from(">H", cmap, off)[0] == 4)
+        segs = struct.unpack_from(">H", cmap, at + 6)[0] // 2
+        ends, starts, deltas, ranges = (struct.unpack_from(f">{segs}H", cmap, at + 14 + k * 2 * segs + (2 if k else 0))
+                                        for k in range(4))
+        glyphs = []
+        for c in range(0x30, 0x3a):
+            i = next(i for i in range(segs) if ends[i] >= c)
+            if starts[i] > c:
+                glyphs.append(0)
+            elif ranges[i]:
+                g = struct.unpack_from(">H", cmap, at + 16 + 6 * segs + 2 * i + ranges[i] + 2 * (c - starts[i]))[0]
+                glyphs.append((g + deltas[i]) % 65536 if g else 0)
+            else:
+                glyphs.append((c + deltas[i]) % 65536)
+        metrics, per_em = struct.unpack_from(">H", t["hhea"], 34)[0], struct.unpack_from(">H", t["head"], 18)[0]
+        return [struct.unpack_from(">H", t["hmtx"], 4 * min(g, metrics - 1))[0] / per_em for g in glyphs]
+    # A font file is outside data: a stand-in or another format reads as unknown digits
+    except (KeyError, StopIteration, struct.error, zlib.error):
+        return None
+
+
+_tabular: dict[str, float | None] = {}
+
+
+def tabular_ems(face_name: str) -> float | None:
+    """The width in em that every digit of the font `face_name` shares, read once from its file; None
+    when its digits differ in width or no file is read."""
+    if face_name not in _tabular:
+        path = font_file(face_name)
+        ems = digit_ems(path) if path else None
+        _tabular[face_name] = ems[0] if ems and len(set(ems)) == 1 else None
+    return _tabular[face_name]
+
+
+def check_texts(sheet: dict, layouts: dict) -> None:
+    """Stops the run on an emoji in a layout's Text or in a text the events set, naming each; warns of
+    a Text that counting() counts in a font whose digits differ in width, Inter's own, and that is not
+    left-aligned, whose other digits shift as one changes (type.counting-digits)."""
+    found = [f"layout {name}: {inst['type']} {inst['properties']['text']!r}" for name, lay in layouts.items()
+             for layer_ in layers_in(lay["layers"]) for inst in layer_["instances"]
+             if EMOJI.search(str(inst.get("properties", {}).get("text", "")))]
+    found += [f"the events: {a['objectClass']} {a['parameters'].get('text', '')!r}" for a in text_actions(sheet)
+              if EMOJI.search(str(a.get("parameters", {}).get("text", "")))]
+    if found:
+        sys.exit("an emoji draws as each device's own picture and not at all in a Sprite Font; draw the icon as "
+                 "art in its own box beside the text, art() or shape() in build_images(), and take the emoji out "
+                 "of:\n  " + "\n  ".join(found))
+    shifting = sorted({inst["type"] for lay in layouts.values() for layer_ in layers_in(lay["layers"])
+                       for inst in layer_["instances"] if inst["type"] in COUNTED
+                       and inst.get("properties", {}).get("horizontal-alignment", "left") != "left"
+                       and tabular_ems(inst["properties"].get("font", "")) is None})
+    if shifting:
+        light = FONT if isinstance(FONT, str) else FONT.get("light", "")
+        print(f"warning: counting() counts {', '.join(shifting)}, which {'is' if len(shifting) == 1 else 'are'} not "
+              f"left-aligned, in a font whose digits differ in width, so its other digits shift on every step of "
+              f"the count; draw it in the number kind's weight, light, whose {light}.woff has digits of one width "
+              f"in the font cache, or align it left")
+
+
 def hud_text(otype: str, text: str, where: str, size: float | None = None, longest: str | None = None,
              bold: bool = False, color: str = "ink", on: str = "canvas_alt", dx: float = 0, dy: float = 0,
              ivars=None, behaviors=None, weight: str = "regular") -> dict:
@@ -2052,6 +2422,7 @@ def hud_text(otype: str, text: str, where: str, size: float | None = None, longe
     leftwards. Size TEXT_SIZE["body"], or text_size("display") for a banner; color, on and weight
     as for text_inst()."""
     size = size or TEXT_SIZE["body"]
+    longest_text(otype, longest, size)
     w, h = label_box(longest or text, size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
@@ -2098,7 +2469,7 @@ def area(otype: str, col: int, row: int, cols: int, rows: int, ivars=None, behav
     for backdrop() only. With USER_LOOK set, `otype` is any Tiled Background
     type, such as an image_type(name, "TiledBg", w, h, 0, 0) of a tile in the user's look."""
     kind = PATTERN_OF.get(otype)
-    if not paper_and_ink():
+    if not default_look():
         LAID_AS.setdefault(otype, "area")
     elif not kind:
         sys.exit(f"area({otype!r}): not a pattern; draw it with pattern({otype!r}, kind) in build_images() and give "
@@ -2121,7 +2492,7 @@ def backdrop(otype: str, width: int | None = None, height: int | None = None) ->
     viewport (`width` x `height`) it is the floor that scrolls: it lies on a layer at parallax 1 and
     reaches SCREEN_PAD past the layout, so no screen shows its edge. With USER_LOOK set, `otype` is
     any Tiled Background type of the user's look."""
-    if not paper_and_ink():
+    if not default_look():
         if PATTERN_OF.get(otype) not in BACKDROPS:
             LAID_AS[otype] = "backdrop"
     elif PATTERN_OF.get(otype) not in BACKDROPS:
@@ -2235,11 +2606,13 @@ def label_size(text: str, w: float, h: float) -> float:
     return TEXT_SIZE["title"] if tw <= w and th <= h else TEXT_SIZE["body"]
 
 
-def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size: float | None = None,
+def button(otype: str, rel: str, label: str, text: str, col: int | str, row: int, size: float | None = None,
            longest: str | None = None, color: str | None = None, ivars=None, behaviors=None, label_ivars=None,
            label_behaviors=None) -> tuple[dict, dict]:
-    """A button: the shape images/<rel> on cell (col, row), and the Text type `label` showing
-    `text` centred on it. The label's size is `size` or label_size()'s, and its role reads on the
+    """A button: the shape images/<rel> on cell (col, row), or with col "center" on the cell nearest
+    the vertical centre line, as a title, menu or pause screen sets its buttons (look-manifest.json,
+    screen.menu-axis); and the Text type `label` showing
+    `text` centred on it by its ink (optical_drop() lowers it). The label's size is `size` or label_size()'s, and its role reads on the
     fill unless `color` names one. The label is the shape's child, size included, so press()
     squashes both. `longest` is the widest text it shows; a shape smaller than its button_size()
     stops the run. Returns (shape, label): put both on one layer in that order, so the label draws
@@ -2248,16 +2621,23 @@ def button(otype: str, rel: str, label: str, text: str, col: int, row: int, size
         sys.exit(f"button({otype!r}): draw images/{rel} first, shape({rel!r}, \"rect\", *button_size({text!r}), "
                  f"role), in build_images()")
     w, h = DRAWN_AS[rel][1:3]
+    if col == "center":
+        col = round((VIEW_W - w) / 2 / UNIT)
+    elif isinstance(col, str):
+        sys.exit(f"button({otype!r}): col {col!r}; a cell number or \"center\"")
     size = size or label_size(longest or text, w, h)
+    longest_text(label, longest, size)
     need = button_size(longest or text, size)
     if w < need[0] or h < need[1]:
         sys.exit(f"button({otype!r}): the label {longest or text!r} needs a shape of {need[0]}x{need[1]} px and "
                  f"images/{rel} is {w}x{h}; draw it at button_size({longest or text!r}), or shorten the text")
     shape_ = shape_inst(otype, rel, col, row, ivars=ivars, behaviors=behaviors)
     on = FILLS.get(rel, "canvas_alt")
-    text_ = text_inst(label, text, units(col), units(row), w, h, size, "center",
+    weight = TEXT_WEIGHT.get("key", "medium")
+    drop = optical_drop((longest or "") + text, size, weight)
+    text_ = text_inst(label, text, units(col), units(row) + 2 * drop, w, h - 2 * drop, size, "center",
                       color=color or text_on(on, size), on=on, ivars=label_ivars, behaviors=label_behaviors,
-                      weight=TEXT_WEIGHT.get("key", "medium"))
+                      weight=weight)
     link(shape_, text_, size=True)
     return shape_, text_
 
@@ -2266,14 +2646,16 @@ def labelled_bar(label: str, text: str, frame_name: str, fill_name: str, where: 
                  height: float = 0, inset: float = 2, caps: bool = False, dx: float = 0, dy: float = 0,
                  color: str = "ink", on: str = "canvas_alt") -> tuple[dict, dict, dict]:
     """A bar with its name in front, held to the edge `where` as one box: the Text `label` showing
-    `text`, a unit of space, then hud_bar()'s frame and fill. Returns (label, frame, fill); set the
-    fill as for hud_bar()."""
+    `text`, a unit of space, then hud_bar()'s frame and fill, the name centred on the bar by its
+    ink (optical_drop() lowers it). Returns (label, frame, fill); set the fill as for hud_bar()."""
     height = height or units(1)
     lw, lh = label_box(text)
     box_h = max(lh, height)
     x, y = anchor(where, lw + UNIT + length, box_h, 0, 0, dx, dy)
-    name = text_inst(label, text, x, y, lw, box_h, halign="left", color=color, on=on,
-                     behaviors=anchored(where), weight=TEXT_WEIGHT.get("key", "medium"))
+    weight = TEXT_WEIGHT.get("key", "medium")
+    drop = optical_drop(text, TEXT_SIZE["body"], weight)
+    name = text_inst(label, text, x, y + drop, lw, box_h, halign="left", color=color, on=on,
+                     behaviors=anchored(where), weight=weight)
     return (name, *bar_at(frame_name, fill_name, x + lw + UNIT + length / 2, y + box_h / 2, length, height, inset, caps,
                           anchored(where)))
 
@@ -2307,7 +2689,7 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
     """A label in the band `band` of bands(), at its `align` side, sized as hud_text() sizes it.
     The title band takes TEXT_SIZE["title"] and the stage band text_size("display"), or the body
     size when the text is too wide; status and hint take the body size. The stage band centres it
-    vertically. A text the band cannot hold stops the run. anchored() holds title and status
+    vertically by its ink (optical_drop() lowers it). A text the band cannot hold stops the run. anchored() holds title and status
     labels to the top, hint labels to the bottom, and a left or right label to its side."""
     box = bands(screen, title).get(band)
     if box is None:
@@ -2318,18 +2700,20 @@ def band_text(otype: str, text: str, band: str, align: str = "center", longest: 
     size = {"title": TEXT_SIZE["title"], "stage": text_size("display")}.get(band, TEXT_SIZE["body"])
     if label_box(longest or text, size)[0] > bw:
         size = TEXT_SIZE["body"]
+    longest_text(otype, longest, size)
     w, h = label_box(longest or text, size)
     if w > bw:
         chars = int(bw / em_px(size))
         sys.exit(f"band_text({otype!r}): {longest or text!r} is {w} px wide and the {band} band {bw}; it holds about "
                  f"{chars} Chinese characters or {int(chars / 0.6)} letters, so shorten it")
     x = {"left": x0, "center": x0 + (bw - w) // 2, "right": x0 + bw - w}[align]
-    y = y0 + (bh - h) // 2 if band == "stage" else y0
+    weight = TEXT_WEIGHT.get("title", "medium") if band in ("title", "stage") else "regular"
+    drop = optical_drop((longest or "") + text, size, weight) if band == "stage" else 0
+    y = y0 + (bh - h) // 2 + drop if band == "stage" else y0
     edge = {"title": "top", "status": "top", "hint": "bottom"}.get(band)
     where = "-".join(side for side in (edge, None if align == "center" else align) if side) or "center"
     return text_inst(otype, text, x, y, w, h, size, align, color=color, on=on, ivars=ivars,
-                     behaviors={**anchored(where), **(behaviors or {})},
-                     weight=TEXT_WEIGHT.get("title", "medium") if band in ("title", "stage") else "regular")
+                     behaviors={**anchored(where), **(behaviors or {})}, weight=weight)
 
 
 def fit(w: float, h: float, screen: str = "stage", share: float = STAGE_SHARE, title: bool = True) -> tuple[int, int]:
@@ -2363,14 +2747,17 @@ SLIDER_REACH = math.ceil(TOUCH / 2 / UNIT) * UNIT   # px the knob's hit box reac
 
 def control_label(otype: str, text: str, col: int, row: int, cols: int | None, on: str) -> tuple[dict | None, int]:
     """The label of a control's row at cell (col, row): `cols` units wide or as wide as `text`,
-    TOUCH high. Returns (label, or None without text; x in px where the control starts)."""
+    TOUCH high, centred on the control by its ink (optical_drop() lowers it). Returns (label, or None without
+    text; x in px where the control starts)."""
     x = units(col)
     if not text:
         return None, x
     w = units(cols) if cols else label_box(text)[0]
     if label_box(text)[0] > w:
         sys.exit(f"{otype}: {text!r} needs {label_box(text)[0] // UNIT} units and label_cols is {cols}; widen it")
-    return text_inst(otype, text, x, units(row), w, TOUCH, color=text_on(on), on=on), x + w + UNIT
+    drop = optical_drop(text, TEXT_SIZE["body"])
+    return (text_inst(otype, text, x, units(row) + 2 * drop, w, TOUCH - 2 * drop, color=text_on(on), on=on),
+            x + w + UNIT)
 
 
 def control_frame(rel: str, w: int, h: int, pixel, tag: str = "") -> dict:
@@ -2452,6 +2839,7 @@ def slider(name: str, col: int, row: int, length: int, lo: float = 0, hi: float 
                        behaviors={"DragDrop": {"properties": {"axes": "horizontal-only", "enabled": True}}})
     parts = [track, fill, knob, *([label] if label else [])]
     widest = max((f"{v:g}" for v in (lo, hi, lo + step)), key=text_ems)
+    longest_text(SLIDER["value"], widest, TEXT_SIZE["body"])
     vw, vh = label_box(widest)[0], line_height()
     shown = None
     if value_at == "end":
@@ -2638,25 +3026,14 @@ def text_input_events(sets: dict | None = None) -> list:
 
 
 # --- tags, headers and keys -----------------------------------------------------------------------
-# The paper-and-ink HUD: what the player is on, a round, a level or a mode, as a small tracked tag
-# top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
+# The default-look HUD: what the player is on, a round, a level or a mode, as a small tag in
+# capitals top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
 # left as keys, a short name in a thin ink box with its verb beside it, which dim once used
-# (hints()). The screen the player plays on shows no game name; a menu or a result screen sets it
-# with hud_header(). Gaps scale by REF, the viewport's shorter side over 720.
-TRACK = "\u2005"                           # a quarter em: the space between the letters of a tracked tag
+# (hints()). The screen the player plays on shows no game name; a title, menu or pause screen sets
+# its title on the vertical centre line with hud_header() and its buttons with button(..., "center",
+# row), and a result screen states the moment with result_headline(). Gaps scale by REF, the
+# viewport's shorter side over 720.
 HINT_OPACITY = 35                          # % the row of keys keeps once the player has used the controls
-
-
-def tracked(text: str) -> str:
-    """`text` in capitals with TRACK between its characters, the way a Latin tag is set: the Text
-    object has no letter spacing. tracked("Round · 01") spaces out ROUND · 01."""
-    return TRACK.join(text.upper())
-
-
-def tracked_expr(expr: str) -> str:
-    """An expression for a tag the events change: the text `expr` gives at runtime, in capitals with
-    TRACK between its characters. set_text("RoundTag", tracked_expr('"Round " & zeropad(beat + 1, 2)'))."""
-    return f'RegexReplace(uppercase({expr}), "(.)(?=.)", "g", "$1{TRACK}")'
 
 
 def text_width(text: str, size: float) -> int:
@@ -2667,39 +3044,62 @@ def text_width(text: str, size: float) -> int:
 def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None = None, on: str = "canvas_alt",
             dx: float = 0, dy: float = 0) -> dict:
     """What the player is on, a round, a level or a mode, held to an edge or corner by anchor(): one
-    Text in text_size("tag"), dim, in tracked() capitals, as wide as `longest`, the widest text shown
-    at runtime, which the events set with tracked_expr(). One group of spaced() on its own:
-        HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")], ...]"""
+    Text in text_size("tag"), dim, in capitals, as wide as `longest`, the widest text shown at
+    runtime, which the events set in capitals too. One group of spaced() on its own:
+        HUD = [[hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")], ...]"""
     size = text_size("tag")
-    w, h = text_width(tracked(longest or text), size), line_height(size)
+    longest_text(otype, longest and longest.upper(), size)
+    w, h = text_width((longest or text).upper(), size), line_height(size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
-    return text_inst(otype, tracked(text), x, y, w, h, size, halign, color="dim", on=on, behaviors=anchored(where),
+    return text_inst(otype, text.upper(), x, y, w, h, size, halign, color="dim", on=on, behaviors=anchored(where),
                      weight=TEXT_WEIGHT.get("tag", "regular"))
 
 
-def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", where: str = "top-left",
-               longest_tag: str | None = None, on: str = "canvas_alt", dx: float = 0, dy: float = 0) -> list[dict]:
-    """A screen's title, for a menu or a result screen that names the game or the moment, held to an
-    edge or corner by anchor() as one group. The title is in text_size("title") and its weight, in
-    ink. The tag follows it, 0.6 em of the title away, in text_size("tag"), dim and tracked(), on the
-    title's baseline. The screen the player plays on shows no title, only hud_tag(). Returns
-    [title, tag], or [title] without a tag, one group of spaced():
-        hud_header("ResultTitle", "ResultTag", "Round clear", "Round · 03")"""
+def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", longest_tag: str | None = None,
+               on: str = "canvas_alt", dy: float = 0) -> list[dict]:
+    """The title of a title, menu or pause screen, the game's name or the menu's, centred on the
+    vertical centre line and held to the top edge by anchor("top") as one group (look-manifest.json,
+    screen.menu-axis). The title is in text_size("title") and its weight, in ink. The tag goes GAP_IN
+    under it, centred, in text_size("tag"), dim, in capitals, as wide as `longest_tag`. dy moves the
+    group down in whole units. The screen the player plays on shows no title, only hud_tag(), and a
+    result screen takes result_headline(). Returns [title, tag], or [title] without a tag, one group
+    of spaced():
+        hud_header("MenuTitle", "MenuTag", "Coins", "Round 3")"""
     big, small = text_size("title"), text_size("tag")
-    tw, h = text_width(title, big), line_height(big)
-    gap = round(0.6 * em_px(big)) if tag else 0
-    gw = text_width(tracked(longest_tag or tag), small) if tag else 0
-    x, y = anchor(where, tw + gap + gw, h, 0, 0, dx, dy)
-    title_ = text_inst(title_type, title, x, y, tw, h, big, "left", color="ink", on=on, behaviors=anchored(where),
-                       weight=TEXT_WEIGHT.get("title", "medium"), valign="bottom")
+    tw, th = text_width(title, big), line_height(big)
+    gw, gh = (text_width((longest_tag or tag).upper(), small), line_height(small)) if tag else (0, 0)
+    w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
+    x, y = anchor("top", w, h, 0, 0, 0, dy)
+    title_ = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
+                       behaviors=anchored("top"), weight=TEXT_WEIGHT.get("title", "medium"))
     if not tag:
         return [title_]
-    # Bottom-aligned, a line keeps its descent under the baseline, about a quarter em of its size
-    lift = round(0.24 * (em_px(big) - em_px(small)))
-    tag_ = text_inst(tag_type, tracked(tag), x + tw + gap, y - lift, gw, h, small, "left", color="dim", on=on,
-                     behaviors=anchored(where), weight=TEXT_WEIGHT.get("tag", "regular"), valign="bottom")
-    return [title_, tag_]
+    return [title_, text_inst(tag_type, tag.upper(), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+                              color="dim", on=on, behaviors=anchored("top"), weight=TEXT_WEIGHT.get("tag", "regular"))]
+
+
+def result_headline(title_type: str, tag_type: str, title: str, tag: str = "", longest: str | None = None,
+                    on: str = "canvas_alt", dy: float = 0) -> list[dict]:
+    """A result screen's headline, the moment in one line, centred on the screen as one group: the
+    headline in text_size("display") and the title weight, in ink, as wide as `longest`, the widest
+    text the events set (look-manifest.json, screen.result-headline). The tag goes GAP_IN under it,
+    centred, in text_size("tag"), dim, in capitals. dy moves the group in whole units, up from a
+    row of buttons under it. Returns [headline, tag], or [headline] without a tag, one group of
+    spaced():
+        result_headline("ResultTitle", "ResultTag", "Round clear", "Round 3", longest="Game over")"""
+    big, small = text_size("display"), text_size("tag")
+    longest_text(title_type, longest, big)
+    tw, th = text_width(longest or title, big), line_height(big)
+    gw, gh = (text_width(tag.upper(), small), line_height(small)) if tag else (0, 0)
+    w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
+    x, y = anchor("center", w, h, 0, 0, 0, dy)
+    headline = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
+                         weight=TEXT_WEIGHT.get("display", "medium"))
+    if not tag:
+        return [headline]
+    return [headline, text_inst(tag_type, tag.upper(), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+                                color="dim", on=on, weight=TEXT_WEIGHT.get("tag", "regular"))]
 
 
 def hud_keys(box_type: str, key_type: str, verb_type: str, keys: list, where: str = "bottom-left",
@@ -2743,7 +3143,7 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
         events += event("Dim the keys on the player's first input",
                         [trigger, cond("compare-boolean-eventvar", "System", {"variable": "used"}, inverted=True)],
                         [set_bool_var("used", True),
-                         tween1(box_type, "hint", "offsetOpacity", str(HINT_OPACITY), "0.5", beh=tween)])
+                         tween1(box_type, "hint", "offsetOpacity", str(HINT_OPACITY), beh=tween, style="hud_out")])
     return module("Hints", events, variables=[var("used", "boolean", "false",
                                                   "The player has used the controls; kept across a restart",
                                                   static=True)])
@@ -2756,7 +3156,7 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
 GAP_IN = max(1, UNIT // 4)                 # px between the parts of a group
 GAP_OUT = UNIT                             # px at least between the HUD and the playfield
 GROUP_RATIO = 1.5                          # least ratio of the gap between groups to the gap inside one
-OPTICAL_LIFT = 0.05                        # share of the area's height the playfield sits above centre
+OPTICAL_LIFT = 0                           # share of the area's height the playfield sits above its middle
 PLAYFIELD_MIN = 0.15                       # least share of the screen the playfield covers
 # Most items of the HUD one ninth of the screen holds, off its middle, while two corners stand empty.
 # An item is a group, or a part a label joins to another with " · " or " | ".
@@ -2772,6 +3172,7 @@ def hud_stat(name_type: str, value_type: str, name: str, where: str, value: str 
     `ivars` and `behaviors` go on the value. Returns [name, value], one group for spaced():
         HUD = [hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"), ...]"""
     small, large = text_size("name"), text_size("number")
+    longest_text(value_type, longest, large)
     nw, vw = label_box(name, small)[0], label_box(longest or value, large)[0]
     nh, vh = line_height(small), line_height(large)
     gw = max(nw, vw)
@@ -2845,7 +3246,7 @@ NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left"
 
 def items(group: list) -> int:
     """How many things a group of the HUD tells: one, and one more for each part a label joins to
-    another with " · " or " | " that holds a word, so "Round · 03" is one and "Wave 3 · 12 left" two.
+    another with " · " or " | " that holds a word, so "Round 3 / 6" is one and "Wave 3 · 12 left" two.
     A group whose labels hold no word, a count beside its icon, tells nothing, and neither does a bar
     across two thirds of the screen."""
     parts = [sum(1 for part in JOINED.split(str(i["properties"]["text"])) if re.search(r"[^\W\d_]", part))
@@ -2951,6 +3352,35 @@ def filled(content: list, where: str = "layout Game") -> None:
         print(f"warning: {where}: {names} covers {covers:.0%} of the {VIEW_W}x{VIEW_H} screen, under "
               f"PLAYFIELD_MIN {PLAYFIELD_MIN:.0%}. Make it larger, bigger cells or more of them, or fit(w, h) "
               f"for its size on the stage")
+
+
+# A layout or layer whose name says it is a title, menu or pause screen
+MENU_SCREEN = re.compile(r"title|menu|pause", re.I)
+
+
+def on_axis(layouts: dict) -> None:
+    """Warns of each instance of a title, menu or pause screen, a layout or a layer whose name
+    MENU_SCREEN matches, centred more than half a unit off the vertical centre line: such a screen
+    sets its texts and buttons on it (look-manifest.json, screen.menu-axis). A backdrop or a dim that
+    covers 80% of the viewport both ways is left out. A settings screen, rows of a name beside its
+    control, is no such screen. A warning, not a stop: a back button in a corner may sit off the line
+    on purpose."""
+    for name, lay in layouts.items():
+        off = []
+        for layer_ in layers_in(lay["layers"]):
+            if not MENU_SCREEN.search(name) and not MENU_SCREEN.search(layer_["name"]):
+                continue
+            for inst in layer_["instances"]:
+                b = box_of(inst)
+                if not b or b[2] - b[0] >= 0.8 * VIEW_W and b[3] - b[1] >= 0.8 * VIEW_H:
+                    continue
+                if abs((b[0] + b[2]) / 2 - VIEW_W / 2) > UNIT / 2:
+                    off.append(f"{inst['type']} at x {(b[0] + b[2]) / 2:g}")
+        if off:
+            print(f"warning: layout {name}: a title, menu or pause screen sets its texts and buttons on the vertical "
+                  f"centre line, x {VIEW_W / 2:g}, and {', '.join(dict.fromkeys(off))} sits off it; place a title with "
+                  f"hud_header(), a button with button(..., \"center\", row), anything else with anchor(\"top\") or "
+                  f"anchor(\"center\"), or keep it there if it is meant")
 
 
 # --- the order of each layer and the HUD's behavior --------------------------------------------
@@ -3241,7 +3671,8 @@ def build_all() -> None:
                      f"game project and run the copy there")
         sys.exit(
             f"{c3proj} not found: create the project in the editor and save it as a folder first")
-    edited = [] if "--replace-edited" in sys.argv[1:] else edited_since_last_run()
+    last = last_run()
+    edited = [] if "--replace-edited" in sys.argv[1:] else edited_since(last)
     if edited:
         script = Path(__file__).relative_to(ROOT).as_posix()
         sys.exit(f"nothing was written: these files changed since the last run wrote them, in the editor or by "
@@ -3256,6 +3687,7 @@ def build_all() -> None:
         complete = True
     finally:
         record_written(complete)
+    remove_unwritten(last)
 
 
 def write_all(c3proj: Path) -> None:
@@ -3276,13 +3708,18 @@ def write_all(c3proj: Path) -> None:
                   f"Fusion Pixel Font's 8px proportional BDF release there: "
                   f"https://github.com/TakWolf/fusion-pixel-font/releases")
     layouts = build_layouts()
+    on_axis(layouts)
     anchor_types(types, layouts)
     for lay in layouts.values():
         for layer_ in layers_in(lay["layers"]):
             layer_["instances"] = z_order(layer_["instances"])
-    # Sheet first: press() records its types, and press_types() gives them their variable
+    # Sheet first: press() and squash() record their types, which then get their variables
     sheet = build_event_sheet()
+    add_fade(types, layouts, sheet)
+    check_texts(sheet, layouts)
+    write_texts(sheet, types)
     press_types(types, layouts)
+    squash_types(types, families, layouts)
     for name, t in types.items():
         write_json(f"objectTypes/{name}.json", t)
     for name, f in families.items():
@@ -3340,7 +3777,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-29, stamp 36d5a47e5cdb ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 269d9df8d4a3 ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3369,7 +3806,7 @@ PITCH = TOUCH + UNIT
 BOARD_W, BOARD_H = COLS * PITCH - UNIT, ROWS * PITCH - UNIT
 # HUD groups, built first so the board can be centred in the room they leave: the round as a tag
 # top left, the score top right, the controls bottom left, which dim once used (hints())
-HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")],
+HUD = [[hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")],
        hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"),
        hud_keys("KeyBox", "KeyText", "KeyVerb", [("Tap", "collect")])]
 PLAY_AREA = play_area(flat(HUD))
@@ -3466,9 +3903,8 @@ def module_setup() -> dict:
         # Restart layout keeps static variables, so the round's values are reset here, before any text shows them
         event("Empty the score and deal this round's coins",
               [on_start()], [set_var("score", "0"), set_text("ScoreText", q("0")),
-                             set_text("RoundTag", tracked_expr(f'{q("Round · ")} & zeropad(beat + 1, 2) & '
-                                                               f'{q(" / ")} & zeropad(tokencount(ROUND_COINS, '
-                                                               f'{q(",")}), 2)')),
+                             set_text("RoundTag", f'{q("ROUND ")} & (beat + 1) & {q(" / ")} & '
+                                                 f'tokencount(ROUND_COINS, {q(",")})'),
                              set_var("deal", f"floor(random({CELLS}))")], children=[
                   block([for_loop("i", "0", f"int(tokenat(ROUND_COINS, beat, {q(',')})) - 1")], [
                       create("Coin", "Game",
@@ -3511,7 +3947,7 @@ def module_restart() -> dict:
     return module("Restart", events=[
         event("Start the next round when the last coin is gone",
               [cmp2("Coin.Count", EQ, "0"), trigger_once()],
-              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), restart_layout()]),
+              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), *fade_to()]),
     ])
 
 

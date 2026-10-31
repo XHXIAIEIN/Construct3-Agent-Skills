@@ -121,9 +121,64 @@ def test_the_score_counts_agreement_misses_and_the_ship_line(shots: Path, tmp_pa
               "g1-map": person(set(), True)}
     result = jl.score(replies, index, labels)
     assert result["questions"]["2"] == {"n": 3, "agree": 3, "labels_yes": 1, "judge_yes": 1, "missed": 0, "extra": 0,
-                                        "always_no": 2}
-    assert result["questions"]["1"]["missed"] == 1
+                                        "always_no": 2, "tpr": 1.0, "tnr": 1.0, "few": True}
+    assert result["questions"]["1"]["missed"] == 1 and result["questions"]["1"]["tpr"] == 0.0
+    assert result["questions"]["6"]["tpr"] is None and result["questions"]["6"]["tnr"] == 1.0
     assert result["questions"]["ship"]["n"] == 3 and result["questions"]["ship"]["missed"] == 1
     assert result["unanswered"] == [f"{key['g1']}-1.txt: g1-map"]
     assert result["own"] == {"n": 4, "agree": 4, "labels_yes": 2, "judge_yes": 2, "missed": 0, "extra": 0,
-                             "always_no": 2}
+                             "always_no": 2, "tpr": 1.0, "tnr": 1.0, "few": True}
+    assert "held_out" not in result
+
+
+def test_a_line_with_enough_labels_of_each_answer_is_not_few() -> None:
+    pairs = [(True, True)] * jl.MIN_CLASS + [(False, False)] * (jl.MIN_CLASS - 1) + [(False, True)]
+    a = jl.agreement(pairs)
+    assert not a["few"] and a["tpr"] == 1.0 and a["tnr"] == round((jl.MIN_CLASS - 1) / jl.MIN_CLASS, 3)
+    assert jl.agreement(pairs[1:])["few"]
+
+
+def held_out_set(shots: Path, briefs: set[str]) -> Path:
+    data = json.loads(shots.read_text(encoding="utf-8"))
+    for s in data["shots"]:
+        s["held_out"] = s["brief"] in briefs
+    shots.write_text(json.dumps(data), encoding="utf-8")
+    return shots
+
+
+def test_a_held_out_brief_is_left_out_until_asked_and_keeps_its_number(shots: Path, tmp_path: Path) -> None:
+    every = jl.prepare(ll.load_set(shots), tmp_path / "every")
+    held_out_set(shots, {"g3-cut"})
+    tuning = jl.prepare(ll.load_set(shots), tmp_path / "tuning")
+    both = jl.prepare(ll.load_set(shots), tmp_path / "both", held_out=True)
+    left = next(k for k, v in every.items() if v["brief"] == "g3-cut")
+    assert left not in tuning and not (tmp_path / "tuning" / left).exists()
+    assert {k: v["brief"] for k, v in both.items()} == {k: v["brief"] for k, v in every.items()}
+    assert both[left]["held_out"] and not any(v["held_out"] for v in tuning.values())
+
+
+def test_a_brief_held_out_in_part_is_refused(shots: Path, tmp_path: Path) -> None:
+    data = json.loads(shots.read_text(encoding="utf-8"))
+    data["shots"][0]["held_out"] = True
+    shots.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(SystemExit, match="'g1'"):
+        jl.prepare(ll.load_set(shots), tmp_path / "briefs")
+
+
+def test_held_out_replies_are_scored_apart_and_only_when_asked(shots: Path, tmp_path: Path) -> None:
+    held_out_set(shots, {"g3-cut"})
+    both = jl.prepare(ll.load_set(shots), tmp_path / "briefs", held_out=True)
+    key = {v["brief"]: k for k, v in both.items()}
+    replies = tmp_path / "replies"
+    replies.mkdir()
+    n = len(rl.QUESTIONS)
+    (replies / f"{key['g2-moved']}-1.txt").write_text("\n".join(f"Layout 1 {q}: no" for q in range(1, n + 1)))
+    (replies / f"{key['g3-cut']}-1.txt").write_text("\n".join(f"Game {q}: no" for q in range(1, n + 1)))
+    person = lambda yes: {**{str(q): q in yes for q in range(1, n + 1)}, "ship": not yes}
+    labels = {"g2-moved": person(set()), "g3-cut": person({1})}
+    result = jl.score(replies, both, labels)
+    assert result["questions"]["1"]["n"] == 1 and result["questions"]["1"]["labels_yes"] == 0
+    assert result["held_out"]["1"] == {**result["held_out"]["1"], "n": 1, "labels_yes": 1, "missed": 1, "tpr": 0.0}
+    tuning = jl.prepare(ll.load_set(shots), tmp_path / "briefs")
+    alone = jl.score(replies, tuning, labels)
+    assert "held_out" not in alone and alone["questions"] == result["questions"]

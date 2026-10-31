@@ -33,7 +33,7 @@ names, not values, and no page invents a grey.
 - `modelcontextprotocol/ext-apps`, `examples/basic-host/src/host-styles.ts`,
   holds the full table the host pages declare, which is where the tiered
   background, tiered border and accent family above were read.
-- The first palette took Anthropic's brand colours, warm paper and ink
+- The first palette took Anthropic's brand colours, warm the default look
   with a coral accent. The user kept the structure it came with (radii,
   spacing, the focus ring, the contrast floor) and rejected the colours on
   2026-10-15: the pages went back to the white ground, grey rules and blue

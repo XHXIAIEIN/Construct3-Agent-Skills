@@ -1,0 +1,29 @@
+{"game": "Updraft", "request": "hold the screen and the balloon rises, let go and it sinks, fly through the gaps in the walls for points, touching a wall or the edge ends it, tap to play again",
+ "later": ["sound", "narrower gaps"],
+ "core_loop": "Hold and let go to keep the balloon level with the next gap",
+ "reference": {"example": "rocket-barrel", "takes": "thrust while the touch is down against a pull that is always there"},
+ "screen": {"score": "top-left", "balloon": "left"},
+ "state": [
+  {"name": "y", "start": 640, "stored_in": "Balloon.y"},
+  {"name": "vy", "start": 0, "stored_in": "global"},
+  {"name": "wx", "start": 800, "stored_in": "Wall.x"},
+  {"name": "gapY", "start": 640, "stored_in": "Gap.y"},
+  {"name": "score", "start": 0, "stored_in": "global"},
+  {"name": "line", "start": "Score 0", "stored_in": "ScoreText.text"},
+  {"name": "over", "start": 0, "stored_in": "global", "means": "0 playing, 1 over, 2 a tap restarts"}],
+ "inputs": [{"name": "lift", "player": "hold anywhere on the screen, let go to sink", "game": {"tap": [0.5, 0.5]}}],
+ "rules": [
+  {"id": "new-game", "on": "start", "do": ["vy = 0", "score = 0", "over = 0"]},
+  {"id": "lift", "on": "lift held", "if": ["over = 0"], "do": ["vy -= 1200 * dt"], "feedback": "the balloon rises"},
+  {"id": "fly", "on": "tick", "if": ["over = 0"], "do": ["vy += 600 * dt", "y += vy * dt", "wx -= 200 * dt"],
+   "children": [
+    {"id": "pass", "if": ["wx < 0"], "do": ["score += 1", "line = \"Score \" & score", "wx = 800", "gapY = 300 + floor(random(5)) * 150"]},
+    {"id": "crash", "if": ["y < 0 | y > 1280 | (abs(wx - 360) < 40 & abs(y - gapY) > 120)"], "do": ["over = 1", "line = \"Over: \" & score", "wait 0.5", "over = 2"]}]},
+  {"id": "again", "on": "lift", "if": ["over = 2"], "do": ["restart"], "feedback": "a new game starts"}],
+ "win": "none", "lose": "over >= 1",
+ "tests": [
+  {"name": "holding lifts the balloon", "steps": [{"hold": "lift", "seconds": 0.5}, {"expect": "y < 620"}]},
+  {"name": "letting go it sinks", "steps": [{"wait": 0.5}, {"expect": "y > 640"}]},
+  {"name": "a wall passed scores", "steps": [{"set": "wx = 5"}, {"wait": 0.1}, {"expect": "score = 1"}, {"expect": "line = \"Score 1\""}]},
+  {"name": "a wall ends it, a tap restarts", "steps": [{"set": "wx = 360"}, {"set": "gapY = 200"}, {"wait": 0.1}, {"expect": "over >= 1"},
+   {"expect": "find(line, \"Over\") >= 0"}, {"wait": 0.6}, {"do": "lift"}, {"wait": 0.2}, {"expect": "over = 0"}, {"expect": "score = 0"}]}]}

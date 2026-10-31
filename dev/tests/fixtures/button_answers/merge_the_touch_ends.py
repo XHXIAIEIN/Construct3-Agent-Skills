@@ -26,7 +26,7 @@ BOARD_W, BOARD_H = COLS * PITCH - UNIT, ROWS * PITCH - UNIT
 BUTTONS = [("Restart", "Restart"), ("Skip", "Skip")]
 # HUD groups, built first so the board can be centred in the room they leave: the round as a tag
 # top left, the score top right, the controls bottom left, which dim once used (hints())
-HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")],
+HUD = [[hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")],
        hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"),
        hud_keys("KeyBox", "KeyText", "KeyVerb", [("Tap", "collect")])]
 PLAY_AREA = play_area(flat(HUD))
@@ -137,9 +137,8 @@ def module_setup() -> dict:
         # Restart layout keeps globals, so the round's values are reset here, before any text shows them
         event("Empty the score and deal this round's coins",
               [on_start()], [set_var("score", "0"), set_text("ScoreText", q("0")),
-                             set_text("RoundTag", tracked_expr(f'{q("Round · ")} & zeropad(beat + 1, 2) & '
-                                                               f'{q(" / ")} & zeropad(tokencount(ROUND_COINS, '
-                                                               f'{q(",")}), 2)')),
+                             set_text("RoundTag", f'{q("ROUND ")} & (beat + 1) & {q(" / ")} & '
+                                                 f'tokencount(ROUND_COINS, {q(",")})'),
                              set_var("deal", f"floor(random({CELLS}))")], children=[
                   block([for_loop("i", "0", f"int(tokenat(ROUND_COINS, beat, {q(',')})) - 1")], [
                       create("Coin", "Game",
@@ -182,7 +181,7 @@ def module_restart() -> dict:
     return module("Restart", events=[
         event("Start the next round when the last coin is gone",
               [cmp2("Coin.Count", EQ, "0"), trigger_once()],
-              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), restart_layout()]),
+              [set_var("beat", f"(beat + 1) % tokencount(ROUND_COINS, {q(',')})"), wait("1"), *fade_to()]),
     ])
 
 

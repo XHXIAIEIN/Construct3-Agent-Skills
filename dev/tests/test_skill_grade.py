@@ -7,6 +7,8 @@ passes throughout. An add-countdown run is the stand-in game with the events it 
 """
 import importlib.util
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -15,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, game_rows, install, new_project, run
+from tests.skill_helpers import EVALS, NEEDS_EXAMPLES, NEEDS_GIT, SKILL, SHEET, game_rows, install, new_project, png, run
 
 sys.path.insert(0, str(EVALS))
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -693,9 +695,16 @@ def test_a_run_that_lacks_a_part_makes_the_coverage_incomplete(tmp_path: Path, p
     assert read_json(tmp_path / "it" / "benchmark.json")["coverage_complete"] is True
 
 
-def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path) -> None:
+@pytest.mark.parametrize("timing", [None, {"total_tokens": None, "tool_uses": None, "duration_ms": None}])
+def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path, timing: dict | None) -> None:
+    """A run without timing.json, or with the nulls a driver writes for a worker cut off before its end, lacks
+    its timing."""
     iteration = restart_runs(tmp_path, {"with_skill": [5, 5, 4], "old_skill": [1, 2, 1]})
-    (iteration / "name-the-restart-event" / "old_skill_2" / "timing.json").unlink()
+    path = iteration / "name-the-restart-event" / "old_skill_2" / "timing.json"
+    if timing is None:
+        path.unlink()
+    else:
+        path.write_text(json.dumps(timing), encoding="utf-8")
     (iteration / "decision.json").write_text(json.dumps({
         "cases": ["name-the-restart-event"], "metric": "chain_depth", "direction": "up", "n_per_cell": 3}), encoding="utf-8")
     out = grade_iteration(tmp_path)
@@ -777,6 +786,93 @@ def test_find_in_a_big_sheet_grades_the_event_and_the_bonus(tmp_path: Path) -> N
     assert make_fixtures.wave_bonus(make_fixtures.BIG_SHEET_FOCUS) == 454 and "coins-big-sheet" in make_fixtures.SEEDS
 
 
+def test_check_the_third_round_grades_the_preview_the_coins_and_the_text(tmp_path: Path) -> None:
+    """The third round deals 6 coins and the round text holds 3 / 6; a note the run adds changes no game file."""
+    run_dir = tmp_path / "run"
+    (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
+    (run_dir / "outputs").mkdir()
+    (run_dir / "project" / "project.c3proj").write_text("{}", encoding="utf-8")
+    (run_dir / "fixture.json").write_text(json.dumps(make_fixtures.digest(run_dir / "project")), encoding="utf-8")
+    (run_dir / "project" / "tools").mkdir()
+    (run_dir / "project" / "tools" / "notes.json").write_text("[]", encoding="utf-8")
+    answer = run_dir / "outputs" / "answer.md"
+    answer.write_text("Round 3 dealt 6 coins, and the round text read R O U N D   ·   0 3   /   0 6.", encoding="utf-8")
+    assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, True, True, True]
+    answer.write_text("Round 3 dealt 6 coins; the text read ROUND 3 / 6.", encoding="utf-8")
+    assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, True, True, True]
+    answer.write_text("The third round dealt 3 coins; the text read ROUND · 02 / 06.", encoding="utf-8")
+    assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, False, False, True]
+
+
+@pytest.mark.parametrize(("case", "count"), [("check-the-third-round", 3), ("four-coins-in-round-two", 4),
+                                           ("five-coins-in-round-two", 3)])
+def test_the_notes_of_a_fixture_rest_on_the_stand_in_as_it_is(tmp_path: Path, case: str, count: int) -> None:
+    """coins-notes, coins-first-tap and coins-holed hold notes that notes.py prints unmarked on the game they were
+    laid out from, the seeded hint and hole included."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", case,
+                    "--arms", "with_skill", "--no-pin")
+    assert code == 0, out
+    project = tmp_path / "runs" / case / "with_skill" / "project"
+    code, out = run(project, ".agents/skills/construct3-agent-plugin/scripts/notes.py")
+    assert code == 0 and out.startswith(f"notes: {count} in tools/notes.json"), out
+    assert out.splitlines()[-1].startswith("ok: "), out
+
+
+def test_the_second_round_case_keeps_the_first_launch_hint(tmp_path: Path) -> None:
+    """The hint is the game's: a run that deletes its events to reach the second round loses them, by sid. Only
+    the arm of the skill under test has the notes."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "four-coins-in-round-two",
+                    "--arms", "with_skill", "without_skill", "--no-pin")
+    assert code == 0, out
+    run_dir = tmp_path / "runs" / "four-coins-in-round-two" / "with_skill"
+    assert not (run_dir.with_name("without_skill") / "project" / "tools").exists()
+    (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
+    assert [ok for ok, _ in grader.grade_four_coins_in_round_two(run_dir)] == [True, True, True, True]
+    path = run_dir / "project" / "eventSheets" / "Game.json"
+    sheet = read_json(path)
+    hints = next(ev for ev, _ in grader.walk(sheet["events"]) if ev.get("title") == "Hints")
+    hints["children"] = [ev for ev in hints["children"] if "pulse" not in json.dumps(ev)]
+    path.write_text(json.dumps(sheet, indent="\t"), encoding="utf-8")
+    kept = grader.grade_four_coins_in_round_two(run_dir)[3]
+    assert not kept[0] and "original event sids present" in kept[1], kept
+
+
+def test_the_holed_coin_case_keeps_the_hole_out_of_the_print(tmp_path: Path) -> None:
+    """The hole is in the coin's polygon and images alone: the print of the sheet does not name it, only the arm
+    of the skill under test has the note, and a run that fills the hole fails the last assertion."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "five-coins-in-round-two",
+                    "--arms", "with_skill", "without_skill", "--no-pin")
+    assert code == 0, out
+    run_dir = tmp_path / "runs" / "five-coins-in-round-two" / "with_skill"
+    assert not (run_dir.with_name("without_skill") / "project" / "tools").exists()
+    project = run_dir.with_name("without_skill") / "project"
+    code, out = run(project, SKILL / "scripts" / "print_sheet.py", "Game", "--project", str(project))
+    assert code == 0 and not re.search(r"hole|polygon|collision", out, re.I), out
+    (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
+    assert [ok for ok, _ in grader.grade_five_coins_in_round_two(run_dir)] == [True] * 5
+    path = run_dir / "project" / "objectTypes" / "Coin.json"
+    coin = read_json(path)
+    for frame in coin["animations"]["items"][0]["frames"]:
+        frame["collisionPoly"]["points"] = frame["collisionPoly"]["points"][:34]
+    path.write_text(json.dumps(coin, indent="	"), encoding="utf-8")
+    kept = grader.grade_five_coins_in_round_two(run_dir)[4]
+    assert not kept[0] and "objectTypes/Coin.json" in kept[1], kept
+
+
+def test_a_kept_plan_is_no_changed_project_file(tmp_path: Path) -> None:
+    """preview_project.py --keep writes tools/plans/, which verify_change.py replays and does not count as a
+    project file, so a run that kept a plan still leaves the project as its fixture; any other new file does not."""
+    run_dir = tmp_path / "run"
+    (run_dir / "project").mkdir(parents=True)
+    (run_dir / "project" / "project.c3proj").write_text("{}", encoding="utf-8")
+    (run_dir / "fixture.json").write_text(json.dumps(make_fixtures.digest(run_dir / "project")), encoding="utf-8")
+    (run_dir / "project" / "tools" / "plans").mkdir(parents=True)
+    (run_dir / "project" / "tools" / "plans" / "walk.json").write_text("[]", encoding="utf-8")
+    assert grader.unchanged(run_dir)[0]
+    (run_dir / "project" / "tools" / "notes.txt").write_text("x", encoding="utf-8")
+    assert grader.unchanged(run_dir) == (False, "files that differ from the fixture: ['tools/notes.txt']")
+
+
 FIND_ANSWERS = Path(__file__).parent / "fixtures" / "find_answers"
 
 
@@ -794,11 +890,15 @@ def read_only_run(tmp_path: Path, answer: str) -> Path:
     # Correct answers of earlier runs that also cite the events around the one asked for
     ("grade_find_in_a_long_sheet", "long_sheet_lists_what_the_restart_reruns.md", [True, True, True, True]),
     ("grade_find_in_a_long_sheet", "long_sheet_names_the_start_events.md", [True, True, True, True]),
+    ("grade_find_in_a_long_sheet", "long_sheet_answers_in_chinese.md", [True, True, True, True]),
     ("grade_find_in_a_big_sheet", "big_sheet_follows_the_bonus_to_addscore.md", [True, True, True]),
     ("grade_find_in_a_big_sheet", "big_sheet_compares_other_waves.md", [True, True, True]),
     # Wrong answers: another event as the finish line and the restart, another wave's bonus
     ("grade_find_in_a_long_sheet", "Event 102 is the finish line. The layout restarts in event 107, prepareForGameOver, "
                                    "for the player (success) or any other tractor (fail).", [False, False, True, True]),
+    ("grade_find_in_a_long_sheet", "事件 102 处理终点线（Finish Line）。游戏在事件107 `prepareForGameOver` 里调用 "
+                                   "showGameOver，再执行 Restart layout，玩家（Player）是 success，其他是 fail。",
+     [False, False, True, True]),
     ("grade_find_in_a_big_sheet", "Event 267 pays the bonus of wave 17: 427 points.", [False, False, True]),
 ])
 def test_find_answers_are_graded_by_what_they_give(tmp_path: Path, grade_case: str, answer: str,
@@ -998,7 +1098,13 @@ prompt = args[args.index("-p") + 1]
 session = args[args.index("--resume") + 1] if "--resume" in args else None
 sheet = Path("eventSheets/Game.json").read_text(encoding="utf-8")
 with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
-    log.write(json.dumps({"prompt": prompt, "resume": session, "inverted": "isInverted" in sheet}) + "\\n")
+    log.write(json.dumps({"prompt": prompt, "resume": session, "inverted": "isInverted" in sheet,
+                          "sources": args[args.index("--setting-sources") + 1]}) + "\\n")
+if os.environ.get("FAKE_HANG"):
+    import subprocess, time
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    Path(os.environ["FAKE_HANG"]).write_text(str(child.pid), encoding="utf-8")
+    time.sleep(60)
 if os.environ.get("FAKE_SIGNED_OUT"):
     print(json.dumps({"is_error": True, "result": "Failed to authenticate: OAuth session expired"}))
     sys.exit(1)
@@ -1039,6 +1145,7 @@ def test_run_session_compacts_between_turns_and_writes_the_change(tmp_path: Path
     assert [entry["prompt"][:12] for entry in log] == prompts
     assert [entry["resume"] for entry in log] == [None, *["s1"] * (len(prompts) - 1)]
     assert [entry["inverted"] for entry in log] == [False] * (len(prompts) - 1) + [True]
+    assert {entry["sources"] for entry in log} == {"project,local"}
     session = read_json(run_dir / "outputs" / "session.json")
     compactions = [t["compaction"] for t in session["turns"] if t.get("prompt") == "/compact"]
     assert compactions == ([{"pre_tokens": 40000, "post_tokens": 5000}] if "compact" in arm else [])
@@ -1053,6 +1160,30 @@ def test_run_session_stops_when_the_client_is_signed_out(tmp_path: Path, monkeyp
     monkeypatch.setenv("FAKE_SIGNED_OUT", "1")
     code, out = run(tmp_path, EVALS / "run_session.py", str(run_dir), "--client", client)
     assert code == 2 and "is not signed in" in out, out
+
+
+def running(pid: int) -> bool:
+    if os.name == "nt":
+        listed = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True, timeout=60)
+        return str(pid) in listed.stdout
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def test_run_session_stops_the_case_and_the_client_tree_at_a_timeout(tmp_path: Path,
+                                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    """A turn past --timeout ends the case: no later turn starts a session without the first one's, and the
+    process the client started is stopped with it."""
+    run_dir, client = session_run(tmp_path, "with_compact")
+    monkeypatch.setenv("FAKE_LOG", str(tmp_path / "log.jsonl"))
+    monkeypatch.setenv("FAKE_HANG", str(tmp_path / "child.pid"))
+    code, out = run(tmp_path, EVALS / "run_session.py", str(run_dir), "--client", client, "--timeout", "3")
+    assert code == 1 and "turn 1 timed out; the case stops" in out, out
+    assert len((tmp_path / "log.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+    assert not running(int((tmp_path / "child.pid").read_text(encoding="utf-8")))
 
 
 @pytest.mark.parametrize(("answer", "passed"), [
@@ -1409,3 +1540,150 @@ def test_make_fixtures_lays_out_the_checker_fix_seeds(tmp_path: Path) -> None:
     sheet = read_json(runs / "fix-endless-pulse" / "with_skill" / "project" / SHEET)
     assert sorted(json.dumps(a["parameters"]) for a in actions_of(sheet["events"])
                   if a.get("callFunction") == "Pulse") == ['["0"]', "[true]"]
+
+
+def test_the_look_judges_reply_beside_the_brief_grades_the_art_questions(tmp_path):
+    """card-game-art's last assertion reads the run's reply to review_look.py's brief: a yes to question 4 or 6 on
+    a screenshot or a page of the art sheet fails it, a yes to another question does not, and no reply fails it."""
+    folder = tmp_path / ".tmp" / "scripts" / "review-look"
+    assert grader.looked_no(tmp_path, (4, 6)) == (False, f"no reply to the look review's brief in {folder}: the run "
+                                                         f"did not have the look judged")
+    (folder / "shots").mkdir(parents=True)
+    (folder / "result.json").write_text(json.dumps({"places": [], "art_sheets": ["c-1.png", "c-2.png"], "preview": {
+        "layouts": [{"layout": "Battle", "shot": "Battle.png"}]}}), encoding="utf-8")
+    pictures = ["Battle", "Art sheet 1", "Art sheet 2"]
+    answers = {f"{p} {q}": "no" for p in pictures for q in range(1, 8)}
+    for changed, ok in (({}, True), ({"Battle 5": "yes - the backdrop: a glow"}, True),
+                        ({"Art sheet 2 6": "yes - the bat and the slime: one shape"}, False)):
+        reply = {**answers, **changed}
+        (folder / "shots" / "reply.md").write_text("\n".join(f"{k}: {v}" for k, v in reply.items()), encoding="utf-8")
+        assert grader.looked_no(tmp_path, (4, 6))[0] is ok, (changed, grader.looked_no(tmp_path, (4, 6)))
+
+
+def test_the_look_of_the_references_is_missing_from_the_fixture_and_read_from_its_colours(
+        tmp_path: Path, generated: Callable) -> None:
+    """On the fixture as laid out the checker and the rerun pass, and the plum, the amber, the ink outline and
+    USER_LOOK are missing. The references hold the colours the grader asks for, as art.measure would count them."""
+    run_dir = generated_case(tmp_path, generated, "look-from-references")
+    results = list(graded_by(run_dir).values())
+    assert [ok for ok, _ in results] == [True, False, False, False, False, True], results
+    stall = make_fixtures.PICTURES["coins-look-refs"][0] / "stall.png"
+    pixels = grader.opaque(stall)
+    assert grader.near(grader.commonest(pixels), grader.PLUM, grader.PLUM_SLACK)
+    assert not grader.near(grader.NAVY, grader.PLUM, grader.PLUM_SLACK)
+    # A coin of amber outlined 4 px in ink, and the same coin flat
+    ring = [(x, y, (20, 14, 31) if min(x, y, 31 - x, 31 - y) < 4 else (242, 165, 65)) for x in range(32) for y in range(32)]
+    flat = [(x, y, (242, 165, 65)) for x, y, _ in ring]
+    assert grader.commonest(ring) == (242, 165, 65) and grader.ink_edge(ring) > 0.5 and grader.ink_edge(flat) == 0
+
+
+def test_a_painted_backdrop_that_is_mostly_the_references_plum_passes_and_a_navy_one_fails(
+        tmp_path: Path, generated: Callable) -> None:
+    """A run's backdrop painted as the references' stall scene, lanterns and table on the plum, is a right answer;
+    the same backdrop in the deep navy of another case is not."""
+    run_dir = generated_case(tmp_path, generated, "look-from-references")
+    project = run_dir / "project"
+    w, h = grader.view_of(project)
+    ui_instance(project, "Stall", "Sprite", (0, 0, w, h), layer="Background")
+    backdrop = Path(__file__).parent / "fixtures" / "look_answers" / "stall-backdrop.png"
+    shutil.copyfile(backdrop, project / "images" / "stall-default-000.png")
+    key = CASES["look-from-references"]["assertions"][1]
+    passed, said = graded_by(run_dir)[key]
+    assert passed, said
+    navy = grader.c3.png_rgba(backdrop.read_bytes())
+    (project / "images" / "stall-default-000.png").write_bytes(png(navy[0], navy[1], lambda x, y: (*grader.NAVY, 255)))
+    passed, said = graded_by(run_dir)[key]
+    assert not passed, said
+
+
+def test_a_hold_game_needs_a_held_rule_a_released_rule_and_a_hold_step(tmp_path):
+    from tests.test_skill_check_design import charge
+    run_dir = tmp_path / "it" / "design-a-hold-game" / "with_skill"
+    (run_dir / "project" / "tools").mkdir(parents=True)
+    (run_dir / "fixture.json").write_text("{}", encoding="utf-8")
+    design = run_dir / "project" / "tools" / "design.json"
+    data = charge()
+    design.write_text(json.dumps(data), encoding="utf-8")
+    results = graded_by(run_dir)
+    assert all(passed for passed, _ in results.values()), results
+    data["rules"][1]["on"] = "press"
+    data["tests"][0]["steps"] = [{"do": "press"}]
+    design.write_text(json.dumps(data), encoding="utf-8")
+    held, hold = by_words(graded_by(run_dir), "input held", "hold step")
+    assert held == (False, "rule triggers: ['start', 'press', 'press released', 'press released']")
+    assert hold == (False, "0 hold steps in the tests")
+
+
+def mechanic_run(tmp_path: Path, case: str, change: Callable[[dict], None] | None = None) -> Path:
+    """A run of the case whose design is the reference design under dev/tests/fixtures/mechanic_designs, changed"""
+    run_dir = tmp_path / "it" / case / "with_skill"
+    (run_dir / "project" / "tools").mkdir(parents=True, exist_ok=True)
+    (run_dir / "fixture.json").write_text("{}", encoding="utf-8")
+    data = json.loads((Path(__file__).parent / "fixtures" / "mechanic_designs" / f"{case}.json").read_text(encoding="utf-8"))
+    if change:
+        change(data)
+    (run_dir / "project" / "tools" / "design.json").write_text(json.dumps(data), encoding="utf-8")
+    return run_dir
+
+
+def _step_on_tap(d):
+    d["rules"][1]["do"] = ["x = x + 100"]
+
+
+def _over_on_tap(d):
+    d["rules"][1]["do"] = ["over = 1", "wait 0.5", "over = 2"]
+
+
+def _aim_ignored(d):
+    d["rules"][2]["children"][0]["if"] = ["abs(tx - 360) < 8"]
+    d["rules"][1]["children"].append({"id": "give-up", "if": ["misses > 99"], "do": ["over = 1"]})
+
+
+def _colour_ignored(d):
+    d["rules"][2]["children"][0]["children"][0]["if"] = ["ocolour = 0"]
+
+
+def _lift_on_press(d):
+    d["rules"][1]["on"] = "lift"
+
+
+def _spare_input(d):
+    d["inputs"].append({"name": "spare", "player": "press space", "game": {"key": "Space"}})
+
+
+@pytest.mark.parametrize("case", ["design-a-reverse-runner", "design-a-timing-shot", "design-a-colour-switch",
+                                  "design-a-hold-to-rise"])
+def test_a_reference_mechanic_design_passes_and_a_second_input_fails(tmp_path, case):
+    results = graded_by(mechanic_run(tmp_path, case))
+    assert all(passed for passed, _ in results.values()), results
+    assert by_words(graded_by(mechanic_run(tmp_path, case, _spare_input)), "exactly one input")[0][0] is False
+
+
+@pytest.mark.parametrize(("case", "change", "word"), [
+    ("design-a-reverse-runner", _step_on_tap, "tap flips"),
+    ("design-a-reverse-runner", _over_on_tap, "tap flips"),
+    ("design-a-timing-shot", _aim_ignored, "own value"),
+    ("design-a-colour-switch", _colour_ignored, "tap flips"),
+    ("design-a-hold-to-rise", _lift_on_press, "input held and"),
+])
+def test_a_mechanic_design_without_its_mechanic_fails(tmp_path, case, change, word):
+    assert by_words(graded_by(mechanic_run(tmp_path, case, change)), word)[0][0] is False
+
+
+def test_a_shot_that_keeps_the_aim_for_later_reads_it(tmp_path):
+    # An iteration-99 answer: the tap keeps the aim in shotX and judges the hit 0.3 s later on shotX
+    run_dir = mechanic_run(tmp_path, "design-a-timing-shot")
+    shutil.copy(Path(__file__).parent / "fixtures" / "mechanic_designs" / "design-a-timing-shot-snapshot.json",
+                run_dir / "project" / "tools" / "design.json")
+    results = graded_by(run_dir)
+    assert all(passed for passed, _ in results.values()), results
+    assert by_words(results, "own value")[0][1].endswith("rules read: ['aimX']")
+
+
+def test_a_turn_under_a_condition_on_the_direction_is_a_flip(tmp_path):
+    def branches(d):
+        del d["rules"][1]["do"]
+        d["rules"][1]["children"] = [{"id": "to-left", "if": ["dir = 1"], "do": ["dir = -1"]},
+                                     {"id": "to-right", "else": True, "do": ["dir = 1"]}]
+    assert by_words(graded_by(mechanic_run(tmp_path, "design-a-reverse-runner", branches)), "tap flips")[0] == (
+        True, "rows the tap flips that an effect of a rule without an input reads: ['dir'] (flipped: ['dir'])")

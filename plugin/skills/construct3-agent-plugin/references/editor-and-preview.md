@@ -2,8 +2,8 @@
 
 Read this before previewing a project that starts on a layout other than the
 one open in the editor, or before driving a preview with input from a script.
-`scripts/preview_project.py` sends taps, holds, drags and keys as the bullets
-below describe; a script of the agent's own needs them for what it does not
+`scripts/preview_project.py` sends taps, holds, drags, hover moves and keys as
+the bullets below describe; a script of the agent's own needs them for what it does not
 cover, such as two fingers at once. A lesson from the editor, the preview or
 a script driving them goes here with its source, under the heading of its
 topic, one bullet each: fact, consequence, source. A runtime behaviour that
@@ -38,6 +38,13 @@ which cases to play and how to reach and read them to
   `layoutToCssPx`. [preview: ILayer.d.ts `layerToCssPx`; observed in a game
   project, r504 preview in Edge, 2026-09-30: a weapon dragged onto a piece
   and a piece onto a battle slot landed where the events put them]
+- `mouseMoved` with `buttons: 0` and no `button` moves the pointer without
+  a press, which is a hover: `Mouse.X`, `Mouse.Y` and *Cursor is over
+  object* follow each event at the next tick, so a hover menu opens and
+  closes on its own delays. A finger has no hover, so a touch plan cannot
+  test one. [observed in a game project, r506.3 preview in Edge,
+  2026-10-30: a pointer menu opened a sub-menu after its 0.22 s delay and
+  kept it open while the pointer left and came back within 0.3 s]
 - Two fingers at once go through `Input.dispatchTouchEvent` after
   `Emulation.setTouchEmulationEnabled`, which Touch and Drag & Drop both
   read. Every event lists all the fingers still down, each with its `id`: a
@@ -114,6 +121,56 @@ which cases to play and how to reach and read them to
   comment at `--mute-audio`; the user's rule, 2026-09-30, that a test must
   not play sound through their speakers]
 
+- A request of a preview's worker reaches only the worker's own DevTools
+  session, and only once `Network.enable` was sent there; the page's session
+  does not see it. The runtime's worker requests what the first layout loads
+  as it starts, so `open_in_editor.py --preview` and `preview_project.py`
+  attach each new worker held at its start (`waitForDebuggerOnStart`), turn
+  its requests on, then let it run, and print a `network:` line for each
+  response of HTTP 400 or more and each request with no response. A request
+  for a file the project lacks answers 404 from preview.construct.net. The
+  AJAX plugin also logs its failure as an error; a `fetch` in a script logs
+  nothing. [observed in a
+  converted game, r506.3 preview in Edge headless, 2026-10-31: a startup
+  AJAX request for a missing file came as HTTP 404 on the worker's session
+  only; a script's `fetch` in a page-hosted runtime on the page's]
+- A game whose events hold its thread, a While that never ends, does not
+  tick, and its page or worker answers no DevTools call; with the runtime
+  in a worker, the window still shows its last frame. `preview_project.py` reads the probe's
+  `ticks()` after each step: a step fails when the game did not answer in
+  5 seconds, or did not tick for more than 1 second. A layout that starts
+  with many objects holds the ticks for up to 0.3 s. [observed in a
+  converted game and 12 official examples, r506.3 preview in Edge headless
+  on a 143 Hz display, 2026-10-31; `Construct3-Agent-Skills/docs/decisions/runtime-signals.md`]
+
+## Recording an effect's frames
+
+- A `record` step of `scripts/preview_project.py` takes one JPEG
+  screenshot after another, about 40 a second at 480x270, while the game
+  ticks at the display's rate. A video on the clock therefore holds fewer
+  frames than a 60 fps effect has, and `scripts/measure_timing.py` counts
+  the parts of an impact wrong in it. [observed in a probe of a pixel-art
+  impact, r506.3 preview in Edge headless on a 143 Hz display,
+  2026-10-30: 432 ticks in 3.0 s; 123 screenshots in 3.1 s, 122 with the
+  game time read after each]
+- To count an effect's frames, slow the game with a `js` step,
+  `runtime.timeScale = 0.1`, right before a `record` step with `"fps": 60`.
+  The video then holds 60 frames a second of game time, each the last
+  screenshot taken at or before its instant, and `measure_timing.py` reads
+  it at 60 fps. The run prints how far before its instant a screenshot
+  fell, and, when frames repeat because no screenshot fell in them, the
+  scale to set instead. Set the scale back to 1 after the `record` step
+  that stops the recording. [the same probe: 1766 screenshots in 45.5 s
+  gave 273 frames from 1.36 to 5.9 s of game time, none repeated, each at
+  most 3.4 ms of game time before its instant; the three impacts measured
+  at 1.51, 2.99 and 4.51 s, where the events place them at 1.5, 3 and
+  4.5 s. At full speed 60 of 181 frames repeated]
+- After the scale changes, game time runs slower than the clock, and the
+  `timeout` of a step counts the clock's seconds: at 0.1, an `until` that
+  waits for 4.5 s of game time needs a `timeout` over 45. The audio clock is
+  not scaled. [manual: scripting/scripting-reference/iruntime.md
+  `timeScale`; the same probe: 4.55 s of game time took 45.5 s]
+
 ## Screenshots of the editor
 
 - `Page.captureScreenshot` draws at most 16384 device pixels of a window's
@@ -132,7 +189,28 @@ which cases to play and how to reach and read them to
   the elements that hold it, as `scripts/screenshot_sheet.py` does.
   [observed in the r505 editor as a guest, 2026-10-14]
 
+- `Page.captureScreenshot` with a `clip` at `scale` 0.125 rounds the size
+  up: an empty grey 430x932 window came out 54x117 with a black last row, so
+  it read 99.15% one colour with a luminance deviation of 19, as if
+  something were drawn. Clip each side to its multiple of 8 below first, as
+  `open_in_editor.py` does before it judges a frame blank: 424x928 came out
+  53x116, all grey. [observed in an r506.3 preview in Edge headless,
+  2026-10-31]
+
 ## The browser and the files it is handed
+
+- When the browser cannot reach the editor, its page is
+  `chrome-error://chromewebdata/` and the page's text names the error code:
+  `DNS_PROBE_STARTED` or `DNS_PROBE_FINISHED_NXDOMAIN` in Edge for a name
+  that does not resolve (`ERR_NAME_NOT_RESOLVED` in Chrome),
+  `ERR_CONNECTION_REFUSED`, `ERR_CONNECTION_TIMED_OUT` after about 21
+  seconds, and `NET::ERR_CERT_AUTHORITY_INVALID` for a certificate it does
+  not trust, as a proxy that reads HTTPS gives. `open_in_editor.py` puts the
+  code and what to check for its kind in the line that says the editor did
+  not load. `--host-resolver-rules="MAP editor.construct.net ~NOTFOUND"` on
+  the browser's command line reproduces the first. [observed in Edge 156
+  headless, 2026-10-31, with that rule mapping the host to nowhere,
+  127.0.0.1:1, an unroutable address and a host with another certificate]
 
 - Edge started with `__COMPAT_LAYER` in its environment, the Windows
   application compatibility layer (`DetectorsAppHealth` where this was
