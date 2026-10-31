@@ -28,6 +28,14 @@ of every screen input whose region holds it, then the rules of the object it
 taps. The prototype knows where a point tap lands. A tap on an object or at
 an argument's position counts as outside every region, and a rule that reads
 a position the prototype does not know stops the test.
+
+A key or a tap on a point is also held and released. A rule on "NAME held"
+runs every tick while it is down (Keyboard *Key is down*, Touch *Is in
+touch*), and a rule on "NAME released" runs once when it comes up (Keyboard
+*On key released*, Touch *On any touch end*). Every input is held for as long
+as the editor holds it: a tap 0.05 s, a key its "seconds", a hold step its
+own seconds. A touch is a touch on the screen, so a tap on an object also
+holds and releases every screen input whose region holds it.
 """
 from __future__ import annotations
 
@@ -41,6 +49,10 @@ from typing import Any
 
 TICK = 1 / 60               # seconds of one tick, at the runtime's 60 ticks a second
 AFTER_INPUT = 0.15          # seconds the game runs after each input, in the prototype and in the editor
+TAP_DOWN = 0.05             # seconds a tap stays down, as preview_project.py holds it
+KEY_DOWN = 0.1              # seconds a key stays down when its binding has no "seconds"
+HOLD = (0.05, 3.0)          # range of seconds a hold step or a key binding holds an input down
+PHASE = re.compile(r"([A-Za-z][A-Za-z0-9_]*)\s+(held|released)$")    # "charge held", "charge released"
 SETTLE = 1.0                # seconds a test runs after its last step before its last expects are read again
 OPS_MAX = 50_000            # effects one test may run before it counts as a loop
 # A small game: what a small model can keep consistent and the prototype can explain
@@ -323,6 +335,8 @@ class Rule:
     otherwise: bool
     feedback: str
     every: float | None = None      # seconds between runs of an "every N" rule
+    input: str | None = None        # the input that fires it, in any phase
+    phase: str = ""                 # press, held or released, for a rule an input fires
 
 
 @dataclass
@@ -436,7 +450,7 @@ class Design:
                 self.bad("rules", f"{count} rules, sub-rules counted; at most {RULES_MAX}. Keep the "
                                   f"game small: one rule per thing the player does or the game does by itself")
             for name in self.inputs:
-                fired = [r for r in self.rules if r.on == name]
+                fired = [r for r in self.rules if r.input == name]
                 if fired and not any(r.feedback.strip() for r in fired):
                     self.bad(f"{fired[0].path}.feedback", f"missing: the input {name} fires this rule, and none of its "
                              f"rules says what the player sees. Add \"feedback\": \"<what the player sees when it works>\" "
@@ -619,9 +633,9 @@ class Design:
                 self.bad(path, "a key carries no arguments; make one input per key")
             if "region" in game:
                 self.bad(f"{path}.region", "a key has no region; leave it out")
-            seconds = game.get("seconds", 0.1)
-            if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not 0.05 <= seconds <= 3:
-                self.bad(f"{path}.seconds", "how long the key is held, 0.05 to 3 seconds")
+            seconds = game.get("seconds", KEY_DOWN)
+            if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not HOLD[0] <= seconds <= HOLD[1]:
+                self.bad(f"{path}.seconds", f"how long the key is held, {HOLD[0]:g} to {HOLD[1]:g} seconds")
             return
         tap = game["tap"]
         if isinstance(tap, list):
@@ -672,20 +686,34 @@ class Design:
         node = path
         if not rid.startswith("?"):
             path = f"{path} '{rid}'"    # a finding names the rule as well as its place
-        on, every = r.get("on"), None
+        on, every, source, phase = r.get("on"), None, None, ""
         if top:
+            held = PHASE.fullmatch(on.strip()) if isinstance(on, str) else None
             if not isinstance(on, str):
                 self.bad(f"{path}.on", 'what fires it: "start" (the layout starts, again after a restart), "tick" (every '
-                                       'tick), "every 1.5" (every 1.5 seconds), or an input\'s name')
+                                       'tick), "every 1.5" (every 1.5 seconds), an input\'s name (it is pressed), '
+                                       '"NAME held" (every tick while it is down) or "NAME released"')
+            elif held:
+                source, phase = held.group(1), held.group(2)
+                inp = self.inputs.get(source)
+                if inp is None:
+                    self.bad(f"{path}.on", f"{source!r} is no input; the inputs are {', '.join(self.inputs) or 'none'}")
+                elif not holdable(inp):
+                    self.bad(f"{path}.on", f"{source} is {how_tapped(inp)}" + (" with arguments" if inp["args"] else "")
+                             + f", so it cannot be held or released. Only a key or a tap on a point of the screen with "
+                               f"no arguments can: {{\"key\": \"Space\"}} or {{\"tap\": [0.5, 0.5]}}. Bind {source} to "
+                               f"one of them, or fire this rule on \"{source}\", the press")
             elif on.startswith("every"):
                 m = re.fullmatch(r"every\s+(\d+(?:\.\d+)?)", on)
                 if not m or not 0.05 <= float(m.group(1)) <= 60:
                     self.bad(f"{path}.on", '"every N", N seconds from 0.05 to 60: "every 1.5"')
                 else:
                     every = float(m.group(1))
-            elif on not in ("start", "tick") and on not in self.inputs:
+            elif on in self.inputs:
+                source, phase = on, "press"
+            elif on not in ("start", "tick"):
                 self.bad(f"{path}.on", f"{on!r} is no input; the inputs are {', '.join(self.inputs) or 'none'}, or "
-                                       f"start, tick, every N")
+                                       f"start, tick, every N, NAME held, NAME released")
         elif on is not None:
             self.bad(f"{path}.on", "a sub-rule has no trigger: it runs right after its parent's effects, as a "
                                    "sub-event does; leave \"on\" out")
@@ -713,7 +741,7 @@ class Design:
             self.bad(f"{path}.do", "empty, so the rule changes nothing; write its effects")
         feedback = r.get("feedback")
         rule = Rule(rid, path, on if top else None, when, [str(c) for c in conds], do, [str(e) for e in effects], [],
-                    otherwise, feedback if isinstance(feedback, str) else "", every)
+                    otherwise, feedback if isinstance(feedback, str) else "", every, source, phase)
         self.by_id[rid] = rule
         kids = r.get("children") or []
         if not isinstance(kids, list):
@@ -750,10 +778,11 @@ class Design:
             if not isinstance(s, dict):
                 self.bad(at, 'a step is an object: {"do": ...}, {"wait": ...}, {"expect": ...} or {"set": ...}')
                 continue
-            kinds = [k2 for k2 in ("do", "wait", "expect", "set") if k2 in s]
+            kinds = [k2 for k2 in ("do", "hold", "wait", "expect", "set") if k2 in s]
             if len(kinds) != 1:
-                self.bad(at, 'one of "do" (an input, with its arguments beside it), "wait" (seconds), "expect" (an '
-                             'expression that must be true) or "set" (a fixture: "name = expression")')
+                self.bad(at, 'one of "do" (an input, with its arguments beside it), "hold" (an input held down for '
+                             '"seconds"), "wait" (seconds), "expect" (an expression that must be true) or "set" (a '
+                             'fixture: "name = expression")')
                 continue
             kind = kinds[0]
             step = {"kind": kind, "path": at}
@@ -771,7 +800,24 @@ class Design:
                     self.bad(at, "an argument is a number or a text")
                     continue
                 step.update(input=name, args={k2: float(v) if isinstance(v, (int, float)) else v for k2, v in given.items()})
-                waited += AFTER_INPUT
+                waited += max(AFTER_INPUT, down_for(self.inputs[name]))
+            elif kind == "hold":
+                name, seconds = s["hold"], s.get("seconds")
+                if name not in self.inputs:
+                    self.bad(f"{at}.hold", f"{name!r} is no input; the inputs are {', '.join(self.inputs) or 'none'}")
+                    continue
+                if not holdable(self.inputs[name]):
+                    self.bad(f"{at}.hold", f"{name} is {how_tapped(self.inputs[name])}, which cannot be held. A key or "
+                                           f"a tap on a point of the screen with no arguments can. Do it with "
+                                           f"{{\"do\": \"{name}\", ...}}")
+                    continue
+                if set(s) != {"hold", "seconds"} or isinstance(seconds, bool) or not isinstance(seconds, (int, float)) \
+                        or not HOLD[0] <= seconds <= HOLD[1]:
+                    self.bad(at, f"{{\"hold\": \"{name}\", \"seconds\": 0.8}}: \"seconds\" is how long the input stays "
+                                 f"down, {HOLD[0]:g} to {HOLD[1]:g}, and the step holds only these two fields")
+                    continue
+                step.update(input=name, args={}, seconds=float(seconds))
+                waited += seconds + AFTER_INPUT
             elif kind == "wait":
                 w = s["wait"]
                 if isinstance(w, bool) or not isinstance(w, (int, float)) or not 0 < w <= 10 or len(s) > 1:
@@ -849,8 +895,8 @@ class Design:
                 rule(c, allowed)
 
         for r in self.rules:
-            args = set(self.inputs[r.on]["args"]) if r.on in self.inputs else set()
-            rule(r, values | args | ({"dt"} if r.on == "tick" else set()))
+            args = set(self.inputs[r.input]["args"]) if r.input in self.inputs else set()
+            rule(r, values | args | ({"dt"} if r.on == "tick" or r.phase == "held" else set()))
         for key, node in (("win", self.win), ("lose", self.lose)):
             if node:
                 scope_ok(node, values, key)
@@ -936,6 +982,18 @@ def input_kind(game) -> str:
     if isinstance(tap, list):
         return "point"
     return "screen" if tap == "screen" else "object"
+
+
+def holdable(inp: dict) -> bool:
+    """Whether the input is held and released: a key, or a tap on a point or the screen that carries no arguments.
+    Touch *Is in touch* and *On any touch end* name no object, and nothing in the design says where a finger is
+    while it is down."""
+    return inp["kind"] == "key" or inp["kind"] in ("point", "screen") and not inp["args"]
+
+
+def down_for(inp: dict) -> float:
+    """Seconds a "do" step holds the input down: a key its binding's seconds, a tap TAP_DOWN."""
+    return float(inp["game"].get("seconds", KEY_DOWN)) if inp["kind"] == "key" else TAP_DOWN
 
 
 def in_region(point, region) -> bool:
@@ -1068,6 +1126,8 @@ class Sim:
         self.cause = ""                 # the step that started it, "" for a timer
         self.tap: tuple[str, str] | None = None     # while a screen input runs for another tap: (that tap, this input)
         self.echoed: list[tuple[str, str]] = []     # the last input's rules run for it as a tap on the screen
+        self.held: set[str] = set()     # the inputs that are down now, whose "held" rules run every tick
+        self.held_by = ""               # the step that holds them
         self.settling = False
         self.late: dict[str, tuple[str, str]] = {}  # in the settle: what a restart changed, by state name
         self.restarts = 0
@@ -1262,10 +1322,12 @@ class Sim:
                 arg: given.get(coord, UNPLACED) for arg, coord in (o["game"].get("args") or {}).items()}
         return out
 
-    def fire(self, name: str, args: dict, step: str = "") -> None:
+    def fire(self, name: str, args: dict, step: str = "", seconds: float | None = None) -> None:
         """Play one input as the runtime gets it. First run the rules of every screen input the tap fires, in
         the sheet's order (Touch On any touch start). Then run the input's own rules (On touched object, On key
-        pressed)."""
+        pressed). Then hold it down: a "do" step as long as the editor holds a tap or the key, a hold step its
+        seconds. Then release it, and let the game run AFTER_INPUT from the press, or from the release of a hold
+        step."""
         screen = self.screen_inputs(name, args)
         self.echoed = []
         for r in self.d.rules:
@@ -1282,7 +1344,20 @@ class Sim:
                 self.cause = f"{step} ({name})"
                 self.run(r, dict(args))
         self.cause = ""
-        self.advance(AFTER_INPUT)
+        down = down_for(self.d.inputs[name]) if seconds is None else seconds
+        # Hold the key, or every screen input the touch fires
+        # Is in touch names no object
+        self.held, self.held_by = (set(screen) if screen else {name}), f"{step} ({name})"
+        self.advance(down)
+        released, self.held = self.held, set()
+        for r in self.d.rules:
+            if r.phase == "released" and r.input in released:
+                self.cause = self.held_by
+                self.run(r, {})
+        self.cause = ""
+        rest = AFTER_INPUT if seconds is not None else AFTER_INPUT - down
+        if rest > TICK / 2:
+            self.advance(rest)
 
     def settle(self, seconds: float = SETTLE) -> None:
         """Let the game run after a test's last step, noting what a restart changes meanwhile. A change by
@@ -1294,12 +1369,17 @@ class Sim:
             self.settling = False
 
     def tick(self) -> None:
-        """One tick: the rules fired by tick or every N, the Waits that are due, then a restart a rule asked for."""
+        """One tick: the rules fired by tick, every N or an input held down, the Waits that are due, then a restart
+        a rule asked for."""
         before = self.t
         self.t += TICK
         for r in self.d.rules:
             if r.on == "tick":
                 self.run(r, {})
+            elif r.phase == "held" and r.input in self.held:
+                self.cause = self.held_by
+                self.run(r, {})
+                self.cause = ""
             elif r.every and math.floor(self.t / r.every + 1e-9) > math.floor(before / r.every + 1e-9):
                 self.run(r, {})
         due = sorted((p for p in self.pending if p[0] <= self.t + 1e-9), key=lambda p: (p[0], p[1]))

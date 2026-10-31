@@ -115,14 +115,21 @@ shows before the build and a bug in the events after it.
 
   Every tap is also a tap on the screen: a screen input fires on every tap,
   a tap on an object included, before the object's rules. So a tap on a
-  Hole also runs the rules of `again`, first. To limit a tap on a point to a
+  Hole also runs the rules of `again`, first, and the `held` and `released`
+  rules of every screen input while the tap is down and when it lifts. To
+  limit a tap on a point to a
   part of the screen, give it `"region": [x0, y0, x1, y1]`, as shares. The
   prototype counts a tap on an object as outside every region. When a rule
   of `{"tap": "screen", ...}` runs on a tap on an object and reads its
   argument, the prototype does not know that position, and the check stops
   there. Give that rule a condition that is false on that tap.
 - `rules`: each one event. `on` is its trigger: `start`, `tick`, `every N`
-  (seconds) or an input's name. `if` holds its other conditions, `do` its
+  (seconds), an input's name (it is pressed), `NAME held` (every tick while
+  it is down, with `dt`) or `NAME released` (once, when it comes up). Only a
+  key, or a tap on a point of the screen that carries no arguments, can be
+  held. A power that grows while the finger is down and is spent when it
+  lifts is one `held` rule and one `released` rule. `if` holds its other
+  conditions, `do` its
   actions in order, `children` its sub-events, and `"else": true` makes a
   child the Else of the child before it. A rule fired by an input names its
   `feedback`, what the player sees: the input -> rule -> feedback table.
@@ -148,7 +155,11 @@ shows before the build and a bug in the events after it.
   dodge), writes `"won_by_waiting": "<what the player does while it runs>"`.
   The check refuses that field when the game is not won without input.
 - `tests`: from a first launch each. `{"do": "hit", "h": 4}` does an input,
-  then lets the game run 0.15 s; `{"wait": 1}` lets it run;
+  then lets the game run 0.15 s. A tap stays down 0.05 s and a key its
+  `seconds`, as the editor holds them, and the `released` rules run when it
+  comes up. `{"hold": "charge", "seconds": 0.8}` holds a key or a tap on a
+  point for that many seconds, from 0.05 to 3, then releases it and lets the
+  game run 0.15 s. `{"wait": 1}` lets the game run;
   `{"expect": "score = 1"}` must hold; `{"set": "hole = 4"}` is a fixture
   that puts the game in a state, for what is random or slow; it cannot set a
   count of instances. Every rule must run in some test, every input be
@@ -206,6 +217,13 @@ restart that leaves one as it was.
   input as the end, or on Touch *On tap*, which fires at the release, runs
   after the end. Without the second value it restarts on the tap that
   ended the game.
+- Hold to charge, let go to act (a jump, a throw, a shot): a `NAME held`
+  rule `power = min(power + dt, 1)`, a `NAME released` rule that spends
+  the power and sets it back to 0, and a test with
+  `{"hold": "NAME", "seconds": 0.8}` beside one with `{"do": "NAME"}`, the
+  shortest press. Restart on `NAME released` and after the end's second
+  value: a restart on the press comes up in the new game, and that release
+  spends a power of 0 there.
 
 ## From the design to the events
 
@@ -219,6 +237,9 @@ restart that leaves one as it was.
 | `"region": [x0, y0, x1, y1]` | after *On any touch start*, *Compare two values* on `Touch.X` and `Touch.Y` against the region's edges: `OriginalViewportWidth * x0`, `OriginalViewportHeight * y0` and so on |
 | an input `{"tap": "screen", "args": {"x": "x"}}` | Touch *On any touch start*; the argument is `Touch.X` |
 | an input `{"key": ...}` | Keyboard *On key pressed* |
+| `"on": "NAME held"`, a key | an event that runs every tick, with Keyboard *Key is down* as its first condition |
+| `"on": "NAME held"`, a tap on a point | an event that runs every tick, with Touch *Is in touch* as its first condition and the tap's `region` as after *On any touch start* |
+| `"on": "NAME released"` | Keyboard *On key released*, or Touch *On any touch end* with the tap's `region` |
 | a condition | *Compare variable*, *Compare two values* or the instance's own condition |
 | `name = expr` | System *Set value*, *Set text*, the object's *Set value*, *Set X* by where `name` is stored |
 | `stones += 1` on `Stone.shown` | System *Create object* Stone, or *Set visible* on the Stone the event picked, such as the one on the tapped Cell; never an action on every Stone |

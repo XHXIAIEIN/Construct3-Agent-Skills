@@ -1561,3 +1561,21 @@ def test_a_painted_backdrop_that_is_mostly_the_references_plum_passes_and_a_navy
     (project / "images" / "stall-default-000.png").write_bytes(png(navy[0], navy[1], lambda x, y: (*grader.NAVY, 255)))
     passed, said = graded_by(run_dir)[key]
     assert not passed, said
+
+
+def test_a_hold_game_needs_a_held_rule_a_released_rule_and_a_hold_step(tmp_path):
+    from tests.test_skill_check_design import charge
+    run_dir = tmp_path / "it" / "design-a-hold-game" / "with_skill"
+    (run_dir / "project" / "tools").mkdir(parents=True)
+    (run_dir / "fixture.json").write_text("{}", encoding="utf-8")
+    design = run_dir / "project" / "tools" / "design.json"
+    data = charge()
+    design.write_text(json.dumps(data), encoding="utf-8")
+    results = graded_by(run_dir)
+    assert all(passed for passed, _ in results.values()), results
+    data["rules"][1]["on"] = "press"
+    data["tests"][0]["steps"] = [{"do": "press"}]
+    design.write_text(json.dumps(data), encoding="utf-8")
+    held, hold = by_words(graded_by(run_dir), "input held", "hold step")
+    assert held == (False, "rule triggers: ['start', 'press', 'press released', 'press released']")
+    assert hold == (False, "0 hold steps in the tests")

@@ -8,7 +8,7 @@ Run it after check_design.py passes on the design and the game is built from
 it, check_project.py passing. It reads where the design says each piece of
 state is kept ("stored_in": a global, an Array, an object's variable, text or
 position, or a count of the instances shown) and how each input is done in the game ("game": tap an object by
-its instance variables, tap a point of the screen, press a key), and refuses
+its instance variables, tap a point of the screen, press a key, or hold the tap or the key), and refuses
 a name the project does not have. Then it writes one preview_project.py plan
 per test, from a first launch each, with the JavaScript generated from the
 design's expressions by this script, and plays them in one editor session:
@@ -480,22 +480,23 @@ def test_plan(test: dict, design: gm.Design, model: Model, stable: list[dict] = 
     last expects that held after the settle in the prototype: the plan reads them again after the same settle."""
     steps, origin = [{"wait": 0.4}], [None]
     for s in test["steps"]:
-        if s["kind"] == "do":
+        if s["kind"] in ("do", "hold"):
             game = design.inputs[s["input"]]["game"]
             if "key" in game:
-                steps.append({"key": game["key"], "seconds": game.get("seconds", 0.1)})
-            elif game["tap"] == "screen":
-                where = {coord: s["args"][arg] for arg, coord in (game.get("args") or {}).items()}
-                steps.append({"tap": {"x": round(float(where.get("x", model.size[0] / 2)), 1),
-                                      "y": round(float(where.get("y", model.size[1] * 0.8)), 1)}})
-            elif isinstance(game["tap"], list):
-                fx, fy = game["tap"]
-                point = {"x": round(fx * model.size[0], 1), "y": round(fy * model.size[1], 1)}
-                if model.hud:
-                    point["layer"] = model.hud
-                steps.append({"tap": point})
+                steps.append({"key": game["key"], "seconds": s.get("seconds", game.get("seconds", gm.KEY_DOWN))})
             else:
-                steps.append({"tap": {"js": find_js(game["tap"], game.get("args") or {}, s["args"])}})
+                if game["tap"] == "screen":
+                    where = {coord: s["args"][arg] for arg, coord in (game.get("args") or {}).items()}
+                    target = {"x": round(float(where.get("x", model.size[0] / 2)), 1),
+                              "y": round(float(where.get("y", model.size[1] * 0.8)), 1)}
+                elif isinstance(game["tap"], list):
+                    fx, fy = game["tap"]
+                    target = {"x": round(fx * model.size[0], 1), "y": round(fy * model.size[1], 1)}
+                    if model.hud:
+                        target["layer"] = model.hud
+                else:
+                    target = {"js": find_js(game["tap"], game.get("args") or {}, s["args"])}
+                steps.append({"hold": target, "seconds": s["seconds"]} if s["kind"] == "hold" else {"tap": target})
             origin.append(s)
             steps.append({"wait": TAP_PAUSE})
             origin.append(None)

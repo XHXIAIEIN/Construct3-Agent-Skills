@@ -817,3 +817,95 @@ def test_play_design_keeps_the_reason_a_preview_did_not_run_and_counts_the_runs_
     one = {"started": True, "errors": [], "steps": []}
     lines, code = pd.report(design, [[]] * n, {**OPENED, "preview": {"plans": [first] + [one] * (n + 1)}})
     assert code == 1 and f"  runs: the preview returned {n + 1} test runs for {n} tests" in "\n".join(lines)
+
+
+def charge(again_on: str = "press released", binding: dict | None = None) -> dict:
+    """A one-button game: the power grows while the screen is held, the release jumps, and a full charge lands."""
+    return {
+        "game": "Charge", "request": "hold to charge a jump, let go to jump", "later": ["sound"],
+        "core_loop": "hold, let go, land", "reference": example()["reference"], "screen": {"power": "bottom centre"},
+        "state": [{"name": "power", "start": 0, "stored_in": "global"},
+                  {"name": "bar", "start": 0, "stored_in": "PowerBar.width"},
+                  {"name": "score", "start": 0, "stored_in": "global"},
+                  {"name": "line", "start": "Score 0", "stored_in": "ScoreText.text"},
+                  {"name": "over", "start": 0, "stored_in": "global"}],
+        "inputs": [{"name": "press", "player": "hold the screen, then let go", "game": binding or {"tap": [0.5, 0.5]}}],
+        "rules": [
+            {"id": "new-game", "on": "start", "do": ["power = 0", "score = 0", "over = 0"]},
+            {"id": "charge", "on": "press held", "if": ["over = 0"], "do": ["power = min(power + dt, 1)", "bar = power * 300"],
+             "feedback": "the bar grows"},
+            {"id": "jump", "on": "press released", "if": ["over = 0"], "feedback": "the player jumps", "children": [
+                {"id": "land", "if": ["power >= 0.7"], "do": ["score += 1", "line = \"Score \" & score", "power = 0", "bar = 0"]},
+                {"id": "miss", "else": True, "do": ["over = 1", "line = \"Missed\"", "power = 0", "bar = 0", "wait 0.5",
+                                                    "over = 2"]}]},
+            {"id": "again", "on": again_on, "if": ["over = 2"], "do": ["restart"], "feedback": "a new game"}],
+        "win": "score >= 2", "lose": "over >= 1",
+        "tests": [
+            {"name": "two long holds win", "steps": [{"hold": "press", "seconds": 0.8}, {"expect": "line = \"Score 1\""},
+                                                     {"hold": "press", "seconds": 0.8}, {"expect": "score >= 2"}]},
+            {"name": "a tap falls short, a tap restarts", "steps": [
+                {"do": "press"}, {"expect": "line = \"Missed\""}, {"expect": "bar = 0"}, {"wait": 0.6}, {"do": "press"},
+                {"wait": 0.2}, {"expect": "over = 0"}]}]}
+
+
+def test_a_held_input_runs_its_held_rules_every_tick_and_its_released_rules_once(tmp_path):
+    """A tap stays down 0.05 s and a key its seconds, as the editor holds them, and an input still takes 0.15 s
+    from its press; a hold step holds it its own seconds, then 0.15 s run from the release."""
+    code, out = check(tmp_path, charge())
+    assert code == 0, out
+    assert "  press while held (hold the screen, then let go): charge -> the bar grows" in out
+    assert "  press on release (hold the screen, then let go): jump -> the player jumps" in out
+    gm = script_module("game_model")
+    design = gm.Design(charge())
+    sim = gm.Sim(design)
+    sim.fire("press", {})
+    assert sim.ran["charge"] == 3 and sim.ran["jump"] == 1 and round(sim.t, 4) == 0.15
+    sim = gm.Sim(design)
+    sim.fire("press", {}, seconds=0.8)
+    assert sim.ran["charge"] == 48 and sim.values["score"] == 1 and round(sim.t, 4) == 0.95
+    design = gm.Design(charge(binding={"key": "Space", "seconds": 0.5}))
+    sim = gm.Sim(design)
+    sim.fire("press", {})
+    assert sim.ran["charge"] == 30 and sim.ran["jump"] == 1 and round(sim.t, 4) == 0.5
+
+
+def test_a_restart_on_the_press_is_ended_by_the_release_of_the_same_tap(tmp_path):
+    """The tap that restarts comes up in the new game, so its release jumps there with no power and loses."""
+    code, out = check(tmp_path, charge(again_on="press"))
+    assert code == 1
+    assert "tests[1].steps[6]: expect over = 0: false in the prototype; over = 1." in out
+
+
+def test_only_a_key_or_a_tap_on_a_point_is_held(tmp_path):
+    design = charge(binding={"tap": "Pad"})
+    code, out = check(tmp_path, design)
+    assert code == 1
+    assert ("rules[1] 'charge'.on: press is a tap on Pad, so it cannot be held or released. Only a key or a tap on a "
+            "point of the screen with no arguments can") in out
+    assert "tests[0].steps[0].hold: press is a tap on Pad, which cannot be held" in out
+    design = charge()
+    design["tests"][0]["steps"][0]["seconds"] = 5
+    design["rules"][2]["on"] = "jump released"
+    code, out = check(tmp_path, design)
+    assert code == 1
+    assert "tests[0].steps[0]: {\"hold\": \"press\", \"seconds\": 0.8}: \"seconds\" is how long the input stays down" in out
+    assert "rules[2] 'jump'.on: 'jump' is no input; the inputs are press" in out
+
+
+def test_play_design_holds_a_tap_or_a_key_for_the_seconds_of_a_hold_step(tmp_path):
+    root = tmp_path / "game"
+    write_project(root, {"power": ("number", "0"), "score": ("number", "0"), "over": ("number", "0")},
+                  {"PowerBar": ("TiledBg", []), "ScoreText": ("Text", []), "Touch": ("Touch", []),
+                   "Keyboard": ("Keyboard", [])},
+                  [{"type": "PowerBar", "layer": "UI", "world": {"x": 0, "y": 0, "width": 0}},
+                   {"type": "ScoreText", "layer": "UI", "world": {"x": 0, "y": 0}, "properties": {"text": "Score 0"}}])
+    _, (code, out) = play(tmp_path, charge())
+    assert code == 0, out
+    written = json.loads((tmp_path / "plans.json").read_text(encoding="utf-8"))
+    assert {"hold": {"x": 360.0, "y": 640.0, "layer": "UI"}, "seconds": 0.8} in written[1]["steps"]
+    assert {"tap": {"x": 360.0, "y": 640.0, "layer": "UI"}} in written[2]["steps"]
+    _, (code, out) = play(tmp_path, charge(binding={"key": "Space"}))
+    assert code == 0, out
+    written = json.loads((tmp_path / "plans.json").read_text(encoding="utf-8"))
+    assert {"key": "Space", "seconds": 0.8} in written[1]["steps"]
+    assert {"key": "Space", "seconds": 0.1} in written[2]["steps"]
