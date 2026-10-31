@@ -26,7 +26,7 @@ taken where the official examples measure otherwise
   template's ease for the HUD, a bar, the camera and the world, as the
   official examples tween them.
 - **Ease-out** - Starts fast and settles. `easeoutquint` opens a popup or a
-  banner (`motion.tween-style`, open). It is the curve that web interfaces
+  banner (`motion.tween-style`). It is the curve that web interfaces
   write as `cubic-bezier(0.23, 1, 0.32, 1)`.
 - **Ease-in** - Starts slowly. It suits an object that leaves, never a HUD
   object that fades in (`motion.hud-ease-in`, a warning).
@@ -45,7 +45,7 @@ taken where the official examples measure otherwise
   at opacity 0, and fades its dim in to `POPUP["dim"]`, 50 %, in 0.2 s
   `easeoutquint`. `popup(panel, dim, show=False)` closes it the way it came,
   and `popup_closed(panel, dim)` hides both when the close ends
-  (`motion.popup`, open). Never from 0 (`motion.panel-from-zero`, a
+  (`motion.popup`). Never from 0 (`motion.panel-from-zero`, a
   finding).
 - **Pop in** - Appears with an overshoot, as if it bounced into place. Set
   the size to a share of its size at rest, then tween back with

@@ -686,30 +686,22 @@
     },
     {
       "id": "motion.tween-style",
-      "status": "open",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "A tween takes its ease and seconds from TWEEN_STYLE by the class of what it moves: the HUD fading or sliding in and out, a bar's fill, the camera, a world object, a popup, a banner. The HUD, a bar, the camera and the world keep easeinoutsine, 0.5 s for the HUD and the world, 0.25 s for a bar, 1 s for the camera, as the official examples tween them. A popup and a banner open with easeoutquint in 0.2 and 0.25 s, a strong ease-out under 0.3 s, where the examples fade a popup with easeinoutsine in 0.5 s at the median. The user judges the two on a recording; until then the template keeps the strong ease-out for popups and banners only.",
+      "says": "A tween takes its ease and seconds from TWEEN_STYLE by the class of what it moves: the HUD fading or sliding in and out, a bar's fill, the camera, a world object, a popup, a banner. The HUD, a bar, the camera and the world keep easeinoutsine, 0.5 s for the HUD and the world, 0.25 s for a bar, 1 s for the camera, as the official examples tween them. A popup and a banner open with easeoutquint in 0.2 and 0.25 s, a strong ease-out under 0.3 s, as Emil Kowalski's animation skills set for an element that enters or leaves, where the examples fade a popup with easeinoutsine in 0.5 s at the median. The owner picked the strong ease-out over the examples' fade on a recording of the two side by side.",
       "template": "TWEEN_STYLE",
       "value": "{'hud_in': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'hud_out': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'bar': {'ease': 'easeinoutsine', 'seconds': 0.25}, 'camera': {'ease': 'easeinoutsine', 'seconds': 1}, 'world': {'ease': 'easeinoutsine', 'seconds': 0.5}, 'popup': {'ease': 'easeoutquint', 'seconds': 0.2}, 'banner': {'ease': 'easeoutquint', 'seconds': 0.25}}",
       "helpers": "eased(), tween1(), tween2(), tween_width(), tween_value(), hints()",
-      "options": [
-        "measured: a popup and a banner take the HUD's easeinoutsine in 0.5 s, as the official examples' popups fade, nearly all with easeinoutsine, 0.25 to 1 s in the middle half, none scaled",
-        "strong ease-out: a popup and a banner take easeoutquint in 0.2 to 0.35 s, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) set for an element that enters or leaves; the template holds this one, for popups and banners only"
-      ],
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
     },
     {
       "id": "motion.popup",
-      "status": "open",
+      "status": "adopted",
       "scope": "every-look",
-      "says": "popup() opens a panel from 0.95 of its size at opacity 0 while its dim fades in to 50 %, in TWEEN_STYLE['popup'], and closes it the way it came; popup_closed() hides both once the close ends. The official examples fade their popups and never scale one.",
+      "says": "popup() opens a panel from 0.95 of its size at opacity 0 while its dim fades in to 50 %, in TWEEN_STYLE['popup'], and closes it the way it came; popup_closed() hides both once the close ends. The official examples fade their popups at their size and never scale one; the owner picked the scale and fade on a recording of the two side by side. Never from 0 (motion.panel-from-zero).",
       "template": "(POPUP['scale'], POPUP['dim'])",
       "value": "(0.95, 50)",
       "helpers": "popup(), popup_closed(), screen_box()",
-      "options": [
-        "scale and fade: the panel from 0.95 of its size and opacity 0, never from 0, as Emil Kowalski's animation skills (github.com/emilkowalski/skills, MIT) open a dialog; the template holds this one",
-        "fade only: the panel fades in at its size, as the official examples' popups do"
-      ],
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
     },
     {

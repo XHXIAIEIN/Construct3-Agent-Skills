@@ -46,7 +46,7 @@ title screen here is any title, menu, pause or settings screen.
 | A neutral ground, the hue left to the accents | Ground chroma a median 0.02, 0.07 at the third quartile | Play screens' ground chroma a median 0.055, 0.19 at the third quartile | The default look's grounds are grey | `colour.neutral-ground`, rejected for every look |
 | One accent hue | 113 palettes hold one strong hue, 49 none, 38 two or more | Not measured: the examples' colours are in their images | Four accent roles, each a kind of thing | `colour.one-hue`, rejected |
 | Small labels frame the content from the corners | 72 place labels in corners, 4 in all four | Of 103 play screens, 50 hold a text in no corner, 31 in one, 19 in two and 3 in three or four | The play HUD holds three: the tag, the count and the keys | `layout.corner-frame`, rejected |
-| Entrances ease out, mostly `expo.out` | `expo.out` 91, `power3.out` 50, `power2.out` 41, `back.out` 23 | 1181 of 2196 tweens in 138 examples use `easeinoutsine`; `easeoutsine` 309, `easeoutback` 84, an expo ease 3 | `TWEEN_STYLE` by class (`motion.tween-style`, open) | `motion.ease-out-entrance`, rejected |
+| Entrances ease out, mostly `expo.out` | `expo.out` 91, `power3.out` 50, `power2.out` 41, `back.out` 23 | 1181 of 2196 tweens in 138 examples use `easeinoutsine`; `easeoutsine` 309, `easeoutback` 84, an expo ease 3 | `TWEEN_STYLE` by class (`motion.tween-style`, adopted) | `motion.ease-out-entrance`, rejected |
 | Headlines reveal by line, word or letter | 78, of which 31 by letter, 15 scramble, 7 typewriter | One example uses the Text typewriter action | None | `motion.text-reveal`, rejected |
 | The pointer tilts or drifts the scene | 57 | — | — | `motion.pointer-drift`, rejected |
 

@@ -82,11 +82,11 @@ panel's opacity as its child. The panel and the dim were hidden when the
 close ended, and shown again at the next open. Recordings and the
 measurements: `.local/docs/evidence/motion-by-class/`.
 
-For the owner's choice, two copies of the template's game each opened a
-popup, closed it and faded a banner in and out, one in the template's
-motion and one in the examples' `easeinoutsine` in 0.5 s with the panel at
-its size, recorded side by side at real speed and four times slower. The
-videos and the demo's script are in `.local/docs/evidence/popup-motion/`.
+Two copies of the template's game each opened a pause panel, closed it
+and faded a banner in and out, one in the strong ease-out from 0.95 and one
+in the examples' `easeinoutsine` in 0.5 s with the panel at its size. They
+were recorded side by side at real speed and four times slower. The videos
+and the demo's script are in `.local/docs/evidence/popup-motion/`.
 
 ## Options
 
@@ -102,13 +102,14 @@ videos and the demo's script are in `.local/docs/evidence/popup-motion/`.
 
 ## Decision
 
-Option 3, with the popup class and `popup()` left open for the owner, who
-judges both on a recording:
+Option 3. The owner picked the popup and banner motion on the recording
+of the two side by side:
 
-- `motion.tween-style`, open: the measured `easeinoutsine` in 0.5 s for a
-  popup and a banner, or the strong ease-out the template holds.
-- `motion.popup`, open: a panel from 0.95 of its size and opacity 0, which
-  the template holds, or a fade at its size as the examples do.
+- `motion.tween-style`, adopted: a popup and a banner open with
+  `easeoutquint` in 0.2 and 0.25 s, not the examples' `easeinoutsine` in
+  0.5 s.
+- `motion.popup`, adopted: `popup()` opens a panel from 0.95 of its size and
+  opacity 0, not at its size as the examples fade theirs.
 - `motion.frequency`, proposed: on the HUD only, instant for what each
   action changes and the popup class for a moment of the session; the
   world keeps its juice. `count_up()` would change under it.
@@ -128,9 +129,6 @@ recipes.
 
 ## Re-evaluate when
 
-- The owner judges the popup and banner class and the popup's scale on a
-  recording: write the pick into `TWEEN_STYLE` and `POPUP`, and set the two
-  rules to adopted.
 - A read of the examples finds a reduced-motion setting or a held
   confirm.
 - A Construct release changes when a property tween releases another, which
