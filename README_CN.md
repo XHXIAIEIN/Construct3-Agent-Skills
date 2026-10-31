@@ -2,9 +2,9 @@
 
 [English](README.md) | **中文**
 
-Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://editor.construct.net/)（[推荐链接](https://www.construct.net/a/260259?t=construct3)）游戏的 skill 和数据集。
+Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://editor.construct.net/)（[推荐链接](https://www.construct.net/a/260259?t=construct3)）游戏的 skill。
 
-仓库把 `construct3-agent-plugin` skill 和它读取的数据放在一个文件夹里：[`plugin/`](plugin/README.md)。这个文件夹同时就是 Claude Code plugin。有了 skill，agent 能做这些事：
+仓库把 `construct3-agent-plugin` skill 放在一个文件夹里：[`plugin/`](plugin/README.md)，它同时就是 Claude Code plugin。skill 读取的数据在 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) 里，clone 在本仓库旁边。有了 skill，agent 能做这些事：
 
 - 查手册：按名字或用途找到 Construct 的条件、动作和表达式，以及插件和行为的脚本 API。每个结果都带着参数和要写的 JSON。
 - 按定义写：动手之前，agent 先查编辑器定义的每一个条件、动作、表达式和滤镜。然后它直接编辑项目的 JSON 文件，所以写出的值都是编辑器接受的值。
@@ -31,7 +31,11 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
    git clone https://github.com/XHXIAIEIN/Construct3-Agent-Skills $HOME/Construct3/Construct3-Agent-Skills
    ```
 
-   把事件表指引 clone 到它旁边。指引单独放在一个仓库里，新的陷阱条目 `git pull` 就能拿到：
+   把数据和事件表指引 clone 到它旁边。它们各有自己的仓库，编辑器新版本的数据和新的陷阱条目 `git pull` 就能拿到：
+
+   ```bash
+   git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG $HOME/Construct3/Construct3-RAG
+   ```
 
    ```bash
    git clone https://github.com/XHXIAIEIN/Construct3-Cookbook $HOME/Construct3/Construct3-Cookbook
@@ -72,7 +76,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 
 如果装了市场那份或链接了 clone，Claude Code 加载那一份，忽略插件目录里的副本。
 
-插件里不带事件表指引。先 clone 一次 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook)，之后用 `git pull` 保持最新；没 clone 之前，脚本会打印 `git clone` 命令，agent 设计时就读不到陷阱条目。脚本在 Construct3-RAG 或本仓库旁边找这个 clone，也认环境变量 `CONSTRUCT3_COOKBOOK` 和游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook: <文件夹>` 行。
+插件里既不带数据，也不带事件表指引。先把 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) clone 一次到插件文件夹旁边，或者用环境变量 `CONSTRUCT3_RAG` 指明 clone 的位置；没 clone 之前，每个读数据的脚本都会停下并打印 `git clone` 命令。[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) 也 clone 一次；没 clone 之前，脚本会打印它的 `git clone` 命令，agent 设计时就读不到陷阱条目。`check_project.py` 让两个 clone 保持最新：clone 落后上游、又没有自己的改动时，它会自动 pull。脚本在 Construct3-RAG 或本仓库旁边找这个 clone，也认环境变量 `CONSTRUCT3_COOKBOOK` 和游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook: <文件夹>` 行。
 
 你可以在 Cookbook 之外放一份自己的坑点，不用 fork 它。把它们放进一个和 Cookbook 的 `guides/` 结构相同的文件夹，每条坑点是 `plugins/sprite.md`、`behaviors/tween.md` 这类页面里的一个列表项。用游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook-extra: <文件夹>` 行指明这个文件夹，相对路径从这个文件所在的文件夹算起；也可以用环境变量 `CONSTRUCT3_COOKBOOK_EXTRA`。之后 `search_guides.py` 也搜你的条目，命中的词一样多时排在前面；`lookup_ace.py` 在条目后列出插件页面时，先列你的。设计指引和检查器引用的页面仍然只用 Cookbook 的。
 
@@ -97,8 +101,8 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 ## 仓库结构
 
 ```
-plugin/                 plugin 本身：skills/ 下是 skill，还有清单、README、图标，以及构建出的 data/
-dev/                    只有维护者用的东西：evals、tests/、scripts/（build_plugin.py 刷新 plugin/data/），以及 AGENTS.md：改 skill 和构建 plugin/ 的指南
+plugin/                 plugin 本身：skills/ 下是 skill，还有清单、README、图标和子 agent
+dev/                    只有维护者用的东西：evals、tests/、scripts/（build_plugin.py 设置插件版本），以及 AGENTS.md：改 skill 和构建 plugin/ 的指南
 scripts/                bootstrap.py：clone 兄弟仓库并安装 skill
 docs/                   决策记录和审查
 .claude-plugin/         给 Claude Code 的 marketplace 清单，指向 plugin/
@@ -111,7 +115,7 @@ AGENTS.md               给 AI agent 的指南；维护者从 dev/AGENTS.md 开�
 
 | 仓库 | 内容 |
 |------|------|
-| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | 数据：编辑器定义的每一个条件、动作、表达式和滤镜，示例索引、语言包和 TypeScript 定义。每个版本发布时，数据从 Construct 3 CDN 刷新。本仓库用 skill 和放在旁边的那个仓库的 clone 构建 `plugin/`。如果数据变了，工作流每天重新构建一次 `plugin/`。 |
+| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | 数据：编辑器定义的每一个条件、动作、表达式和滤镜，示例索引、语言包和 TypeScript 定义。每个版本发布时，数据从 Construct 3 CDN 刷新。skill 的脚本读取放在本仓库旁边的那个仓库的 clone，所以 `git pull` 这个 clone 就能拿到新版本。 |
 | [XHXIAIEIN/Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) | 事件表指引：怎么设计事件、带出处的运行时陷阱、官方示例的写法，以及手感、菜单、对话和工程文件的做法。脚本从放在本仓库旁边的 clone 里读取。 |
 | [XHXIAIEIN/Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) | 官方手册、Addon SDK 指南和 Game Services 文档的 Markdown 版。数据给出名称和参数，手册说明它们做什么。 |
 | [Scirra/Construct-Example-Projects](https://github.com/Scirra/Construct-Example-Projects) | 示例浏览器里的每一个官方示例，保存为文件夹项目。`search_guides.py` 按主题找到它们。 |

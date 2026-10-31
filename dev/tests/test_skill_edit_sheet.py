@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    EVALS,    PLUGIN,    REPO, SKILL, INSTALLED, SHEET, EXAMPLES, NEEDS_EXAMPLES, run, streams, tool, check, edit, events, every_event,
+    EVALS,    RAG,    REPO, SKILL, INSTALLED, SHEET, EXAMPLES, NEEDS_EXAMPLES, run, streams, tool, check, edit, events, every_event,
     collect_tween, game_rows, plan, script_module,
 )
 
@@ -21,7 +21,7 @@ MEDIA = ("*.png", "*.jpg", "*.webp", "*.webm", "*.ogg", "*.m4a", "*.mp3", "*.wav
 
 def source_tool(root: Path, name: str, *args: str) -> tuple[int, str]:
     """A script of the skill's source run on a project without the skill installed, such as a copy of an example."""
-    return run(root, SKILL / "scripts" / f"{name}.py", "--rag", str(PLUGIN), *args)
+    return run(root, SKILL / "scripts" / f"{name}.py", "--rag", str(RAG), *args)
 
 
 def printed(root: Path) -> str:
@@ -597,7 +597,7 @@ def test_new_leaves_no_draft_when_a_file_cannot_take_its_place(project, monkeypa
             raise PermissionError(13, "Access is denied", str(dst))
         return replace(src, dst)
     monkeypatch.setattr(os, "replace", refuse)
-    monkeypatch.setattr(sys, "argv", ["edit_sheet.py", "--project", str(project), "--rag", str(PLUGIN), "Game",
+    monkeypatch.setattr(sys, "argv", ["edit_sheet.py", "--project", str(project), "--rag", str(RAG), "Game",
                                       str(project / "plan.json"), "--new"])
     assert edit_sheet.main() == 1
     out = capsys.readouterr().out
@@ -645,7 +645,7 @@ def test_new_keeps_a_save_made_while_it_runs(project, monkeypatch, capsys, when)
                 raise PermissionError(13, "Access is denied", str(path))
             return write(path, data)
         monkeypatch.setattr(edit_sheet, "write_editor_json", save_meanwhile)
-    monkeypatch.setattr(sys, "argv", ["edit_sheet.py", "--project", str(project), "--rag", str(PLUGIN), "Game",
+    monkeypatch.setattr(sys, "argv", ["edit_sheet.py", "--project", str(project), "--rag", str(RAG), "Game",
                                       str(project / "plan.json"), "--new"])
     assert edit_sheet.main() == 1
     out = capsys.readouterr().out
@@ -754,7 +754,7 @@ def refused(root: Path, *args: str, said: str) -> str:
     """edit_sheet.py refuses with said on stdout, nothing on stderr and exit code 1: a refusal answers the
     model, and on stderr a harness that shows stdout alone showed nothing, while PowerShell wrapped each
     line in an error record. Returns that stdout."""
-    p = streams(root, f"{INSTALLED}/scripts/edit_sheet.py", "--rag", str(PLUGIN), *args)
+    p = streams(root, f"{INSTALLED}/scripts/edit_sheet.py", "--rag", str(RAG), *args)
     assert p.returncode == 1 and p.stderr == "" and said in p.stdout, (args, p.stdout, p.stderr)
     return p.stdout
 

@@ -2,14 +2,14 @@
 import json
 from pathlib import Path
 
-from tests.skill_helpers import PLUGIN, DATA, REPO, SKILL, run
+from tests.skill_helpers import RAG, DATA, REPO, SKILL, run
 
 SCRIPT = SKILL / "scripts" / "new_project.py"
 TEMPLATE = DATA / "c3-new-project"
 
 
 def test_new_project_copies_the_empty_project_and_names_the_check(tmp_path: Path) -> None:
-    code, out = run(tmp_path, SCRIPT, "My Game", "--rag", str(PLUGIN))
+    code, out = run(tmp_path, SCRIPT, "My Game", "--rag", str(RAG))
     game = tmp_path / "My Game"
     data = json.loads((game / "project.c3proj").read_text(encoding="utf-8"))
     template = json.loads((TEMPLATE / "project.c3proj").read_text(encoding="utf-8"))
@@ -22,11 +22,11 @@ def test_new_project_copies_the_empty_project_and_names_the_check(tmp_path: Path
 def test_new_project_leaves_a_folder_with_files_alone(tmp_path: Path) -> None:
     (tmp_path / "notes").mkdir()
     (tmp_path / "notes" / "todo.txt").write_text("x", encoding="utf-8")
-    code, out = run(tmp_path, SCRIPT, "notes", "--rag", str(PLUGIN))
+    code, out = run(tmp_path, SCRIPT, "notes", "--rag", str(RAG))
     assert code == 1 and "is not empty" in out
     assert not (tmp_path / "notes" / "project.c3proj").exists()
 
 
 def test_new_project_dry_run_writes_nothing(tmp_path: Path) -> None:
-    code, out = run(tmp_path, SCRIPT, "Game", "--rag", str(PLUGIN), "--dry-run")
+    code, out = run(tmp_path, SCRIPT, "Game", "--rag", str(RAG), "--dry-run")
     assert code == 0 and "would copy" in out and not (tmp_path / "Game").exists()

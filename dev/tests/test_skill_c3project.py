@@ -37,7 +37,10 @@ def test_script_command_names_the_script_and_the_project_from_the_current_direct
 
 
 def test_missing_examples_bootstrap_names_the_tool_repository():
-    assert c3.examples_clone_command(None) == "python <Construct3-Agent-Skills>/scripts/bootstrap.py"
+    """Run from plugin/ of a Construct3-Agent-Skills clone, the clone's bootstrap.py clones the examples beside it."""
+    bootstrap = f"python {(REPO / 'scripts' / 'bootstrap.py').as_posix()}"
+    assert c3.examples_clone_command(None) == bootstrap
+    assert c3.examples_clone_command(c3.siblings_folder(REPO) / "Construct3-RAG") == bootstrap
 
 
 def cookbook(folder: Path) -> Path:

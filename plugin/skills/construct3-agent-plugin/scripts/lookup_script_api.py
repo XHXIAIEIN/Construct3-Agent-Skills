@@ -13,9 +13,7 @@ The declarations are the `.d.ts` files of
 `Construct3-RAG/data/c3-ts-defs/`, without the addon SDK, and those under the
 project's `scripts/ts-defs/` when the editor has written them
 (`open_in_editor.py --typescript`): there `InstanceType.Coin` lists the
-behaviors and instance variables of the project's own objects. The Claude
-Code plugin keeps these `.d.ts` files in bundles, so there a declaration
-shows the command that prints it instead of a file and line.
+behaviors and instance variables of the project's own objects.
 
 A grep for a name also hits the parameters and event maps that mention it.
 This prints the declaration, the interface it belongs to, and its file and
@@ -145,8 +143,7 @@ def load_api(rag: Path, project: Path | None) -> list[Declaration]:
     skipped."""
     defs = rag / "data" / "c3-ts-defs"
     api = {k: text for k, text in c3.data_texts(rag, "data/c3-ts-defs", "*.d.ts").items() if "sdk" not in k.split("/")}
-    # A file the plugin keeps only in a bundle has no path to open; where() shows the command instead
-    files = [((defs / k).as_posix() if (defs / k).is_file() else "", text) for k, text in api.items()]
+    files = [((defs / k).as_posix(), text) for k, text in api.items()]
     names = {k.rpartition("/")[2] for k in api}
     own = project / "scripts" / "ts-defs" if project else None
     if own and own.is_dir():
@@ -161,10 +158,7 @@ def load_api(rag: Path, project: Path | None) -> list[Declaration]:
 
 
 def where(d: Declaration, m: Member | None = None) -> str:
-    """The file and line of a declaration or of one of its members, or the command that prints it when the
-    declaration has no file to open."""
-    if not d.file:
-        return f"lookup_script_api.py {d.name}{f'.{m.name}' if m else ''}"
+    """The file and line of a declaration or of one of its members."""
     return f"{d.file}:{m.line if m else d.line}"
 
 
@@ -286,7 +280,7 @@ def main() -> int:
     if root and not (root / "project.c3proj").exists():
         root = None
     rag = c3.find_rag(root, args.rag)
-    c3.note_drift(rag)
+    c3.note_drift(root, rag)
     decls = load_api(rag, root)
     lines, missing = [], 0
     for name in args.names:

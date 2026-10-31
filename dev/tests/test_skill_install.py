@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    EVALS,    PLUGIN,    DATA,
+    EVALS,    PLUGIN,    RAG,    DATA,
     REPO, SKILL, INSTALLED, NEEDS_GIT, git, run, check, install, new_project, warnings, script_module,
 )
 
@@ -32,7 +32,7 @@ def test_install_copies_the_skill_and_writes_the_block_with_the_clones_path(tmp_
     assert out.rstrip().splitlines()[-1] == f"ok: read {INSTALLED}/SKILL.md"
     assert (root / INSTALLED / "SKILL.md").is_file() and (root / INSTALLED / "scripts" / "check_project.py").is_file()
     block = (root / "AGENTS.md").read_text(encoding="utf-8")
-    assert f"- Construct3-RAG: {PLUGIN.as_posix()}" in block and f"`{INSTALLED}/SKILL.md`" in block
+    assert f"- Construct3-RAG: {RAG.as_posix()}" in block and f"`{INSTALLED}/SKILL.md`" in block
     # the path line is what lets the installed scripts find the schemas on their own
     code, out = run(root, f"{INSTALLED}/scripts/lookup_ace.py", "System", "wait")
     assert code == 0 and "action wait - Wait [system]" in out
@@ -56,7 +56,7 @@ def test_install_again_changes_nothing(project):
 
 def test_install_leaves_an_instruction_file_that_names_the_clone(tmp_path):
     root = new_project(tmp_path / "game")
-    mine = f"# My game\n\n- Construct3-RAG: {PLUGIN.as_posix()}\n"
+    mine = f"# My game\n\n- Construct3-RAG: {RAG.as_posix()}\n"
     (root / "CLAUDE.md").write_text(mine, encoding="utf-8")
     code, out = install(root)
     assert code == 0 and "CLAUDE.md: left as it is" in out and "The row to add" in out
@@ -78,9 +78,9 @@ def test_install_without_the_block_says_how_the_scripts_find_the_clone(tmp_path)
     root = new_project(tmp_path / "game")
     code, out = install(root, "--no-block")
     assert code == 0 and not (root / "AGENTS.md").exists()
-    assert f"--rag {PLUGIN.as_posix()}" in out and "CONSTRUCT3_RAG" in out
+    assert f"--rag {RAG.as_posix()}" in out and "CONSTRUCT3_RAG" in out
     assert "where your client stores notes between sessions" in out   # the one record left, as with the block
-    (root / "CLAUDE.md").write_text(f"- Construct3-RAG: {PLUGIN.as_posix()}\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text(f"- Construct3-RAG: {RAG.as_posix()}\n", encoding="utf-8")
     code, out = install(root, "--no-block")
     assert code == 0 and "CONSTRUCT3_RAG" not in out
 
@@ -111,7 +111,7 @@ def test_install_names_a_copy_under_the_skills_former_name(tmp_path):
     old = root / ".agents" / "skills" / "construct3-project"
     old.mkdir(parents=True)
     (old / "SKILL.md").write_text("---\nname: construct3-project\n---\n", encoding="utf-8")
-    (root / "AGENTS.md").write_text(f"- Construct3-RAG: {PLUGIN.as_posix()}\n\n"
+    (root / "AGENTS.md").write_text(f"- Construct3-RAG: {RAG.as_posix()}\n\n"
                                     "Run .agents/skills/construct3-project/scripts/check_project.py\n", encoding="utf-8")
     code, out = install(root)
     assert code == 0, out
@@ -143,7 +143,7 @@ def test_install_asks_the_agent_to_remember_where_the_clone_is(tmp_path):
     agent's own memory as the one place the clone can be found again."""
     root = new_project(tmp_path / "game")
     code, out = install(root)
-    assert code == 0 and f"memory: keep 'Construct3-RAG: {PLUGIN.as_posix()}'" in out
+    assert code == 0 and f"memory: keep 'Construct3-RAG: {RAG.as_posix()}'" in out
     # the project now names the clone itself, and the line would be noise on every refresh
     code, out = install(root)
     assert code == 0 and "memory:" not in out
@@ -201,9 +201,12 @@ def template(folder: Path) -> Path:
 
 
 def siblings(folder: Path) -> Path:
+    """The clones bootstrap.py makes, each a stand-in; Construct3-RAG holds only the empty project, so the
+    scripts read the data from the clone beside this repository."""
     for name in ("Construct3-Cookbook", "Construct3-Manual", "Construct-Addon-SDK", "Construct-Example-Projects"):
         (folder / name).mkdir(parents=True)
         (folder / name / "README.md").write_text("", encoding="utf-8")
+    shutil.copytree(DATA / "c3-new-project", folder / "Construct3-RAG" / "data" / "c3-new-project")
     return folder
 
 
@@ -213,14 +216,14 @@ def test_bootstrap_creates_the_project_from_the_template_and_installs_the_skill(
     code, out = bootstrap(tmp_path, "--beside", str(beside), "--template", str(template(tmp_path / "tmpl")),
                           "--project", str(game))
     assert code == 0, out
-    assert out.count("already at") == 4 and f"MyGame: created from tmpl at {game}" in out
+    assert out.count("already at") == 5 and f"MyGame: created from tmpl at {game}" in out
     assert out.rstrip().splitlines()[-1] == f"ok: read {INSTALLED}/SKILL.md"
     proj = json.loads((game / "project.c3proj").read_text(encoding="utf-8"))
     assert proj["name"] == "MyGame" and re.fullmatch(r"[a-z0-9]{11}", proj["uniqueId"]) and proj["uniqueId"] != "he3qe448adg"
     assert (game / INSTALLED / "SKILL.md").is_file()
     assert (game / ".git").is_dir() and "git initialised" in out
     block = (game / "AGENTS.md").read_text(encoding="utf-8")
-    assert f"- Construct3-RAG: {PLUGIN.as_posix()}" in block
+    assert f"- Construct3-RAG: {RAG.as_posix()}" in block
     assert (game / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
     # the clones are not beside the Construct3-RAG clone here, so the block gets a line for each
     assert f"- Construct3-Manual: {(beside / 'Construct3-Manual').as_posix()}" in block
@@ -233,7 +236,7 @@ def test_bootstrap_creates_the_project_from_the_template_and_installs_the_skill(
 
 def test_bootstrap_without_the_examples_says_what_they_are_missing_for(tmp_path):
     beside = tmp_path / "GitHub"
-    for name in ("Construct3-Cookbook", "Construct3-Manual", "Construct-Addon-SDK"):
+    for name in ("Construct3-RAG", "Construct3-Cookbook", "Construct3-Manual", "Construct-Addon-SDK"):
         (beside / name).mkdir(parents=True)
         (beside / name / "README.md").write_text("", encoding="utf-8")
     code, out = bootstrap(tmp_path, "--beside", str(beside), "--no-examples")
@@ -284,13 +287,15 @@ def test_bootstrap_dry_run_says_the_clones_it_would_make(tmp_path):
     code, out = bootstrap(tmp_path, "--beside", str(tmp_path / "GitHub"), "--project", str(tmp_path / "MyGame"),
                           "--dry-run")
     assert code == 0 and "nothing was done" in out, out
-    assert out.count("would run git clone") == 4 and "--depth 1 https://github.com/Scirra/Construct-Example-Projects" in out
+    assert out.count("would run git clone") == 5 and "--depth 1 https://github.com/Scirra/Construct-Example-Projects" in out
+    assert "--depth 1 https://github.com/XHXIAIEIN/Construct3-RAG" in out
+    assert f"MyGame: would be created from {tmp_path / 'GitHub' / 'Construct3-RAG' / 'data' / 'c3-new-project'}" in out
     assert not (tmp_path / "GitHub").exists() and not (tmp_path / "MyGame").exists()
 
 
 def test_bootstrap_copies_the_committed_empty_project(tmp_path):
-    """Without --template the project is the editor's empty project kept in data/, copied
-    offline, with its own name and id, and the checker passes it."""
+    """Without --template the project is the editor's empty project kept in the data/ of the
+    Construct3-RAG clone, copied offline, with its own name and id, and the checker passes it."""
     beside = siblings(tmp_path / "GitHub")
     game = tmp_path / "MyGame"
     code, out = bootstrap(tmp_path, "--beside", str(beside), "--project", str(game))
@@ -324,7 +329,7 @@ def test_a_copy_that_differs_from_the_clone_says_how_to_refresh_it(project):
     assert "scripts/print_sheet.py" in out and "install.py" in out
     # the other scripts say it first, on stdout with their result: a Doubao run in PowerShell
     # read it as an error record on every call of a stale copy
-    p = subprocess.run([sys.executable, f"{INSTALLED}/scripts/lookup_ace.py", "--rag", str(PLUGIN), "System", "wait"],
+    p = subprocess.run([sys.executable, f"{INSTALLED}/scripts/lookup_ace.py", "--rag", str(RAG), "System", "wait"],
                        cwd=project, env=dict(os.environ, PYTHONIOENCODING="utf-8"), capture_output=True, text=True,
                        encoding="utf-8")
     assert p.returncode == 0 and p.stderr == ""
@@ -462,9 +467,9 @@ def clone_with_history(folder: Path) -> Path:
     markers, the one older_generator() copies, then the current one."""
     skill = folder / "skills" / SKILL.name
     shutil.copytree(SKILL, skill, ignore=shutil.ignore_patterns("evals", "__pycache__"))
-    index = folder / "data" / "c3-schemas" / "_index.json"
-    index.parent.mkdir(parents=True)
-    shutil.copy(DATA / "c3-schemas" / "_index.json", index)
+    # The manifest makes the folder the plugin the scripts run from, as plugin/ of a clone is
+    (folder / ".claude-plugin").mkdir()
+    shutil.copy(PLUGIN / ".claude-plugin" / "plugin.json", folder / ".claude-plugin" / "plugin.json")
     # Line ends committed as written, whatever core.autocrlf the machine sets
     as_written = ("-c", "core.autocrlf=false")
     git(folder, *as_written, "init", "-q")
@@ -580,7 +585,7 @@ def test_install_leaves_a_generator_it_cannot_refresh(project, make, said, check
 # --- refreshing the Construct 3 block of the instruction file ------------------------------------
 # The lines that name a clone's folder in a project: the Construct3-RAG line install.py fills in, and one
 # that bootstrap.py adds for a clone kept elsewhere. Neither counts as an edit of the block.
-PLACES = [f"- Construct3-RAG: {PLUGIN.as_posix()}", "- Construct3-Manual: D:/Elsewhere/Construct3-Manual"]
+PLACES = [f"- Construct3-RAG: {RAG.as_posix()}", "- Construct3-Manual: D:/Elsewhere/Construct3-Manual"]
 ABOVE = ["# Gems", "", "The project's own notes.", ""]
 BELOW = ["", "## Ours", "", "A line the project keeps below the block.", ""]
 # The block as the skill held it on 2026-10-02, before the block had markers. Its text dates from
@@ -591,9 +596,10 @@ PAST_BLOCK = (REPO / "dev" / "tests" / "fixtures" / "game-project-block-2026-10-
 def rendered(places: list[str] = PLACES, skill: str = INSTALLED) -> list[str]:
     """The skill's block as a project holds it, markers included: its lines that name a clone's folder
     in place of the template's one, and the folder its copy of the skill is in."""
-    cookbook = c3.locate_cookbook(PLUGIN)[0] or c3.cookbook_places(PLUGIN)[0]
+    cookbook = c3.locate_cookbook(RAG)[0] or c3.cookbook_places(RAG)[0]
     lines = [line.replace(".agents/skills/construct3-agent-plugin", skill)
-             .replace("<path-to>/Construct3-Cookbook", cookbook.as_posix()) for line in BLOCK_LINES[:-1]]
+             .replace("<path-to>/Construct3-Cookbook", cookbook.as_posix())
+             .replace("<path-to>/Construct3-Agent-Skills", REPO.as_posix()) for line in BLOCK_LINES[:-1]]
     at = lines.index("- Construct3-RAG: <path-to>/Construct3-RAG")
     return lines[:at] + places + lines[at + 1:]
 
@@ -696,7 +702,7 @@ def test_an_edit_with_nothing_newer_to_take_is_said_by_install_alone(project):
 def test_install_refreshes_a_block_written_before_the_markers(project):
     """A block install.py wrote before the block had markers is known by its text, which must be that
     of a version it wrote: then it is replaced, markers and all. Any other text is the project's."""
-    past = [line.replace("<path-to>/Construct3-RAG", PLUGIN.as_posix()) for line in PAST_BLOCK.split("\n")[:-1]]
+    past = [line.replace("<path-to>/Construct3-RAG", RAG.as_posix()) for line in PAST_BLOCK.split("\n")[:-1]]
     at = past.index(PLACES[0])
     past[at + 1:at + 1] = PLACES[1:]
     write_agents_md(project, past)
@@ -760,8 +766,9 @@ def test_install_leaves_a_block_it_cannot_refresh(project, change, said):
     "- <path-to>: {parent}\n- Construct3-RAG: <path-to>/{name}",
 ])
 def test_rag_is_read_from_the_project_instruction_file(project, lines):
-    text = lines.format(rag=PLUGIN.as_posix(), parent=PLUGIN.parent.as_posix(), name=PLUGIN.name)
-    (project / "AGENTS.md").write_text(f"# Construct 3\n\n{text}\n\nText after the block.\n", encoding="utf-8")
+    text = lines.format(rag=RAG.as_posix(), parent=RAG.parent.as_posix(), name=RAG.name)
+    (project / "AGENTS.md").write_text(f"# Construct 3\n\n{text}\n- Construct3-Agent-Skills: {REPO.as_posix()}\n\n"
+                                       f"Text after the block.\n", encoding="utf-8")
     code, out = run(project, f"{INSTALLED}/scripts/check_project.py")
     assert code == 0, out
 

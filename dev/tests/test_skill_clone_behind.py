@@ -1,6 +1,6 @@
 """The checker's lines about a clone whose plugin version is older than its upstream's and about a
-Cookbook clone that lacks its upstream's newest commit, against a bare repository on disk as the
-upstream. The read of the upstream's version or commit, an HTTPS request to GitHub in use, reads the
+data clone, the Cookbook here, that lacks its upstream's newest commit and is pulled, against a bare
+repository on disk as the upstream. Construct3-RAG and the examples go through the same commits_behind. The read of the upstream's version or commit, an HTTPS request to GitHub in use, reads the
 bare repository here."""
 import subprocess
 from pathlib import Path
@@ -246,15 +246,32 @@ def test_a_current_cookbook_says_nothing(cookbooks):
     assert len(READS) == 1
 
 
-def test_a_cookbook_behind_gives_the_pull_for_the_agent(cookbooks):
+def test_a_cookbook_behind_is_pulled(cookbooks):
+    """A data clone with no work of its own is pulled by the check, so one clone stays current."""
+    mine, other, _ = cookbooks
+    before = c3.git_out(mine, "rev-parse", "--short", "HEAD")
+    add_pitfall(other)
+    line, level = c3.cookbook_behind(mine)
+    after = c3.git_out(mine, "rev-parse", "--short", "HEAD")
+    assert level == "note" and after != before, line
+    assert line == (f"Construct3-Cookbook at {mine} lacks the newer guides of origin/main, so it was pulled "
+                    f"from {before} to {after}")
+    assert "a new pitfall" in (mine / PITFALLS).read_text(encoding="utf-8")
+    assert c3.cookbook_behind(mine) is None
+
+
+def unreachable(clone: Path, tmp_path: Path) -> None:
+    """The clone's remote gone, so that its pull fails while the read of the upstream still answers."""
+    git(clone, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
+
+
+def test_a_cookbook_whose_pull_fails_gives_the_pull_for_the_agent(cookbooks, tmp_path):
     mine, other, _ = cookbooks
     add_pitfall(other)
-    line, error = c3.cookbook_behind(mine)
-    assert error and f"Construct3-Cookbook at {mine} lacks the newer guides of origin/main" in line
+    unreachable(mine, tmp_path)
+    line, level = c3.cookbook_behind(mine)
+    assert level == "error" and f"Construct3-Cookbook at {mine} lacks the newer guides of origin/main" in line
     assert line.endswith(f'Run git -C "{mine}" pull --ff-only, then run this check again')
-    command = line.split("Run ", 1)[1].split(", then")[0]
-    assert subprocess.run(command, shell=True, capture_output=True, timeout=60).returncode == 0, command
-    assert c3.cookbook_behind(mine) is None
 
 
 def test_a_shallow_cookbook_behind_and_current(cookbooks, tmp_path):
@@ -265,9 +282,8 @@ def test_a_shallow_cookbook_behind_and_current(cookbooks, tmp_path):
     assert c3.cookbook_behind(shallow) is None
     add_pitfall(other)
     expire(tmp_path)
-    line, error = c3.cookbook_behind(shallow)
-    assert error and "lacks the newer guides" in line
-    git(shallow, "pull", "-q", "--ff-only")
+    line, level = c3.cookbook_behind(shallow)
+    assert level == "note" and "lacks the newer guides" in line and "was pulled" in line, line
     assert c3.cookbook_behind(shallow) is None
 
 
@@ -279,22 +295,26 @@ def test_a_cookbook_behind_with_the_users_own_work_is_the_users(cookbooks, own):
         git(mine, "commit", "-q", "--allow-empty", "-m", "mine")
     else:
         (mine / PITFALLS).write_text("# Mine\n", encoding="utf-8")
-    line, error = c3.cookbook_behind(mine)
-    assert not error and "lacks the newer guides" in line and "pull" not in line
+    head = c3.git_out(mine, "rev-parse", "HEAD")
+    line, level = c3.cookbook_behind(mine)
+    assert level == "warning" and "lacks the newer guides" in line and "pull" not in line
+    assert c3.git_out(mine, "rev-parse", "HEAD") == head
     assert ("1 commit of its own" if own == "commit" else "uncommitted changes of its own") in line
     assert "tell the user" in line
 
 
 def test_a_cookbook_read_once_a_period_and_a_later_check_warns(cookbooks, tmp_path):
+    """A pull that failed after a read of this run is an error; from the period's earlier read, a warning."""
     mine, other, _ = cookbooks
     assert c3.cookbook_behind(mine) is None
     add_pitfall(other)
+    unreachable(mine, tmp_path)
     assert c3.cookbook_behind(mine) is None
     assert len(READS) == 1
     expire(tmp_path)
-    line, error = c3.cookbook_behind(mine)
-    assert error and len(READS) == 2
-    assert c3.cookbook_behind(mine) == (line, False)
+    line, level = c3.cookbook_behind(mine)
+    assert level == "error" and len(READS) == 2
+    assert c3.cookbook_behind(mine) == (line, "warning")
     assert len(READS) == 2
 
 
@@ -320,6 +340,48 @@ def test_no_cookbook_offline_or_untracked_says_nothing(cookbooks, monkeypatch):
     assert c3.cookbook_behind(mine) is None
     assert c3.cookbook_behind(mine.parent) is None
     assert not READS
+
+
+def test_the_examples_beside_construct3_rag_are_pulled(cookbooks, tmp_path):
+    """The examples clone is compared and pulled as the other data clones, when it lies beside Construct3-RAG."""
+    mine, other, _ = cookbooks
+    examples = tmp_path / c3.EXAMPLES_CLONE
+    mine.rename(examples)
+    rag = tmp_path / c3.RAG_CLONE
+    rag.mkdir()
+    assert c3.examples_behind(rag) is None
+    add_pitfall(other)
+    expire(tmp_path)
+    line, level = c3.examples_behind(rag)
+    assert level == "note" and line.startswith(f"{c3.EXAMPLES_CLONE} at {examples} lacks the newer examples"), line
+    assert c3.examples_behind(tmp_path / "elsewhere" / c3.RAG_CLONE) is None
+
+
+def data_clone(tmp_path: Path, version: str | None) -> Path:
+    rag = tmp_path / c3.RAG_CLONE
+    (rag / "data" / "c3-schemas").mkdir(parents=True)
+    (rag / "data" / "c3-schemas" / "_index.json").write_text(
+        "{}" if version is None else f'{{"version": "{version}"}}', encoding="utf-8")
+    return rag
+
+
+@pytest.mark.parametrize("version, old", [("r400", True), ("r506.2", True), (c3.RAG_DATA_FLOOR, False),
+                                          ("r507", False), ("r1000.1", False), (None, False)])
+def test_data_older_than_the_floor_fails(tmp_path, version, old):
+    rag = data_clone(tmp_path, version)
+    line = c3.data_too_old(rag)
+    assert bool(line) == old, line
+    if old:
+        assert line == (f"Construct3-RAG at {rag} holds the data of Construct {version}, and the scripts expect "
+                        f"{c3.RAG_DATA_FLOOR} or later, so some ACEs and checks are missing. Run git -C \"{rag}\" "
+                        f"pull --ff-only, then run this check again")
+
+
+def test_the_construct3_rag_clone_beside_this_one_meets_the_floor():
+    """The floor is the data the tests run on, or older: raise it only with a refresh that holds it."""
+    from tests.skill_helpers import RAG
+    assert c3.release_key(c3.data_version(RAG)) >= c3.release_key(c3.RAG_DATA_FLOOR)
+    assert c3.data_too_old(RAG) is None
 
 
 def test_the_commit_url_is_the_public_api():

@@ -67,8 +67,8 @@ fails `build_plugin.py --check` once it merges main. Its next build writes
 the version after the pushed one. So for changes merged in a clone, two
 different sets of files never carry one version. If a merge conflicts in
 `plugin/`, resolve the sources, then run the build before committing the
-merge. The refresh workflow runs the build in a checkout where
-`origin/main` is HEAD, so a data refresh raises the version too.
+merge. A data refresh changes no file of `plugin/`, so it leaves the
+version as it is (`plugin-reads-the-clones.md`).
 
 On a machine with the clone, the clone's plugin folder, `<clone>/plugin`,
 is linked as `~/.claude/skills/construct3` (a junction on Windows). Claude
@@ -90,17 +90,15 @@ names the scripts under the plugin's `plugin/skills/construct3-agent-plugin/`.
 - A marketplace install reaches each pushed change to `plugin/` at its next
   `claude plugin update`, or by itself with auto-update on. The linked clone
   follows every `git pull`.
-- A patch release names a change of files, not its size: a data refresh and
-  a new script both raise the patch.
+- A patch release names a change of files, not its size: a new script and
+  a typo fix both raise the patch.
 - The comparison leaves out `plugin.json`, so a change to its description
   or keywords alone keeps the version.
 - The version is checked in a clone, where the build runs. A pull request
   merged on GitHub keeps the version it was built with. If another change
   to `plugin/` reached main after that build, the two changes carry one
   version. Before merging such a pull request, merge main into its branch
-  and run the build. The data-update pull request that merges by itself is
-  not rebuilt, so it can carry the same version as another change that
-  reached main before it.
+  and run the build.
 - `install.py` and the copy serve other agents and Claude Code without the
   plugin.
 - Plugin loading costs no network at session start: the plugin is read from

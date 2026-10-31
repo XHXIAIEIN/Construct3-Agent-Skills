@@ -58,7 +58,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PLUGIN = REPO / "plugin"        # what the scripts get as the clone: the skill and the built data
+PLUGIN = REPO / "plugin"        # the plugin folder the fixtures' copies of the skill come from
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
@@ -782,7 +782,8 @@ def digest(project: Path) -> dict:
 def warnings_of(project: Path, plugin: Path = PLUGIN) -> list[str]:
     """The checker's warning lines on the fixture: the project's own, which grade.py does not charge to a run."""
     p = subprocess.run([sys.executable, str(plugin / SKILL.relative_to(PLUGIN) / "scripts" / "check_project.py"),
-                        "--project", str(project), "--rag", str(plugin), "--limit", "0"], capture_output=True, text=True, encoding="utf-8",
+                        "--project", str(project), "--rag", str(c3.siblings_folder(REPO) / c3.RAG_CLONE), "--limit", "0"],
+                       capture_output=True, text=True, encoding="utf-8",
                        env=dict(os.environ, PYTHONIOENCODING="utf-8"))
     return [line for line in p.stdout.splitlines() if line.startswith("warning:")]
 

@@ -63,6 +63,10 @@ from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = Path("plugin/skills/construct3-agent-plugin")
+# The data both sides read: the Construct3-RAG clone beside this one, or beside its main working tree
+sys.path.insert(0, str(ROOT / SKILL / "scripts"))
+from c3project import RAG_CLONE, siblings_folder  # noqa: E402
+DATA_CLONE = siblings_folder(ROOT) / RAG_CLONE
 REPORT = Path(tempfile.gettempdir()) / "construct3-output-diff.txt"
 EXAMPLE_KINDS = ("print_sheet", "print_sheet_limit", "print_layout", "check_project", "check_style", "review_design",
                  "edit_sheet", "edit_sheet_line", "edit_sheet_key")
@@ -97,7 +101,7 @@ EXCERPT = 160
 class Side(NamedTuple):
     """One side of the comparison: the clone whose scripts run, and the folders its output is masked by."""
     label: str
-    rag: Path       # the clone: its skills/ holds the scripts, its plugin/ the data they read
+    rag: Path       # the clone: its plugin/skills/ holds the scripts; the data is DATA_CLONE's
     tmp: Path
     env: dict[str, str]
 
@@ -167,8 +171,8 @@ def run(side: Side, script: Path, args: list[str], cwd: Path) -> str:
 
 
 def tool_output(side: Side, case: Case) -> str:
-    extra = [] if case.kind == "help" else ["--rag", str(side.rag / "plugin")] if case.kind == "print_sheet_limit" \
-        else ["--rag", str(side.rag / "plugin"), "--limit", "0"]
+    extra = [] if case.kind == "help" else ["--rag", str(DATA_CLONE)] if case.kind == "print_sheet_limit" \
+        else ["--rag", str(DATA_CLONE), "--limit", "0"]
     return run(side, side.rag / SKILL / "scripts" / case.args[0], [*case.args[1:], *extra], side.tmp / "cwd")
 
 
@@ -191,7 +195,7 @@ def new_project(side: Side) -> dict[str, str]:
     game = side.tmp / "game"
     shutil.rmtree(game, ignore_errors=True)
     script = side.rag / SKILL / "scripts" / "new_project.py"
-    outputs = {"new_project run": run(side, script, [str(game), "--rag", str(side.rag / "plugin")], side.tmp / "cwd")}
+    outputs = {"new_project run": run(side, script, [str(game), "--rag", str(DATA_CLONE)], side.tmp / "cwd")}
     if game.is_dir():
         outputs.update({f"new_project file {rel}": text for rel, text in files(game, side, (".git",)).items()})
     return outputs

@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-from tests.skill_helpers import INSTALLED, PLUGIN, SHEET, SKILL, edit, events, game_rows, git, streams, tool
+from tests.skill_helpers import INSTALLED, RAG, SHEET, SKILL, edit, events, game_rows, git, streams, tool
 
 sys.path.insert(0, str(SKILL / "scripts"))
 import verify_change  # noqa: E402
@@ -148,7 +148,7 @@ def test_a_miss_names_what_comes_near(project):
                        (("--confirm", "4"), "no note 4: tools/notes.json holds no note")):
         code, out = tool(project, "notes", *args)
         assert code == 1 and said in out, (args, out)
-    p = streams(project, f"{INSTALLED}/scripts/notes.py", "--rag", str(PLUGIN), "--confirm", "4")
+    p = streams(project, f"{INSTALLED}/scripts/notes.py", "--rag", str(RAG), "--confirm", "4")
     assert p.returncode == 1 and p.stdout.startswith("no note 4") and not p.stderr, p
     code, out = tool(project, "notes", "--add", "x")
     assert code == 2 and "--add needs what the fact rests on" in out, out

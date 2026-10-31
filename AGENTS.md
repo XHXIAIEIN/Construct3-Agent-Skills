@@ -2,20 +2,19 @@
 
 ## 1. What this repository is
 
-This repository holds what an AI agent needs to make Construct 3 games, and
-all of it is in one folder, `plugin/`:
+This repository holds the scripts an AI agent runs to make Construct 3
+games, all of them in one folder, `plugin/`. `plugin/skills/` holds the
+`construct3-agent-plugin` skill, and `plugin/` is also the Claude Code
+plugin `construct3`. Any agent that runs a shell and Python uses the skill.
 
-- `plugin/skills/` holds the `construct3-agent-plugin` skill.
-- `plugin/data/` holds the schemas of every Construct 3 condition, action,
-  expression and effect in English and Chinese, the editor texts, the
-  example index, the TypeScript definitions and an empty project to start
-  from.
-
-Any agent that runs a shell and Python uses these files through the skill.
-`plugin/` is also the Claude Code plugin `construct3`. Its data comes from
+The plugin holds no data. The scripts read it from a clone of
 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), which holds
-the data, its update pipeline and the lookup service, while this repository
-holds everything an agent runs.
+the schemas of every Construct 3 condition, action, expression and effect in
+English and Chinese, the editor texts, the example index, the TypeScript
+definitions and an empty project to start from, with their update pipeline.
+They find the clone beside this one, and without one they print the
+`git clone` command (`docs/decisions/plugin-reads-the-clones.md`). Below,
+`Construct3-RAG/...` names a file of that clone.
 
 The guides to event sheet design, the pitfalls among them, live in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook). The
@@ -28,10 +27,6 @@ names a file of that clone.
 |------|---------------|
 | `plugin/.claude-plugin/plugin.json` | The plugin's manifest: name, version, description and keywords |
 | `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets |
-| `plugin/data/c3-schemas/` | The ACEs of every plugin, behavior and effect, one JSON file each, for each locale (built) |
-| `plugin/data/c3-lang/` | The editor texts that the checker and a preview's inspector read (built) |
-| `plugin/data/c3-new-project/` | The empty project that the editor saves, which `new_project.py` copies (built) |
-| `plugin/data/*.bundle-*.json` | The TypeScript definitions, the example projects and the index of their ACEs, as bundles that the scripts read (built) |
 | `plugin/agents/` | The `project-worker`, `art-drawer`, `look-judge`, `design-judge` and `recording-describer` sub-agent types, which load with the plugin |
 | `plugin/README.md`, `plugin/icon.png`, `plugin/LICENSE` | The plugin's page in Claude's directory, its listing icon and its licence |
 | `scripts/bootstrap.py` | The script that clones the sibling repositories and installs the skill in a game project (section 4) |
@@ -43,7 +38,7 @@ names a file of that clone.
 ## 2. Answer a Construct 3 fact question
 
 Answer from the data. If an ACE is missing from the schema, it does not
-exist, unless `plugin/data/c3-schemas/{locale}/_deprecated.json` lists it. A
+exist, unless `Construct3-RAG/data/c3-schemas/{locale}/_deprecated.json` lists it. A
 listed ACE is deprecated in the editor: an old project that uses it still
 opens, but a new project must not use it.
 
@@ -64,13 +59,13 @@ prints the effect's parameters. `--locale zh-CN` prints the Chinese wording.
 
 | Question | Where |
 |----------|-------|
-| Which plugins, behaviors and effects exist | `plugin/data/c3-schemas/_index.json` |
-| Addon names in one language | `plugin/data/c3-schemas/{locale}/_index.json` |
-| ACEs of a plugin or behavior | `lookup_ace.py`, or `plugin/data/c3-schemas/{locale}/plugins/{id}.json` and `behaviors/{id}.json` |
-| ACEs that every world object shares | `plugin/data/c3-schemas/{locale}/plugins/_common.json`. A plugin's `commonAces` lists entries of this file |
+| Which plugins, behaviors and effects exist | `Construct3-RAG/data/c3-schemas/_index.json` |
+| Addon names in one language | `Construct3-RAG/data/c3-schemas/{locale}/_index.json` |
+| ACEs of a plugin or behavior | `lookup_ace.py`, or `Construct3-RAG/data/c3-schemas/{locale}/plugins/{id}.json` and `behaviors/{id}.json` |
+| ACEs that every world object shares | `Construct3-RAG/data/c3-schemas/{locale}/plugins/_common.json`. A plugin's `commonAces` lists entries of this file |
 | JavaScript or TypeScript API | `python plugin/skills/construct3-agent-plugin/scripts/lookup_script_api.py NAME` |
 | Example projects for a topic | `python plugin/skills/construct3-agent-plugin/scripts/search_guides.py WORD ...` |
-| Translation of an editor string | `plugin/data/c3-lang/{locale}.json` |
+| Translation of an editor string | `Construct3-RAG/data/c3-lang/{locale}.json` |
 | What a field of a project file means | `plugin/skills/construct3-agent-plugin/references/` |
 | What a data file holds, field by field | `docs/guide/data-format.md` in the Construct3-RAG clone |
 
@@ -104,8 +99,8 @@ project's instruction file by hand, or change the block, read
 
 - **Any agent.** Run `install.py`. It copies the skill into the project and
   adds a block to the project's `AGENTS.md`. The block's `Construct3-RAG:`
-  line names this clone's `plugin/`, the folder that holds the data, and its
-  `Construct3-Cookbook:` line names the Cookbook clone:
+  line names the Construct3-RAG clone, its `Construct3-Agent-Skills:` line
+  this clone, and its `Construct3-Cookbook:` line the Cookbook clone:
 
   ```bash
   python plugin/skills/construct3-agent-plugin/scripts/install.py --project <game folder>

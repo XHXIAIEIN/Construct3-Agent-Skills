@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from tests.skill_helpers import (
-    EVALS,    PLUGIN,    REPO, INSTALLED, SHEET, SKILL, EXAMPLES, NEEDS_EXAMPLES, git, run, tool, streams, check, edit, block, events,
+    EVALS,    RAG,    REPO, INSTALLED, SHEET, SKILL, EXAMPLES, NEEDS_EXAMPLES, git, run, tool, streams, check, edit, block, events,
     game_rows, script_module,
 )
 
@@ -31,7 +31,7 @@ def test_a_miss_of_print_sheet_prints_on_stdout(project):
                        (("Game", "--show", "60"), "sheet Game has 51 events; --show 60 is not one of them"),
                        (("Game", "--events", "60"), "sheet Game has 51 events; --events 60 starts past its end"),
                        (("Game", "--show", "1", "--limit", "20"), "characters of JSON, over the limit of 20 (--limit)")):
-        p = streams(project, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(PLUGIN), *args)
+        p = streams(project, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(RAG), *args)
         assert p.returncode == 1 and p.stderr == "" and said in p.stdout, (args, p.stdout, p.stderr)
 
 
@@ -259,7 +259,7 @@ def test_scripts_write_utf8_and_survive_a_code_page_that_cannot(built):
         env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
         if codec:
             env["PYTHONIOENCODING"] = codec
-        p = subprocess.run([sys.executable, str(script), "Game", "--locale", "zh-CN", "--limit", "0", "--rag", str(PLUGIN)],
+        p = subprocess.run([sys.executable, str(script), "Game", "--locale", "zh-CN", "--limit", "0", "--rag", str(RAG)],
                            cwd=built, env=env, capture_output=True)
         assert p.returncode == 0, p.stdout + p.stderr
         assert want in p.stdout.decode(codec or "utf-8")
@@ -288,7 +288,9 @@ def test_an_example_that_is_not_there_names_the_clone_not_a_new_project(built, t
         assert f"no example project at {example}" in out and "search_guides.py" in out, out
     else:
         assert f"the Construct-Example-Projects clone is not at {clone}" in out, out
-        assert f"python {(REPO / 'scripts' / 'bootstrap.py').as_posix()} clones it" in out, out
+        # A copy of the skill holds no bootstrap.py, so the command is the git clone beside Construct3-RAG
+        beside = (RAG.parent / "Construct-Example-Projects").as_posix()
+        assert f'git clone --depth 1 https://github.com/Scirra/Construct-Example-Projects "{beside}" clones it' in out, out
 
 
 def test_since_lists_what_changed_as_events(project):
@@ -441,7 +443,7 @@ def test_find_stops_at_the_limit_and_names_the_part_that_continues(project):
 
 
 def test_find_takes_no_outline_show_or_since(built):
-    p = streams(built, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(PLUGIN), "--find", "score", "--outline")
+    p = streams(built, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(RAG), "--find", "score", "--outline")
     assert p.returncode == 2 and "--find prints events as the sheet words them" in p.stderr
 
 
@@ -461,7 +463,7 @@ KIWI = EXAMPLES / "kiwi-story"      # 14 sheets: eMain includes nine, and four l
 
 
 def kiwi_map(*args: str) -> tuple[int, str]:
-    return run(SKILL, SKILL / "scripts" / "print_sheet.py", "--project", str(KIWI), "--rag", str(PLUGIN), "--map", *args)
+    return run(SKILL, SKILL / "scripts" / "print_sheet.py", "--project", str(KIWI), "--rag", str(RAG), "--map", *args)
 
 
 @NEEDS_EXAMPLES
@@ -521,7 +523,7 @@ def test_map_groups_the_sheets_by_folder_and_says_when_no_layout_runs_one(projec
 
 
 def test_map_takes_no_find_events_outline_show_or_since(built):
-    p = streams(built, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(PLUGIN), "--map", "--outline")
+    p = streams(built, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(RAG), "--map", "--outline")
     assert p.returncode == 2 and "--map prints one line per sheet" in p.stderr
 
 

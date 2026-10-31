@@ -117,14 +117,11 @@ def snake_output(rag: Path, cwd: Path) -> str:
     return out
 
 
-def test_examples_are_found_beside_the_clone_when_the_scripts_run_from_its_plugin_folder(tmp_path):
-    """Linked into ~/.claude/skills/ as the Claude Code plugin, <clone>/plugin holds the data/ that the
-    scripts use. The example projects lie beside <clone>, not beside plugin/."""
-    fake_rag(tmp_path / "Construct3-RAG")
-    plugin = fake_rag(tmp_path / "Construct3-RAG" / "plugin", snake=True)
+def test_examples_are_found_beside_the_clone(tmp_path):
+    rag = fake_rag(tmp_path / "Construct3-RAG", snake=True)
     example = tmp_path / "Construct-Example-Projects" / "example-projects" / "template-snake"
     example.mkdir(parents=True)
-    out = snake_output(plugin, tmp_path)
+    out = snake_output(rag, tmp_path)
     assert f"print_sheet.py --project {c3.quoted(example.as_posix())}" in out, out
 
 
@@ -149,19 +146,14 @@ def test_examples_are_found_beside_the_main_working_tree_from_a_git_worktree(tmp
 
 def test_examples_without_the_clone_say_how_to_get_it(tmp_path):
     """Without the examples clone each example shows its editor URL, and one line gives the command that
-    clones it: the clone's bootstrap.py, or git clone from a folder that holds no bootstrap.py."""
+    clones it beside Construct3-RAG: git clone, or bootstrap.py of the Construct3-Agent-Skills clone the
+    scripts run from when Construct3-RAG lies beside that clone (test_skill_c3project.py)."""
     rag = fake_rag(tmp_path / "Construct3-RAG", snake=True)
-    bootstrap = rag / "scripts" / "bootstrap.py"
-    bootstrap.parent.mkdir()
-    bootstrap.write_text("", encoding="utf-8")
     clone = tmp_path / "Construct-Example-Projects"
     out = snake_output(rag, tmp_path)
     assert "https://editor.construct.net/#open=template-snake" in out, out
-    assert (f"(no Construct-Example-Projects clone at {clone}; "
-            f"python {bootstrap.as_posix()} clones it") in out, out
-    plugin = fake_rag(tmp_path / "Plugin", snake=True)
-    assert (f'git clone --depth 1 https://github.com/Scirra/Construct-Example-Projects '
-            f'"{clone.as_posix()}" clones it') in snake_output(plugin, tmp_path)
+    assert (f'(no Construct-Example-Projects clone at {clone}; git clone --depth 1 '
+            f'https://github.com/Scirra/Construct-Example-Projects "{clone.as_posix()}" clones it') in out, out
 
 
 @NEEDS_COOKBOOK

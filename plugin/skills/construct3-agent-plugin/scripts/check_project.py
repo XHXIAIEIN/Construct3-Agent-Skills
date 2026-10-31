@@ -379,7 +379,7 @@ def copied_sizes(p: c3.Project, layouts: dict[str, dict]) -> list[str]:
     return out
 
 
-def helpers_behind(root: Path, rag: Path) -> str | None:
+def helpers_behind(root: Path, source: Path | None) -> str | None:
     """A sentence when the helpers of the project's generator are an older version than the
     skill's, with the command that refreshes them; a generator whose markers are broken is
     named too, since nothing can refresh it. Edits there, with nothing newer to take, and a
@@ -396,7 +396,7 @@ def helpers_behind(root: Path, rag: Path) -> str | None:
                 f"then run python {c3.GENERATOR}")
     if h.state == "edited" and h.have.stamp != h.want.stamp and h.have.version <= h.want.version:
         have, want = c3.versions(h.have, h.want)
-        copied = c3.copied_template(rag, h.have.stamp)
+        copied = c3.copied_template(source, h.have.stamp) if source else None
         lost = c3.unkept_helpers(root, copied=copied) if copied else None
         changed = f" ({', '.join(n for n, _, _ in lost)})" if isinstance(lost, list) and lost else ""
         return (f"{c3.GENERATOR}: its helpers, between the markers, are the skill's of {have} with edits made "
@@ -467,22 +467,34 @@ def main() -> int:
     c3.stop_with_a_sentence("check_project.py", findings)
     project = c3.Project.open(args, findings)
     cookbook = c3.locate_cookbook(project.rag, project.root)[0]
+    source = c3.locate_skills(project.root, rag=project.rag)
     if c3.offline():
-        print(f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clone at {project.rag} was not compared with its upstream"
-              f"{f', nor the {c3.COOKBOOK_CLONE} clone at {cookbook} with its' if cookbook else ''}")
+        clones = [c3.clone_root(source)] if source else []
+        clones += [project.rag] + ([cookbook] if cookbook else [])
+        print(f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clones at {', '.join(map(str, clones))} were not "
+              f"compared with their upstreams")
     # The checks run without the guides; only the pitfalls their findings cite are missing
     if not cookbook:
         print(f"note: {c3.missing_cookbook(project.rag)}")
-    # Stale tools and guides are a problem to fix first: a warning above a passing check's last line goes unread
-    behind = c3.clone_behind(project.rag)
-    for lag in (behind, c3.cookbook_behind(cookbook)):
-        if lag:
-            line, error = lag
-            (findings.err if error else findings.warn)(line)
-    drift = None if behind and behind[1] else c3.skill_drift(project.rag)  # the update above refreshes the copy too
+    unsourced = c3.unsourced_copy(project.root, project.rag)
+    if unsourced:
+        print(f"note: {unsourced}")
+    # Stale tools, data and guides are a problem to fix first: a warning above a passing check's last line goes unread
+    behind = c3.clone_behind(source) if source else None
+    lags = [behind and (behind[0], "error" if behind[1] else "warning"), c3.rag_behind(project.rag),
+            c3.examples_behind(project.rag), c3.cookbook_behind(cookbook)]
+    for line, level in filter(None, lags):
+        if level == "note":
+            print(f"note: {line}")
+        else:
+            (findings.err if level == "error" else findings.warn)(line)
+    old = c3.data_too_old(project.rag)   # after the pull above, which brings the newest data
+    if old:
+        findings.err(old)
+    drift = None if behind and behind[1] else c3.skill_drift(source)  # the update above refreshes the copy too
     if drift:
         findings.err(drift)
-    helpers = helpers_behind(project.root, project.rag)
+    helpers = helpers_behind(project.root, source)
     if helpers:
         findings.warn(helpers)
     block = block_behind(project.root)

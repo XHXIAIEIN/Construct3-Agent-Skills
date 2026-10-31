@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      # The build and the tests read data/ from a Construct3-RAG clone
-      # beside this one, as on a machine (docs/decisions/plugin-repository.md).
+      # The scripts and the tests read data/ from a Construct3-RAG clone
+      # beside this one, as on a machine (docs/decisions/plugin-reads-the-clones.md).
       # The tests that read the guides find Construct3-Cookbook beside it.
       # The example projects are not cloned, so the tests that read them
       # skip, and the log lists every skip.

@@ -51,10 +51,9 @@ export const meta = {
 //   a polish would call cosmetic. Those files get proposals in the report, not edits. The guarded files are
 //   listed in WHOLE_GUARDS below, so that no agent can drop one.
 // - plugin/ is the shipped folder, and it holds the sources: the skill and the plugin's manifest, README, icon
-//   and agents. The event sheet guides live in Construct3-Cookbook, outside this run.
-//   Only plugin/data/ is built. dev/scripts/build_plugin.py refreshes
-//   it from the Construct3-RAG clone beside this repository and sets the plugin's version; the commit step
-//   rebuilds it after the polished sources are committed.
+//   and agents. It holds no data: the scripts read it from the Construct3-RAG clone. The event sheet guides
+//   live in Construct3-Cookbook, outside this run. dev/scripts/build_plugin.py sets the plugin's version; the
+//   commit step runs it after the polished sources are committed.
 // - This file is never polished: no check runs it, and a broken template literal would stop the next run.
 //   A person updates it from the report's guidance differences.
 // - Text units edit one worktree in parallel; code units run one at a time, because their tests import each
@@ -82,11 +81,10 @@ const WRITING = Array.isArray(A.writing) ? A.writing.map(p => String(p).replace(
 
 // Never polished: built, fixtures, assets, or this workflow.
 const NEVER = [
-  [/^plugin\/data\//, 'dev/scripts/build_plugin.py refreshes it from the data of the Construct3-RAG clone; the commit step rebuilds it'],
   [/^maintainers\/tests\/fixtures\//, 'fixtures'],
   [/^maintainers\/evals\/[^/]+\.json$/, 'eval cases and trigger queries'],
   [/^\.claude\/workflows\//, 'the workflow itself: no check runs it, so a person changes it from the report'],
-  [/^\.github\//, 'the checks and the daily plugin refresh'],
+  [/^\.github\//, 'the checks'],
   [/^(LICENSE|\.gitignore|\.gitattributes)$/, 'licence and git configuration'],
   [/\.(png|jpe?g|webp|gif|ico|svg|html|json|js|css|ts)$/i, 'data, pages and assets that are not prose or Python'],
 ]
@@ -120,7 +118,7 @@ const UNIT_RULES = `A unit is a set of files that must stay consistent with each
 - skill (text): plugin/skills/construct3-agent-plugin/SKILL.md; its references/ in batches; its assets/*.md.
 - agents (text): .claude/agents/; plugin/agents/.
 - code: scripts/*.py in batches by topic; plugin/skills/construct3-agent-plugin/scripts/, one large script per unit and small ones in batches; dev/evals/*.py; plugin/skills/construct3-agent-plugin/assets/*.py; dev/tests/ in batches by the module they test, test_skill_<script>.py with nothing else.
-Leave out plugin/data/ (built), dev/tests/fixtures/, .github/, .claude/workflows/, generated files, and files that are not Markdown or Python, with the reason for each group under excluded.`
+Leave out dev/tests/fixtures/, .github/, .claude/workflows/, generated files, and files that are not Markdown or Python, with the reason for each group under excluded.`
 
 const GUARD_RULES = `Guarded text needs more than a polish to change: an eval iteration, a measurement or a decision. A run proposes edits to it and changes nothing. Kinds of guarded passage:
 - Whatever a decision record, an AGENTS.md or an eval says must not change without an eval, a measurement or a decision.
@@ -146,8 +144,8 @@ const TEXT_RULES = `How this repository writes (the root AGENTS.md, the AGENTS.m
 - Every sentence earns its place: the reader would know less, or err, without it.
 - A rule lives in one file, its owner, and other files point to it with a when-clause ("before X, read Y"), not a description of the file and not a copy of the rule. A file that is read alone (a sub-agent file, the prompts the README loads together as a system prompt, SKILL.md, the game-project block, script output) keeps its copy; a decision record keeps the rule it decided.
 - One concept, one name, the name its owner file uses.
-- Prompts, the skill, AGENTS.md files and agent files are English. README_CN.md carries the content of README.md; README.md names no Chinese text or locale besides its link to README_CN.md, and the Chinese examples stay in README_CN.md. Chinese Construct terms are the zh-CN editor's (plugin/data/c3-lang/zh-CN.json); in Chinese text the Claude Code plugin stays "plugin", because the Chinese word for plugin names a Construct plugin.
-- Versions and counts come from plugin/data/c3-schemas/_index.json and are never written into text, except a record's Schema line, the release in a pitfall source and the release a measurement was made on; test totals stay out of docs; a tally over the official examples or a minified editor name is not stated as the rule.
+- Prompts, the skill, AGENTS.md files and agent files are English. README_CN.md carries the content of README.md; README.md names no Chinese text or locale besides its link to README_CN.md, and the Chinese examples stay in README_CN.md. Chinese Construct terms are the zh-CN editor's (Construct3-RAG/data/c3-lang/zh-CN.json in the clone beside this repository); in Chinese text the Claude Code plugin stays "plugin", because the Chinese word for plugin names a Construct plugin.
+- Versions and counts come from Construct3-RAG/data/c3-schemas/_index.json and are never written into text, except a record's Schema line, the release in a pitfall source and the release a measurement was made on; test totals stay out of docs; a tally over the official examples or a minified editor name is not stated as the rule.
 - The repository is public: a finding from a game project is stated as the mechanism, without the names of the project, its objects, variables or functions, the maintainer's own projects included; studied games, their authors and sources are not named; commit hashes stay out. Licence attributions and Scirra's own sources stay.
 - An instruction gives its condition first and its reason after it. A table or list holds parallel items; reasoning is prose.
 - ACE ids stay in their quotes or backticks: the schema diff of Construct3-RAG finds them there when a release changes an ACE.
@@ -305,8 +303,8 @@ const env = pre => `Environment: Windows with Git Bash and PowerShell; Python is
 ${NO_MERGE}`
 // A test that fails because of a file outside the unit is no fault of the unit: units share one worktree.
 const OTHERS_FAILURE = 'A failure in a file outside the unit is another agent\'s unfinished edit: run the test again a minute later, and if it still fails, list it under unverified, not as the unit\'s failure.'
-// plugin/data/ and the plugin's version are built; the tests pin them to a fresh build.
-const BUILD_FIRST = 'The build refreshes plugin/data/ from the Construct3-RAG clone and sets the plugin\'s version, and dev/tests/test_plugin_folder.py pins both to a fresh build, so it runs before the tests.'
+// The plugin's version is built; the tests pin it to the plugin's files.
+const BUILD_FIRST = 'The build sets the plugin\'s version, and dev/tests/test_plugin_folder.py pins it to the plugin\'s files, so it runs before the tests.'
 
 const abs = (pre, paths) => paths.map(p => `${pre.worktree}/${p}`)
 
@@ -666,7 +664,7 @@ const SWEEPS = [
   { key: 'duplication', prompt: pre => `Problem: one rule stated in several files, and statements that contradict each other. The owner of a rule is the file the repository's routing names for it: the tables of the root AGENTS.md (sections 2 and 6), docs/AGENTS.md, dev/AGENTS.md, the AGENTS.md of each directory, and the passage "How the prompts are kept" in docs/decisions/event-sheet-design-guidance.md. A passage that another file cites by section, heading or path, or that shipped text routes to, is the copy that stays.
 - For a duplicate, report each copy outside the owner with the fix "replace with a when-clause pointer to <owner>", and set owner. Do not report a copy in a file that is read alone (a sub-agent file, the prompts the README loads together as a system prompt, SKILL.md, the game-project block, script output), a decision record's own decision, or a pitfall entry and its conclusion line in the index; report those only when they disagree with the owner.
 - For a contradiction, decide first whether the statement is a norm (a rule in an AGENTS.md or a record) or a description (what a module does, who imports whom). When code breaks a norm and a change that keeps behavior fixes it, report the code file and line with that change. When no such change exists, report it at the norm's line with the fix "needs a decision: <the code change or the rule change>". When a description is wrong, find what the code, the data or the tests support (run or read them) and report the wrong text.` },
-  { key: 'names', prompt: pre => `Problem: one concept with several names, and names that do not match the code. Collect the names the repository gives to its tools, files, concepts and Construct terms (the script table in plugin/skills/construct3-agent-plugin/SKILL.md, dev/scripts/AGENTS.md and the root AGENTS.md list the tool names). Report every place that uses another name for the same thing, with the owner's name as the fix. In Chinese text, a Construct term must be the zh-CN editor's: find its English key in plugin/data/c3-lang/en-US.json and take the zh-CN value of the same key from plugin/data/c3-lang/zh-CN.json; the Claude Code plugin stays "plugin".` },
+  { key: 'names', prompt: pre => `Problem: one concept with several names, and names that do not match the code. Collect the names the repository gives to its tools, files, concepts and Construct terms (the script table in plugin/skills/construct3-agent-plugin/SKILL.md, dev/scripts/AGENTS.md and the root AGENTS.md list the tool names). Report every place that uses another name for the same thing, with the owner's name as the fix. In Chinese text, a Construct term must be the zh-CN editor's: find its English key in Construct3-RAG/data/c3-lang/en-US.json and take the zh-CN value of the same key from Construct3-RAG/data/c3-lang/zh-CN.json, in the clone beside this repository; the Claude Code plugin stays "plugin".` },
   { key: 'stale', prompt: pre => `Problem: text that goes stale or must not be public. Report: versions and counts written into text (the release, numbers of addons or ACEs), apart from a record's Schema line, the release in a pitfall source and the release a measurement was made on; test totals in docs; tallies over the official examples stated as a rule, and minified editor names; relative or dated wording in project text ("now", "no longer", "new", "recently", "as of", "Update <date>"); TODO and FIXME lines whose work is done; commit hashes; the names of any game project or of its objects, variables and functions, the maintainer's own projects included; names of studied published games, their authors or source sites. Licence attributions and Scirra's own sources stay.${FORBIDDEN.length || pre.forbidden_files.length ? ` Grep case-insensitively for every name in ${FORBIDDEN.length ? 'this list: ' + JSON.stringify(FORBIDDEN) : ''}${FORBIDDEN.length && pre.forbidden_files.length ? ' and ' : ''}${pre.forbidden_files.length ? 'these files (names, titles and authors): ' + JSON.stringify(pre.forbidden_files) : ''}, with \`git -C "${pre.worktree}" grep -i -n -e "<name>"\`. In your report write such a name as its first letter and its length, never in full.` : ''}` },
   { key: 'growth', prompt: pre => `Problem: content that piles up. From \`git -C "${pre.worktree}" log --stat ${pre.base ? pre.base + '..HEAD' : '-n 300'}\` and the current sizes, find the files that grew most, and in each the sections that grew by appending: entries that repeat each other, an index whose lines do not follow their topic files, a list of cases that one rule would replace, a decision record that reads as a dated log of runs instead of the finding that settles it (docs/AGENTS.md), a file over a limit that its AGENTS.md or a record states (the 500 lines of SKILL.md, and the first 5000 tokens of its body, which must reach the end of the check loop: dev/AGENTS.md). Report each with the fix: which entries merge into which, which lines go, and the rule that replaces a list of cases; give the numbers (lines added, commits) in problem. Then read the "Re-evaluate when" section of every record in docs/decisions/ and report, with kind "reevaluate", each condition that holds today (measure it: file sizes, counts, the code), at the record's line, with the action the record names.` },
   { key: 'code-duplication', prompt: pre => `Problem: code duplicated across files, which one shared helper would replace. Look in the polishable .py files for functions, constants, type definitions, path set-up and blocks repeated in two or more files. The shared module follows the repository's rules: the skill scripts share code through plugin/skills/construct3-agent-plugin/scripts/c3project.py (dev/AGENTS.md); the tests through dev/tests/skill_helpers.py or conftest.py; the evals through a module of dev/evals/; scripts/ through a module of its own. Report each cluster with kind "code-cluster", path set to one of its files, files listing every file of the cluster with the shared module included, target set to the shared module, and fix saying what moves there. Keep a cluster under about 4000 lines in all. Never include plugin/skills/construct3-agent-plugin/assets/build_project.py: its helpers stay inline because the evals showed that small models learn them there (docs/decisions/generator-helpers-inline.md).` },
@@ -683,7 +681,7 @@ const textPolishPrompt = (pre, std, unit, found) => {
   return `You polish one unit of the Construct3-Agent-Skills repository: the same knowledge, easier for its next reader to use. Other agents polish other units in the same worktree at the same time; touch nothing outside yours. Reviewers compare your result with the text before you, line by line.
 
 ${env(pre)}
-Leave your edits uncommitted. Never run dev/scripts/build_plugin.py, because the check step builds plugin/data/ once for every unit.
+Leave your edits uncommitted. Never run dev/scripts/build_plugin.py, because the check step sets the plugin's version once for every unit.
 
 Unit ${unit.id} (${unit.area}). Files: ${JSON.stringify(abs(pre, unit.paths))}.
 ${edit.length ? `You may edit: ${JSON.stringify(abs(pre, edit))}.` : 'Edit nothing: return every change as a proposal with the exact old and new text.'}
@@ -729,7 +727,7 @@ const codePolishPrompt = (pre, std, unit, found) => {
   return `You simplify one code unit of the Construct3-Agent-Skills repository with the simplify skill, keeping behavior identical. Other agents polish text in the same worktree at the same time; touch nothing outside your files. A reviewer then checks the diff with the code-review skill and the unit's tests.
 
 ${env(pre)}
-Leave your edits uncommitted. Never run dev/scripts/build_plugin.py, because the check step builds plugin/data/ once for every unit.
+Leave your edits uncommitted. Never run dev/scripts/build_plugin.py, because the check step sets the plugin's version once for every unit.
 
 Unit ${unit.id}. Files: ${JSON.stringify(abs(pre, unit.paths))}.
 ${edit.length ? `You may edit: ${JSON.stringify(abs(pre, edit))}${targets.length ? `, and create ${JSON.stringify(abs(pre, targets))} if it does not exist` : ''}.` : 'Edit nothing: return every change as a proposal with its old and new code.'}
@@ -775,7 +773,7 @@ accept is false when blocking is not empty.`
 const repairPrompt = (pre, unit, verdicts) => `You repair one polished unit of the Construct3-Agent-Skills repository after review. Other agents work in the same worktree; touch nothing outside your files.
 
 ${env(pre)}
-Leave your edits uncommitted. Never run dev/scripts/build_plugin.py, because the check step builds plugin/data/ once for every unit.
+Leave your edits uncommitted. Never run dev/scripts/build_plugin.py, because the check step sets the plugin's version once for every unit.
 
 Files you may edit: ${JSON.stringify(abs(pre, editable(unit)))}.
 Guarded passages, which stay byte-identical: ${JSON.stringify(unit.guarded)}.
@@ -830,8 +828,8 @@ const commitPrompt = (pre, kept, checked) => `You commit the checked polish of t
 ${env(pre)}
 Commit in this step; never merge.
 
-1. For each unit below, in order: \`git -C "${pre.worktree}" add -- <its files that still differ from HEAD>\`, then commit. Subject in the repository's style (\`git -C "${pre.worktree}" log --format=%s -20\` shows it): a sentence that says what the reader gets; a body only when the subject cannot say why; end the message with the attribution trailer your instructions give for commits, if they give one. A commit message names an issue of another repository in words or as a URL in backticks, never as owner/repo#N or #N, because GitHub turns those into a permanent cross-reference on that issue. Follow-ups go with the unit that asked for them. Never stage a file under plugin/data/ with a unit.
-2. \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py\`, then \`git -C "${pre.worktree}" add -A -- plugin/data plugin/.claude-plugin/plugin.json\` and, if anything is staged, one commit "plugin: rebuild from the polished sources". ${BUILD_FIRST}
+1. For each unit below, in order: \`git -C "${pre.worktree}" add -- <its files that still differ from HEAD>\`, then commit. Subject in the repository's style (\`git -C "${pre.worktree}" log --format=%s -20\` shows it): a sentence that says what the reader gets; a body only when the subject cannot say why; end the message with the attribution trailer your instructions give for commits, if they give one. A commit message names an issue of another repository in words or as a URL in backticks, never as owner/repo#N or #N, because GitHub turns those into a permanent cross-reference on that issue. Follow-ups go with the unit that asked for them. Never stage plugin/.claude-plugin/plugin.json with a unit.
+2. \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py\`, then \`git -C "${pre.worktree}" add -- plugin/.claude-plugin/plugin.json\` and, if anything is staged, one commit "plugin: the version of the polished sources". ${BUILD_FIRST}
 3. \`git -C "${pre.worktree}" status --porcelain\` must print nothing afterwards; delete an untracked file the run left, restore a changed file that belongs to no unit, and say so in notes.
 4. On the committed tree: \`cd "${pre.worktree}" && python -m pytest -q -p no:cacheprovider\`, \`cd "${pre.worktree}" && ${CHECKS}\`, \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py --check\`, \`git -C "${pre.worktree}" diff --check ${pre.head} HEAD\`. Tests in ${JSON.stringify(pre.failing_before)} failed before the run.
 
@@ -848,7 +846,7 @@ const REVIEW_LENSES = [
 
 const reviewLensPrompt = (pre, units, lens, files) => `You review a polishing branch of the Construct3-Agent-Skills repository in the worktree "${pre.worktree}" before it merges into main. Read only; change no file. Run git as \`git -C "${pre.worktree}" ...\`.
 
-The branch's changes: \`git -C "${pre.worktree}" diff ${pre.head}..HEAD -- . ":!plugin/data"\`; plugin/data/ is built and needs no reading. Guarded passages in the files it changed: ${JSON.stringify(passages(units).filter(g => files.includes(g.path)))}.
+The branch's changes: \`git -C "${pre.worktree}" diff ${pre.head}..HEAD\`. Guarded passages in the files it changed: ${JSON.stringify(passages(units).filter(g => files.includes(g.path)))}.
 
 ${lens.prompt(pre)}
 
@@ -860,22 +858,22 @@ ${env(pre)}
 Commit in this step; never merge.
 
 Blocking findings: ${JSON.stringify(verdicts.flatMap(v => v.blocking), null, 1)}
-Edit only files that the branch changed (\`git -C "${pre.worktree}" diff --name-only ${pre.head}..HEAD -- . ":!plugin/data"\`), never ${JSON.stringify(lockedFiles(units))}, and keep these passages byte-identical: ${JSON.stringify(passages(units).filter(g => files.includes(g.path)))}.
+Edit only files that the branch changed (\`git -C "${pre.worktree}" diff --name-only ${pre.head}..HEAD\`), never ${JSON.stringify(lockedFiles(units))}, and keep these passages byte-identical: ${JSON.stringify(passages(units).filter(g => files.includes(g.path)))}.
 A finding in a .py file is resolved by restoring the file, not by editing it, because no behavior review runs after this step.
 
 Check each finding against the files and fix the ones that are right, writing by these rules:
 ${TEXT_RULES}
 
-When a fix is not possible, restore the file to its state after the run's moves, \`git -C "${pre.worktree}" checkout ${movesHead} -- <file>\`; restore README.md and README_CN.md together. Then \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py\`, \`cd "${pre.worktree}" && python -m pytest -q -p no:cacheprovider\`, \`cd "${pre.worktree}" && ${CHECKS}\`, \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py --check\` and \`git -C "${pre.worktree}" diff --check ${pre.head}\` (tests in ${JSON.stringify(pre.failing_before)} failed before the run), then commit the fixes, with plugin/data/ and the plugin's version if the build changed them, in one commit whose subject says what the reader gets, with the attribution trailer your instructions give for commits. ok is true when the checks pass and the tree is clean.`
+When a fix is not possible, restore the file to its state after the run's moves, \`git -C "${pre.worktree}" checkout ${movesHead} -- <file>\`; restore README.md and README_CN.md together. Then \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py\`, \`cd "${pre.worktree}" && python -m pytest -q -p no:cacheprovider\`, \`cd "${pre.worktree}" && ${CHECKS}\`, \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py --check\` and \`git -C "${pre.worktree}" diff --check ${pre.head}\` (tests in ${JSON.stringify(pre.failing_before)} failed before the run), then commit the fixes, with the plugin's version if the build changed it, in one commit whose subject says what the reader gets, with the attribution trailer your instructions give for commits. ok is true when the checks pass and the tree is clean.`
 
 const mergePrompt = (pre, summary, doMerge, record, stateObj) => {
   const lockedPatterns = [...NEVER, ...WHOLE_GUARDS].map(([r]) => String(r))
   const step1 = doMerge ? `Merge. Every check and review passed; merge unless one of these stops it, and then say why in waits_because and record the run as waiting (step 2):
    - \`git -C "${pre.main}" symbolic-ref --short HEAD\` must print main, and \`git -C "${pre.main}" status --porcelain\` must print nothing (a merge or rebase in progress there stops this one).
-   - The files the branch changes: \`git -C "${pre.main}" diff --name-only --no-renames ${pre.head} ${pre.branch}\`. None of them outside plugin/data/ may match one of these patterns: ${JSON.stringify(lockedPatterns)}. plugin/data/ is exempt because dev/scripts/build_plugin.py writes it and the commit step rebuilt it. Find the holders again:
+   - The files the branch changes: \`git -C "${pre.main}" diff --name-only --no-renames ${pre.head} ${pre.branch}\`. None of them may match one of these patterns: ${JSON.stringify(lockedPatterns)}. Find the holders again:
 ${HOLDERS_HOWTO(pre.main)}
-     A file of the branch outside plugin/data/ that a holder which is not stale by the rule above holds now, other than this run's own worktree and branch, stops the merge: name the holder.
-   - \`git -C "${pre.main}" merge --ff-only ${pre.branch}\`. If Git refuses because main moved: the files main changed since the run started, \`git -C "${pre.main}" diff --name-only --no-renames ${pre.head} main -- . ":!plugin/data"\`, must not include a file of the branch outside plugin/data/, because no reviewer has read the two edits together; if they do, stop. plugin/data/ moves on main with every data refresh, so it is rebuilt instead of compared. Otherwise \`git -C "${pre.worktree}" switch -c ${pre.branch}-onto-main main\`, cherry-pick the branch's commits in order (\`git -C "${pre.worktree}" log --reverse --format=%H ${pre.head}..${pre.branch}\`); a conflict that lies only under plugin/data/ or in the version of plugin/.claude-plugin/plugin.json is resolved by \`git -C "${pre.worktree}" checkout --theirs -- plugin/data plugin/.claude-plugin/plugin.json\` and \`git -C "${pre.worktree}" add -- plugin/data plugin/.claude-plugin/plugin.json\` before \`git -C "${pre.worktree}" cherry-pick --continue\`. Then \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py\`, and if \`git -C "${pre.worktree}" status --porcelain\` lists files, \`git -C "${pre.worktree}" add -A -- plugin/data plugin/.claude-plugin/plugin.json\` and one commit "plugin: rebuild on main" with the attribution trailer your instructions give for commits. Run \`cd "${pre.worktree}" && python -m pytest -q -p no:cacheprovider\`, \`cd "${pre.worktree}" && ${CHECKS}\` and \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py --check\` (tests in ${JSON.stringify(pre.failing_before)} failed before the run), read \`git -C "${pre.main}" rev-parse main\`, check \`git -C "${pre.main}" symbolic-ref --short HEAD\` again, then \`git -C "${pre.main}" merge --ff-only ${pre.branch}-onto-main\`. On a cherry-pick conflict outside plugin/data/, a test, compileall or build check failure beyond failing_before, or when this fast-forward fails too: \`git -C "${pre.worktree}" cherry-pick --abort\` if one is in progress, \`git -C "${pre.worktree}" switch ${pre.branch}\`, \`git -C "${pre.worktree}" branch -D ${pre.branch}-onto-main\`, and stop.
+     A file of the branch that a holder which is not stale by the rule above holds now, other than this run's own worktree and branch, stops the merge: name the holder.
+   - \`git -C "${pre.main}" merge --ff-only ${pre.branch}\`. If Git refuses because main moved: the files main changed since the run started, \`git -C "${pre.main}" diff --name-only --no-renames ${pre.head} main\`, must not include a file of the branch, because no reviewer has read the two edits together; if they do, stop. Otherwise \`git -C "${pre.worktree}" switch -c ${pre.branch}-onto-main main\`, cherry-pick the branch's commits in order (\`git -C "${pre.worktree}" log --reverse --format=%H ${pre.head}..${pre.branch}\`); a conflict that lies only in the version of plugin/.claude-plugin/plugin.json is resolved by \`git -C "${pre.worktree}" checkout --theirs -- plugin/.claude-plugin/plugin.json\` and \`git -C "${pre.worktree}" add -- plugin/.claude-plugin/plugin.json\` before \`git -C "${pre.worktree}" cherry-pick --continue\`. Then \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py\`, and if \`git -C "${pre.worktree}" status --porcelain\` lists files, \`git -C "${pre.worktree}" add -- plugin/.claude-plugin/plugin.json\` and one commit "plugin: the version on main" with the attribution trailer your instructions give for commits. Run \`cd "${pre.worktree}" && python -m pytest -q -p no:cacheprovider\`, \`cd "${pre.worktree}" && ${CHECKS}\` and \`cd "${pre.worktree}" && python dev/scripts/build_plugin.py --check\` (tests in ${JSON.stringify(pre.failing_before)} failed before the run), read \`git -C "${pre.main}" rev-parse main\`, check \`git -C "${pre.main}" symbolic-ref --short HEAD\` again, then \`git -C "${pre.main}" merge --ff-only ${pre.branch}-onto-main\`. On a cherry-pick conflict outside that version, a test, compileall or build check failure beyond failing_before, or when this fast-forward fails too: \`git -C "${pre.worktree}" cherry-pick --abort\` if one is in progress, \`git -C "${pre.worktree}" switch ${pre.branch}\`, \`git -C "${pre.worktree}" branch -D ${pre.branch}-onto-main\`, and stop.
    - After a merge: \`git -C "${pre.worktree}" status --porcelain\` must print nothing; then \`git -C "${pre.main}" worktree remove "${pre.worktree}"\`. Delete the run's branches with \`git -C "${pre.main}" branch -D <branch>\`: after a fast-forward, ${pre.branch}; after the cherry-pick path, ${pre.branch} and ${pre.branch}-onto-main, because every commit of the first is in the second, which main now holds.`
     : record === 'none' ? `Do not merge: the run committed nothing. Clean up: \`git --no-optional-locks -C "${pre.worktree}" status --porcelain\` must print nothing (restore or delete what it lists), then \`git -C "${pre.main}" worktree remove "${pre.worktree}"\` and \`git -C "${pre.main}" branch -D ${pre.branch}\`.`
     : 'Do not merge. Leave the worktree and the branch, and say in waits_because why (the gates in the run summary below show which one failed).'
@@ -1188,7 +1186,6 @@ phase('Review')
 let reviewOk = false
 let reviewOpen = []
 if (checksOk && commits.length) {
-  // The rebuild commit holds plugin/data/, which is never polished and needs no reading.
   const branchFiles = () => uniq(commits.flatMap(c => (c.files || []).map(rel))).filter(p => !never(p))
   const lensRun = (round) => parallel(REVIEW_LENSES.map(l => () =>
     agent(reviewLensPrompt(pre, units, l, branchFiles()), { label: `review:${l.key}${round}`, phase: 'Review', schema: VERDICT })))

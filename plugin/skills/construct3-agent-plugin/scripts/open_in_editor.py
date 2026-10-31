@@ -1156,9 +1156,8 @@ def labeler(project: Path | None, locale: str) -> tuple[Callable[[str], str], st
     word, and the note says so. A locale the clone has no language pack for raises ValueError."""
     rag, _ = c3.locate_rag(project, None)
     if not rag:
-        return key_name, (f"note: Construct3-RAG not found, so each inspector value shows the last word of its key, "
-                          f"not its name in --locale {locale}. Set CONSTRUCT3_RAG to the clone's folder, or write "
-                          f"the line '- Construct3-RAG: <folder>' in the project's AGENTS.md, then run again.")
+        return key_name, (f"note: each inspector value shows the last word of its key, not its name in --locale "
+                          f"{locale}, because there is {c3.missing_rag(project)}; then run again.")
     packs = rag / "data" / "c3-lang"
     if not (packs / f"{locale}.json").is_file():
         raise ValueError(f"no language pack for --locale {locale}; the clone has: "
@@ -1569,16 +1568,18 @@ def event_named(p: c3.Project, said: str) -> tuple[str, int, list[str]] | None:
     return None
 
 
-def checker_version(rag: Path) -> str:
-    """The version of the skill that checked the project: the plugin's, else the clone's commit."""
+def checker_version(project: Path) -> str:
+    """The version of the skill that checked the project: the plugin's, else the commit of the
+    Construct3-Agent-Skills clone its copy comes from."""
     manifest = c3.SKILL_DIR.parent.parent / ".claude-plugin" / "plugin.json"
     try:
         return f"the construct3 plugin {json.loads(manifest.read_text(encoding='utf-8'))['version']}"
     except (OSError, ValueError, KeyError):
         pass
-    commit = c3.git_out(c3.clone_root(rag), "rev-parse", "--short", "HEAD") or "of an unknown commit"
-    copy = "" if c3.refresh_command(rag) is None else \
-        ", run from a copy that differs from it" if c3.skill_drift(rag) else ", run from a copy"
+    source = c3.locate_skills(project)
+    commit = source and c3.git_out(c3.clone_root(source), "rev-parse", "--short", "HEAD") or "of an unknown commit"
+    copy = "" if c3.refresh_command(source) is None else \
+        ", run from a copy that differs from it" if c3.skill_drift(source) else ", run from a copy"
     return f"Construct3-Agent-Skills {commit}{copy}"
 
 
@@ -1634,7 +1635,7 @@ def failure_report(result: dict) -> list[str]:
     saved = saved_release(project)
     body += [f"- Construct: the editor {result.get('release') or result['editor']}"
              + (f", the project saved with {release_name(saved)}" if saved else ""),
-             f"- Checker: {checker_version(rag)}, schemas {p.index.get('version', '?')}",
+             f"- Checker: {checker_version(project)}, schemas {p.index.get('version', '?')}",
              f"- Fingerprint: {fingerprint}", "",
              "The names the project gives are replaced by placeholders such as `<object 1>`, text in quotes by "
              "`\"…\"`, and the home folder by `~`."]

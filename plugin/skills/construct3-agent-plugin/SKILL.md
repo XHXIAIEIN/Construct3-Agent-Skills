@@ -1,7 +1,7 @@
 ---
 name: construct3-agent-plugin
 description: Check, read, look up and generate the JSON of a Construct 3 folder project (project.c3proj, eventSheets, layouts, objectTypes, families) against the schemas of every Construct 3 condition, action, expression and effect and the rules the Construct 3 editor applies when it opens a project. Use this skill whenever you write or edit an event sheet or any other project file of a Construct 3 game, need the exact id, parameters and JSON of a condition, action or expression, want to read an event sheet or an official example as events instead of JSON, generate a whole project from a script, or the editor refuses to open or preview a project, even if the user only says "add a mechanic", "fix this event" or pastes an editor error.
-compatibility: Requires Python 3.10+ and the plugin folder of a Construct3-Agent-Skills clone or the installed Claude Code plugin, whose data/c3-schemas the scripts read. art.py needs Pillow for the pictures of an image tool, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
+compatibility: Requires Python 3.10+ and a Construct3-RAG clone, whose data/c3-schemas the scripts read; without one they print the git clone command. art.py needs Pillow for the pictures of an image tool, and the other scripts say when an optional tool is missing. Opening the project in the editor takes a network connection and Edge, Chrome or Chromium, or a browser tool of the agent.
 metadata:
   source: https://github.com/XHXIAIEIN/Construct3-Agent-Skills
 ---
@@ -20,18 +20,20 @@ the expressions, so it can refuse a project that the checker passes.
   `python .agents/skills/construct3-agent-plugin/scripts/check_project.py`.
   The scripts find the project from the current directory upward;
   `--project <folder>` names another one.
-- The scripts find the data folder through `--rag`, the `CONSTRUCT3_RAG`
-  environment variable, or the `Construct3-RAG: <folder>` line in the
-  project's `AGENTS.md` or `CLAUDE.md`. `Construct3-RAG not found` means
-  that line is empty; its value is the Agent-Skills clone's `plugin/`
-  folder. `CONSTRUCT3_RAG_OFFLINE=1` stops the hourly update check of
-  `check_project.py`.
+- The scripts read the data from a Construct3-RAG clone. They find it
+  through `--rag`, the `CONSTRUCT3_RAG` environment variable, the
+  `Construct3-RAG: <folder>` line in the project's `AGENTS.md` or
+  `CLAUDE.md`, or a `Construct3-RAG` folder beside the clones. Without one
+  they stop with the `git clone` command that puts it there: give it to the
+  user, and clone only once they agree. `check_project.py` compares the
+  clones with their upstreams and pulls a data clone that holds no work of
+  its own; `CONSTRUCT3_RAG_OFFLINE=1` stops that.
 - As the Claude Code plugin, the skill is `construct3:construct3-agent-plugin`
   and the scripts run from this folder, so the game project needs no copy.
-  In the files of this skill, `Construct3-RAG/` before `data/` stands for
-  `${CLAUDE_PLUGIN_ROOT}/`, and `Construct3-Agent-Skills/docs/` paths are not
-  in the plugin. The sub-agent `construct3:project-worker` has only the
-  tools these scripts need.
+  In the files of this skill, `Construct3-RAG/` names the clone the scripts
+  find, and `Construct3-Agent-Skills/docs/` paths are not in the plugin.
+  The sub-agent `construct3:project-worker` has only the tools these
+  scripts need.
 - `python scripts/install.py --project <game folder>` copies this folder to
   the project's `.agents/skills/` and adds the Construct 3 block to its
   `AGENTS.md` (`--into .claude/skills` for Claude Code, `.trae/skills` for

@@ -5,6 +5,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 
 - [The Game's Look: unslop's Spacing and Alignment Measured on Game Screens](look-from-unslop.md) — 2026-11-01
 - [The Pause Menu Is a Column of Rows Over a Paper Veil, Without a Panel](pause-menu.md) — 2026-11-01
+- [The Plugin Holds No Data; Its Scripts Read the Construct3-RAG Clone](plugin-reads-the-clones.md) — 2026-11-01
 - [The Contact Sheet Comes in Pages a Model Reads at Their Own Size](contact-sheet-pages.md) — 2026-10-31
 - [Emil Kowalski's Other Skills Checked Against a Game Screen](emil-skills-for-a-game-screen.md) — 2026-10-31
 - [An Export Passes Only When Its Game Boots](export-boots-the-game.md) — 2026-10-31
@@ -79,7 +80,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A key a web export would ship is a warning, and stops the export](secret-scan.md) — 2026-10-08
 - [Art from the Image Tool](art-from-the-image-tool.md) — 2026-10-06
 - [Layout by Name: Components, Bands and Computed Checks](layout-by-name.md) — 2026-10-06
-- [The Plugin Folder Holds Its Sources; Only Its Data Is Built](plugin-folder.md) — 2026-10-05
+- [The Plugin Folder Holds Only Its Sources](plugin-folder.md) — 2026-10-05
 - [The Plugin's Version and Why a Project Needs No Copy](plugin-tracks-commits.md) — 2026-10-05
 - [A Clone Behind Its Upstream Fails the Check](clone-update-check.md) — 2026-10-04
 - [A New Game Is a Checked Design, Played as a Prototype Before It Is Built](game-design-prototype.md) — 2026-10-04

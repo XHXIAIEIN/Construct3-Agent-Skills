@@ -573,11 +573,11 @@ def reference(design: gm.Design, rag: Path | None) -> str | None:
     if not isinstance(ref, dict) or not isinstance(ref.get("example"), str):
         return None
     if not rag:
-        return ("Construct3-RAG not found; pass --rag <the Agent-Skills clone's plugin/ folder> or fill in the "
-                "project's Construct3-RAG: line")
+        return (f"Construct3-RAG not found; pass --rag <the Construct3-RAG clone> or fill in the project's "
+                f"Construct3-RAG: line, or clone it: {c3.rag_clone_command(None)}")
     ids = {k.removesuffix(".json") for k in c3.data_texts(rag, "data/c3-examples/en-US", "*.json")}
     if not ids:
-        return f"{c3.shown_path(rag)} holds no data/c3-examples; pass --rag the Agent-Skills clone's plugin/ folder"
+        return f"{c3.shown_path(rag)} holds no data/c3-examples; pass --rag the Construct3-RAG clone"
     if ref["example"] not in ids:
         design.bad("reference.example", f"{ref['example']!r} is no official example{c3.closest(ref['example'], ids)}; "
                                         f"find one with the same input or genre in data/c3-examples by its tags")

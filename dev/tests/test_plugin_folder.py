@@ -1,6 +1,7 @@
-"""plugin/, the Claude Code plugin: its data/ equal to a fresh build, the folder under the directory's limits,
-and holding every data file the skill's text sends an agent to (docs/decisions/plugin-folder.md); the guides
-live in Construct3-Cookbook, not here (docs/decisions/guides-in-cookbook.md)."""
+"""plugin/, the Claude Code plugin: its sources under the directory's limits and no data, which the scripts read
+from the Construct3-RAG clone and print the clone command for when there is none
+(docs/decisions/plugin-reads-the-clones.md, docs/decisions/plugin-folder.md); the guides live in
+Construct3-Cookbook, not here (docs/decisions/guides-in-cookbook.md)."""
 import json
 import os
 import re
@@ -12,7 +13,8 @@ from pathlib import Path
 from scripts import build_plugin
 from tests.skill_helpers import DATA, PLUGIN, REPO, SKILL
 
-NAMED = re.compile(r"Construct3-(?:RAG|Agent-Skills/plugin)/(data/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
+NAMED = re.compile(r"Construct3-RAG/(data/[A-Za-z0-9_./-]*[A-Za-z0-9_/])")
+RAG_CLONE = 'git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "{}"'
 
 
 def test_the_plugin_holds_no_copy_of_the_guides():
@@ -21,49 +23,29 @@ def test_the_plugin_holds_no_copy_of_the_guides():
     assert not list(PLUGIN.rglob("event-sheet-pitfalls.md"))
 
 
-def test_plugin_folder_is_a_fresh_build_under_the_limits():
+def test_the_plugin_holds_no_data():
+    """The scripts read the data from the Construct3-RAG clone, which a data refresh moves every day."""
+    assert not (PLUGIN / "data").exists()
+    assert not list(PLUGIN.rglob("*.bundle-*.json"))
+
+
+def test_plugin_folder_is_under_the_limits_with_its_version():
     p = subprocess.run([sys.executable, str(REPO / "dev" / "scripts" / "build_plugin.py"), "--check"],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert p.returncode == 0, p.stdout + p.stderr
 
 
-def test_the_build_copies_text_files_with_lf_and_an_image_byte_for_byte(tmp_path):
-    # A checkout with core.autocrlf holds CRLF files (docs/decisions/plugin-folder.md)
-    (tmp_path / "guide.md").write_bytes(b"# Construct 3\r\n\r\nA line.\r\n")
-    icon = (PLUGIN / "icon.png").read_bytes()
-    # The PNG signature holds CR LF, so a build that rewrote an image would change it
-    assert b"\r\n" in icon
-    (tmp_path / "icon.png").write_bytes(icon)
-    build_plugin.copy(tmp_path / "guide.md", tmp_path / "out" / "guide.md")
-    build_plugin.copy(tmp_path / "icon.png", tmp_path / "out" / "icon.png")
-    assert (tmp_path / "out" / "guide.md").read_bytes() == b"# Construct 3\n\nA line.\n"
-    assert (tmp_path / "out" / "icon.png").read_bytes() == icon
-
-
-def test_a_crlf_checkout_of_plugin_equals_its_build(tmp_path):
-    built, committed = tmp_path / "built.md", tmp_path / "committed.md"
-    built.write_bytes(b"# Construct 3\n\nA line.\n")
-    committed.write_bytes(b"# Construct 3\r\n\r\nA line.\r\n")
-    assert build_plugin.same(built, committed)
-    committed.write_bytes(b"# Construct 3\r\n\r\nAnother line.\r\n")
-    assert not build_plugin.same(built, committed)
+def test_the_check_refuses_a_data_folder(tmp_path, monkeypatch):
+    monkeypatch.setattr(build_plugin, "PLUGIN", tmp_path)
+    assert build_plugin.held_data() == []
+    (tmp_path / "data").mkdir()
+    assert build_plugin.held_data() and "Construct3-RAG" in build_plugin.held_data()[0]
 
 
 def test_the_repository_has_no_gitattributes():
     # The directory refuses to validate a repository whose attributes could rewrite files at checkout
     # (docs/decisions/plugin-folder.md)
     assert not (REPO / ".gitattributes").exists()
-
-
-def test_the_schemas_are_the_source_json_with_an_indent_of_one():
-    """An agent opens a schema in the plugin by the path it has in the clone and reads the same JSON;
-    the one-space indent keeps the folder under the directory's size limit."""
-    rel = "data/c3-schemas/en-US/plugins/sprite.json"
-    source = (DATA.parent / rel).read_text(encoding="utf-8")
-    built = (PLUGIN / rel).read_text(encoding="utf-8")
-    assert json.loads(built) == json.loads(source)
-    assert built.startswith('{\n "') and source.startswith('{\n  "')
-    assert len(built) < len(source)
 
 
 def test_the_limits_hold_the_folder_size(tmp_path, monkeypatch):
@@ -78,34 +60,16 @@ def test_the_limits_hold_the_folder_size(tmp_path, monkeypatch):
     assert build_plugin.limits(build_plugin.files(folder)) == ["30 bytes in all, more than 29"]
 
 
-def test_every_data_file_the_skill_names_is_in_the_plugin():
-    """SKILL.md tells a plugin user that such a path lies under the plugin's folder, so it names a file
-    there, not one that only a bundle holds."""
+def test_every_data_file_the_skill_names_is_in_the_construct3_rag_clone():
+    """The skill names a file of the data as Construct3-RAG/<path>, a path in the clone the scripts read."""
     texts = [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md")), SKILL / "assets" / "game-project-block.md"]
     missing, names = set(), 0
     for path in texts:
         for rel in NAMED.findall(path.read_text(encoding="utf-8")):
             names += 1
-            if not (PLUGIN / rel).exists():
+            if not (DATA.parent / rel).exists():
                 missing.add(f"{path.name}: {rel}")
     assert names > 5 and not missing, sorted(missing)
-
-
-def test_the_language_packs_keep_what_check_project_and_a_preview_inspector_read():
-    """check_project.py reads two subtrees of each language pack. The keys of a preview's inspector values
-    are paths into the name, properties and debugger texts of a plugin or behavior, such as
-    behaviors.platform.debugger.vector-x (references/reading-the-runtime.md, "Inspector values")."""
-    for locale in ("en-US", "zh-CN"):
-        full = json.loads((DATA / "c3-lang" / f"{locale}.json").read_text(encoding="utf-8-sig"))["text"]
-        kept = json.loads((PLUGIN / "data" / "c3-lang" / f"{locale}.json").read_text(encoding="utf-8"))["text"]
-        assert kept["ui"]["bars"]["properties"]["project"] == full["ui"]["bars"]["properties"]["project"]
-        assert kept["ui"]["bars"]["timeline"]["eases"] == full["ui"]["bars"]["timeline"]["eases"]
-        for kind in ("plugins", "behaviors"):
-            for addon, texts in full[kind].items():
-                for part in ("name", "properties", "debugger"):
-                    if part in texts:
-                        assert kept[kind][addon][part] == texts[part], f"{locale}: text.{kind}.{addon}.{part}"
-        assert kept["behaviors"]["platform"]["debugger"]["vector-x"]
 
 
 def test_the_marketplace_installs_the_plugin_folder():
@@ -124,36 +88,69 @@ def test_the_listing_icon_is_a_file_of_the_plugin():
     assert path.is_relative_to(PLUGIN.resolve()) and ".claude-plugin" not in path.relative_to(PLUGIN.resolve()).parts
 
 
-def test_scripts_in_the_plugin_read_the_bundled_data_and_print_what_opens(tmp_path):
-    """A plugin user has no clone and often no Construct3-RAG line: a printed path opens as it is, and a
-    declaration that only a bundle holds names the command that prints it. An example is its editor URL
-    alone, since no example projects lie beside the plugin."""
-    # A copy outside the repository, as Claude Code installs the plugin: no clone holds it or lies beside it
-    plugin = tmp_path / "construct3"
+def installed_plugin(tmp_path: Path, version: str = "1.0.0") -> Path:
+    """A copy of the plugin outside the repository, where Claude Code installs it: a version folder of the
+    plugin's cache folder, with no clone holding it."""
+    plugin = tmp_path / "cache" / "construct3" / version
     shutil.copytree(PLUGIN, plugin, ignore=shutil.ignore_patterns("__pycache__"))
+    return plugin
+
+
+def plugin_runner(tmp_path: Path, plugin: Path):
+    """A script of the plugin run from tmp_path, with no CONSTRUCT3_RAG and no CONSTRUCT3_COOKBOOK: the scripts
+    find the clones beside the plugin's cache folder, as an installed plugin does."""
     scripts = plugin / "skills" / "construct3-agent-plugin" / "scripts"
-    # No CONSTRUCT3_RAG: the scripts find the plugin folder above them, as an installed plugin does;
-    # no CONSTRUCT3_COOKBOOK either, so no Cookbook clone holds the pitfalls
     env = {k: v for k, v in os.environ.items() if k not in ("CONSTRUCT3_RAG", "CONSTRUCT3_COOKBOOK")}
     env.update(PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_OFFLINE="1")
 
-    def run(script: str, *args: str) -> str:
-        p = subprocess.run([sys.executable, str(scripts / script), *args], cwd=tmp_path, env=env,
-                           capture_output=True, text=True, encoding="utf-8", timeout=60)
+    def run(script: str, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(scripts / script), *args], cwd=tmp_path, env=env,
+                              capture_output=True, text=True, encoding="utf-8", timeout=60)
+    return run
+
+
+def test_the_installed_plugin_reads_the_construct3_rag_clone_beside_it(tmp_path):
+    """With a Construct3-RAG clone beside the plugin's cache folder every script finds the data, and a printed
+    path opens as it is. An example is its editor URL alone, since no example projects lie beside the plugin."""
+    plugin = installed_plugin(tmp_path)
+    shutil.copytree(DATA, plugin.parent / "Construct3-RAG" / "data")
+    run = plugin_runner(tmp_path, plugin)
+
+    def out(script: str, *args: str) -> str:
+        p = run(script, *args)
         assert p.returncode == 0, p.stdout + p.stderr
         return p.stdout
 
-    out = run("lookup_script_api.py", "IRuntime.callFunction")
-    assert out.startswith("IRuntime.callFunction   lookup_script_api.py IRuntime.callFunction\n"), out
-    out = run("search_guides.py", "wait", "platformer")
-    assert out.startswith("note: pitfalls not searched: no Construct3-Cookbook clone") and "git clone" in out, out
-    assert not re.findall(r"^(.+\.md):\d+$", out, re.M), out
-    assert "\n  https://editor.construct.net/#open=3d-platformer\n" in out and "beside Construct3-RAG" not in out, out
+    assert out("lookup_ace.py", "System", "wait").startswith("action wait - Wait [system]\n")
+    text = out("lookup_script_api.py", "IRuntime.callFunction")
+    path = re.match(r"IRuntime\.callFunction   (.+\.d\.ts):\d+\n", text)
+    assert path and Path(path[1]).is_file() and Path(path[1]).is_relative_to(plugin.parent / "Construct3-RAG"), text
+    text = out("search_guides.py", "wait", "platformer")
+    assert text.startswith("note: pitfalls not searched: no Construct3-Cookbook clone") and "git clone" in text, text
+    assert "\n  https://editor.construct.net/#open=3d-platformer\n" in text, text
     # The pointers come from a Cookbook clone, which no copy of the plugin holds: an entry prints none
-    out = run("lookup_ace.py", "Tween", "tween-one-property")
-    assert "tween-one-property" in out and "  pitfalls: " not in out, out
-    out = run("lookup_ace.py", "Fade", "start", "fade")
-    assert "  prefer: " not in out, out
+    text = out("lookup_ace.py", "Tween", "tween-one-property")
+    assert "tween-one-property" in text and "  pitfalls: " not in text, text
+    assert out("new_project.py", "MyGame").rstrip().splitlines()[-1].startswith("ok: next, python ")
+    p = run("check_project.py", "--project", str(tmp_path / "MyGame"))
+    assert p.returncode == 0 and p.stdout.rstrip().splitlines()[-1].startswith("ok:"), p.stdout + p.stderr
+
+
+def test_the_installed_plugin_without_construct3_rag_prints_the_clone_command(tmp_path):
+    """The plugin never clones or downloads anything itself: each script that reads the data stops with the
+    git clone that puts Construct3-RAG beside the plugin's cache folder, where it looks first."""
+    plugin = installed_plugin(tmp_path)
+    run = plugin_runner(tmp_path, plugin)
+    clone = RAG_CLONE.format((plugin.parent / "Construct3-RAG").as_posix())
+    (tmp_path / "game").mkdir()
+    (tmp_path / "game" / "project.c3proj").write_text("{}", encoding="utf-8")
+    for script, *args in (("lookup_ace.py", "System", "wait"), ("lookup_script_api.py", "IRuntime"),
+                          ("search_guides.py", "wait"), ("new_project.py", "MyGame"),
+                          ("check_project.py", "--project", str(tmp_path / "game")),
+                          ("print_sheet.py", "--project", str(tmp_path / "game"), "Game")):
+        p = run(script, *args)
+        assert p.returncode != 0 and clone in p.stderr and "Traceback" not in p.stderr, (script, p.stdout + p.stderr)
+    assert not (tmp_path / "MyGame").exists() and not (plugin.parent / "Construct3-RAG").exists()
 
 
 def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
@@ -226,3 +223,17 @@ def test_the_look_judge_only_reads_and_runs_the_measured_model():
     assert fields["tools"] == "Read" and fields["omitClaudeMd"] == "true"
     assert fields["model"].startswith("claude-haiku-"), fields["model"]
     assert "brief.md" in body
+
+
+def test_every_installed_version_reads_one_construct3_rag_clone(tmp_path):
+    """Claude Code gives each plugin version a folder of its own. The clone lies beside those folders, so the
+    next version finds the clone the last one used, and no version asks for a copy inside its own folder."""
+    old, new = installed_plugin(tmp_path, "1.0.0"), installed_plugin(tmp_path, "1.0.1")
+    clone = RAG_CLONE.format((tmp_path / "cache" / "construct3" / "Construct3-RAG").as_posix())
+    for plugin in (old, new):
+        p = plugin_runner(tmp_path, plugin)("lookup_ace.py", "System", "wait")
+        assert p.returncode != 0 and clone in p.stderr, p.stdout + p.stderr
+    shutil.copytree(DATA, tmp_path / "cache" / "construct3" / "Construct3-RAG" / "data")
+    for plugin in (old, new):
+        p = plugin_runner(tmp_path, plugin)("lookup_ace.py", "System", "wait")
+        assert p.returncode == 0 and p.stdout.startswith("action wait - Wait [system]\n"), p.stdout + p.stderr

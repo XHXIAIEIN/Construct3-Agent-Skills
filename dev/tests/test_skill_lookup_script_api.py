@@ -1,29 +1,23 @@
 """lookup_script_api.py: the scripting API's interfaces and members, with the file and line of each."""
 from tests.skill_helpers import DATA, install, new_project, tool
 
-# The header line names the declaration's file by its posix path when the clone holds the definitions as
-# files, and the command that prints it when the plugin holds them in bundles (docs/decisions/plugin-folder.md)
+# The header line names the declaration's file in the Construct3-RAG clone by its posix path
 TS_DEFS = f"{DATA.as_posix()}/c3-ts-defs"
-RAW = ("--rag", str(DATA.parent))      # after tool()'s --rag, so the last one wins; a note line may come first
 
 
 def test_an_addon_by_name_prints_its_interface_and_what_it_extends(built):
     code, out = tool(built, "lookup_script_api", "Timer")
     assert code == 0
-    assert out.startswith("class ITimerBehaviorInstance   lookup_script_api.py ITimerBehaviorInstance")
+    assert out.startswith(f"class ITimerBehaviorInstance   {TS_DEFS}/behaviors/general/timer/"), out
     assert "  startTimer(duration: number, name: string, type?: TimerBehaviorTimerType): void;" in out
     assert "members of IBehaviorInstance are ITimerBehaviorInstance's too" in out
-    code, out = tool(built, "lookup_script_api", *RAW, "Timer")
-    assert code == 0 and f"class ITimerBehaviorInstance   {TS_DEFS}/behaviors/general/timer/" in out
 
 
 def test_a_member_prints_its_interface_declaration_and_doc(built):
     """runtime.callFunction, as a script writes it: the instance's member is found on its interface."""
     code, out = tool(built, "lookup_script_api", "runtime.callFunction")
     assert code == 0
-    assert out.startswith("IRuntime.callFunction   lookup_script_api.py IRuntime.callFunction")
-    code, raw = tool(built, "lookup_script_api", *RAW, "runtime.callFunction")
-    assert code == 0 and f"IRuntime.callFunction   {TS_DEFS}/preview/interfaces/IRuntime.d.ts:" in raw
+    assert out.startswith(f"IRuntime.callFunction   {TS_DEFS}/preview/interfaces/IRuntime.d.ts:"), out
     assert "callFunction(name: string, ...params: CallFunctionParameter[]): CallFunctionReturnValue;" in out
     assert "/** Call a function in an event sheet" in out
 

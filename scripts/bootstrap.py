@@ -5,10 +5,11 @@ project, and the skill inside it.
     python scripts/bootstrap.py --project MyGame    # ... and install the skill in MyGame beside them;
                                                     # a folder that does not exist yet gets the empty project
 
-Clones Construct3-Cookbook, Construct3-Manual, Construct-Example-Projects and
-Construct-Addon-SDK into the folder that holds this repository, each one only when it is not
-there yet. A missing or empty project folder gets a copy of the empty project,
-then the skill's install.py runs on the project. Safe to run again: a clone
+Clones Construct3-RAG, Construct3-Cookbook, Construct3-Manual,
+Construct-Example-Projects and Construct-Addon-SDK into the folder that holds
+this repository, each one only when it is not there yet. A missing or empty
+project folder gets a copy of the empty project of Construct3-RAG, then the
+skill's install.py runs on the project. Safe to run again: a clone
 already present is left as it is, and install.py refreshes rather than overwrites.
 """
 import argparse
@@ -29,14 +30,15 @@ INSTALL = SKILL_SCRIPTS / "install.py"
 # is enough. The examples are hundreds of megabytes of history; one commit
 # holds every project the block and the skill read.
 SIBLINGS = {
+    c3.RAG_CLONE: (c3.RAG_URL, True),       # the data the scripts read; the plugin holds no copy
     c3.COOKBOOK_CLONE: (c3.COOKBOOK_URL, False),      # the event sheet guides, updated by git pull
     "Construct3-Manual": ("https://github.com/XHXIAIEIN/Construct3-Manual", False),
     "Construct-Addon-SDK": ("https://github.com/Scirra/Construct-Addon-SDK", False),
     "Construct-Example-Projects": ("https://github.com/Scirra/Construct-Example-Projects", True),
 }
-# The project the editor saves for Project > New, so that a project can start
-# without the editor. Copied, never used in place.
-TEMPLATE = ROOT / "plugin" / "data" / "c3-new-project"
+# The project the editor saves for Project > New, in the Construct3-RAG clone, so that a
+# project can start without the editor. Copied, never used in place.
+TEMPLATE = Path(c3.RAG_CLONE, "data", "c3-new-project")
 
 
 def clone(name: str, url: str, shallow: bool, folder: Path, dry_run: bool) -> tuple[str, bool]:
@@ -107,13 +109,13 @@ def main() -> int:
                     help="where the clones go (default: the folder that holds this repository, where the block "
                          "expects them)")
     ap.add_argument("--template", metavar="FOLDER",
-                    help=f"the empty project to copy (default: {TEMPLATE.relative_to(ROOT).as_posix()})")
+                    help=f"the empty project to copy (default: {TEMPLATE.as_posix()} beside the clones)")
     ap.add_argument("--no-examples", action="store_true", help="skip Construct-Example-Projects (the largest clone)")
     ap.add_argument("--dry-run", action="store_true", help="say what would be done, do nothing")
     args = ap.parse_args()
     c3.utf8_output()
 
-    folder = resolved(args.beside) if args.beside else ROOT.parent
+    folder = resolved(args.beside) if args.beside else c3.siblings_folder(ROOT)
     failed = False
     wanted = dict(SIBLINGS)
     if args.no_examples:
@@ -123,7 +125,7 @@ def main() -> int:
                   "example and search_guides.py gives each one's editor URL; run this again without "
                   "--no-examples to clone it")
     project = game_folder(args.project, folder) if args.project else None
-    template = resolved(args.template) if args.template else TEMPLATE
+    template = resolved(args.template) if args.template else folder / TEMPLATE
     for name, (url, shallow) in wanted.items():
         line, ok = clone(name, url, shallow, folder, args.dry_run)
         failed |= not ok
@@ -135,18 +137,20 @@ def main() -> int:
         return 1 if failed else 0
 
     if not (project / "project.c3proj").exists():
-        line = new_project(template, project, args.dry_run)
+        # A dry run clones nothing, so the empty project of a Construct3-RAG still to clone is not there yet
+        line = (f"{project.name}: would be created from {template} at {project}"
+                if args.dry_run and not template.exists() else new_project(template, project, args.dry_run))
         print(line)
         if "not created" in line or "not empty" in line:
             return 1
     if args.dry_run:
         print("dry run: nothing was done")
         return 1 if failed else 0
-    passed = ["--project", str(project)] + (["--into", args.into] if args.into else [])
+    passed = ["--project", str(project), "--rag", str(folder / c3.RAG_CLONE)] + (["--into", args.into] if args.into else [])
     p = subprocess.run([sys.executable, str(INSTALL), *passed], capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     lines = (p.stdout + p.stderr).rstrip("\n").splitlines()
-    if not p.returncode and folder != ROOT.parent:
+    if not p.returncode and folder != c3.siblings_folder(ROOT):
         # Before install.py's last line, "ok: read ...", which stays the last line of the run.
         lines.insert(-1, name_clones(project, folder, list(wanted)))
     print("\n".join(lines))
