@@ -82,6 +82,12 @@ panel's opacity as its child. The panel and the dim were hidden when the
 close ended, and shown again at the next open. Recordings and the
 measurements: `.local/docs/evidence/motion-by-class/`.
 
+For the owner's choice, two copies of the template's game each opened a
+popup, closed it and faded a banner in and out, one in the template's
+motion and one in the examples' `easeinoutsine` in 0.5 s with the panel at
+its size, recorded side by side at real speed and four times slower. The
+videos and the demo's script are in `.local/docs/evidence/popup-motion/`.
+
 ## Options
 
 1. **One default ease.** Keep `easeinoutsine` and leave the class to each
