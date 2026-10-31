@@ -62,6 +62,7 @@ PLUGIN = REPO / "plugin"        # what the scripts get as the clone: the skill a
 SKILL = PLUGIN / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
+import notes                        # noqa: E402
 CASES = json.loads((Path(__file__).parent / "evals.json").read_text(encoding="utf-8"))["evals"]
 
 
@@ -546,6 +547,27 @@ def seed_big_sheet(root: Path) -> None:
     edit_json(root / "project.c3proj", lambda p: p["eventSheets"]["items"].append(BIG_SHEET))
 
 
+# The facts a check of the third round needs, as the notes of an earlier session hold them
+ROUND_NOTES = (
+    ("group", "Setup", "On start of layout deals int(tokenat(ROUND_COINS, beat, \",\")) coins on random grid cells; "
+                       "ROUND_COINS is 1,3,6,2,10,1 and beat counts the rounds from 0"),
+    ("function", "Coin.Collect", "a tap on a Coin runs Coin.Collect, which scores it and destroys it 0.5 s later; a "
+                                 "coin under a Tween ignores taps, so a plan taps each Coin by its UID in turn"),
+    ("group", "Restart", "a round ends 1.3 s after its last coin is gone (a 1 s wait, a 0.3 s fade, Restart layout); "
+                         "beat is static, so it keeps its count across the restart"))
+
+
+def seed_notes(root: Path) -> None:
+    """tools/notes.json with the facts of ROUND_NOTES, stamped on the stand-in's events as notes.py stamps them."""
+    sheet = read_json(root / "eventSheets" / "Game.json")
+    kept = []
+    for kind, name, fact in ROUND_NOTES:
+        note = {"sheet": "Game", "kind": kind, "name": name}
+        place = notes.located(sheet, {**note, "stamp": ""})
+        kept.append({"fact": fact, **note, "stamp": notes.stamp_of(place.event), "verified": "2026-10-30"})
+    notes.write(root, kept)
+
+
 # fixture -> (the fixture it starts from, the fault written into it). The seeded entries' sids start
 # with 6333, 6444, 6555, 6666, 6777, 6888 or 6999, so a grader can tell the example's own events from them.
 SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
@@ -556,7 +578,8 @@ SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "coins-loop-flag": ("coins", seed_loop_flag),
          "persistent-walls": ("example:persistent-layouts", seed_no_solid),
          "platformer-door": ("example:template-platformer", seed_door),
-         "coins-big-sheet": ("coins", seed_big_sheet)}
+         "coins-big-sheet": ("coins", seed_big_sheet),
+         "coins-notes": ("coins", seed_notes)}
 
 
 def seed_inverted_start(root: Path) -> None:

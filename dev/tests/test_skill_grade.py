@@ -778,6 +778,32 @@ def test_find_in_a_big_sheet_grades_the_event_and_the_bonus(tmp_path: Path) -> N
     assert make_fixtures.wave_bonus(make_fixtures.BIG_SHEET_FOCUS) == 454 and "coins-big-sheet" in make_fixtures.SEEDS
 
 
+def test_check_the_third_round_grades_the_preview_the_coins_and_the_text(tmp_path: Path) -> None:
+    """The third round deals 6 coins and the round text holds 03 / 06; a note the run adds changes no game file."""
+    run_dir = tmp_path / "run"
+    (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
+    (run_dir / "outputs").mkdir()
+    (run_dir / "project" / "project.c3proj").write_text("{}", encoding="utf-8")
+    (run_dir / "fixture.json").write_text(json.dumps(make_fixtures.digest(run_dir / "project")), encoding="utf-8")
+    (run_dir / "project" / "tools").mkdir()
+    (run_dir / "project" / "tools" / "notes.json").write_text("[]", encoding="utf-8")
+    answer = run_dir / "outputs" / "answer.md"
+    answer.write_text("Round 3 dealt 6 coins, and the round text read R O U N D   ·   0 3   /   0 6.", encoding="utf-8")
+    assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, True, True, True]
+    answer.write_text("The third round dealt 3 coins; the text read ROUND · 02 / 06.", encoding="utf-8")
+    assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, False, False, True]
+
+
+def test_the_notes_of_a_fixture_rest_on_the_stand_in_as_it_is(tmp_path: Path) -> None:
+    """coins-notes holds notes that notes.py prints unmarked on the stand-in it was laid out from."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "check-the-third-round",
+                    "--arms", "with_skill", "--no-pin")
+    assert code == 0, out
+    project = tmp_path / "runs" / "check-the-third-round" / "with_skill" / "project"
+    code, out = run(project, ".agents/skills/construct3-agent-plugin/scripts/notes.py")
+    assert code == 0 and out.startswith("notes: 3 in tools/notes.json") and out.splitlines()[-1].startswith("ok: "), out
+
+
 def test_a_kept_plan_is_no_changed_project_file(tmp_path: Path) -> None:
     """preview_project.py --keep writes tools/plans/, which verify_change.py replays and does not count as a
     project file, so a run that kept a plan still leaves the project as its fixture; any other new file does not."""

@@ -1609,6 +1609,19 @@ def grade_platform_state_in_chinese(run: Path) -> list[tuple[bool, str]]:
             unchanged(run)]
 
 
+def grade_check_the_third_round(run: Path) -> list[tuple[bool, str]]:
+    """The stand-in's third round deals 6 coins and its RoundTag reads R O U N D · 0 3 / 0 6, its letters spaced."""
+    scripts = run / "project" / ".tmp" / "scripts"
+    played = [name for name in ("preview-project", "open-in-editor") if (scripts / name).is_dir()]
+    answer = answer_of(run)
+    six = re.search(r"(?<![\d.])6(?![\d.])\s*(?:coins?|枚|个)|\bsix\b|六", answer, re.I)
+    text = re.search(r"0\s*3\s*/\s*0\s*6", answer)
+    return [(bool(played), f"result folders under .tmp/scripts: {played or 'none'}"),
+            (bool(six), f"six coins: {six.group(0) if six else 'not said'}"),
+            (bool(text), f"round text: {text.group(0) if text else 'no 03 / 06'}"),
+            unchanged(run, ("tools/notes.json",))]
+
+
 def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
     project = run / "project"
     design = project / "tools" / "design.json"
@@ -2015,7 +2028,7 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
            "art-without-an-image-tool": grade_art_without_an_image_tool,
            "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art,
-           "look-from-references": grade_look_from_references}
+           "look-from-references": grade_look_from_references, "check-the-third-round": grade_check_the_third_round}
 
 
 # The columns trace.py counts from a transcript: four cost columns, then the route columns.
