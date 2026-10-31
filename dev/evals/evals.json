@@ -701,6 +701,21 @@
         "A rule on the input held and a rule without an input change the same row",
         "A test holds the input with a hold step"
       ]
+    },
+    {
+      "id": 46,
+      "name": "five-coins-in-round-two",
+      "fixture": "coins-holed",
+      "prompt": "my coins game is at <project> . make the second round deal five coins instead of three, and check it in the preview before you give it back. the other rounds stay as they are",
+      "expected_output": "ROUND_COINS becomes 1,5,6,2,10,1, so the second round deals 5 coins and the others deal what they did. The check reaches the second round by collecting the first round's coin. The coins are cash coins with a square hole, and the hole is outside the coin's collision polygon, so a tap at a coin's middle, where a tap on \"Coin\" or \"uid N\" lands, collects nothing: a plan taps the coin's ring. No print of the sheet says so; the object type, the images and a probe in the game do. The with_... arms have a note on the Input group in tools/notes.json that holds it, so a run that reads the note plans the tap without the probe; the other arms have no notes. The checker passes, and the coin keeps its hole.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the edited project",
+        "check_project.py prints no warning",
+        "The run played the game in the preview: preview_project.py or open_in_editor.py --preview left its results under .tmp/scripts",
+        "Every event of the fixture's sheet is still in it, by sid",
+        "No file but eventSheets/Game.json and tools/ differs from the fixture: the coin keeps its hole"
+      ]
     }
   ]
 }
