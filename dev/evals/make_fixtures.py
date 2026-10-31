@@ -632,6 +632,9 @@ SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "coins-big-sheet": ("coins", seed_big_sheet),
          "coins-notes": ("coins", seed_notes),
          "coins-first-tap": ("coins", seed_first_tap_notes)}
+# Fixtures whose tools/notes.json only the with_... arms keep. The notes stand for what an earlier session of the
+# skill under test left, and an arm without that skill reads them as a file in tools/ all the same (iteration 96).
+NOTES_WITH_ONLY = {"coins-first-tap"}
 
 
 def seed_inverted_start(root: Path) -> None:
@@ -794,6 +797,9 @@ def main() -> int:
                     seed_load_errors(target)
                 if seed:
                     seed(target)
+                if case["fixture"] in NOTES_WITH_ONLY and not arm.startswith("with_"):
+                    (target / "tools" / "notes.json").unlink()
+                    (target / "tools").rmdir()
                 prefix = next((prefix for prefix in installers if arm.startswith(prefix)), None)
                 installer = installers.get(prefix)
                 if installer:

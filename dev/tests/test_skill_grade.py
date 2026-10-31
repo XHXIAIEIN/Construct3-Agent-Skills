@@ -808,11 +808,13 @@ def test_the_notes_of_a_fixture_rest_on_the_stand_in_as_it_is(tmp_path: Path, ca
 
 
 def test_the_second_round_case_keeps_the_first_launch_hint(tmp_path: Path) -> None:
-    """The hint is the game's: a run that deletes its events to reach the second round loses them, by sid."""
+    """The hint is the game's: a run that deletes its events to reach the second round loses them, by sid. Only
+    the arm of the skill under test has the notes."""
     code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "four-coins-in-round-two",
-                    "--arms", "with_skill", "--no-pin")
+                    "--arms", "with_skill", "without_skill", "--no-pin")
     assert code == 0, out
     run_dir = tmp_path / "runs" / "four-coins-in-round-two" / "with_skill"
+    assert not (run_dir.with_name("without_skill") / "project" / "tools").exists()
     (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
     assert [ok for ok, _ in grader.grade_four_coins_in_round_two(run_dir)] == [True, True, True, True]
     path = run_dir / "project" / "eventSheets" / "Game.json"
