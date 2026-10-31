@@ -1,0 +1,29 @@
+{"game": "Two Tone", "request": "a ship that is red or blue, each tap switches it, orbs of both colours fall, catching your colour scores, the other colour ends it, tap to play again",
+ "later": ["sound", "orbs that fall faster"],
+ "core_loop": "Switch the ship to the colour of the orb that is about to land",
+ "reference": {"example": "shadows-colors", "takes": "a colour the player flips and objects judged by it"},
+ "screen": {"score": "top-left", "ship": "bottom centre"},
+ "state": [
+  {"name": "colour", "start": 0, "stored_in": "Ship.frame", "means": "0 red, 1 blue"},
+  {"name": "oy", "start": 0, "stored_in": "Orb.y"},
+  {"name": "ocolour", "start": 1, "stored_in": "Orb.frame", "means": "0 red, 1 blue"},
+  {"name": "score", "start": 0, "stored_in": "global"},
+  {"name": "line", "start": "Score 0", "stored_in": "ScoreText.text"},
+  {"name": "over", "start": 0, "stored_in": "global", "means": "0 playing, 1 over, 2 a tap restarts"}],
+ "inputs": [{"name": "switch", "player": "tap anywhere on the screen", "game": {"tap": [0.5, 0.5]}}],
+ "rules": [
+  {"id": "new-game", "on": "start", "do": ["score = 0", "over = 0"]},
+  {"id": "switch", "on": "switch", "if": ["over = 0"], "do": ["colour = 1 - colour"], "feedback": "the ship changes colour"},
+  {"id": "fall", "on": "tick", "if": ["over = 0"], "do": ["oy += 400 * dt"],
+   "children": [
+    {"id": "land", "if": ["oy >= 1100"],
+     "children": [
+      {"id": "catch", "if": ["ocolour = colour"], "do": ["score += 1", "line = \"Score \" & score", "oy = 0", "ocolour = floor(random(2))"]},
+      {"id": "clash", "else": true, "do": ["over = 1", "line = \"Over: \" & score", "wait 0.5", "over = 2"]}]}]},
+  {"id": "again", "on": "switch", "if": ["over = 2"], "do": ["restart"], "feedback": "a new game starts"}],
+ "win": "none", "lose": "over >= 1",
+ "tests": [
+  {"name": "a tap switches the colour", "steps": [{"do": "switch"}, {"expect": "colour = 1"}, {"do": "switch"}, {"expect": "colour = 0"}]},
+  {"name": "an orb of your colour scores", "steps": [{"set": "ocolour = 0"}, {"set": "oy = 1090"}, {"wait": 0.1}, {"expect": "score = 1"}, {"expect": "line = \"Score 1\""}]},
+  {"name": "the other colour ends it, a tap restarts", "steps": [{"set": "ocolour = 1"}, {"set": "oy = 1090"}, {"wait": 0.1}, {"expect": "over >= 1"},
+   {"expect": "find(line, \"Over\") >= 0"}, {"wait": 0.6}, {"do": "switch"}, {"wait": 0.2}, {"expect": "over = 0"}, {"expect": "score = 0"}]}]}

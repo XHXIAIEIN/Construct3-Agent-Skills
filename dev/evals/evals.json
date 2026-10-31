@@ -640,6 +640,67 @@
         "A rule fires on the input held and a rule on the input released",
         "A test holds the input with a hold step"
       ]
+    },
+    {
+      "id": 42,
+      "name": "design-a-reverse-runner",
+      "fixture": "empty",
+      "prompt": "one button game for my project at <project> : a little guy runs along the bottom of the screen by himself and every tap turns him around. grab coins for points, spikes slide in from both sides and touching one is game over, tap to play again. dont build it yet, design it first the way the skill says and check the design, then tell me what you left for later",
+      "expected_output": "tools/design.json binds one tap input and passes check_design.py. The runner's direction is a row that the tap flips (dir = 0 - dir) and a tick rule moves the runner by, so the runner never waits for the tap; a tap that moves the runner a step is a different game. The restart fires after the end's second value. No other project file changes.",
+      "files": [],
+      "assertions": [
+        "tools/design.json exists and the clone's check_design.py passes it",
+        "The design's reference.example is the id of an official example",
+        "No project file but tools/ differs from the fixture",
+        "The design binds exactly one input",
+        "A row the tap flips is read by an effect of a rule without an input"
+      ]
+    },
+    {
+      "id": 43,
+      "name": "design-a-timing-shot",
+      "fixture": "empty",
+      "prompt": "one tap game for my project at <project> : a cannon at the bottom keeps swinging left and right on its own, you tap to shoot wherever its pointing. hit the target up top and you score and the target moves, miss 3 times and its over, tap to play again. dont build it yet, design it first the way the skill says and check the design, then tell me what you left for later",
+      "expected_output": "tools/design.json binds one tap input and passes check_design.py. A tick rule swings the aim from its own value (aim += swing * 90 * dt) and turns it back at each end, and the tap reads that aim, in the condition of its hit or in a row it keeps for a shot in flight (shotX = aimX), so what the tap does depends on when it lands. Misses count to three and end the game; the restart fires after the end's second value. No other project file changes.",
+      "files": [],
+      "assertions": [
+        "tools/design.json exists and the clone's check_design.py passes it",
+        "The design's reference.example is the id of an official example",
+        "No project file but tools/ differs from the fixture",
+        "The design binds exactly one input",
+        "A row that a rule without an input changes from its own value is read by the tap's rules"
+      ]
+    },
+    {
+      "id": 44,
+      "name": "design-a-colour-switch",
+      "fixture": "empty",
+      "prompt": "one button game for my project at <project> : your ship is either red or blue and each tap switches the colour. orbs of both colours fall at you, catching one thats your colour scores, the other colour is game over. tap to play again. dont build it yet, design it first the way the skill says and check the design, then tell me what you left for later",
+      "expected_output": "tools/design.json binds one tap input and passes check_design.py. The ship's colour is a row the tap flips (colour = 1 - colour), and the rule that lands an orb compares the orb's colour with it in a condition: the same colour scores, the other ends the game. The restart fires after the end's second value. No other project file changes.",
+      "files": [],
+      "assertions": [
+        "tools/design.json exists and the clone's check_design.py passes it",
+        "The design's reference.example is the id of an official example",
+        "No project file but tools/ differs from the fixture",
+        "The design binds exactly one input",
+        "A row the tap flips is read by a condition of a rule without an input"
+      ]
+    },
+    {
+      "id": 45,
+      "name": "design-a-hold-to-rise",
+      "fixture": "empty",
+      "prompt": "one button game for my project at <project> : hold the screen and the balloon floats up, let go and it sinks. walls with a gap scroll in from the right, get through a gap for a point, hit a wall or the top or bottom and its over, tap to play again. dont build it yet, design it first the way the skill says and check the design, then tell me what you left for later",
+      "expected_output": "tools/design.json binds one input and passes check_design.py. The lift is a rule on the input's held phase that changes the balloon's speed or height, and a tick rule pulls the same row the other way, so letting go is the absence of the hold, not a second input. A test holds the input with a hold step. The restart fires after the end's second value. No other project file changes.",
+      "files": [],
+      "assertions": [
+        "tools/design.json exists and the clone's check_design.py passes it",
+        "The design's reference.example is the id of an official example",
+        "No project file but tools/ differs from the fixture",
+        "The design binds exactly one input",
+        "A rule on the input held and a rule without an input change the same row",
+        "A test holds the input with a hold step"
+      ]
     }
   ]
 }

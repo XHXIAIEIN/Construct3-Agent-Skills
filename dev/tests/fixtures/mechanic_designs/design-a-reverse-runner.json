@@ -1,0 +1,31 @@
+{"game": "Turnabout", "request": "a runner on the bottom line, every tap turns it around, coins score, spikes from both edges end it, tap to play again",
+ "later": ["sound"],
+ "core_loop": "Tap to turn the runner toward a coin and away from the spikes",
+ "reference": {"example": "template-endless-runner", "takes": "a runner that moves by itself while the input only changes how"},
+ "screen": {"score": "top-left", "runner": "bottom centre"},
+ "state": [
+  {"name": "x", "start": 360, "stored_in": "Runner.x"},
+  {"name": "dir", "start": 1, "stored_in": "global", "means": "1 right, -1 left"},
+  {"name": "coinX", "start": 600, "stored_in": "Coin.x"},
+  {"name": "lsx", "start": 0, "stored_in": "LeftSpike.x"},
+  {"name": "rsx", "start": 720, "stored_in": "RightSpike.x"},
+  {"name": "score", "start": 0, "stored_in": "global"},
+  {"name": "line", "start": "Score 0", "stored_in": "ScoreText.text"},
+  {"name": "over", "start": 0, "stored_in": "global", "means": "0 playing, 1 over, 2 a tap restarts"}],
+ "inputs": [{"name": "turn", "player": "tap anywhere on the screen", "game": {"tap": [0.5, 0.5]}}],
+ "rules": [
+  {"id": "new-game", "on": "start", "do": ["dir = 1", "score = 0", "over = 0"]},
+  {"id": "turn", "on": "turn", "if": ["over = 0"], "do": ["dir = 0 - dir"], "feedback": "the runner turns around"},
+  {"id": "move", "on": "tick", "if": ["over = 0"], "do": ["x = clamp(x + dir * 300 * dt, 40, 680)", "lsx += 150 * dt", "rsx -= 150 * dt"],
+   "children": [
+    {"id": "grab", "if": ["abs(x - coinX) < 40"], "do": ["score += 1", "line = \"Score \" & score", "coinX = 40 + floor(random(16)) * 40"]},
+    {"id": "wrap", "if": ["lsx > 720"], "do": ["lsx = 0", "rsx = 720"]},
+    {"id": "hit", "if": ["abs(x - lsx) < 30 | abs(x - rsx) < 30"], "do": ["over = 1", "line = \"Over: \" & score", "wait 0.5", "over = 2"]}]},
+  {"id": "again", "on": "turn", "if": ["over = 2"], "do": ["restart"], "feedback": "a new game starts"}],
+ "win": "none", "lose": "over >= 1",
+ "tests": [
+  {"name": "a tap turns the runner", "steps": [{"do": "turn"}, {"wait": 0.5}, {"expect": "x < 300"}]},
+  {"name": "a coin scores", "steps": [{"set": "coinX = 420"}, {"wait": 0.3}, {"expect": "score = 1"}, {"expect": "line = \"Score 1\""}]},
+  {"name": "the spikes come round again", "steps": [{"set": "lsx = 719"}, {"wait": 0.1}, {"expect": "lsx < 50"}]},
+  {"name": "a spike ends it, a tap restarts", "steps": [{"set": "lsx = 350"}, {"wait": 0.2}, {"expect": "over >= 1"}, {"expect": "find(line, \"Over\") >= 0"},
+   {"wait": 0.6}, {"do": "turn"}, {"wait": 0.2}, {"expect": "over = 0"}, {"expect": "score = 0"}]}]}
