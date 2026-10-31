@@ -1579,3 +1579,78 @@ def test_a_hold_game_needs_a_held_rule_a_released_rule_and_a_hold_step(tmp_path)
     held, hold = by_words(graded_by(run_dir), "input held", "hold step")
     assert held == (False, "rule triggers: ['start', 'press', 'press released', 'press released']")
     assert hold == (False, "0 hold steps in the tests")
+
+
+def mechanic_run(tmp_path: Path, case: str, change: Callable[[dict], None] | None = None) -> Path:
+    """A run of the case whose design is the reference design under dev/tests/fixtures/mechanic_designs, changed"""
+    run_dir = tmp_path / "it" / case / "with_skill"
+    (run_dir / "project" / "tools").mkdir(parents=True, exist_ok=True)
+    (run_dir / "fixture.json").write_text("{}", encoding="utf-8")
+    data = json.loads((Path(__file__).parent / "fixtures" / "mechanic_designs" / f"{case}.json").read_text(encoding="utf-8"))
+    if change:
+        change(data)
+    (run_dir / "project" / "tools" / "design.json").write_text(json.dumps(data), encoding="utf-8")
+    return run_dir
+
+
+def _step_on_tap(d):
+    d["rules"][1]["do"] = ["x = x + 100"]
+
+
+def _over_on_tap(d):
+    d["rules"][1]["do"] = ["over = 1", "wait 0.5", "over = 2"]
+
+
+def _aim_ignored(d):
+    d["rules"][2]["children"][0]["if"] = ["abs(tx - 360) < 8"]
+    d["rules"][1]["children"].append({"id": "give-up", "if": ["misses > 99"], "do": ["over = 1"]})
+
+
+def _colour_ignored(d):
+    d["rules"][2]["children"][0]["children"][0]["if"] = ["ocolour = 0"]
+
+
+def _lift_on_press(d):
+    d["rules"][1]["on"] = "lift"
+
+
+def _spare_input(d):
+    d["inputs"].append({"name": "spare", "player": "press space", "game": {"key": "Space"}})
+
+
+@pytest.mark.parametrize("case", ["design-a-reverse-runner", "design-a-timing-shot", "design-a-colour-switch",
+                                  "design-a-hold-to-rise"])
+def test_a_reference_mechanic_design_passes_and_a_second_input_fails(tmp_path, case):
+    results = graded_by(mechanic_run(tmp_path, case))
+    assert all(passed for passed, _ in results.values()), results
+    assert by_words(graded_by(mechanic_run(tmp_path, case, _spare_input)), "exactly one input")[0][0] is False
+
+
+@pytest.mark.parametrize(("case", "change", "word"), [
+    ("design-a-reverse-runner", _step_on_tap, "tap flips"),
+    ("design-a-reverse-runner", _over_on_tap, "tap flips"),
+    ("design-a-timing-shot", _aim_ignored, "own value"),
+    ("design-a-colour-switch", _colour_ignored, "tap flips"),
+    ("design-a-hold-to-rise", _lift_on_press, "input held and"),
+])
+def test_a_mechanic_design_without_its_mechanic_fails(tmp_path, case, change, word):
+    assert by_words(graded_by(mechanic_run(tmp_path, case, change)), word)[0][0] is False
+
+
+def test_a_shot_that_keeps_the_aim_for_later_reads_it(tmp_path):
+    # An iteration-99 answer: the tap keeps the aim in shotX and judges the hit 0.3 s later on shotX
+    run_dir = mechanic_run(tmp_path, "design-a-timing-shot")
+    shutil.copy(Path(__file__).parent / "fixtures" / "mechanic_designs" / "design-a-timing-shot-snapshot.json",
+                run_dir / "project" / "tools" / "design.json")
+    results = graded_by(run_dir)
+    assert all(passed for passed, _ in results.values()), results
+    assert by_words(results, "own value")[0][1].endswith("rules read: ['aimX']")
+
+
+def test_a_turn_under_a_condition_on_the_direction_is_a_flip(tmp_path):
+    def branches(d):
+        del d["rules"][1]["do"]
+        d["rules"][1]["children"] = [{"id": "to-left", "if": ["dir = 1"], "do": ["dir = -1"]},
+                                     {"id": "to-right", "else": True, "do": ["dir = 1"]}]
+    assert by_words(graded_by(mechanic_run(tmp_path, "design-a-reverse-runner", branches)), "tap flips")[0] == (
+        True, "rows the tap flips that an effect of a rule without an input reads: ['dir'] (flipped: ['dir'])")

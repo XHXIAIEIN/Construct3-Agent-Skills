@@ -89,6 +89,7 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 import compare
 import play_cases
@@ -97,6 +98,8 @@ REPO = Path(__file__).resolve().parents[2]
 SKILL = REPO / "plugin" / "skills" / "construct3-agent-plugin"
 sys.path.insert(0, str(SKILL / "scripts"))
 import c3project as c3              # noqa: E402
+import check_design as cd           # noqa: E402
+import game_model as gm             # noqa: E402
 # The scripts get plugin/ as the clone, which holds the skill and the built data; the raw data
 # files are in the Construct3-RAG clone beside this one (docs/decisions/plugin-repository.md)
 PLUGIN = REPO / "plugin"
@@ -1672,6 +1675,122 @@ def grade_design_a_hold_game(run: Path) -> list[tuple[bool, str]]:
             (bool(holds), f"{len(holds)} hold steps in the tests")]
 
 
+class Mechanic(NamedTuple):
+    design: gm.Design
+    name: str                   # the first input's name
+    tapped: list                # the rules it fires that do not restart, with their sub-rules
+    auto: list                  # the tick and every rules, with their sub-rules
+
+
+def mechanic_of(run: Path) -> Mechanic | None:
+    """The run's design as check_design reads it, or None when it does not read or binds no input"""
+    try:
+        design = gm.Design(gm.read_design(run / "project" / "tools" / "design.json"))
+    except gm.DesignUnreadable:
+        return None
+    if not design.inputs:
+        return None
+    name = next(iter(design.inputs))
+    return Mechanic(design, name, cd.below(cd.playing(design, name)),
+                    cd.below([r for r in design.rules if r.input is None and r.on != "start"]))
+
+
+def one_input(m: Mechanic | None) -> tuple[bool, str]:
+    names = list(m.design.inputs) if m else []
+    return len(names) == 1, f"inputs: {names or 'none'}"
+
+
+def flipped(m: Mechanic) -> list[str]:
+    """The rows the input's rules flip between values.
+
+    A flip is `row = -row`, `row = C - row`, a ternary on the row, or two rules under a condition on the row that
+    set it to different numbers or texts. `x = x + 100` moves the row, and `over = 1` then `over = 2` under
+    `if over = 0` is one rule, so neither is a flip."""
+    out: set[str] = set()
+    branches: dict[str, set] = {}
+
+    def walk(r: gm.Rule, tested: set[str]) -> None:
+        tested = tested | {n for c in r.when for n in gm.names_in(c)}
+        last: dict[str, object] = {}
+        for e in r.do:
+            if e[0] != "set" or e[2] != "=" or e[1][1]:
+                continue
+            row, v = e[1][0], e[3]
+            mine = gm.Node("name", row)
+            if (v.kind == "un" and v.args[0] == mine or v.kind == "cond" and row in gm.names_in(v)
+                    or v.kind == "bin" and v.value == "-" and v.args[0].kind == "num" and v.args[1] == mine):
+                out.add(row)
+            elif row in tested and v.kind in ("num", "str"):
+                last[row] = v.value
+            elif row in tested and v.kind == "un" and v.args[0].kind == "num":
+                last[row] = -v.args[0].value
+        for row, value in last.items():
+            branches.setdefault(row, set()).add(value)
+        siblings: set[str] = set()      # an "else" rule tests what the rules before it tested
+        for c in r.children:
+            walk(c, tested | siblings if c.otherwise else tested)
+            siblings |= {n for x in c.when for n in gm.names_in(x)}
+    for r in cd.playing(m.design, m.name):
+        walk(r, set())
+    return sorted(out | {row for row, values in branches.items() if len(values) > 1})
+
+
+def drifting(rules: list) -> set[str]:
+    """The rows these rules change from their own value, such as `aim += swing * 90 * dt`"""
+    return {e[1][0] for r in rules for e in r.do
+            if e[0] == "set" and (e[2] in ("+=", "-=") or e[1][0] in gm.names_in(e[3]))}
+
+
+def in_conditions(rules: list) -> set[str]:
+    return {n for r in rules for c in r.when for n in gm.names_in(c)}
+
+
+def in_effects(rules: list) -> set[str]:
+    return {n for r in rules for e in r.do if e[0] == "set" for n in gm.names_in(e[3])}
+
+
+def grade_design_a_reverse_runner(run: Path) -> list[tuple[bool, str]]:
+    """A row the tap flips is read by an effect of a rule without an input"""
+    m = mechanic_of(run)
+    flips = flipped(m) if m else []
+    turn = [n for n in flips if n in in_effects(m.auto)] if m else []
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(turn), f"rows the tap flips that an effect of a rule without an input reads: {turn or 'none'} "
+                         f"(flipped: {flips or 'none'})")]
+
+
+def grade_design_a_timing_shot(run: Path) -> list[tuple[bool, str]]:
+    """A row that a rule without an input changes from its own value is read by the tap's rules, in a condition or
+    in an effect that keeps it for later, such as `shotX = aimX`"""
+    m = mechanic_of(run)
+    timing = sorted(drifting(m.auto) & (in_conditions(m.tapped) | in_effects(m.tapped))) if m else []
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(timing), f"rows that a rule without an input changes from their own value and the tap's "
+                           f"rules read: {timing or 'none'}")]
+
+
+def grade_design_a_colour_switch(run: Path) -> list[tuple[bool, str]]:
+    """A row the tap flips is read by a condition of a rule without an input"""
+    m = mechanic_of(run)
+    flips = flipped(m) if m else []
+    switch = [n for n in flips if n in in_conditions(m.auto)] if m else []
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(switch), f"rows the tap flips that a condition of a rule without an input reads: "
+                           f"{switch or 'none'} (flipped: {flips or 'none'})")]
+
+
+def grade_design_a_hold_to_rise(run: Path) -> list[tuple[bool, str]]:
+    """A rule on NAME held and a rule without an input change the same row, and a test holds the input"""
+    m = mechanic_of(run)
+    held = cd.below([r for r in m.design.rules if r.input == m.name and r.phase == "held"]) if m else []
+    both = sorted(set(cd.changes(held)) & set(cd.changes(m.auto))) if m else []
+    holds = [s for t in (m.design.tests if m else []) for s in t["steps"] if s["kind"] == "hold"]
+    return [*grade_design_a_catch_game(run), one_input(m),
+            (bool(both), f"held rules: {[r.id for r in held] or 'none'}; rows that they and a rule without an "
+                         f"input both change: {both or 'none'}"),
+            (bool(holds), f"{len(holds)} hold steps in the tests")]
+
+
 def object_types(project: Path) -> dict[str, dict]:
     """Every readable object type file of the project, by its type's name."""
     out = {}
@@ -2053,6 +2172,8 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "script-shift-and-edges": grade_script_shift_and_edges,
            "platform-state-in-chinese": grade_platform_state_in_chinese,
            "design-a-catch-game": grade_design_a_catch_game, "design-a-hold-game": grade_design_a_hold_game,
+           "design-a-reverse-runner": grade_design_a_reverse_runner, "design-a-timing-shot": grade_design_a_timing_shot,
+           "design-a-colour-switch": grade_design_a_colour_switch, "design-a-hold-to-rise": grade_design_a_hold_to_rise,
            "report-two-enemies": grade_report_two_enemies,
            "double-jump": grade_kept, "key-opens-door": grade_kept, "stay-on-screen": grade_kept, "walls-stop-the-player": grade_kept,
            "coins-in-a-ring": lambda run: grade_kept(run, own_warnings=False),
