@@ -888,9 +888,9 @@
     },
     {
       "id": "art.icon",
-      "status": "proposed",
+      "status": "rejected",
       "scope": "every-look",
-      "says": "The game's icons, icons/icon-16.png to icon-512.png, are drawn from its look by the art route, not left as Construct's: each of the 29 studio examples draws its own, while 54 of the 113 official 2D game examples keep Construct's. The splash loader stays, as all 29 studio examples keep it.",
+      "says": "The art route draws the game's icons, icons/icon-16.png to icon-512.png, from its look: the owner keeps Construct's icon, as 104 of the 113 official 2D game examples and all 29 studio examples keep the empty project's icon, compared by their pixels.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
     },
     {
