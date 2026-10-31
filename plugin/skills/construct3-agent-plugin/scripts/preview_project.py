@@ -78,8 +78,7 @@ by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
-committed with the change it checks; it needs an until after an input or wait. A plan that
-passes also prints how to keep a fact it showed as a note with notes.py. --all
+committed with the change it checks; it needs an until after an input or wait. --all
 replays each kept plan from a first launch, into .tmp/scripts/preview-project/plans.json.
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
