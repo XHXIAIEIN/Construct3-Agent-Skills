@@ -14,9 +14,9 @@ them.
 
 ## Evidence
 
-- Paper and ink itself was chosen this way: the user compared mock-ups of
+- The default look itself was chosen this way: the user compared mock-ups of
   one game screen in the template's look and in two directions drawn from
-  the references, and took one (`paper-and-ink-look.md`, "The user's
+  the references, and took one (`default-look.md`, "The user's
   picks").
 - The prototype skill of emilkowalski/skills (MIT) builds three to five
   variants that each differ on a named axis, shows one at a time at full
@@ -43,10 +43,10 @@ them.
 
 Option 3, `scripts/pick_look.py`, manifest rule `look.picker`.
 
-- It runs only when `USER_LOOK` is set. When the user gave no look, paper
-  and ink applies directly, with no picker, as the owner decided
-  (`paper-and-ink-is-the-fallback.md`).
-- The directions are paper and ink, with the template's `PALETTE`, and two
+- It runs only when `USER_LOOK` is set. When the user gave no look, the
+  default look applies directly, with no picker, as the owner decided
+  (`default-look-is-the-fallback.md`).
+- The directions are the default look, with the template's `PALETTE`, and two
   from the user's look, each with a `USER_LOOK` that says which part of the
   user's look it takes. Three to five are accepted.
 - `directions.json` gives each direction its place on every dimension of

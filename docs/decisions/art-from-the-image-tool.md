@@ -127,7 +127,7 @@ Option 3.
   it first asks for the look to be picked on the first play screen
   (`look-picker.md`), which writes `ART_STYLE` and keeps the picked screen
   as `art/look.png`. While `ART_STYLE` is empty, it asks for that. In
-  paper and ink, with more than one sprite to make and no
+  the default look, with more than one sprite to make and no
   `art/raw/_key.png`, it asks for the key picture: a line-up of four
   subjects, the first of each object before a second of one, shown to the
   user when they are there to choose one. Then it prints a prompt per

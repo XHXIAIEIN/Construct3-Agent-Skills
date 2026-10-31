@@ -1613,15 +1613,16 @@ def grade_platform_state_in_chinese(run: Path) -> list[tuple[bool, str]]:
 
 
 def grade_check_the_third_round(run: Path) -> list[tuple[bool, str]]:
-    """The stand-in's third round deals 6 coins and its RoundTag reads R O U N D · 0 3 / 0 6, its letters spaced."""
+    """The stand-in's third round deals 6 coins and its RoundTag reads ROUND 3 / 6, or
+    R O U N D · 0 3 / 0 6 in a stand-in from before the tag was plain."""
     scripts = run / "project" / ".tmp" / "scripts"
     played = [name for name in ("preview-project", "open-in-editor") if (scripts / name).is_dir()]
     answer = answer_of(run)
     six = re.search(r"(?<![\d.])6(?![\d.])\s*(?:coins?|枚|个)|\bsix\b|六", answer, re.I)
-    text = re.search(r"0\s*3\s*/\s*0\s*6", answer)
+    text = re.search(r"(?<!\d)0?\s*3\s*/\s*0?\s*6(?!\d)", answer)
     return [(bool(played), f"result folders under .tmp/scripts: {played or 'none'}"),
             (bool(six), f"six coins: {six.group(0) if six else 'not said'}"),
-            (bool(text), f"round text: {text.group(0) if text else 'no 03 / 06'}"),
+            (bool(text), f"round text: {text.group(0) if text else 'no 3 / 6'}"),
             unchanged(run, ("tools/notes.json",))]
 
 

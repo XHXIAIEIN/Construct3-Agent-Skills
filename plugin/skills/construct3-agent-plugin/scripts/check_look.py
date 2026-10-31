@@ -25,7 +25,7 @@ layouts and event sheets the editor would load and checks:
                         one that is not draws as nothing
   motion.hit            no object type or family has the Flash behavior: a
                         hit shows as a colour, the template's hit_frame() and
-                        hit_flash(). A rule of paper and ink, the fallback
+                        hit_flash(). A rule of the default look, the fallback
                         look, so not checked when USER_LOOK in
                         tools/build_project.py names a look the user gave
   motion.squash-art     a squash, a size set to a share of the rest size that
@@ -372,7 +372,7 @@ def check_hit(root: Path, out: list[str]) -> None:
 
 def user_look(root: Path) -> str:
     """USER_LOOK of the project's generator: where the look the user gave comes from, or "" for
-    paper and ink. A value that is not a plain string counts as a look the user gave."""
+    the default look. A value that is not a plain string counts as a look the user gave."""
     generator = root / c3.GENERATOR
     if not generator.is_file():
         return ""
@@ -475,7 +475,7 @@ def main() -> int:
     warned: list[str] = []
     tweens = check_motion(root, out, warned)
     if look:
-        print(f"look: the user's, from USER_LOOK ({look}); motion.hit, a rule of paper and ink, is not checked")
+        print(f"look: the user's, from USER_LOOK ({look}); motion.hit, a rule of the default look, is not checked")
     check_screen(project, warned)
     check_safe_area(root, project, warned)
     for line in warned:

@@ -240,8 +240,8 @@ NIGHT = {"canvas": (14, 18, 48), "canvas_alt": (30, 40, 92), "line": (52, 64, 12
          "hover": (0, 229, 255), "pressed": (255, 145, 0), "flash": (255, 255, 255)}
 
 
-def test_a_look_the_user_gave_lifts_the_checks_of_paper_and_ink_and_keeps_the_rest(tmp_path):
-    """Paper and ink is the fallback look. With USER_LOOK naming the look the user gave, the
+def test_a_look_the_user_gave_lifts_the_checks_of_default_look_and_keeps_the_rest(tmp_path):
+    """The default look is the fallback look. With USER_LOOK naming the look the user gave, the
     checks of its taste stop nothing: a palette of the user's colours, a backdrop and an area of
     the user's tiles, stripes over a large area and the Flash behavior pass. The checks every look
     keeps still stop the run: structure and text contrast, an accent's contrast, the grid and a
@@ -784,13 +784,13 @@ def test_template_warns_of_a_menu_item_off_the_centre_line(tmp_path, capsys):
     t = template_module()
     t.ROOT = tmp_path
     t.shape("play-default-000.png", "rect", *t.button_size("Play"), "solid")
-    centred = [*t.hud_header("MenuTitle", "MenuTag", "Coins", "Round · 03"),
+    centred = [*t.hud_header("MenuTitle", "MenuTag", "Coins", "Round 3"),
                *t.button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 12),
                t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))]
     menu = t.layout("Menu", [t.layer("UI", parallax=0)], sheet=None)
     menu["layers"][0]["instances"] = centred
     game = t.layout("Game", [t.layer("Game"), t.layer("Pause", parallax=0)], sheet=None)
-    game["layers"][0]["instances"] = [t.hud_tag("RoundTag", "Round · 01")]
+    game["layers"][0]["instances"] = [t.hud_tag("RoundTag", "Round 1")]
     t.on_axis({"Menu": menu, "Game": game})
     assert capsys.readouterr().out == ""
     game["layers"][1]["instances"] = [t.hud_text("BackText", "Back", "top-left")]
@@ -884,7 +884,7 @@ def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_e
     number is one item and a header of two facts a line is three."""
     t = template_module()
     assert t.HUD_CROWD == 3
-    tag = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
+    tag = t.hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")
     assert t.items([tag]) == 1 and t.items([t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)]) == 0
     header = t.hud_header("TitleText", "SubTag", "二十拍 · 十二种动法", "八个空拍 · 同一套 7 / 2 / 5 / 4")
     assert t.items(header) == 3
@@ -1425,7 +1425,7 @@ def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
 def test_look_manifest_matches_the_template():
     """assets/look-manifest.json is what an agent hands a model and confirms against: every value
     it names in the template is the template's, and every status and scope is one it defines. The
-    rules that stop the run in paper and ink alone are its taste; legibility and the grid hold in
+    rules that stop the run in the default look alone are its taste; legibility and the grid hold in
     every look."""
     manifest = json.loads((SKILL / "assets" / "look-manifest.json").read_text(encoding="utf-8"))
     t = template_module()
@@ -1457,7 +1457,7 @@ def test_look_manifest_matches_the_template():
     for r in manifest["rules"]:
         if r["status"] == "enforced":
             enforced[r["scope"]].add(r["id"])
-    assert enforced["paper-and-ink"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
+    assert enforced["default-look"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
     assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
                                       "colour.palette-only", "colour.structure", "colour.accent-contrast",
                                       "text.contrast", "type.scale", "type.min-size", "control.parts", "pixel-art.sampling"}
@@ -1875,14 +1875,14 @@ def test_template_helpers_take_the_look_of_a_game_made_before_it():
 
 
 def test_template_header_keys_and_hints(tmp_path):
-    """hud_header() sets the title on the vertical centre line at the top and a tag in tracked capitals
+    """hud_header() sets the title on the vertical centre line at the top and a tag in capitals
     under it (screen.menu-axis); hud_keys() a row of
     keys in thin ink boxes, every part a child of the first box, which alone carries the Anchor; hints()
     dims that box on the first input and keeps it dim across a restart in a static local."""
     t = template_module()
     t.ROOT = tmp_path
-    title, tag = t.hud_header("TitleText", "RoundTag", "Coins", "Round · 01")
-    assert tag["properties"]["text"] == " ".join("ROUND · 01")
+    title, tag = t.hud_header("TitleText", "RoundTag", "Coins", "Round 1")
+    assert tag["properties"]["text"] == "ROUND 1"
     assert (title["properties"]["font"], tag["properties"]["font"]) == ("Inter-Medium", "Inter-Regular")
     assert tag["properties"]["color"] == t.rgba(t.PALETTE["dim"]) and title["properties"]["bold"] is False
     tb, gb = t.box_of(title), t.box_of(tag)
@@ -1892,7 +1892,7 @@ def test_template_header_keys_and_hints(tmp_path):
     assert title["behaviors"] == tag["behaviors"] == t.anchored("top")
     assert len(t.hud_header("TitleText", "RoundTag", "Coins")) == 1          # no tag, no second Text
     # A result screen's headline: display size, centred on the screen with its tag under it
-    head, under = t.result_headline("ResultTitle", "ResultTag", "Round clear", "Round · 03", longest="Game over")
+    head, under = t.result_headline("ResultTitle", "ResultTag", "Round clear", "Round 3", longest="Game over")
     hb, ub = t.box_of(head), t.box_of(under)
     assert (head["properties"]["size"], under["properties"]["size"]) == (t.text_size("display"), t.TEXT_SIZE["tag"])
     assert t.em_px(t.text_size("display")) / min(t.VIEW_W, t.VIEW_H) >= 0.06
@@ -1901,9 +1901,8 @@ def test_template_header_keys_and_hints(tmp_path):
     assert abs((hb[1] + ub[3]) / 2 - t.VIEW_H / 2) <= 1 and ub[1] - hb[3] == t.GAP_IN
     assert t.LONGEST["ResultTitle"] == "Game over" and "Anchor" not in head.get("behaviors", {})
     assert len(t.result_headline("ResultTitle", "ResultTag", "Game over")) == 1
-    assert t.tracked_expr('"Round " & beat') == 'RegexReplace(uppercase("Round " & beat), "(.)(?=.)", "g", "$1 ")'
-    round_ = t.hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")
-    assert round_["properties"]["text"] == "\u2005".join("ROUND · 01 / 06")
+    round_ = t.hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")
+    assert round_["properties"]["text"] == "ROUND 1 / 6"
     assert (round_["properties"]["size"], round_["properties"]["color"]) == (t.TEXT_SIZE["tag"], t.rgba(t.PALETTE["dim"]))
     assert t.box_of(round_)[:2] == (t.MARGIN, t.MARGIN) and "Anchor" in round_["behaviors"]
     assert t.box_of(t.hud_tag("ModeTag", "Hard", "top-right"))[2] == t.VIEW_W - t.MARGIN

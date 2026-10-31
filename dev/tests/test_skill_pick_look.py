@@ -38,7 +38,7 @@ class Painter:
 def direction(name, look, palette, **axes):
     base = {"rendering": "flat fills", "linework": "no outlines", "colour temperature": "neutral greys",
             "light direction": "no lighting", "proportions": "geometric proportions", "framing": "top-down view"}
-    style = {"Paper and ink": pick_look.PAPER_AND_INK,
+    style = {"Default look": pick_look.DEFAULT_STYLE,
              "Ink wash": "ink wash, dry brush outlines, warm amber, light from above, soft proportions, top-down view",
              "Woodblock": "flat woodblock print, thick carved outlines, cool indigo, rim light from the right, chunky "
                           "proportions, three-quarter view"}[name]
@@ -56,7 +56,7 @@ def picker(project):
     ink = wanted["palette"]
     warm = {r: [min(255, c[0] + 10), c[1], max(0, c[2] - 20)] for r, c in ink.items()}
     cool = {r: [c[0] // 2, c[1] // 2, min(255, c[2] + 40)] for r, c in ink.items()}
-    directions = [direction("Paper and ink", "", ink),
+    directions = [direction("Default look", "", ink),
                   direction("Ink wash", LOOK + ": the ink", warm, rendering="ink wash", linework="dry brush outlines",
                             **{"colour temperature": "warm amber"}),
                   direction("Woodblock", LOOK + ": the night", cool, rendering="woodblock print",
@@ -65,7 +65,7 @@ def picker(project):
     folder.mkdir(parents=True)
     (folder / "directions.json").write_text(json.dumps({"directions": directions}), encoding="utf-8")
     kit = svg_kit.Kit(project)
-    for name in ("paper-and-ink", "ink-wash", "woodblock"):
+    for name in ("default-look", "ink-wash", "woodblock"):
         with kit.screen(name) as d:
             d.rect(0, 0, *VIEW, fill="canvas")
             d.circle(16, 18, 8, fill=d.gradient("glow", "reward", "canvas") if name == "ink-wash" else "reward")
@@ -82,7 +82,7 @@ def main(monkeypatch, capsys, root, *flags):
 
 def test_without_directions_it_writes_the_art_agents_brief(project):
     """The art agent's whole task: the user's look, the three directions, the kit and the form of directions.json,
-    whose paper and ink ART_STYLE fixes every dimension."""
+    whose the default look ART_STYLE fixes every dimension."""
     wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
     wanted["user_look"] = LOOK
     (project / "art" / "wanted.json").write_text(json.dumps(wanted), encoding="utf-8")
@@ -109,7 +109,7 @@ def test_the_directions_are_rendered_behind_the_picker_and_the_last_line_stops_f
     header = next(i for i, line in enumerate(lines) if line.startswith("direction "))
     assert re.split(r"\s*\|\s*", lines[header]) == ["direction", "axis", "when it is right", "cost"]
     assert lines[header + 2].startswith("Ink wash ") and "ink wash; dry brush outlines; warm amber" in lines[header + 2]
-    for name in ("paper-and-ink", "ink-wash", "woodblock"):
+    for name in ("default-look", "ink-wash", "woodblock"):
         assert (folder / f"{name}.png").is_file()
     page = (folder / "index.html").read_text(encoding="utf-8")
     assert "Copyright (c) 2026 Emil Kowalski" in page and 'aria-label="Prototype variants"' in page
@@ -140,7 +140,7 @@ def breaks(directions, folder):
 
     yield "differ in colour temperature alone", edit(lambda d: d[2].update(axes=dict(d[1]["axes"],
                                                                                     **{"colour temperature": "cool"})))
-    yield "paper and ink keeps the template's PALETTE, and its ink differ", \
+    yield "the default look keeps the template's PALETTE, and its ink differ", \
         edit(lambda d: d[0]["PALETTE"].update(ink=[0, 0, 0]))
     yield "its ART_STYLE names no framing", edit(lambda d: d[1].update(ART_STYLE="ink wash, dry brush outlines, warm "
                                                                                   "amber, light from above, soft proportions"))
@@ -171,7 +171,7 @@ def test_the_pick_writes_its_values_alone_keeps_its_screen_and_removes_the_picke
     generator = project / "tools" / "build_project.py"
     before = generator.read_text(encoding="utf-8")
     code, out = main(monkeypatch, capsys, project, "--pick", "ink")
-    assert code == 1 and "no such direction; the directions are Paper and ink, Ink wash, Woodblock; closest: Ink " \
+    assert code == 1 and "no such direction; the directions are Default look, Ink wash, Woodblock; closest: Ink " \
                          "wash" in out, out
     code, out = main(monkeypatch, capsys, project, "--pick", "Ink wash", "--dry-run")
     assert code == 0 and out.splitlines()[-1].startswith("dry run:") and generator.read_text(encoding="utf-8") == before

@@ -62,13 +62,13 @@ COIN_SIZE = TOUCH                          # a coin is tapped, so it fills the b
 # Where the game's look comes from when the user gave one: a style or an art direction the user
 # named, or references or an existing project to take it from. For example "the user's: neon
 # synthwave, from their three reference images". Empty when the user gave none: the game then
-# takes paper and ink, the fallback below. With it set, PALETTE takes the user's colours by role,
-# canvas and canvas_alt those of the backdrop, and the checks of paper and ink's taste stop
+# takes the default look, the fallback below. With it set, PALETTE takes the user's colours by role,
+# canvas and canvas_alt those of the backdrop, and the checks of the default look's taste stop
 # nothing; contrast, the grid and a clean alpha channel still do.
 USER_LOOK = ""
 # Colours by role. Every image, label and layer takes its colour from here, and write_png()
 # stops the run on any other colour, so a new object reuses a role or adds one.
-# Paper and ink, the fallback: flat shapes on white paper, the player and labels in ink, areas
+# The default look, the fallback: flat shapes on white paper, the player and labels in ink, areas
 # and ranges drawn as lines over a faint fill, slots as discs of that fill.
 # solid and the accents read at least 3:1 on canvas_alt, so a shape shows without an outline;
 # check_palette() stops solid below that, and shape() an accent drawn without its outline,
@@ -134,7 +134,7 @@ FONT = {"light": "InterDisplay-Light", "regular": "Inter-Regular", "medium": "In
 # scripts/bake_font.py, which bakes the characters the game uses into the Sprite Fonts' images.
 # Without the file, pixel art's text is a Text in FONT.
 PIXEL_FONT = "fusion-pixel-8px-proportional-zh_hans"
-# Text size in points by kind, scaled to the viewport's shorter side: a tracked tag, the name of a
+# Text size in points by kind, scaled to the viewport's shorter side: a tag, the name of a
 # stat or a key, body text and a key's verb, a screen's title, the count the player plays for, a
 # banner. At 720 px the tag is 10 pt, 13 px; a label whose letters are under TEXT_MIN of the shorter
 # side stops the run. In pixel art the small kinds are one unit and the large two: a Sprite Font's
@@ -191,7 +191,7 @@ LINE = globals().get("LINE", max(1, round(min(VIEW_W, VIEW_H) / 720)))
 PIXEL_FONT = globals().get("PIXEL_FONT", "fusion-pixel-8px-proportional-zh_hans")
 USER_LOOK = globals().get("USER_LOOK", "")
 ART_ROUTE = globals().get("ART_ROUTE", "svg")
-# Px of this viewport per px of the paper-and-ink prototype, which was drawn at 720 px high: the
+# Px of this viewport per px of the default-look prototype, which was drawn at 720 px high: the
 # gaps of the keys and the header scale by it.
 REF = min(VIEW_W, VIEW_H) / 720
 
@@ -670,22 +670,22 @@ def accent(role: str) -> bool:
     return max(c) - min(c) > 48
 
 
-def paper_and_ink() -> bool:
-    """Whether the game takes paper and ink, the fallback look: USER_LOOK is empty. Only then do
+def default_look() -> bool:
+    """Whether the game takes the default look, the fallback: USER_LOOK is empty. Only then do
     the checks of its taste stop the run."""
     return not USER_LOOK.strip()
 
 
-# Said by a stop of paper and ink's taste, which a look the user gave lifts
+# Said by a stop of the default look's taste, which a look the user gave lifts
 NOT_THE_USERS = "If the user gave the game a look of its own, name where it comes from in USER_LOOK"
 
 
 def check_palette() -> None:
     """Stops the run when PALETTE's greys lose their contrast: solid at least 3:1 on canvas_alt, so
-    structure shows without an outline; in paper and ink, canvas and canvas_alt at most 1.2:1, so
+    structure shows without an outline; in the default look, canvas and canvas_alt at most 1.2:1, so
     the checker reads as texture."""
     ratio = contrast(rgb("canvas"), rgb("canvas_alt"))
-    if ratio > 1.2 and paper_and_ink():
+    if ratio > 1.2 and default_look():
         sys.exit(f"PALETTE: canvas {PALETTE['canvas']} and canvas_alt {PALETTE['canvas_alt']} are {ratio:.2f}:1; the "
                  f"backdrop's two greys stay at most 1.2:1, so the checker reads as texture, not as things. Bring "
                  f"canvas_alt nearer canvas. {NOT_THE_USERS}")
@@ -1844,7 +1844,7 @@ def ivar_def(name: str, vtype: str, desc: str = "") -> dict:
 
 def beh_def(behavior_id: str, name: str | None = None) -> dict:
     """name is what events refer to; two Sine behaviors on one object need two names."""
-    if behavior_id == "Flash" and paper_and_ink():
+    if behavior_id == "Flash" and default_look():
         sys.exit(f"{name or behavior_id}: a hit shows as a colour, not the Flash behavior's blinking; draw the "
                  f"object's hit frame with hit_frame() and show it with hit_flash(obj) in the sheet. {NOT_THE_USERS}")
     return {"behaviorId": behavior_id, "name": name or behavior_id, "sid": sid()}
@@ -2388,7 +2388,7 @@ def area(otype: str, col: int, row: int, cols: int, rows: int, ivars=None, behav
     for backdrop() only. With USER_LOOK set, `otype` is any Tiled Background
     type, such as an image_type(name, "TiledBg", w, h, 0, 0) of a tile in the user's look."""
     kind = PATTERN_OF.get(otype)
-    if not paper_and_ink():
+    if not default_look():
         LAID_AS.setdefault(otype, "area")
     elif not kind:
         sys.exit(f"area({otype!r}): not a pattern; draw it with pattern({otype!r}, kind) in build_images() and give "
@@ -2411,7 +2411,7 @@ def backdrop(otype: str, width: int | None = None, height: int | None = None) ->
     viewport (`width` x `height`) it is the floor that scrolls: it lies on a layer at parallax 1 and
     reaches SCREEN_PAD past the layout, so no screen shows its edge. With USER_LOOK set, `otype` is
     any Tiled Background type of the user's look."""
-    if not paper_and_ink():
+    if not default_look():
         if PATTERN_OF.get(otype) not in BACKDROPS:
             LAID_AS[otype] = "backdrop"
     elif PATTERN_OF.get(otype) not in BACKDROPS:
@@ -2945,27 +2945,14 @@ def text_input_events(sets: dict | None = None) -> list:
 
 
 # --- tags, headers and keys -----------------------------------------------------------------------
-# The paper-and-ink HUD: what the player is on, a round, a level or a mode, as a small tracked tag
-# top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
+# The default-look HUD: what the player is on, a round, a level or a mode, as a small tag in
+# capitals top left (hud_tag()); the count the player plays for top right (hud_stat()); the controls bottom
 # left as keys, a short name in a thin ink box with its verb beside it, which dim once used
 # (hints()). The screen the player plays on shows no game name; a title, menu or pause screen sets
 # its title on the vertical centre line with hud_header() and its buttons with button(..., "center",
 # row), and a result screen states the moment with result_headline(). Gaps scale by REF, the
 # viewport's shorter side over 720.
-TRACK = "\u2005"                           # a quarter em: the space between the letters of a tracked tag
 HINT_OPACITY = 35                          # % the row of keys keeps once the player has used the controls
-
-
-def tracked(text: str) -> str:
-    """`text` in capitals with TRACK between its characters, the way a Latin tag is set: the Text
-    object has no letter spacing. tracked("Round · 01") spaces out ROUND · 01."""
-    return TRACK.join(text.upper())
-
-
-def tracked_expr(expr: str) -> str:
-    """An expression for a tag the events change: the text `expr` gives at runtime, in capitals with
-    TRACK between its characters. set_text("RoundTag", tracked_expr('"Round " & zeropad(beat + 1, 2)'))."""
-    return f'RegexReplace(uppercase({expr}), "(.)(?=.)", "g", "$1{TRACK}")'
 
 
 def text_width(text: str, size: float) -> int:
@@ -2976,15 +2963,15 @@ def text_width(text: str, size: float) -> int:
 def hud_tag(otype: str, text: str, where: str = "top-left", longest: str | None = None, on: str = "canvas_alt",
             dx: float = 0, dy: float = 0) -> dict:
     """What the player is on, a round, a level or a mode, held to an edge or corner by anchor(): one
-    Text in text_size("tag"), dim, in tracked() capitals, as wide as `longest`, the widest text shown
-    at runtime, which the events set with tracked_expr(). One group of spaced() on its own:
-        HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")], ...]"""
+    Text in text_size("tag"), dim, in capitals, as wide as `longest`, the widest text shown at
+    runtime, which the events set in capitals too. One group of spaced() on its own:
+        HUD = [[hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")], ...]"""
     size = text_size("tag")
-    longest_text(otype, longest and tracked(longest), size)
-    w, h = text_width(tracked(longest or text), size), line_height(size)
+    longest_text(otype, longest and longest.upper(), size)
+    w, h = text_width((longest or text).upper(), size), line_height(size)
     halign = {"left": "left", "middle": "center", "right": "right"}[sides(where)[1]]
     x, y = anchor(where, w, h, 0, 0, dx, dy)
-    return text_inst(otype, tracked(text), x, y, w, h, size, halign, color="dim", on=on, behaviors=anchored(where),
+    return text_inst(otype, text.upper(), x, y, w, h, size, halign, color="dim", on=on, behaviors=anchored(where),
                      weight=TEXT_WEIGHT.get("tag", "regular"))
 
 
@@ -2993,21 +2980,21 @@ def hud_header(title_type: str, tag_type: str, title: str, tag: str = "", longes
     """The title of a title, menu or pause screen, the game's name or the menu's, centred on the
     vertical centre line and held to the top edge by anchor("top") as one group (look-manifest.json,
     screen.menu-axis). The title is in text_size("title") and its weight, in ink. The tag goes GAP_IN
-    under it, centred, in text_size("tag"), dim and tracked(), as wide as `longest_tag`. dy moves the
+    under it, centred, in text_size("tag"), dim, in capitals, as wide as `longest_tag`. dy moves the
     group down in whole units. The screen the player plays on shows no title, only hud_tag(), and a
     result screen takes result_headline(). Returns [title, tag], or [title] without a tag, one group
     of spaced():
-        hud_header("MenuTitle", "MenuTag", "Coins", "Round · 03")"""
+        hud_header("MenuTitle", "MenuTag", "Coins", "Round 3")"""
     big, small = text_size("title"), text_size("tag")
     tw, th = text_width(title, big), line_height(big)
-    gw, gh = (text_width(tracked(longest_tag or tag), small), line_height(small)) if tag else (0, 0)
+    gw, gh = (text_width((longest_tag or tag).upper(), small), line_height(small)) if tag else (0, 0)
     w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
     x, y = anchor("top", w, h, 0, 0, 0, dy)
     title_ = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
                        behaviors=anchored("top"), weight=TEXT_WEIGHT.get("title", "medium"))
     if not tag:
         return [title_]
-    return [title_, text_inst(tag_type, tracked(tag), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+    return [title_, text_inst(tag_type, tag.upper(), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
                               color="dim", on=on, behaviors=anchored("top"), weight=TEXT_WEIGHT.get("tag", "regular"))]
 
 
@@ -3016,21 +3003,21 @@ def result_headline(title_type: str, tag_type: str, title: str, tag: str = "", l
     """A result screen's headline, the moment in one line, centred on the screen as one group: the
     headline in text_size("display") and the title weight, in ink, as wide as `longest`, the widest
     text the events set (look-manifest.json, screen.result-headline). The tag goes GAP_IN under it,
-    centred, in text_size("tag"), dim and tracked(). dy moves the group in whole units, up from a
+    centred, in text_size("tag"), dim, in capitals. dy moves the group in whole units, up from a
     row of buttons under it. Returns [headline, tag], or [headline] without a tag, one group of
     spaced():
-        result_headline("ResultTitle", "ResultTag", "Round clear", "Round · 03", longest="Game over")"""
+        result_headline("ResultTitle", "ResultTag", "Round clear", "Round 3", longest="Game over")"""
     big, small = text_size("display"), text_size("tag")
     longest_text(title_type, longest, big)
     tw, th = text_width(longest or title, big), line_height(big)
-    gw, gh = (text_width(tracked(tag), small), line_height(small)) if tag else (0, 0)
+    gw, gh = (text_width(tag.upper(), small), line_height(small)) if tag else (0, 0)
     w, h = max(tw, gw), th + (GAP_IN + gh if tag else 0)
     x, y = anchor("center", w, h, 0, 0, 0, dy)
     headline = text_inst(title_type, title, x + (w - tw) // 2, y, tw, th, big, "center", color="ink", on=on,
                          weight=TEXT_WEIGHT.get("display", "medium"))
     if not tag:
         return [headline]
-    return [headline, text_inst(tag_type, tracked(tag), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
+    return [headline, text_inst(tag_type, tag.upper(), x + (w - gw) // 2, y + th + GAP_IN, gw, gh, small, "center",
                                 color="dim", on=on, weight=TEXT_WEIGHT.get("tag", "regular"))]
 
 
@@ -3178,7 +3165,7 @@ NINTHS = {(0, 0): "top-left", (0, 1): "top", (0, 2): "top-right", (1, 0): "left"
 
 def items(group: list) -> int:
     """How many things a group of the HUD tells: one, and one more for each part a label joins to
-    another with " · " or " | " that holds a word, so "Round · 03" is one and "Wave 3 · 12 left" two.
+    another with " · " or " | " that holds a word, so "Round 3 / 6" is one and "Wave 3 · 12 left" two.
     A group whose labels hold no word, a count beside its icon, tells nothing, and neither does a bar
     across two thirds of the screen."""
     parts = [sum(1 for part in JOINED.split(str(i["properties"]["text"])) if re.search(r"[^\W\d_]", part))
@@ -3699,7 +3686,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-30, stamp feeb70e08052 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 3e3744af94b6 ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3728,7 +3715,7 @@ PITCH = TOUCH + UNIT
 BOARD_W, BOARD_H = COLS * PITCH - UNIT, ROWS * PITCH - UNIT
 # HUD groups, built first so the board can be centred in the room they leave: the round as a tag
 # top left, the score top right, the controls bottom left, which dim once used (hints())
-HUD = [[hud_tag("RoundTag", "Round · 01 / 06", longest="Round · 10 / 10")],
+HUD = [[hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")],
        hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"),
        hud_keys("KeyBox", "KeyText", "KeyVerb", [("Tap", "collect")])]
 PLAY_AREA = play_area(flat(HUD))
@@ -3825,9 +3812,8 @@ def module_setup() -> dict:
         # Restart layout keeps static variables, so the round's values are reset here, before any text shows them
         event("Empty the score and deal this round's coins",
               [on_start()], [set_var("score", "0"), set_text("ScoreText", q("0")),
-                             set_text("RoundTag", tracked_expr(f'{q("Round · ")} & zeropad(beat + 1, 2) & '
-                                                               f'{q(" / ")} & zeropad(tokencount(ROUND_COINS, '
-                                                               f'{q(",")}), 2)')),
+                             set_text("RoundTag", f'{q("ROUND ")} & (beat + 1) & {q(" / ")} & '
+                                                 f'tokencount(ROUND_COINS, {q(",")})'),
                              set_var("deal", f"floor(random({CELLS}))")], children=[
                   block([for_loop("i", "0", f"int(tokenat(ROUND_COINS, beat, {q(',')})) - 1")], [
                       create("Coin", "Game",

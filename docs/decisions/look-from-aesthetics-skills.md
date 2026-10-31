@@ -58,7 +58,7 @@ examples tagged as 2D games: 105 projects, 204 layouts.
 | Nothing read under 1/54 of the frame's height, 1.85% | The smallest text of every example is at least 1.78% of the viewport's shorter side; the median example's smallest is 5.9% |
 | A title-safe margin of 5 to 10% | The text nearest the edge sits a median 3% of the shorter side in; 52 of 75 layouts hold one within 5% |
 
-Paper and ink's `TEXT_SIZE` at 1080 set a tag of 11 pt, 1.4% of the
+The default look's `TEXT_SIZE` at 1080 set a tag of 11 pt, 1.4% of the
 shorter side, a name of 12 pt, 1.5%, and body text of 14 pt, 1.7%: all three
 under the smallest text of any official 2D game example. The fallback's
 record had left them open, as sizes set for a desktop window.
@@ -73,7 +73,7 @@ record had left them open, as sizes set for a desktop window.
 2. **A floor for the smallest text, from the examples and the video
    styles.** The fallback's three small kinds failed it, and the user had
    chosen those sizes on screenshots, so the floor was the user's call: to
-   keep them, or to scale paper and ink by 4/3 and hold the floor in every
+   keep them, or to scale the default look by 4/3 and hold the floor in every
    look.
 3. **A modular ratio between sizes, one display text per screen, or a
    title-safe margin.** The examples fail each, as the table shows.
@@ -86,7 +86,7 @@ record had left them open, as sizes set for a desktop window.
    event sheets, not here.
 6. **A colour fingerprint of a screenshot**: its share of neutral and of
    colourful pixels, against the look's mode. It would tell a fallback that
-   drifted from paper and ink, but `write_png()` already holds every drawn
+   drifted from the default look, but `write_png()` already holds every drawn
    pixel to `PALETTE`, and the study's numbers describe its sample, not a
    threshold.
 7. **A shadow cut by its container, measured at the end of each tween.**
@@ -140,7 +140,7 @@ reasons above.
 - A game needs a size between two kinds and adds a kind for it more than
   once: the kinds of `TEXT_SIZE` are too few for some kind of screen.
 - Generated games are played on phones: a phone's smallest text, about
-  11 to 12 dp, is a higher floor than the examples' (`paper-and-ink-look.md`).
+  11 to 12 dp, is a higher floor than the examples' (`default-look.md`).
 - A look the user gave stops on the floor and its text reads well on the
   user's screenshots: the floor is too high for that kind of screen.
 - A generated game shows a text for a time and the player cannot read it

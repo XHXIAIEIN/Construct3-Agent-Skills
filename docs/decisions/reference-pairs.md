@@ -67,7 +67,7 @@ Option 3, manifest rule `look.references`.
   goes with the layout the game starts on, the screen `pick_look.py` draws.
   It prints the colours of both sides, names the pair in the brief and asks
   question 8, an ugly yes. In a generated game whose `USER_LOOK` is empty,
-  the user picked paper and ink over the references, so the script makes no
+  the user picked the default look over the references, so the script makes no
   pair and says why.
 - When the user picked a look with `pick_look.py`, `art/look.png` goes
   into the pair picture of the layout the game starts on, after the

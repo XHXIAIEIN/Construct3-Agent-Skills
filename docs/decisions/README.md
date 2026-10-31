@@ -36,10 +36,10 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-24
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
+- [The Default Look Is the Fallback](default-look-is-the-fallback.md) — 2026-10-23
 - [What Only Maintainers Use Lives Under `dev/`](dev-folder.md) — 2026-10-23
 - [The Game's Look: What Aesthetics Skills Add to the Template](look-from-aesthetics-skills.md) — 2026-10-23
 - [The Look Judge Is a Read-Only Sub-Agent Type on the Measured Model](look-judge-agent.md) — 2026-10-23
-- [Paper and Ink Is the Fallback Look](paper-and-ink-is-the-fallback.md) — 2026-10-23
 - [A Bundled Addon Is Installed Only on the User's Word](bundled-addon-consent.md) — 2026-10-22
 - [An Export Replaces Only the Folders It Recorded](export-folder-record.md) — 2026-10-22
 - [The Hand-Over Says What Ran](hand-over-says-what-ran.md) — 2026-10-22
@@ -55,9 +55,9 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A Map of the Sheets: Which Layouts Run Each, and What It Holds](sheet-map.md) — 2026-10-16
 - [Sound Files Are Measured, and Placeholders Pass the Measure](sound-files-measured.md) — 2026-10-16
 - [The Hand-Entry Format Prompt Is Removed](remove-event-sheet-assistant.md) — 2026-10-15
+- [The Default Look: The Generator Template's Fallback](default-look.md) — 2026-10-14
 - [A Game Project's Long Documents Are Read in Parts](long-docs-in-parts.md) — 2026-10-14
 - [A long sheet prints its groups, and --find names the events that use a name](long-sheet-contents.md) — 2026-10-14
-- [Paper and Ink: The Generator Template's Fallback Look](paper-and-ink-look.md) — 2026-10-14
 - [A picture of an event sheet comes from the editor, fitted and cropped](sheet-screenshot.md) — 2026-10-14
 - [Design Tokens for the Tool Pages](design-tokens.md) — 2026-10-13
 - [Lightweight review and optional complete evidence](design-review-packets.md) — 2026-10-10
