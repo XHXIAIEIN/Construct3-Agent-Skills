@@ -10,6 +10,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [The Game's Look: What impeccable Adds to the Review and the Manifest](look-from-impeccable.md) — 2026-10-31
 - [Layout, Type, Colour and Motion Rules of Motion-Design Websites, Measured on Game Screens](motion-atlas-layouts.md) — 2026-10-31
 - [A Game Keeps the Facts a Check Showed, on the Events They Rest On](project-notes.md) — 2026-10-31
+- [What a Recording Shows Is Described by a Reviewer That Has Not Seen the Change](recording-describer.md) — 2026-10-31
 - [A Preview Run Names What Went Wrong in the Runtime](runtime-signals.md) — 2026-10-31
 - [The Guide Search Prints the Symptom Rows First](symptom-search.md) — 2026-10-31
 - [taste-skill and frontend-design Read in Full, Against the Game's Look](taste-skill-and-frontend-design.md) — 2026-10-31

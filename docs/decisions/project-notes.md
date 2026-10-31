@@ -32,6 +32,10 @@ true in an old answer or plan.
   `verifying-a-change.md` or ran `notes.py`, although the project held notes
   for the facts they needed. A note reaches a run only in output the run
   reads anyway.
+- In iteration 95, with the notes at the end of a whole print of the sheet,
+  both runs of the changed skill got them before they planned, and neither
+  run of the previous skill did. Every run of both iterations passed, so the
+  case shows where the notes reach a run, not what they save.
 
 ## Options
 
