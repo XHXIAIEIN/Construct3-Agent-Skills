@@ -53,10 +53,11 @@ about the editor or the preview goes to `editor-and-preview.md`.
    it passes. [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`,
    the bullet on a bug's plan]
 3. **Reach each scene the way the game does.** Start from what earlier
-   checks showed: `scripts/notes.py` prints the notes of the game, each on
-   the function, group or event it rests on, and marks a note whose events
-   changed since it was verified. Check a marked note in the game before
-   you rely on it. Play to the scene when that is short; otherwise call
+   checks showed: the notes of the game, each on the function, group or
+   event it rests on. `print_sheet.py` ends a whole print with the notes on
+   its sheets, and `scripts/notes.py` prints them all. A note marked
+   changed rests on events that changed since it was verified, so check it
+   in the game before you rely on it. Play to the scene when that is short; otherwise call
    the game's own functions with
    `runtime.callFunction`, which run the events that keep related values in
    step. Write a value directly only when no event reaches it, and then
@@ -154,15 +155,15 @@ about the editor or the preview goes to `editor-and-preview.md`.
    has shown a fact that a later check of this game would search for
    again, keep it as a note: how a scene is reached, the parameters a
    function takes, the trigger that starts a flow, the tutorial to skip,
-   the variable behind a feel. `scripts/notes.py --add "FACT" --sheet SHEET
-   --function NAME` keeps it on what it rests on, or `--group TITLE` or
-   `--event N` in place of `--function`, in `tools/notes.json`, committed
+   the variable behind a feel. Run `scripts/notes.py --add "FACT" --sheet
+   SHEET --function NAME`, or `--group TITLE` or `--event N` in place of
+   `--function`. The note goes into `tools/notes.json`, which is committed
    with the change. One note holds one fact. A fact read from the events
    alone goes in only after the game showed it, because the events are what
-   the check tests. A note marked changed may no longer hold: check it in
-   the game, then `--confirm N` it, or `--rewrite N` it with what holds
-   now. A note marked gone is rewritten on the events it rests on now, or
-   removed with `--remove N`. [design:
+   the check tests. If a note is marked changed, check it in the game, then
+   run `--confirm N`, or `--rewrite N "FACT"` with what holds now. If a note
+   is marked gone, rewrite it on the events it rests on now, or remove it
+   with `--remove N`. [design:
    `Construct3-Agent-Skills/docs/decisions/project-notes.md`]
 
 ## The look of each layout

@@ -56,6 +56,10 @@ stops at an event, and the last line gives the --events range that
 continues. Without a sheet name, a project whose sheets do not fit the
 limit prints its map instead.
 
+A whole print ends with the notes of tools/notes.json on the sheets it
+printed: the facts a check showed in the game, each on its function, group or
+event, marked when those events changed since (notes.py).
+
 --map prints the map of the project's sheets, one line per sheet under the
 folder project.c3proj keeps it in. A line gives the sheet's events and its
 size as events; the layouts that run it; the sheets that include it; the
@@ -1183,7 +1187,12 @@ def main() -> int:
     size = {name: printed_length([f"== {name}", *whole[name]]) for name in names}
     # The closing lines, with room for a longer name or value than this one's in a part.
     note = None if args.outline else notes([line for name in names for line in whole[name]])
-    reserved = (len(note) + 70 if note else 0) + (len(c3.REVIEW) + 1 if args.review else 0)
+    if args.outline:
+        noted = []
+    else:
+        import notes as kept_notes    # it imports this module: here, not at the top
+        noted = kept_notes.sheet_lines(project, names)
+    reserved = (len(note) + 70 if note else 0) + (len(c3.REVIEW) + 1 if args.review else 0) + printed_length(noted)
     fits = not args.limit or sum(size.values()) + reserved <= args.limit
     if args.map or (not fits and not args.sheets and len(names) > 1):
         # A cut print of the sheets names nothing of the rest; the map says which sheet holds a feature and
@@ -1225,6 +1234,8 @@ def main() -> int:
             print(stopped_line(args, name, stopped, last, rest, totals[name]))
             break
     else:
+        if noted:
+            print("\n".join(noted))
         if args.review:
             print(c3.REVIEW)
     return 0

@@ -14,7 +14,7 @@ The steps, by the words a hand-over names them with:
   looked     review_look.py, a screenshot of every layout: findings, and questions to answer
 
 Once the checker passes, a notes: line names the notes of tools/notes.json
-whose events changed since they were verified, run after run until notes.py
+whose events changed since they were verified, on every run until notes.py
 confirms or rewrites them.
 
 It runs them in order and stops at the first that finds something, asks

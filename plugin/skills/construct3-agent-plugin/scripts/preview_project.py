@@ -78,7 +78,8 @@ by default result.json beside that folder; the last line names both, so read a
 cut-off result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
-committed with the change it checks; it needs an until after an input or wait. --all
+committed with the change it checks; it needs an until after an input or wait. A plan that
+passes also prints how to keep a fact it showed as a note with notes.py. --all
 replays each kept plan from a first launch, into .tmp/scripts/preview-project/plans.json.
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
@@ -1483,6 +1484,10 @@ def main() -> int:
     if errors:
         print(oe.NEXT_PREVIEW.replace("run this again with --preview", "run this again"))
     passed = result["status"] == "opened" and ran.get("started") and not failed and not errors
+    if passed:
+        print("notes: a fact this plan showed that a later check would search for again, such as how it reached its "
+              "scene, goes into the notes on the events it rests on: "
+              + c3.script_command(project, "notes.py", ' --add "FACT" --sheet SHEET --function NAME'))
     others = [p for p in kept_plans(project) if args.keep is None or p.stem != args.keep]
     if passed and args.keep:
         all_kept = c3.script_command(project, "preview_project.py", " --all")

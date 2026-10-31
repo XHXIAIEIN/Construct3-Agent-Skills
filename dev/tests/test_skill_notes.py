@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-from tests.skill_helpers import PLUGIN, SHEET, SKILL, edit, events, game_rows, git, tool
+from tests.skill_helpers import INSTALLED, PLUGIN, SHEET, SKILL, edit, events, game_rows, git, streams, tool
 
 sys.path.insert(0, str(SKILL / "scripts"))
 import verify_change  # noqa: E402
@@ -124,6 +124,21 @@ def test_a_rewritten_note_is_stamped_again_and_a_gone_one_cannot_be_confirmed(pr
     assert [n["fact"] for n in kept] == ["Coin.Collect scores the coin", "the first touch anywhere starts the hint"]
 
 
+def test_a_whole_print_of_a_sheet_ends_with_its_notes(project):
+    """A run reads the sheet before it plans a check; the notes on that sheet come with it, marks included."""
+    code, out = tool(project, "print_sheet", "Game")
+    assert code == 0 and "notes:" not in out, out
+    noted(project)
+    edit(project, SHEET, lambda sheet: events(sheet)["add_score"]["actions"].pop())
+    code, out = tool(project, "print_sheet", "Game")
+    lines = out.splitlines()
+    at = next(k for k, line in enumerate(lines) if line.startswith("notes: facts a check showed in the game"))
+    assert lines[at + 1] == "  1. Game function AddScore [changed]: AddScore(points) adds points to score and shows it", out
+    assert lines[at + 3] == "  3. Game event 13: the first touch anywhere starts the hint" and len(lines) == at + 4, out
+    code, out = tool(project, "print_sheet", "Game", "--outline")
+    assert "notes:" not in out, out
+
+
 def test_a_miss_names_what_comes_near(project):
     for args, said in ((("--add", "x", "--sheet", "Gmae", "--group", "Hints"), "no event sheet named 'Gmae'; closest: Game"),
                        (("--add", "x", "--sheet", "Game", "--function", "AddScor"),
@@ -133,6 +148,8 @@ def test_a_miss_names_what_comes_near(project):
                        (("--confirm", "4"), "no note 4: tools/notes.json holds no note")):
         code, out = tool(project, "notes", *args)
         assert code == 1 and said in out, (args, out)
+    p = streams(project, f"{INSTALLED}/scripts/notes.py", "--rag", str(PLUGIN), "--confirm", "4")
+    assert p.returncode == 1 and p.stdout.startswith("no note 4") and not p.stderr, p
     code, out = tool(project, "notes", "--add", "x")
     assert code == 2 and "--add needs what the fact rests on" in out, out
     code, out = tool(project, "notes", "--confirm", "1", "--sheet", "Game", "--group", "Hints")

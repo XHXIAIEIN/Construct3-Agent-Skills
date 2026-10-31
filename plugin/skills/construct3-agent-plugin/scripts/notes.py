@@ -10,14 +10,17 @@ starts a flow, the first-launch tutorial to skip. It names the function,
 group or event of a sheet it rests on, and the day it was verified. The notes
 are in tools/notes.json, which the editor ignores, committed with the project.
 
-Without a flag the script prints every note. A note whose function, group or
-event differs from what it was when the note was verified is marked changed,
-and the events that changed print under it, as print_sheet.py --since prints
-them, against the last commit that holds them as verified. A note whose
-function, group or event the sheet no longer has is marked gone. A mark stays
-until --confirm or --rewrite stamps the note again. The comparison leaves out
-the sids, which a generator run gives anew, and a group covers every event in
-it. A note on an event finds it by its sid, else by its content.
+Each note keeps a stamp: a hash of its events as they were when it was
+verified, without their sids, which a generator run gives anew. A group's
+stamp covers every event in it. A note on an event finds the event by its
+sid, and by its content when no event has that sid.
+
+Without a flag the script prints every note. A note whose events differ from
+its stamp is marked changed, and the events that changed print under it, as
+print_sheet.py --since prints them, against the last commit that holds them
+as verified. A note whose events the sheet no longer has is marked gone. A
+mark stays until --confirm or --rewrite stamps the note again. print_sheet.py
+ends a whole print with the notes on the sheets it printed.
 """
 import argparse
 import datetime
@@ -41,6 +44,12 @@ NOTES = Path("tools") / "notes.json"
 FACT_LENGTH = 240       # characters of one fact: a longer one is several facts or a guess explained
 HISTORY = 30            # commits of a sheet's history searched for the events a changed note was verified on
 DIFF_LINES = 30         # lines of a changed note's events printed under it
+SHEET_NOTES = 10        # notes print_sheet.py prints under a sheet
+
+
+class Miss(Exception):
+    """A note, sheet, function, group or event that is not there, or a fact that cannot be a note: an answer,
+    printed on stdout."""
 
 
 class Place(NamedTuple):
@@ -153,6 +162,21 @@ def summary(project: c3.Project) -> Standing | None:
                     + f": {c3.script_command(project.root, 'notes.py')}", len(marked))
 
 
+def sheet_lines(project: c3.Project, sheets: list[str]) -> list[str]:
+    """The notes on these sheets, for the end of a print of them; none without notes."""
+    notes = read(project.root)
+    on = [(k, note, place, mark) for k, (note, (place, mark)) in enumerate(zip(notes, marks(project, notes)), 1)
+          if note["sheet"] in sheets]
+    if not on:
+        return []
+    head = (f"notes: facts a check showed in the game, on these sheets ({NOTES.as_posix()}); "
+            + c3.script_command(project.root, "notes.py") + " prints what changed under a marked one")
+    lines = [f"  {k}. {anchor(note, place)}" + (f" [{mark}]" if mark else "") + f": {note['fact']}"
+             for k, note, place, mark in on[:SHEET_NOTES]]
+    return [head, *lines] + ([f"  ... {len(on) - SHEET_NOTES} more: {c3.script_command(project.root, 'notes.py')}"]
+                             if len(on) > SHEET_NOTES else [])
+
+
 # --- what changed under a marked note ---------------------------------------------------------------------------
 def history(root: Path, rel: str) -> list[str]:
     """The commits that changed the sheet's file, newest first; none outside a git repository."""
@@ -233,12 +257,12 @@ def anchored(project: c3.Project, args: argparse.Namespace) -> tuple[dict, Place
     """The anchor of --sheet and --function, --group or --event, as a note keeps it, and where it is."""
     sheets = project.load_listed("eventSheets")
     if args.sheet not in sheets:
-        sys.exit(f"no event sheet named {args.sheet!r}{c3.closest(args.sheet, sheets)}; sheets: {', '.join(sheets)}")
+        raise Miss(f"no event sheet named {args.sheet!r}{c3.closest(args.sheet, sheets)}; sheets: {', '.join(sheets)}")
     sheet = sheets[args.sheet]
     if args.event is not None:
         place = next((p for p in walk(sheet.get("events", []), [0]) if p.number == args.event), None)
         if place is None:
-            sys.exit(f"sheet {args.sheet} has no event {args.event}; "
+            raise Miss(f"sheet {args.sheet} has no event {args.event}; "
                      + c3.script_command(project.root, "print_sheet.py", f" {c3.quoted(args.sheet)}")
                      + " prints its numbers")
         return {"sheet": args.sheet, "kind": "event", "sid": place.event.get("sid")}, place
@@ -247,7 +271,7 @@ def anchored(project: c3.Project, args: argparse.Namespace) -> tuple[dict, Place
     place = located(sheet, {**note, "stamp": ""})
     if place is None:
         known = names(sheet, kind)
-        sys.exit(f"sheet {args.sheet} has no {kind} {name!r}{c3.closest(name, known)}"
+        raise Miss(f"sheet {args.sheet} has no {kind} {name!r}{c3.closest(name, known)}"
                  + (f"; its {kind}s: {', '.join(known)}" if known else f"; it has no {kind}"))
     if kind == "function":
         note["name"] = name_of(place.event)
@@ -259,9 +283,9 @@ def anchored(project: c3.Project, args: argparse.Namespace) -> tuple[dict, Place
 def fact_of(text: str) -> str:
     fact = " ".join(text.split())
     if not fact:
-        sys.exit("a note needs its fact: what a probe or a kept plan showed, in a sentence")
+        raise Miss("a note needs its fact: what a probe or a kept plan showed, in a sentence")
     if len(fact) > FACT_LENGTH:
-        sys.exit(f"a note is one short fact, at most {FACT_LENGTH} characters, and this one has {len(fact)}; "
+        raise Miss(f"a note is one short fact, at most {FACT_LENGTH} characters, and this one has {len(fact)}; "
                  f"split it into notes, each on the events it rests on")
     return fact
 
@@ -270,7 +294,7 @@ def picked(notes: list[dict], numbers: list[int]) -> list[int]:
     """The indexes of the notes numbered as the print numbers them."""
     wrong = [n for n in numbers if not 1 <= n <= len(notes)]
     if wrong:
-        sys.exit(f"no note {', '.join(map(str, wrong))}: "
+        raise Miss(f"no note {', '.join(map(str, wrong))}: "
                  + (f"the notes are 1 to {len(notes)}" if notes else f"{NOTES.as_posix()} holds no note")
                  + "; print them with notes.py")
     return sorted({n - 1 for n in numbers})
@@ -297,7 +321,7 @@ def change(project: c3.Project, args: argparse.Namespace) -> int:
             base = {key: notes[k][key] for key in ("sheet", "kind", "name", "sid") if key in notes[k]}
             place = marks(project, [notes[k]])[0][0]
             if place is None:
-                sys.exit(f"note {number} rests on {anchor(notes[k])}, which the sheet no longer has; give what it "
+                raise Miss(f"note {number} rests on {anchor(notes[k])}, which the sheet no longer has; give what it "
                          f"rests on now with --sheet and --function, --group or --event")
         note = stamped({"fact": fact, **base}, place)
         if number is None:
@@ -313,7 +337,7 @@ def change(project: c3.Project, args: argparse.Namespace) -> int:
         found = marks(project, [notes[k] for k in indexes])
         gone = [str(k + 1) for k, (place, _) in zip(indexes, found) if place is None]
         if gone:
-            sys.exit(f"note {', '.join(gone)} rests on events the sheet no longer has: "
+            raise Miss(f"note {', '.join(gone)} rests on events the sheet no longer has: "
                      f"--rewrite N \"FACT\" with --sheet and --function, --group or --event, or --remove N")
         for k, (place, _) in zip(indexes, found):
             notes[k] = stamped(notes[k], place)
@@ -345,9 +369,10 @@ def main() -> int:
     what = ap.add_mutually_exclusive_group()
     what.add_argument("--add", metavar="FACT", help="add a note: one fact a probe or a kept plan showed")
     what.add_argument("--rewrite", nargs=2, metavar=("N", "FACT"),
-                      help="replace note N with what holds now; with --sheet, on other events")
+                      help="replace note N with what holds now; with --sheet and --function, --group or --event, on other "
+                           "events")
     what.add_argument("--confirm", nargs="+", type=int, metavar="N",
-                      help="the notes still hold on their changed events: stamp them again")
+                      help="the notes still hold on their changed events: stamp them with the events as they are")
     what.add_argument("--remove", nargs="+", type=int, metavar="N", help="remove notes")
     ap.add_argument("--sheet", metavar="SHEET", help="the event sheet the note rests on")
     on = ap.add_mutually_exclusive_group()
@@ -370,7 +395,11 @@ def main() -> int:
     project = c3.Project.open(args, findings)
     if args.add is None and args.rewrite is None and not args.confirm and not args.remove:
         return print_notes(project, args.limit)
-    return change(project, args)
+    try:
+        return change(project, args)
+    except Miss as miss:
+        print(miss)
+        return 1
 
 
 if __name__ == "__main__":
