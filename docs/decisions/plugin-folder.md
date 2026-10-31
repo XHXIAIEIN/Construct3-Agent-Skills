@@ -146,8 +146,9 @@ The folder's own files:
   plugin's folder: `project-worker`, whose tools are the ones the skill's
   scripts need (`project-worker-agent.md`), `look-judge`, which only
   reads the look review's brief and screenshots (`look-judge-agent.md`),
-  and `design-judge`, which only reads the design review's brief
-  (`design-judge-agent.md`).
+  `design-judge`, which only reads the design review's brief
+  (`design-judge-agent.md`), and `recording-describer`, which only reads
+  a recording's brief and frames (`recording-describer.md`).
 - The skill's fonts stay out. The generator takes Inter from the user's
   font cache and draws a missing font in `system-ui`
   (`paper-and-ink-look.md`), so the plugin has no need of them, and their

@@ -2,11 +2,6 @@
 and drag the game's own instances, press keys, wait for what the events do, run
 scripts against the runtime, and read the state, take screenshots and record between steps.
 
-    python scripts/preview_project.py PLAN.json [--keep NAME] [--project FOLDER] [--release rNNN]
-                                      [--browser EXE] [--shots DIR] [--out RESULT.json] [--headed]
-                                      [--profile FOLDER] [--locale en-US]
-    python scripts/preview_project.py --all [--project FOLDER] ...
-
 Use it to check what a player does: a merge, a drop, a jump, a purchase. The
 plan is JSON, the steps run in order, and a step that fails stops the run:
 
@@ -49,12 +44,14 @@ Steps, each an object with one of these keys, and "note" for a label:
                                 their inspector values, named in --locale
   shot NAME                     a screenshot, NN-NAME.png in --shots; named as not drawn yet when it
                                 is one colour and flat
-  record NAME, watch, fps       record from here to the next record step or the end: NN-NAME.mp4 with
+  record NAME, watch, fps, expect, ask
+                                record from here to the next record step or the end: NN-NAME.mp4 with
                                 ffmpeg or .gif with Pillow, the frames, a contact sheet of up to 12
-                                numbered frames to judge the motion from, and NN-NAME.html to review
-                                it; watch is {"label": EXPRESSION, ...}, read at every frame; fps 60
-                                makes the video 60 frames a second of game time, for a game that a js
-                                step slowed with runtime.timeScale; false stops
+                                numbered frames, and NN-NAME.html to review it; watch is
+                                {"label": EXPRESSION, ...}, read at every frame; fps 60 makes the video
+                                60 frames a second of game time, for a game that a js step slowed with
+                                runtime.timeScale; false stops; expect {"works": [...], "broken": [...]}
+                                and ask, open questions, make the run write a brief for a reviewer
 
 TARGET is where to press, the middle of an instance's bounding box:
   "Button"                      the first instance of an object type, as the project spells it
@@ -71,11 +68,11 @@ The game starts on the layout the editor opens on, as with F5. A game that reloa
 its page goes on in the new page: the step the reload broke off runs again, except
 a js step whose code had started, which fails.
 
-The browser runs headless and silent; --headed shows it. A step that fails leaves
-NN-failed.png. Screenshots and recordings go to --shots, by default
-.tmp/scripts/preview-project/shots/ in the project, and the whole result to --out,
-by default result.json beside that folder; the last line names both, so read a
-cut-off result there instead of playing the plan again.
+The browser runs headless and silent; --headed shows it. A failed step leaves
+NN-failed.png. Screenshots and recordings go to --shots (default
+.tmp/scripts/preview-project/shots/ in the project), the whole result to --out
+(default result.json beside it); the last line names both, so read a cut-off
+result there instead of playing the plan again.
 
 A plan that passes is kept with --keep NAME as tools/plans/NAME.json in the project,
 committed with the change it checks; it needs an until after an input or wait. --all
@@ -89,6 +86,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import math
 import re
@@ -115,20 +113,19 @@ EPILOG = """examples:
 
 output:
   opened   <project>  (<window title>, <the editor it opened in>)
-    warning: <a notice the editor showed over the opened project, as open_in_editor.py prints it>
+    warning: <a notice the editor showed, as open_in_editor.py prints it>
     preview: layout 'Game', runtime in the worker, viewport 430x932, touch
     1 until runtime.objects.Enemy.getAllInstances().length >= 3: true after 1.4 s
     2 drag Piece 0 to BattleSlot 1: (120, 712) to (215, 388) in 0.4 s
-      runtime: <an error the game logged during the step, with its event, and (N times) when it came more than once>
+      runtime: <an error the game logged in the step, with its event, and (N times) if it repeated>
     3 key ShiftLeft+ArrowRight: held 0.5 s
     4 state Piece: <as open_in_editor.py --state prints it>
     5 shot after-merge: shots/05-after-merge.png
     recorded merge: 95 frames in 3.4 s, shots/02-merge.mp4
       sheet shots/02-merge-sheet.png: 10 frames, numbered left to right, top down: 1 at 0 ms (start),
       2 at 35 ms (largest change), ..., 10 at 3380 ms (end)
-        <how to judge the motion from the sheet>
-      review shots/02-merge.html: the user plays it there, selects the part that looks wrong and
-      copies it to you as a task; shots/index.html lists every recording
+      brief: <give shots/described-3f9a1c2e4b/brief.md to a reviewer>
+      review shots/02-merge.html: <where the user plays it>; shots/index.html lists every recording
       frames and timeline.json in shots/02-merge
       watch coins: 40 at 0 ms, 30 at 900 ms
     ran: 5 of 5 steps in 9.6 s, 1 runtime error
@@ -140,7 +137,8 @@ output:
 
 exit codes: 0 every step ran and the game logged no error (--all: in every kept plan); 1 a step failed, the
 game logged an error or a request failed, or the project did not open; 2 the plan, the project, the editor
-or --locale could not be used, or --all found no kept plan; 3 no browser here; 5 another run holds the
+or --locale could not be used, or --all found no kept plan; --reply: 0 all answered, 1 one is not, 2 no
+reply or brief; 3 no browser here; 5 another run holds the
 browser profile, named in the line with its pid: wait for it to end, or pass --profile for a profile of
 this run's own
 """
@@ -150,7 +148,8 @@ STEPS = ("tap", "hold", "drag", "move", "key", "wait", "until", "js", "state", "
 KEPT = Path("tools") / "plans"
 FIELDS = {"tap": set(), "hold": {"seconds"}, "drag": {"to", "seconds", "through", "rest"},
           "move": {"seconds", "through", "rest"}, "key": {"seconds"}, "wait": set(),
-          "until": {"timeout"}, "js": {"timeout"}, "state": set(), "shot": set(), "record": {"watch", "fps"}}
+          "until": {"timeout"}, "js": {"timeout"}, "state": set(), "shot": set(),
+          "record": {"watch", "fps", "expect", "ask"}}
 # Seconds a hold, a drag, a move and a key press last when the step gives none.
 PRESS = {"hold": 0.5, "drag": 0.4, "move": 0.4, "key": 0.1}
 # Seconds the preview window gets to take the plan's viewport.
@@ -371,10 +370,39 @@ def check_plan(plan: object) -> tuple[dict, list[str]]:
                                     and 0 < fps <= 240):
             problems.append(f"step {n} (record): fps is frames per second of game time, up to 240, on a step that "
                             f"starts a recording")
+        if kind == "record":
+            problems += [f"step {n} (record): {p}" for p in described(step)]
         for field in ("seconds", "timeout", "rest"):
             if field in step and not (isinstance(step[field], (int, float)) and step[field] >= 0):
                 problems.append(f"step {n} ({kind}): {field} is a number of seconds")
     return plan, problems
+
+
+# A question a yes or a no answers, which tells the reviewer what to look for
+CLOSED = re.compile(r"^(is|are|was|were|do|does|did|can|could|will|would|should|has|have|had)\b|吗[?？]?$", re.I)
+
+
+def described(step: dict) -> list[str]:
+    """What is wrong with the expect and ask of a record step: what the frames would show if the change works and
+    if it does not, written before the run, and open questions for a reviewer that sees only the frames."""
+    expect, ask = step.get("expect"), step.get("ask")
+    if expect is None and ask is None:
+        return []
+    if not step["record"]:
+        return ["expect and ask go on a step that starts a recording"]
+    problems = []
+    if not (isinstance(expect, dict) and set(expect) == {"works", "broken"} and all(
+            isinstance(v, list) and v and all(isinstance(t, str) and t.strip() for t in v) for v in expect.values())):
+        problems.append('expect is {"works": [...], "broken": [...]}, each a list of what a frame would show, such as '
+                        '"the bar\'s right edge moves right over several frames and stops", written before the run')
+    if not (isinstance(ask, list) and ask and all(isinstance(q, str) and q.strip() for q in ask)):
+        problems.append('ask is a list of open questions about the frames, such as "What moves between the frames, '
+                        'which way and how far?"')
+    else:
+        problems += [f"ask: {q!r} is answered yes or no and tells the reviewer what to look for; ask what is there: "
+                     f"what moves and which way, what is at a place, what a text says" for q in ask
+                     if CLOSED.search(q.strip())]
+    return problems
 
 
 def target_ok(value: object) -> bool:
@@ -406,8 +434,8 @@ class Game:
         self.recorded: list[Recorder] = []      # finished, their connections closed after the window (Recorder)
         self.pointer: tuple[float, float] | None = None     # where the last mouse event put the pointer
 
-    def record(self, name: str, video: Path, watch: dict[str, str], fps: float | None) -> None:
-        self.recording = Recorder(self.url, name, video, self.viewport, watch, self.project, self.ratio, fps)
+    def record(self, name: str, video: Path, watch: dict[str, str], fps: float | None, asked: dict) -> None:
+        self.recording = Recorder(self.url, name, video, self.viewport, watch, self.project, self.ratio, fps, asked)
 
     def stop_recording(self) -> str:
         """What the recording that ran made, or "" when none ran."""
@@ -516,9 +544,10 @@ class Recorder(threading.Thread):
     that emulated a size clears the size for the page, the steps' connection included."""
 
     def __init__(self, url: str, name: str, video: Path, viewport: list[int] | None, watch: dict[str, str],
-                 project: Path, ratio: float = 1, fps: float | None = None) -> None:
+                 project: Path, ratio: float = 1, fps: float | None = None, asked: dict | None = None) -> None:
         super().__init__(name=name, daemon=True)
         self.video, self.folder, self.project, self.fps = video, video.with_suffix(""), project, fps
+        self.asked = asked or {}
         self.frames, self.steps, self.done, self.first = [], [], threading.Event(), threading.Event()
         shutil.rmtree(self.folder, ignore_errors=True)
         self.folder.mkdir(parents=True)
@@ -609,14 +638,141 @@ class Recorder(threading.Thread):
         if sheet:
             listed = ", ".join(f"{k} at {round(timeline['frames'][i]['t'] * 1000)} ms" + (f" ({why})" if why else "")
                                for k, (i, why) in enumerate(cells, 1))
-            lines += [f"sheet {sheet}: {len(cells)} frames, numbered left to right, top down: {listed}",
-                      "  judge the motion from the sheet, not from what the events meant to do: open it with the image "
-                      "tool, name the three worst defects, each with its time, what the frame shows and the event to "
-                      "change, fix only those, and record that part again"]
+            lines.append(f"sheet {sheet}: {len(cells)} frames, numbered left to right, top down: {listed}")
+        if self.asked:
+            lines += self.write_brief([(paths[i], timeline["frames"][i]["t"]) for i, _ in cells])
+        elif sheet:
+            lines.append("  to judge what these frames show, give this record step expect and ask and play it again: "
+                         "the run then writes a brief for a reviewer that has not seen the change")
         lines += [f"review {page}: the user plays it there, selects the part that looks wrong and copies it to you "
                   f"as a task; {index} lists every recording",
                   f"frames and timeline.json in {self.folder}"]
         return "\n    ".join(lines + watch_lines(timeline["frames"]))
+
+    def write_brief(self, frames: list[tuple[Path, float]]) -> list[str]:
+        """Write brief.md and copies of the sheet's frames into a folder of their own, and the expectations beside
+        that folder, which --reply prints; return the lines to print.
+        The folder is named by a hash, because the reviewer reads the frames' paths and the recording's name says
+        what it checks."""
+        asked = [*self.asked["ask"], LAST_QUESTION]
+        named = hashlib.sha1(self.folder.resolve().as_posix().encode()).hexdigest()[:10]
+        blind = self.folder.with_name(f"described-{named}")
+        shutil.rmtree(blind, ignore_errors=True)
+        blind.mkdir(parents=True)
+        copies = []
+        for k, (path, t) in enumerate(frames, 1):
+            copies.append((blind / f"{k:02d}{path.suffix}", t))
+            shutil.copyfile(path, copies[-1][0])
+        brief, reply = blind / "brief.md", blind / "reply.md"
+        brief.write_text(describe_brief(copies, asked), encoding="utf-8")
+        blind.with_name(blind.name + EXPECT).write_text(json.dumps(
+            {"recording": self.folder.resolve().as_posix(), "brief": brief.resolve().as_posix(), "ask": asked,
+             "expect": self.asked["expect"]}, ensure_ascii=False, indent=1), encoding="utf-8")
+        check = c3.script_command(self.project, "preview_project.py", f" --reply {c3.quoted(reply.resolve().as_posix())}")
+        return [f"described: {brief.resolve()} holds {len(frames)} frames and {len(asked)} questions",
+                f"brief: if you can start a sub-agent, give it {brief.resolve()} as its whole task, and tell it "
+                f"nothing of the game or the change. Save its reply to {reply.resolve()}, then run {check}. Without a "
+                f"sub-agent, open each frame with the image tool and answer the questions before you read expect "
+                f"again"]
+
+
+# The last question of every brief, so that a change nobody asked about shows too
+LAST_QUESTION = "What else moves or changes between the frames, and what stays still?"
+# The file of a brief's questions and expectations, beside its folder
+EXPECT = "-expect.json"
+# An answer that cannot see its subject, in the brief's words
+UNSEEN = re.compile(r"can(?:no|')t make out|unreadable", re.I)
+# The first line of an answer, which starts with its question's number
+ANSWER_START = re.compile(r"^[\W_]*(?:q(?:uestion)?\s*)?(\d+)\s*[:.)]\s*(.*)$", re.I)
+
+
+def describe_brief(frames: list[tuple[Path, float]], asked: list[str]) -> str:
+    """The task of a reviewer that sees only the frames: the frames by absolute path and time, the questions and
+    the form of the answer."""
+    lines = ["# Frames to describe", "",
+             "These are frames of a video game, taken one after another while it ran. You are not told what anyone "
+             "is checking in them, and you do not guess it: say what is visible, as exactly as you can.", "",
+             "Open each frame with your image tool, in order:", ""]
+    lines += [f"{k}. at {round(t * 1000)} ms: {path.resolve().as_posix()}" for k, (path, t) in enumerate(frames, 1)]
+    lines += ["", "Answer each question from the frames alone:", ""]
+    lines += [f"{k}. {q}" for k, q in enumerate(asked, 1)]
+    lines += ["",
+              "- For a motion, name what moves, which way and how far, from which frame to which by the numbers "
+              "above, what everyday motion it looks most like, and what stays still.",
+              "- Quote a text exactly where you can read it. Where you cannot, write unreadable.",
+              "- Where you cannot see something, because it is too small, too dark, blurred, covered or past the edge "
+              "of the frame, write cannot make out and say what. Say so when a frame is nearly black or blank.",
+              "- Do not say whether anything is correct, broken, working or intended. Describe it.", "",
+              "Reply with one answer per question, each starting with the question's number, in at most 400 words "
+              "and nothing else. The form, not the content:", "", "```", "1: <what the frames show>",
+              "2: <what the frames show>", "...", "```", ""]
+    return "\n".join(lines)
+
+
+def read_answers(reply: str, asked: int) -> tuple[dict[int, str], list[str]]:
+    """The answers of a reply by question, an answer running on until the next one starts, and the lines that
+    start an answer to no question of the brief."""
+    answers: dict[int, str] = {}
+    stray, current = [], None
+    for line in reply.splitlines():
+        m = ANSWER_START.match(line.strip())
+        if m and int(m[1]) not in answers and 1 <= int(m[1]) <= asked:
+            current = int(m[1])
+            answers[current] = m[2].strip(" *`")
+        elif m and not 1 <= int(m[1]) <= asked:
+            stray.append(line.strip())
+            current = None
+        elif current and line.strip():
+            answers[current] = f"{answers[current]} {line.strip()}".strip()
+    return {k: v for k, v in answers.items() if v}, stray
+
+
+def check_described(described: dict, reply: str, where: str) -> tuple[list[str], int]:
+    """A reviewer's description against its brief: what it lacks and what it could not see, then what the plan
+    said the frames would show, to hold the answers against."""
+    asked = described["ask"]
+    answers, stray = read_answers(reply, len(asked))
+    missing = [k for k in range(1, len(asked) + 1) if k not in answers]
+    unseen = [k for k, said in answers.items() if UNSEEN.search(said)]
+    lines = [f"reply: {where}, against the brief {described['brief']} of {len(asked)} questions"]
+    if missing:
+        lines.append("  missing: " + ", ".join(map(str, missing)))
+    lines += [f"  not in the brief: {line}" for line in stray]
+    for k in sorted(answers):
+        lines += [f"  {k}. {asked[k - 1]}", f"    {answers[k]}"]
+    lines += [f"  answer {k} cannot make out part of what it was asked" for k in unseen]
+    lines += [f"expect, works: {said}" for said in described["expect"]["works"]]
+    lines += [f"expect, broken: {said}" for said in described["expect"]["broken"]]
+    lines.append(f"answers: {len(answers)} of {len(asked)}, {len(missing)} missing, {len(unseen)} cannot make out")
+    if missing:
+        lines.append("next: give the reviewer the same brief again and have it answer every question by its number; "
+                     "then check its reply again")
+        return lines, 1
+    lines.append("next: hold the answers against expect, which the plan wrote before the run. A works feature that an "
+                 "answer shows holds. A broken feature that an answer shows is a defect: fix it at the frame and time "
+                 "the answer names, then record that part again. A feature that no answer shows is open, not false: "
+                 "ask about it, or record that part closer."
+                 + (" An answer that cannot make out its subject is no verdict: bring the subject into view with a "
+                    "closer viewport or a slower runtime.timeScale, and record it again." if unseen else ""))
+    return lines, 0
+
+
+def reply_main(reply: Path, limit: int) -> int:
+    """--reply: check a saved description against the brief of the recording whose folder holds it."""
+    beside = reply.parent.with_name(reply.parent.name + EXPECT)
+    try:
+        described = json.loads(beside.read_text(encoding="utf-8"))
+        said = reply.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"{e}: save the reply in the folder of the recording whose brief.md it answers, as reply.md, as the "
+              f"brief: line of preview_project.py says, and check it again", file=sys.stderr)
+        return 2
+    lines, code = check_described(described, said, str(reply))
+    shown = c3.fitting(lines, limit)
+    print("\n".join(lines[:shown]))
+    if shown < len(lines):
+        print(f"{len(lines) - shown} lines not printed: --limit 0 prints them")
+    return code
 
 
 def script_json(value: object) -> str:
@@ -1031,7 +1187,8 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
     if kind == "record":
         said = game.stop_recording()
         if value:
-            game.record(value, shots / f"{n:02d}-{value}", step.get("watch") or {}, step.get("fps"))
+            game.record(value, shots / f"{n:02d}-{value}", step.get("watch") or {}, step.get("fps"),
+                        {k: step[k] for k in ("expect", "ask") if k in step})
         return "; ".join(filter(None, ["recording" if value else "", said])), None
     return screenshot(game, shots / f"{n:02d}-{value}.png"), None
 
@@ -1386,6 +1543,9 @@ def main() -> int:
     ap.add_argument("--all", action="store_true",
                     help="replay every plan kept in tools/plans of the project, each from a first launch, and name "
                          "each one that fails")
+    ap.add_argument("--reply", type=Path, metavar="REPLY",
+                    help="a reply.md beside a recording's brief.md: check it answers every question, print it "
+                         "with expect")
     ap.add_argument("--project", metavar="FOLDER",
                     help="the folder that holds project.c3proj (default: found from the current directory upward)")
     ap.add_argument("--release", metavar="rNNN", help="open in this release of the editor, as open_in_editor.py does")
@@ -1406,10 +1566,13 @@ def main() -> int:
                          f"everything (default: {c3.LIMIT})")
     args = ap.parse_args()
 
-    if bool(args.plan) == args.all:
-        ap.error("give a PLAN.json to play, or --all to replay the kept plans")
-    if args.keep is not None and (args.all or not re.fullmatch(r"[A-Za-z0-9_-]+", args.keep)):
+    if [bool(args.plan), args.all, bool(args.reply)].count(True) != 1:
+        ap.error("give a PLAN.json to play, or --all to replay the kept plans, or --reply REPLY to check a "
+                 "description of a recording")
+    if args.keep is not None and (args.all or args.reply or not re.fullmatch(r"[A-Za-z0-9_-]+", args.keep)):
         ap.error("--keep takes a NAME of letters, digits, - and _, with a PLAN.json")
+    if args.reply:
+        return reply_main(args.reply, args.limit)
     if args.all:
         project = c3.find_project(args.project)
         if not project:
