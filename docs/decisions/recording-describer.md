@@ -17,8 +17,7 @@ game cannot do it, although the plan is as likely at fault as the events.
 
 ## Evidence
 
-- Aura Autopilot, a playtesting agent for Unreal, Unity and Godot
-  (`github.com/ramenvr/autopilot`, Apache 2.0, read 2026-10-31), checks a
+- An open-source playtesting agent for Unreal, Unity and Godot checks a
   visual claim this way. Before it looks, the agent writes what true and
   what false would look like as visible features. It then sends frames
   and open questions to a describer that never sees the request, and holds
