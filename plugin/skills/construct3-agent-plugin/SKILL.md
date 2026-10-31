@@ -69,9 +69,9 @@ the expressions, so it can refuse a project that the checker passes.
 | `scripts/preview_project.py PLAN.json` | Play the preview from a plan: tap, drag, press keys, wait `until` an expression holds, read the state, take screenshots. `--keep NAME` keeps a plan that passes; `verify_change.py` replays the kept ones |
 
 [references/scripts.md](references/scripts.md) lists the scripts for a new
-game's design, the look, sounds, a picture of a sheet, Advanced Random,
-export, packing, art, a new project and the install, with the generator
-template and the runtime probe.
+game's design, the look, sounds, the facts checks showed about the game, a
+picture of a sheet, Advanced Random, export, packing, art, a new project and
+the install, with the generator template and the runtime probe.
 
 Each script prints its options and examples with `--help`. A script stops
 at about 10 000 characters and its last line says how to get the rest;

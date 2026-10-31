@@ -12,6 +12,7 @@ needs only now and then. Each prints its options and examples with `--help`.
 | `scripts/check_look.py` | The strict rules of `assets/look-manifest.json` on a project built from `assets/build_project.py`, after the generator's check ends with `ok:` |
 | `scripts/check_sounds.py` | Sounds measured against `tools/sounds.json` |
 | `scripts/make_sounds.py` | Placeholder sounds for `tools/sounds.json` |
+| `scripts/notes.py` | The facts earlier checks showed about the game, each on the function, group or event it rests on, with the ones whose events changed since marked; `--add` keeps one a probe or a kept plan has shown ([verifying-a-change.md](verifying-a-change.md), step 9) |
 | `scripts/screenshot_sheet.py [SHEET] [--group TITLE]` | A picture of an event sheet or one group of it as the editor shows it, for a forum post, a bug report or a doc |
 | `scripts/measure_timing.py VIDEO [--from SECONDS] [--csv FILE]` | The rise, peak, fall and tail of an effect in a recording at 60 fps of game time ([editor-and-preview.md](editor-and-preview.md), "Recording an effect's frames"), in frames, and the kind its rise to fall ratio names, beside the counts of `guides/recipes/vfx-timing.md` in Construct3-Cookbook; needs ffmpeg |
 | `scripts/advanced_random.py SEED` | The numbers an Advanced Random object gives after *Update seed* SEED, computed offline as the plugin does |
