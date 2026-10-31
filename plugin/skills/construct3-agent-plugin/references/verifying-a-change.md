@@ -116,20 +116,37 @@ about the editor or the preview goes to `editor-and-preview.md`.
    events it reached: a run that ends before the event fires has checked
    nothing yet, so extend the plan until it fires, and an error that
    follows a direct write comes from the write until the same steps without
-   it show it too (step 3). Judge a motion's feel and timing from the recording
-   first: where it starts, overshoots and rests, and how long each part
-   takes, against the row for the same effect in
-   `Construct3-Cookbook/guides/recipes/feel.md` where there is one. Then
-   open the recording's contact sheet, `NN-NAME-sheet.png`, with the image
-   tool and judge only what the frames show, not what the events were
-   meant to do. Name the three worst defects, each with its time, what the
-   frame shows and the event to change; fix only those and record that
-   part again, until the values and the sheet show no defect. The
-   hand-over names the cases played, what each read, and any value the
-   plan forced, one line each, with the recording's review page,
-   `NN-NAME.html`, where the user plays it frame by frame, selects a part
-   that looks wrong and copies it back as a task.
-   [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
+   it show it too (step 3). Judge a motion's feel and timing from the
+   watched values first: where it starts, overshoots and rests, and how
+   long each part takes, against the row for the same effect in
+   `Construct3-Cookbook/guides/recipes/feel.md` where there is one.
+   What the frames show is judged from a description by a reviewer that
+   has not seen the change, because the agent that wrote the events reads
+   its own frames by what it meant them to show. Before the run, write on
+   the `record` step what a frame would show if the change works and if it
+   does not, as visible features (`expect`), and open questions about the
+   frames (`ask`): what moves and which way, what is at a place, what a
+   text says, never what you hope to see and never a question a yes
+   answers. The run writes a brief of the frames and the questions alone;
+   have it answered as its `brief:` line says, check the reply with
+   `--reply`, and hold the description against `expect`. A description in
+   which the thing is not seen (too small, covered, off the frame, too
+   fast) is no verdict: record that part closer or slower and play it
+   again. Name the three worst defects the description shows, each with its
+   time and frame and the event to change; fix only those and record that
+   part again, until the values and the description show no defect.
+   State a claim that something can happen (the player reaches the ledge,
+   the door opens) as shown when a run did it once. A plan that did not
+   reach it or do it leaves the claim open, not false, since the plan is as
+   likely at fault as the game: improve the plan. Say it cannot happen only
+   when the game's own values show it, such as a jump's strength and
+   gravity against a platform's height or a speed against a timer, and name
+   those values. The hand-over names the cases played, what each read, any
+   value the plan forced and each claim left open, one line each, with the
+   recording's review page, `NN-NAME.html`, where the user plays it frame
+   by frame, selects a part that looks wrong and copies it back as a task.
+   [design: `Construct3-Agent-Skills/docs/decisions/recording-describer.md`;
+   `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullets
    on `record` and the review page]
 8. **Keep the plan, and replay every kept plan after each change.** Once a
    plan passes, run it again with `--keep NAME`. Only an `until` step after

@@ -542,6 +542,83 @@ def test_preview_project_joins_the_sheet_frames_into_one_image(tmp_path, monkeyp
         assert max(sheet.size) <= pp.SHEET_SIDE and sheet.size[0] > sheet.size[1] / 2
 
 
+EXPECT = {"works": ["the bar's right edge moves right over several frames and stops"],
+          "broken": ["the bar is at its new length in the first frame after the coin"]}
+
+
+def test_preview_project_takes_expect_and_open_questions_on_a_record_step_that_starts_a_recording():
+    """What the frames would show is written before the run, and the questions are open, since a question a yes
+    answers tells the reviewer what to look for (docs/decisions/recording-describer.md)."""
+    ask = ["What moves between the frames, which way and how far?"]
+    assert pp.check_plan({"steps": [{"record": "hp", "expect": EXPECT, "ask": ask}]})[1] == []
+    _, problems = pp.check_plan({"steps": [
+        {"record": "a", "ask": ask}, {"record": "b", "expect": {"works": ["x"]}, "ask": ask},
+        {"record": "c", "expect": EXPECT, "ask": ["Does the bar slide?", "Is it red?", "血条会滑动吗？"]},
+        {"record": False, "expect": EXPECT, "ask": ask}, {"record": "e", "expect": EXPECT, "ask": []}]})
+    assert [p.split(":")[0] for p in problems] == [
+        "step 1 (record)", "step 2 (record)", "step 3 (record)", "step 3 (record)", "step 3 (record)",
+        "step 4 (record)", "step 5 (record)"], problems
+    assert 'expect is {"works": [...], "broken": [...]}' in problems[0], problems
+    assert "'Does the bar slide?' is answered yes or no" in problems[2], problems
+    assert "expect and ask go on a step that starts a recording" in problems[5], problems
+    assert "ask is a list of open questions" in problems[6], problems
+
+
+def test_preview_project_writes_a_brief_of_the_frames_and_questions_alone(tmp_path):
+    """The brief holds copies of the sheet's frames by absolute path, in a folder whose name does not tell the
+    recording's, and the questions; the expectations stay beside it for --reply."""
+    folder = tmp_path / "shots" / "04-hp-bar-slides"
+    folder.mkdir(parents=True)
+    frames = []
+    for k in range(3):
+        (folder / f"{k + 1:04d}.jpg").write_bytes(b"jpg %d" % k)
+        frames.append((folder / f"{k + 1:04d}.jpg", k * 0.25))
+    recorder = SimpleNamespace(folder=folder, project=tmp_path, asked={"expect": EXPECT, "ask": [
+        "What moves between the frames, which way and how far?", "What does the text at the top say?"]})
+    lines = pp.Recorder.write_brief(recorder, frames)
+    blinds = [p for p in (tmp_path / "shots").iterdir() if p.is_dir() and p != folder]
+    assert len(blinds) == 1 and blinds[0].name.startswith("described-"), blinds
+    brief = (blinds[0] / "brief.md").read_text(encoding="utf-8")
+    assert f"1. at 0 ms: {(blinds[0] / '01.jpg').resolve().as_posix()}" in brief, brief
+    assert "3. at 500 ms:" in brief and (blinds[0] / "03.jpg").read_bytes() == b"jpg 2"
+    assert f"3. {pp.LAST_QUESTION}" in brief and "2. What does the text at the top say?" in brief, brief
+    assert "hp" not in brief.lower() and "bar" not in brief and "works" not in brief, brief
+    described = json.loads(blinds[0].with_name(blinds[0].name + pp.EXPECT).read_text(encoding="utf-8"))
+    assert described["expect"] == EXPECT and len(described["ask"]) == 3
+    assert lines[0].startswith(f"described: {(blinds[0] / 'brief.md').resolve()} holds 3 frames and 3 questions")
+    assert lines[1].startswith("brief: if you can start a sub-agent, give it") and "--reply" in lines[1], lines
+
+
+def test_preview_project_checks_a_description_and_prints_it_with_the_expectations(project, tmp_path):
+    """--reply names each question left unanswered and each answer that cannot see what it was asked, and holds
+    the answers against what the plan wrote before the run; a reply outside a brief's folder is refused."""
+    blind = tmp_path / "described-0123456789"
+    blind.mkdir()
+    asked = ["What moves between the frames, which way and how far?", "What does the text say?", pp.LAST_QUESTION]
+    blind.with_name(blind.name + pp.EXPECT).write_text(json.dumps(
+        {"brief": (blind / "brief.md").as_posix(), "ask": asked, "expect": EXPECT}), encoding="utf-8")
+    reply = blind / "reply.md"
+    reply.write_text("**1:** A green rectangle at the top grows to the right\nfrom frame 2 to frame 5, then stops.\n"
+                     "4: something\n", encoding="utf-8")
+    code, out = run(project, SCRIPT, "--reply", str(reply))
+    assert code == 1, out
+    assert "  missing: 2, 3" in out and "  not in the brief: 4: something" in out, out
+    assert "    A green rectangle at the top grows to the right from frame 2 to frame 5, then stops." in out, out
+    assert "next: give the reviewer the same brief again" in out, out
+    reply.write_text("1: A green rectangle grows to the right.\n2: unreadable, too small\n3: Nothing else moves.\n",
+                     encoding="utf-8")
+    code, out = run(project, SCRIPT, "--reply", str(reply))
+    assert code == 0, out
+    assert "  answer 2 cannot make out part of what it was asked" in out, out
+    assert f"expect, works: {EXPECT['works'][0]}" in out and f"expect, broken: {EXPECT['broken'][0]}" in out, out
+    assert "answers: 3 of 3, 0 missing, 1 cannot make out" in out, out
+    assert "is open, not false" in out and "record it again" in out, out
+    stray = tmp_path / "reply.md"
+    stray.write_text("1: x\n", encoding="utf-8")
+    code, out = run(project, SCRIPT, "--reply", str(stray))
+    assert code == 2 and "save the reply in the folder of the recording whose brief.md it answers" in out, out
+
+
 def test_preview_project_prints_how_the_watched_values_changed():
     """The agent reviews a recording from these lines: each change once, with its time."""
     frames = [{"t": 0.0, "watch": {"coins": 40, "y": None}}, {"t": 0.5, "watch": {"coins": 40, "y": 662}},
