@@ -544,18 +544,25 @@ NEW_PROJECT_ICONS = ROOT / "plugin" / "data" / "c3-new-project" / "icons"
 STUDIO = re.compile(r"viridino|forsteri", re.I)
 
 
-def measure_icons(examples: Path, rag: Path) -> list[dict]:
-    """Per example: kept icons, loader style, 2D game and studio flags"""
+def icon_picture(folder: Path) -> str:
+    """A digest of the largest icon's pixels at 32 px, so a PNG saved again with the same picture matches"""
     import hashlib
-    digest = lambda f: hashlib.sha256(f.read_bytes()).hexdigest()
-    default = {f.name: digest(f) for f in NEW_PROJECT_ICONS.glob("icon-*.png")}
+    from PIL import Image
+    icon = max(folder.glob("icon-*.png"), key=lambda f: int(f.stem.split("-")[1]))
+    pixels = Image.open(icon).convert("RGBA").resize((32, 32), Image.LANCZOS).tobytes()
+    return hashlib.sha256(bytes(v >> 4 for v in pixels)).hexdigest()[:12]
+
+
+def measure_icons(examples: Path, rag: Path) -> list[dict]:
+    """Per example: the icon's picture, whether it is the empty project's, loader style, 2D game and studio flags"""
+    default = icon_picture(NEW_PROJECT_ICONS)
     games = {gid for gid, meta in examples_meta(rag).items() if {"Game template", "Demo game"} & set(meta.get("tags", []))}
     rows = []
     for gid, folder in project_folders(examples):
         text = (folder / "project.c3proj").read_text(encoding="utf-8-sig")
-        icons = {f.name: digest(f) for f in (folder / "icons").glob("icon-*.png")}
+        picture = icon_picture(folder / "icons") if list((folder / "icons").glob("icon-*.png")) else None
         rows.append({"example": gid, "game": gid in games, "studio": bool(STUDIO.search(text)),
-                     "default_icons": bool(icons) and all(default.get(k) == v for k, v in icons.items()),
+                     "icon": picture, "default_icons": picture == default,
                      "loader": json.loads(text).get("properties", {}).get("loaderStyle")})
     return rows
 
@@ -564,8 +571,15 @@ def report_icons(rows: list[dict]) -> None:
     for name, test in (("all examples", lambda r: True), ("2D games", lambda r: r["game"]),
                        ("studio", lambda r: r["studio"]), ("studio 2D games", lambda r: r["game"] and r["studio"])):
         rs = [r for r in rows if test(r)]
-        print(f"  {name:16} {len(rs):3}: the empty project's icons {sum(r['default_icons'] for r in rs):3}, "
+        print(f"  {name:16} {len(rs):3}: the empty project's icon {sum(r['default_icons'] for r in rs):3}, "
               f"splash loader {sum(r['loader'] == 'splash' for r in rs):3}")
+    others = defaultdict(list)
+    for r in rows:
+        if r["game"] and not r["default_icons"]:
+            others[r["icon"]].append(r["example"])
+    print("  2D games with another icon, by picture:")
+    for picture, names in sorted(others.items(), key=lambda kv: -len(kv[1])):
+        print(f"    {picture} {len(names):3}: {', '.join(names)}")
 
 
 # --- command line -----------------------------------------------------------------------------
