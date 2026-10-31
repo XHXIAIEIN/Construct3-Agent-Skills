@@ -597,6 +597,20 @@
         "The look is the user's: USER_LOOK of tools/build_project.py is set",
         "tools/build_project.py is the source: rerun in a copy, it writes the same layouts/Game.json"
       ]
+    },
+    {
+      "id": 39,
+      "name": "check-the-third-round",
+      "fixture": "coins-notes",
+      "prompt": "my coins game is at <project> . check in the preview that the third round deals six coins, and tell me what the round text at the top says then. dont change the game, just check it",
+      "expected_output": "The third round, beat 2, deals int(tokenat(ROUND_COINS, 2, \",\")) = 6 coins, and RoundTag reads R O U N D · 0 3 / 0 6. A plan reaches it by tapping every coin of the first two rounds, 1 and 3 coins, each round starting again 1.3 seconds after its last coin is gone. The notes of tools/notes.json hold these facts, verified, so a run that reads them plans without searching the sheet for them. The game is left unchanged.",
+      "files": [],
+      "assertions": [
+        "The run played the game in the preview: preview_project.py or open_in_editor.py --preview left its results under .tmp/scripts",
+        "The answer says the third round deals 6 coins",
+        "The answer gives the round text with 03 / 06 in it",
+        "No game file differs from the fixture, tools/notes.json aside"
+      ]
     }
   ]
 }

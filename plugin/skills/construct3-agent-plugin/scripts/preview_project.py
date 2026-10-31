@@ -1646,6 +1646,10 @@ def main() -> int:
     if errors:
         print(oe.NEXT_PREVIEW.replace("run this again with --preview", "run this again"))
     passed = result["status"] == "opened" and ran.get("started") and not failed and not errors
+    if passed:
+        print("notes: a fact this plan showed that a later check would search for again, such as how it reached its "
+              "scene, goes into the notes on the events it rests on: "
+              + c3.script_command(project, "notes.py", ' --add "FACT" --sheet SHEET --function NAME'))
     others = [p for p in kept_plans(project) if args.keep is None or p.stem != args.keep]
     if passed and args.keep:
         all_kept = c3.script_command(project, "preview_project.py", " --all")

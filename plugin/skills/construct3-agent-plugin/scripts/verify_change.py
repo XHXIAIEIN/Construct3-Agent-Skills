@@ -13,12 +13,16 @@ The steps, by the words a hand-over names them with:
              tools/design.json; with neither, the step does not run and does not stop the others
   looked     review_look.py, a screenshot of every layout: findings, and questions to answer
 
+Once the checker passes, a notes: line names the notes of tools/notes.json
+whose events changed since they were verified, on every run until notes.py
+confirms or rewrites them.
+
 It runs them in order and stops at the first that finds something, asks
 something or cannot run, and its last line says what to do next. A step that
 opens the editor is run again only when a file of the project changed since
 it passed: the record, .tmp/scripts/verify-change/result.json, keeps each step's outcome with
-a digest of every file of the project outside its dot folders and
-tools/plans/. The play step also runs again when a kept plan changed. The
+a digest of every file of the project outside its dot folders,
+tools/plans/ and tools/notes.json. The play step also runs again when a kept plan changed. The
 checker and the design review always run, because they take seconds.
 
 A question is answered for the files it was asked about. Have the design
@@ -52,6 +56,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import c3project as c3
+import notes
 import open_in_editor as oe
 
 STEPS = ("checked", "reviewed", "opened", "previewed", "played", "looked")
@@ -94,13 +99,13 @@ def digest(files) -> str:
 
 
 def files_digest(root: Path) -> str:
-    """Every file of the project outside its dot folders (.tmp, .git, the skill's copy) and its kept plans: what
-    the steps read, images and scripts included, which the checker's own digest leaves out."""
-    # A kept plan changes nothing the game runs, and the play step asks for one in the run that asks the design and
-    # look questions: a plan in this digest would void every answer recorded before it
+    """Every file of the project outside its dot folders (.tmp, .git, the skill's copy), its kept plans and its
+    notes: what the steps read, images and scripts included, which the checker's own digest leaves out."""
+    # A kept plan or a note changes nothing the game runs, and the play step asks for a plan in the run that asks
+    # the design and look questions: either in this digest would void every answer recorded before it
     return digest((f, rel) for f in sorted(root.rglob("*")) for rel in [f.relative_to(root)]
                   if f.is_file() and not any(part.startswith(".") for part in rel.parts)
-                  and "__pycache__" not in rel.parts and not rel.is_relative_to(PLANS))
+                  and "__pycache__" not in rel.parts and not rel.is_relative_to(PLANS) and rel != notes.NOTES)
 
 
 def plans_digest(root: Path) -> str:
@@ -135,7 +140,7 @@ class Run:
     """One run of the steps on one project: the record, the digest of the files, how the scripts are called."""
 
     def __init__(self, project: c3.Project, args) -> None:
-        self.root, self.args = project.root, args
+        self.project, self.root, self.args = project, project.root, args
         self.path = self.root / RECORD
         try:
             self.record = json.loads(self.path.read_text(encoding="utf-8"))
@@ -218,6 +223,9 @@ def checked(run: Run) -> tuple[int, str] | None:
     if code == 0 and line.startswith("ok:"):
         run.keep("checked", "passed", line, code)
         show("checked", "passed", line)
+        noted = notes.summary(run.project)
+        if noted and noted.marked:
+            print(noted.line, flush=True)
         return None
     if code == 2 or not re.search(r"^\d+ problem\(s\)$|^stop: ", out, re.M):
         return stopped(run, "checked", 2, out, f"stopped: check_project.py could not check the project; do what "
@@ -443,6 +451,9 @@ def status(run: Run) -> int:
             continue
         here = "on these files" if run.on_these_files(step, kept) else "on files changed since"
         show(step, kept["state"], f"{here}; {kept.get('line', '')}")
+    noted = notes.summary(run.project) if run.passed_here("checked") else None
+    if noted:
+        print(noted.line)
     done = [s for s in STEPS if run.passed_here(s)]
     no_play = (run.record["steps"].get("played") or {}).get("state") == "not run"
     if all(run.passed_here(s) or s == "played" and no_play for s in STEPS):
