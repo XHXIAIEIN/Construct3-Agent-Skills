@@ -26,10 +26,10 @@ The directory refuses a folder over about 7,000,000 bytes
 (`plugin-folder.md`), so the data left less than 300,000 bytes for the
 skill. Without it the folder holds about a third of the limit.
 
-The skill already reads three repositories from their clones beside the
-one that holds it: Construct-Example-Projects, Construct3-Manual and
-Construct3-Cookbook (`guides-in-cookbook.md`). A missing clone prints the
-`git clone` command, and the agent asks the user before it runs it.
+The skill already read three repositories from their clones:
+Construct-Example-Projects, Construct3-Manual and Construct3-Cookbook
+(`guides-in-cookbook.md`), and the agent asked the user before it cloned
+one.
 
 ## Options
 
@@ -46,23 +46,13 @@ Construct3-Cookbook (`guides-in-cookbook.md`). A missing clone prints the
 ## Decision
 
 `plugin/` holds no data. Every script reads the data from a Construct3-RAG
-clone, which `c3project.locate_rag` finds in this order:
-
-1. `--rag`;
-2. the `CONSTRUCT3_RAG` environment variable;
-3. the `Construct3-RAG:` line of the game project's `AGENTS.md` or
-   `CLAUDE.md`;
-4. a `Construct3-RAG` folder beside the clones: beside the clone of
-   Construct3-Agent-Skills that holds the running plugin, or beside the one
-   that the project's `Construct3-Agent-Skills:` line names. An installed
-   plugin has no clone above it, so its own folder in Claude Code's plugin
-   cache stands for one, and the clone goes beside that folder.
-
-A script that finds no clone stops with the command that puts one in the
-first place of step 4, such as
-`git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG "<folder>"`,
-and with the places it tried. The plugin clones and downloads nothing
-itself.
+clone, which `c3project.locate_rag` finds by `--rag`, `CONSTRUCT3_RAG`, the
+`Construct3-RAG:` line of the game project's `AGENTS.md` or `CLAUDE.md`,
+then in the home folder of the clones, `~/Construct3`, and beside the
+clones (`clones-home.md` gives the full order). A script that finds no
+clone stops with the places it tried and with `setup.py`, which prints
+every missing clone with the command that clones it. The plugin clones and
+downloads nothing itself.
 
 The clone that the skill comes from is apart from the data. The
 Construct 3 block of a game project names it on its own line,
@@ -74,14 +64,10 @@ project finds its source through that line, and the data through the
 Each repository the scripts read has one clone, in a fixed place, which
 the checker keeps current:
 
-- The place is beside the clone of Construct3-Agent-Skills, or for a
-  plugin installed from a marketplace, in
-  `~/.claude/plugins/cache/<marketplace>/construct3/`, beside the version
-  folders. Claude Code puts each plugin version in a folder of its own, so
-  a clone inside one would stay behind with it at the next update, and the
-  new version would ask for a second clone. Beside them, every version
-  finds the same clone. Construct-Example-Projects and Construct3-Cookbook
-  go beside Construct3-RAG.
+- The place is the home folder of the clones, outside Claude Code's
+  plugin cache (`clones-home.md`). Claude Code puts each plugin version in
+  a folder of its own and cleans old ones, so a clone in the cache would go
+  with them; in the home every version finds the same clone.
 - `check_project.py` compares Construct3-RAG, Construct-Example-Projects
   and Construct3-Cookbook with their upstream branches by their newest
   commits, read anonymously over HTTPS from GitHub's API
@@ -94,8 +80,8 @@ the checker keeps current:
   clone with older data, also offline, and gives the pull. A script change
   that reads what a newer refresh added raises the floor.
 - Nothing downloads at install time. `install.py` writes the clone's place
-  into the block and clones nothing; a missing clone is a printed command,
-  and only an existing clone is pulled.
+  into the block and clones nothing; a missing clone is a command that
+  `setup.py` prints, and only an existing clone is pulled.
 
 `dev/scripts/build_plugin.py` keeps the version (`plugin-tracks-commits.md`)
 and the limits, and `--check` fails while `plugin/data/` exists.
@@ -103,8 +89,8 @@ and the limits, and `--check` fails while `plugin/data/` exists.
 ## Trade-offs
 
 - A first install needs a second clone, whose checkout is mostly `data/`.
-  Until the clone exists, every script that reads the data stops with the
-  clone command.
+  Until the clone exists, every script that reads the data stops and points
+  to `setup.py`.
 - The scripts and the data come from two repositories and can drift. The
   floor catches data older than the scripts; a script that reads a field a
   new refresh dropped fails until the skill follows it, and the tests read
@@ -122,8 +108,6 @@ and the limits, and `--check` fails while `plugin/data/` exists.
 
 ## Re-evaluate when
 
-- The directory states that a plugin must work with no clone beside it.
+- The directory states that a plugin must work with no clone of its data.
 - Claude Code gives a plugin a supported way to depend on a second
   repository, such as a plugin dependency that carries data.
-- Claude Code removes folders it did not write from a plugin's cache
-  folder; the clone then needs a place outside the cache.

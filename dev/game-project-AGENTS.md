@@ -57,14 +57,16 @@ The text of the block is
 To place it by hand:
 
 1. Copy it into the project's `AGENTS.md`, with its two marker lines.
-2. Fill in the two paths at the top: this clone's `plugin/` and the
-   Construct3-Cookbook clone, or symlinks in the project that point to them.
+2. Fill in the three paths at the top: the Construct3-RAG clone, this
+   clone and the Construct3-Cookbook clone, or symlinks in the project that
+   point to them.
    Replace `<path-to>` in place, or keep it and add a line `- path-to =
    <folder>` above it for the folder that holds the clones. The skill's
    scripts read both forms.
 3. The block expects the `Construct3-Manual`, `Construct-Example-Projects`
-   and `Construct-Addon-SDK` clones beside this repository, where the README
-   places them. If a clone is kept elsewhere, give it a line of its own.
+   and `Construct-Addon-SDK` clones beside the Construct3-RAG clone, in the
+   home folder where `setup.py` and `bootstrap.py` place them. If a clone is
+   kept elsewhere, give it a line of its own.
 4. Leave the rest of the block as it is, because `install.py` refreshes only
    an unedited block.
 
@@ -143,9 +145,9 @@ line that names a clone's folder is not an edit.
 ## Before the project exists
 
 On a machine that has only this clone, run this repository's
-`scripts/bootstrap.py --project <folder>`. It clones the sibling
-repositories that the block expects, the Cookbook among them, if they are
-missing. If the folder does not exist, it creates the folder as an empty
+`scripts/bootstrap.py --project <folder>`. It clones the repositories that
+the block expects, the Cookbook and the Manual among them, into the home
+folder, `~/Construct3`, if they are missing. If the folder does not exist, it creates the folder as an empty
 project, a copy of `Construct3-RAG/data/c3-new-project`. Then it runs
 `install.py` on the folder. The README's first section gives the clone command and this
 command to a reader who has only the URL.

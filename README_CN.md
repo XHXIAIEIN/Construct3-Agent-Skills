@@ -4,7 +4,7 @@
 
 Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://editor.construct.net/)（[推荐链接](https://www.construct.net/a/260259?t=construct3)）游戏的 skill。
 
-仓库把 `construct3-agent-plugin` skill 放在一个文件夹里：[`plugin/`](plugin/README.md)，它同时就是 Claude Code plugin。skill 读取的数据在 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) 里，clone 在本仓库旁边。有了 skill，agent 能做这些事：
+仓库把 `construct3-agent-plugin` skill 放在一个文件夹里：[`plugin/`](plugin/README.md)，它同时就是 Claude Code plugin。skill 读取的数据在 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) 里，clone 在各个 clone 的主文件夹 `~/Construct3` 里。有了 skill，agent 能做这些事：
 
 - 查手册：按名字或用途找到 Construct 的条件、动作和表达式，以及插件和行为的脚本 API。每个结果都带着参数和要写的 JSON。
 - 按定义写：动手之前，agent 先查编辑器定义的每一个条件、动作、表达式和滤镜。然后它直接编辑项目的 JSON 文件，所以写出的值都是编辑器接受的值。
@@ -25,58 +25,47 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 ## Agent 使用指南
 
 1. 安装 Git 和 Python 3.10 或更新。
-2. clone 本仓库。`$HOME/Construct3` 是示例位置，所以按用户的机器和习惯选一个位置：
+2. clone 本仓库，再运行它的 `bootstrap.py`。`$HOME/Construct3` 是脚本最先查找各个 clone 的主文件夹，所以本仓库也放在这里，除非用户的机器上有别的惯用位置：
 
    ```bash
    git clone https://github.com/XHXIAIEIN/Construct3-Agent-Skills $HOME/Construct3/Construct3-Agent-Skills
    ```
 
-   把数据和事件表指引 clone 到它旁边。它们各有自己的仓库，编辑器新版本的数据和新的陷阱条目 `git pull` 就能拿到：
-
    ```bash
-   git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG $HOME/Construct3/Construct3-RAG
+   python $HOME/Construct3/Construct3-Agent-Skills/scripts/bootstrap.py --project MyGame
    ```
 
-   ```bash
-   git clone https://github.com/XHXIAIEIN/Construct3-Cookbook $HOME/Construct3/Construct3-Cookbook
-   ```
+   `bootstrap.py` 把数据（[Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG)）、事件表指引（[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook)）和手册（[Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual)）clone 到 `$HOME/Construct3`，或 `CONSTRUCT3_HOME` 指定的文件夹；已经有 clone 的仓库不再 clone。它们各有自己的仓库，编辑器新版本的数据和新的陷阱条目 `git pull` 就能拿到。数据默认只有英文；要编辑器的中文措辞，加 `--locales zh-CN`；要官方示例（864 MB）和 Addon SDK，加 `--all`。
 
-3. 如果用户还没有项目，从编辑器保存的空项目新建一个文件夹项目：
-
-   ```bash
-   python $HOME/Construct3/Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/new_project.py MyGame
-   ```
-
-4. 把 skill 安装进项目文件夹：
-
-   ```bash
-   python $HOME/Construct3/Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/install.py --project MyGame
-   ```
-
-   `install.py` 把 skill 复制到项目的 `.agents/skills/`。它还在项目的 `AGENTS.md` 里加一段，这一段告诉 agent 数据在哪里。要把副本放到 Claude Code 读取的位置，加 `--into .claude/skills`。
+   如果 `MyGame` 还不存在，`bootstrap.py` 从编辑器保存的空项目在各个 clone 旁边新建它，再把 skill 装进去：`install.py` 把 skill 复制到项目的 `.agents/skills/`，并在项目的 `AGENTS.md` 里加一段，这一段告诉 agent 各个 clone 在哪里。要把副本放到 Claude Code 读取的位置，加 `--into .claude/skills`。
 
    其他 agent 读各自的文件夹：TRAE 加 `--into .trae/skills`，WorkBuddy 加 `--into .workbuddy/skills`，Cursor 加 `--into .cursor/skills`。Cursor 也读 `.agents/skills/`，所以默认位置的副本它已经能读到；TRAE 在设置里打开这一项后，也会读这个文件夹。
-5. 读 `MyGame/AGENTS.md`，再读安装好的 `SKILL.md`。按 `SKILL.md` 的指令和流程向用户交付项目。`install.py` 打印的最后一行就是 `SKILL.md` 的路径。
+3. 读 `MyGame/AGENTS.md`，再读安装好的 `SKILL.md`。按 `SKILL.md` 的指令和流程向用户交付项目。`bootstrap.py` 打印的最后一行就是 `SKILL.md` 的路径。
 
 ## Claude Code plugin
 
-`plugin/` 同时是一个 Claude Code plugin，名为 `construct3`。用户问到 Construct 3 项目时，它自动加载 skill。它还添加五个子 agent 类型。`construct3:project-worker` 接手主 agent 交出去的改动或查询。`construct3:art-drawer` 按 `art.py` 写的 brief 用 SVG 画出生成游戏的图，返回前先看自己的联系表；用户给了游戏的风格时，它先通过 `pick_look.py` 把游戏的第一屏画成三种风格，让用户挑一种。`construct3:look-judge` 回答 `review_look.py` 对截图提出的问题，`construct3:design-judge` 回答 `review_design.py` 对事件表提出的问题，`construct3:recording-describer` 按运行前写好的开放式问题，描述 `preview_project.py` 为一次改动录下的帧：三者都没看过项目和需求，只能读文件。这个 plugin 有三种安装方式：
+`plugin/` 同时是一个 Claude Code plugin，名为 `construct3`。用户问到 Construct 3 项目时，它自动加载 skill。它还添加五个子 agent 类型。`construct3:project-worker` 接手主 agent 交出去的改动或查询。`construct3:art-drawer` 按 `art.py` 写的 brief 用 SVG 画出生成游戏的图，返回前先看自己的联系表；用户给了游戏的风格时，它先通过 `pick_look.py` 把游戏的第一屏画成三种风格，让用户挑一种。`construct3:look-judge` 回答 `review_look.py` 对截图提出的问题，`construct3:design-judge` 回答 `review_design.py` 对事件表提出的问题，`construct3:recording-describer` 按运行前写好的开放式问题，描述 `preview_project.py` 为一次改动录下的帧：三者都没看过项目和需求，只能读文件。设置分三步：
 
-- 从 [Claude 插件目录](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory)安装，得到 Anthropic 审核过的版本。每个版本都要等审核，所以这份副本可能比本仓库落后几个提交。
-- 把本仓库作为插件市场安装，跟上发布的版本。在 Claude 里打开 设置 > 自定义 > 插件。点右上角的 添加 > 添加市场 > 从仓库添加，填入 `https://github.com/XHXIAIEIN/Construct3-Agent-Skills`，再点同步。在终端里做同样的事，运行：
+1. 安装 plugin，有三种方式：
 
-  ```bash
-  claude plugin marketplace add XHXIAIEIN/Construct3-Agent-Skills
-  claude plugin install construct3@construct3-agent-skills
-  ```
+   - 从 [Claude 插件目录](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory)安装，得到 Anthropic 审核过的版本。每个版本都要等审核，所以这份副本可能比本仓库落后几个提交。
+   - 把本仓库作为插件市场安装，跟上发布的版本。在 Claude 里打开 设置 > 自定义 > 插件。点右上角的 添加 > 添加市场 > 从仓库添加，填入 `https://github.com/XHXIAIEIN/Construct3-Agent-Skills`，再点同步。在终端里做同样的事，运行：
 
-- 从 clone 安装，让下一个会话用上 `git pull` 拉下来的文件。把仓库里的 `plugin/` 链接到 Claude Code 的 skills 文件夹：
-  - PowerShell：`New-Item -ItemType Junction -Path ~/.claude/skills/construct3 -Target <clone 路径>/plugin`
-  - 其他 shell：`ln -s <clone 路径>/plugin ~/.claude/skills/construct3`
+     ```bash
+     claude plugin marketplace add XHXIAIEIN/Construct3-Agent-Skills
+     claude plugin install construct3@construct3-agent-skills
+     ```
 
-如果装了市场那份或链接了 clone，Claude Code 加载那一份，忽略插件目录里的副本。
+   - 从 clone 安装，让下一个会话用上 `git pull` 拉下来的文件。把仓库里的 `plugin/` 链接到 Claude Code 的 skills 文件夹：
+     - PowerShell：`New-Item -ItemType Junction -Path ~/.claude/skills/construct3 -Target <clone 路径>/plugin`
+     - 其他 shell：`ln -s <clone 路径>/plugin ~/.claude/skills/construct3`
 
-插件里既不带数据，也不带事件表指引。先把 [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) clone 一次到插件文件夹旁边，或者用环境变量 `CONSTRUCT3_RAG` 指明 clone 的位置；没 clone 之前，每个读数据的脚本都会停下并打印 `git clone` 命令。[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) 也 clone 一次；没 clone 之前，脚本会打印它的 `git clone` 命令，agent 设计时就读不到陷阱条目。`check_project.py` 让两个 clone 保持最新：clone 落后上游、又没有自己的改动时，它会自动 pull。脚本在 Construct3-RAG 或本仓库旁边找这个 clone，也认环境变量 `CONSTRUCT3_COOKBOOK` 和游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook: <文件夹>` 行。
+   如果装了市场那份或链接了 clone，Claude Code 加载那一份，忽略插件目录里的副本。
+
+2. 让 Claude 把 Construct3 设置好。插件里既不带数据，也不带事件表指引，所以 Claude 运行 skill 的 `setup.py`。它检查 Python 3.10 或更新和 git，并一次列出 skill 要读、但还缺的每个仓库，各带大小。[Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG)（数据）、[Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook)（事件表指引）和 [Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) 是必需的；Construct-Example-Projects（864 MB）和 Construct-Addon-SDK 可选。Claude 先问你别处是否已有这些 clone，再把你同意的 clone 到 `~/Construct3`，或 `CONSTRUCT3_HOME` 指定的文件夹。数据默认只有英文；要编辑器的中文措辞，告诉 Claude 要中文。放在别处的 clone 用 `CONSTRUCT3_RAG`、`CONSTRUCT3_COOKBOOK` 指明，或者写进游戏项目 `AGENTS.md` 的 `Construct3-RAG: <文件夹>`、`Construct3-Cookbook: <文件夹>` 行。
+3. 在项目文件夹里向 Claude 问 Construct 3 项目的事，或者在空文件夹里让它新建项目。
+
+`check_project.py` 让各个 clone 保持最新：clone 落后上游、又没有自己的改动时，它会自动 pull。
 
 你可以在 Cookbook 之外放一份自己的坑点，不用 fork 它。把它们放进一个和 Cookbook 的 `guides/` 结构相同的文件夹，每条坑点是 `plugins/sprite.md`、`behaviors/tween.md` 这类页面里的一个列表项。用游戏项目 `AGENTS.md` 里的 `Construct3-Cookbook-extra: <文件夹>` 行指明这个文件夹，相对路径从这个文件所在的文件夹算起；也可以用环境变量 `CONSTRUCT3_COOKBOOK_EXTRA`。之后 `search_guides.py` 也搜你的条目，命中的词一样多时排在前面；`lookup_ace.py` 在条目后列出插件页面时，先列你的。设计指引和检查器引用的页面仍然只用 Cookbook 的。
 
@@ -103,7 +92,7 @@ Construct3-Agent-Skills 是一套让 AI agent 制作 [Construct 3](https://edito
 ```
 plugin/                 plugin 本身：skills/ 下是 skill，还有清单、README、图标和子 agent
 dev/                    只有维护者用的东西：evals、tests/、scripts/（build_plugin.py 设置插件版本），以及 AGENTS.md：改 skill 和构建 plugin/ 的指南
-scripts/                bootstrap.py：clone 兄弟仓库并安装 skill
+scripts/                bootstrap.py：clone skill 要读的仓库并安装 skill
 docs/                   决策记录和审查
 .claude-plugin/         给 Claude Code 的 marketplace 清单，指向 plugin/
 .claude/agents/         给本仓库会话用的 ace-lookup 子 agent
@@ -115,8 +104,8 @@ AGENTS.md               给 AI agent 的指南；维护者从 dev/AGENTS.md 开�
 
 | 仓库 | 内容 |
 |------|------|
-| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | 数据：编辑器定义的每一个条件、动作、表达式和滤镜，示例索引、语言包和 TypeScript 定义。每个版本发布时，数据从 Construct 3 CDN 刷新。skill 的脚本读取放在本仓库旁边的那个仓库的 clone，所以 `git pull` 这个 clone 就能拿到新版本。 |
-| [XHXIAIEIN/Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) | 事件表指引：怎么设计事件、带出处的运行时陷阱、官方示例的写法，以及手感、菜单、对话和工程文件的做法。脚本从放在本仓库旁边的 clone 里读取。 |
+| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | 数据：编辑器定义的每一个条件、动作、表达式和滤镜，示例索引、语言包和 TypeScript 定义。每个版本发布时，数据从 Construct 3 CDN 刷新。skill 的脚本读取主文件夹里那个仓库的 clone，所以 `git pull` 这个 clone 就能拿到新版本。 |
+| [XHXIAIEIN/Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) | 事件表指引：怎么设计事件、带出处的运行时陷阱、官方示例的写法，以及手感、菜单、对话和工程文件的做法。脚本从主文件夹里的 clone 读取。 |
 | [XHXIAIEIN/Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) | 官方手册、Addon SDK 指南和 Game Services 文档的 Markdown 版。数据给出名称和参数，手册说明它们做什么。 |
 | [Scirra/Construct-Example-Projects](https://github.com/Scirra/Construct-Example-Projects) | 示例浏览器里的每一个官方示例，保存为文件夹项目。`search_guides.py` 按主题找到它们。 |
 | [Scirra/Construct-Addon-SDK](https://github.com/Scirra/Construct-Addon-SDK) | 自定义插件、行为、滤镜和主题的模板和文档。 |

@@ -19,7 +19,9 @@ scripts read through `--rag`.
   that `CONSTRUCT3_COOKBOOK` or the folder beside the clones holds, and a
   test that reads them is marked `NEEDS_COOKBOOK`.
 - A skip reason names the command that supplies what is missing
-  (`python scripts/bootstrap.py`, `pip install pillow`). A sibling clone's
+  (`python scripts/bootstrap.py`, `pip install pillow`). The tests read the
+  zh-CN data and the examples, so a machine that `bootstrap.py` sets up for
+  them needs `--locales zh-CN --all`. A sibling clone's
   path comes from `siblings_folder`, as `EXAMPLES` in `skill_helpers.py`
   does: in a worktree `REPO.parent` is not the folder that holds the
   clones, and `test_sibling_paths.py` fails on it.

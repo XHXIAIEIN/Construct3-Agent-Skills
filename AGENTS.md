@@ -12,8 +12,10 @@ The plugin holds no data. The scripts read it from a clone of
 the schemas of every Construct 3 condition, action, expression and effect in
 English and Chinese, the editor texts, the example index, the TypeScript
 definitions and an empty project to start from, with their update pipeline.
-They find the clone beside this one, and without one they print the
-`git clone` command (`docs/decisions/plugin-reads-the-clones.md`). Below,
+They find the clone in the home folder of the clones, `~/Construct3`, or
+beside this one. Without one they point to `setup.py`, which lists every
+missing clone with its command (`docs/decisions/plugin-reads-the-clones.md`,
+`docs/decisions/clones-home.md`). Below,
 `Construct3-RAG/...` names a file of that clone.
 
 The guides to event sheet design, the pitfalls among them, live in
@@ -80,8 +82,8 @@ and follow `Construct3-Cookbook/guides/design/thinking.md`. Then verify the
 names as section 2 describes. Write the events into a project as
 `Construct3-Cookbook/guides/design/style.md` describes, because that file
 shows how the official examples organise, name and comment a sheet. If there
-is no Cookbook clone, give the user the `git clone` command that
-`search_guides.py` prints, and clone it once the user agrees.
+is no Cookbook clone, run `plugin/skills/construct3-agent-plugin/scripts/setup.py`,
+give the user every clone it lists, and clone them once the user agrees.
 
 A runtime behaviour of events that changes which events an agent writes is a
 pitfall. Record it in Construct3-Cookbook, not here, as that repository's
@@ -106,10 +108,10 @@ project's instruction file by hand, or change the block, read
   python plugin/skills/construct3-agent-plugin/scripts/install.py --project <game folder>
   ```
 
-  `python scripts/bootstrap.py --project <folder>` clones the missing
-  sibling repositories beside this one. If the folder does not exist, it
-  creates the folder as an empty project. Then it runs `install.py` on the
-  folder.
+  `python scripts/bootstrap.py --project <folder>` clones the required
+  repositories that are missing into the home folder, `~/Construct3`, and
+  `--all` the optional ones. If the folder does not exist, it creates the
+  folder as an empty project. Then it runs `install.py` on the folder.
 - **Claude Code.** Install the plugin from Claude's directory, from this
   repository as a marketplace, or from a clone linked into
   `~/.claude/skills/`. The skill then loads by itself when the user asks

@@ -4,7 +4,7 @@
 
 Construct3-Agent-Skills is a set of skills that let an AI agent make [Construct 3](https://editor.construct.net/) ([affiliate link](https://www.construct.net/a/260259?t=construct3)) games.
 
-The repository keeps the `construct3-agent-plugin` skill in one folder, [`plugin/`](plugin/README.md), which is also the Claude Code plugin. The data that the skill reads is in [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), cloned beside this repository. With the skill, an agent can do these things:
+The repository keeps the `construct3-agent-plugin` skill in one folder, [`plugin/`](plugin/README.md), which is also the Claude Code plugin. The data that the skill reads is in [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG), cloned into the home folder of the clones, `~/Construct3`. With the skill, an agent can do these things:
 
 - Look the manual up: find Construct's conditions, actions and expressions by name or purpose, and the scripting API of its plugins and behaviors. Each result comes with its parameters and the JSON to write.
 - Write by the definitions: before it changes anything, the agent looks up each condition, action, expression and effect as the editor defines it. Then it edits the project's JSON files directly, so it writes only values that the editor accepts.
@@ -25,58 +25,47 @@ The repository keeps the `construct3-agent-plugin` skill in one folder, [`plugin
 ## Agent guide
 
 1. Install Git and Python 3.10 or later.
-2. Clone this repository. `$HOME/Construct3` is an example location, so pick a location that fits the user's machine and habits:
+2. Clone this repository, then run its `bootstrap.py`. `$HOME/Construct3` is the home folder where the scripts look for the clones first, so keep this repository there too unless the user's machine has another place for it:
 
    ```bash
    git clone https://github.com/XHXIAIEIN/Construct3-Agent-Skills $HOME/Construct3/Construct3-Agent-Skills
    ```
 
-   Clone the data and the event sheet guides beside it. They live in their own repositories, so a new release of the editor's data and a new pitfall arrive with `git pull`:
-
    ```bash
-   git clone --depth 1 https://github.com/XHXIAIEIN/Construct3-RAG $HOME/Construct3/Construct3-RAG
+   python $HOME/Construct3/Construct3-Agent-Skills/scripts/bootstrap.py --project MyGame
    ```
 
-   ```bash
-   git clone https://github.com/XHXIAIEIN/Construct3-Cookbook $HOME/Construct3/Construct3-Cookbook
-   ```
+   `bootstrap.py` clones the data ([Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG)), the event sheet guides ([Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook)) and the manual ([Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual)) into `$HOME/Construct3`, or the folder that `CONSTRUCT3_HOME` names, each only when there is no clone of it yet. They live in their own repositories, so a new release of the editor's data and a new pitfall arrive with `git pull`. The data is English; add `--locales zh-CN` for the editor's Chinese wording, and `--all` for the official examples (864 MB) and the Addon SDK.
 
-3. If the user has no project yet, start a folder project from the empty project that the editor saves:
-
-   ```bash
-   python $HOME/Construct3/Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/new_project.py MyGame
-   ```
-
-4. Install the skill into the project folder:
-
-   ```bash
-   python $HOME/Construct3/Construct3-Agent-Skills/plugin/skills/construct3-agent-plugin/scripts/install.py --project MyGame
-   ```
-
-   `install.py` copies the skill into the project's `.agents/skills/`. It also adds a block to the project's `AGENTS.md`, and this block tells the agent where the data is. To put the copy where Claude Code reads it, add `--into .claude/skills`.
+   If `MyGame` does not exist yet, `bootstrap.py` creates it beside the clones from the empty project that the editor saves. Then it installs the skill into it: `install.py` copies the skill into the project's `.agents/skills/` and adds a block to the project's `AGENTS.md`, which tells the agent where the clones are. To put the copy where Claude Code reads it, add `--into .claude/skills`.
 
    Other agents read their own folders: for TRAE, add `--into .trae/skills`; for WorkBuddy, `--into .workbuddy/skills`; for Cursor, `--into .cursor/skills`. Cursor also reads `.agents/skills/`, so the default copy already reaches it, and TRAE reads that folder once it is turned on in TRAE's settings.
-5. Read `MyGame/AGENTS.md`, then the installed `SKILL.md`. Deliver the project by the instructions and the process of `SKILL.md`. The last line that `install.py` prints gives the path of `SKILL.md`.
+3. Read `MyGame/AGENTS.md`, then the installed `SKILL.md`. Deliver the project by the instructions and the process of `SKILL.md`. The last line that `bootstrap.py` prints gives the path of `SKILL.md`.
 
 ## The Claude Code plugin
 
-`plugin/` is also a Claude Code plugin, `construct3`. It loads the skill on its own when the user asks about a Construct 3 project. It also adds five sub-agent types. `construct3:project-worker` takes a change or a lookup that the main agent hands over. `construct3:art-drawer` draws a generated game's pictures as SVG from the brief that `art.py` writes, and reads its own contact sheet before it returns; when the user gave the game a look, it first draws the game's first screen in three looks for the user to pick from, through `pick_look.py`. `construct3:look-judge` answers the questions that `review_look.py` asks about its screenshots, `construct3:design-judge` the questions that `review_design.py` asks about the event sheets, and `construct3:recording-describer` describes the frames of a recording that `preview_project.py` made of a change, against open questions written before the run: none of the three has seen the project or the request, and all three can only read. Install the plugin in one of three ways:
+`plugin/` is also a Claude Code plugin, `construct3`. It loads the skill on its own when the user asks about a Construct 3 project. It also adds five sub-agent types. `construct3:project-worker` takes a change or a lookup that the main agent hands over. `construct3:art-drawer` draws a generated game's pictures as SVG from the brief that `art.py` writes, and reads its own contact sheet before it returns; when the user gave the game a look, it first draws the game's first screen in three looks for the user to pick from, through `pick_look.py`. `construct3:look-judge` answers the questions that `review_look.py` asks about its screenshots, `construct3:design-judge` the questions that `review_design.py` asks about the event sheets, and `construct3:recording-describer` describes the frames of a recording that `preview_project.py` made of a change, against open questions written before the run: none of the three has seen the project or the request, and all three can only read. Set it up in three steps:
 
-- From [Claude's plugin directory](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory), to get the versions that Anthropic has reviewed. Each version waits for a review, so this copy can be some commits behind this repository.
-- From this repository as a marketplace, to follow the released versions. In Claude, open Settings > Customize > Plugins. Select Add in the top right corner > Add marketplace > From a repository, enter `https://github.com/XHXIAIEIN/Construct3-Agent-Skills` and select Sync. To do the same from a terminal, run:
+1. Install the plugin in one of three ways:
 
-  ```bash
-  claude plugin marketplace add XHXIAIEIN/Construct3-Agent-Skills
-  claude plugin install construct3@construct3-agent-skills
-  ```
+   - From [Claude's plugin directory](https://claude.ai/customize/plugins/id/2c35f2eb-0ace-4008-bad4-047926c65d16%40anthropic-plugin-directory), to get the versions that Anthropic has reviewed. Each version waits for a review, so this copy can be some commits behind this repository.
+   - From this repository as a marketplace, to follow the released versions. In Claude, open Settings > Customize > Plugins. Select Add in the top right corner > Add marketplace > From a repository, enter `https://github.com/XHXIAIEIN/Construct3-Agent-Skills` and select Sync. To do the same from a terminal, run:
 
-- From a clone, so that the next session uses the files that `git pull` fetched. Link the repository's `plugin/` into Claude Code's skills folder:
-  - PowerShell: `New-Item -ItemType Junction -Path ~/.claude/skills/construct3 -Target <the clone>/plugin`
-  - Other shells: `ln -s <the clone>/plugin ~/.claude/skills/construct3`
+     ```bash
+     claude plugin marketplace add XHXIAIEIN/Construct3-Agent-Skills
+     claude plugin install construct3@construct3-agent-skills
+     ```
 
-If the marketplace install or the linked clone is present, Claude Code loads that copy and ignores the copy from the plugin directory.
+   - From a clone, so that the next session uses the files that `git pull` fetched. Link the repository's `plugin/` into Claude Code's skills folder:
+     - PowerShell: `New-Item -ItemType Junction -Path ~/.claude/skills/construct3 -Target <the clone>/plugin`
+     - Other shells: `ln -s <the clone>/plugin ~/.claude/skills/construct3`
 
-The plugin holds neither the data nor the event sheet guides. Clone [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) once beside the plugin's folder, or name the clone with the `CONSTRUCT3_RAG` environment variable; until then, every script that reads the data stops with the `git clone` command. Clone [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) once too; until then, the scripts print its `git clone` command, and the agent designs without the pitfalls. `check_project.py` keeps both current: it pulls a clone that is behind its upstream and holds no work of its own. The scripts find the clone beside Construct3-RAG or this repository, through the `CONSTRUCT3_COOKBOOK` environment variable, or through a `Construct3-Cookbook: <folder>` line in the game project's `AGENTS.md`.
+   If the marketplace install or the linked clone is present, Claude Code loads that copy and ignores the copy from the plugin directory.
+
+2. Ask Claude to set Construct3 up. The plugin holds neither the data nor the event sheet guides, so Claude runs the skill's `setup.py`. It checks Python 3.10 or later and git, and lists at once every repository the skill reads that is missing, each with its size. [Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) (the data), [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) (the event sheet guides) and [Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) are required; Construct-Example-Projects (864 MB) and Construct-Addon-SDK are optional. Claude asks whether you already have any of them elsewhere, then clones the ones you agree to into `~/Construct3`, or the folder that `CONSTRUCT3_HOME` names. The data is English; ask for Chinese to get the editor's Chinese wording too. A clone you keep elsewhere is named with `CONSTRUCT3_RAG` or `CONSTRUCT3_COOKBOOK`, or with a `Construct3-RAG: <folder>` or `Construct3-Cookbook: <folder>` line in the game project's `AGENTS.md`.
+3. Ask Claude about a Construct 3 project in its folder, or for a new project in an empty folder.
+
+`check_project.py` keeps the clones current: it pulls a clone that is behind its upstream and holds no work of its own.
 
 You can keep pitfalls of your own beside the Cookbook's, without forking it. Put them in a folder laid out like the Cookbook's `guides/`, one bullet per pitfall in a page such as `plugins/sprite.md` or `behaviors/tween.md`. Name the folder with a `Construct3-Cookbook-extra: <folder>` line in the game project's `AGENTS.md`, where a relative path starts at that file's folder, or with the `CONSTRUCT3_COOKBOOK_EXTRA` environment variable. `search_guides.py` then searches your entries too, and puts them first among entries that hold as many of the words. `lookup_ace.py` lists your page of an addon first after an entry. The design guides and the checker's references stay the Cookbook's.
 
@@ -103,7 +92,7 @@ If the problems happened in earlier sessions or in another project, add which pr
 ```
 plugin/                 The plugin: the skill under skills/, the manifest, README and icon, and the sub-agents
 dev/                    What only maintainers use: the evals, tests/, scripts/ (build_plugin.py sets the plugin's version) and AGENTS.md, the guide to changing the skill and building plugin/
-scripts/                bootstrap.py, which clones the siblings and installs the skill
+scripts/                bootstrap.py, which clones the repositories the skill reads and installs the skill
 docs/                   The decision records and the audit
 .claude-plugin/         The marketplace manifest for Claude Code, which names plugin/
 .claude/agents/         The ace-lookup sub-agent for sessions in this repository
@@ -115,8 +104,8 @@ AGENTS.md               The guide for AI agents; maintainers start from dev/AGEN
 
 | Repository | Content |
 |------------|---------|
-| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | The data: every condition, action, expression and effect as the editor defines them, the example index, the language packs and the TypeScript definitions. The data is refreshed from the Construct 3 CDN for each release. The skill's scripts read a clone of that repository beside this one, so `git pull` of the clone brings a new release. |
-| [XHXIAIEIN/Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) | The event sheet guides: how to design events, the runtime pitfalls with their sources, the examples' style, and recipes for feel, menus, dialogue and the project files. The scripts read them from a clone beside this one. |
+| [XHXIAIEIN/Construct3-RAG](https://github.com/XHXIAIEIN/Construct3-RAG) | The data: every condition, action, expression and effect as the editor defines them, the example index, the language packs and the TypeScript definitions. The data is refreshed from the Construct 3 CDN for each release. The skill's scripts read a clone of that repository in the home folder of the clones, so `git pull` of the clone brings a new release. |
+| [XHXIAIEIN/Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook) | The event sheet guides: how to design events, the runtime pitfalls with their sources, the examples' style, and recipes for feel, menus, dialogue and the project files. The scripts read them from a clone in the home folder. |
 | [XHXIAIEIN/Construct3-Manual](https://github.com/XHXIAIEIN/Construct3-Manual) | The official manual, the Addon SDK guide and the Game Services docs, as Markdown. The data gives the names and parameters, and the manual says what they do. |
 | [Scirra/Construct-Example-Projects](https://github.com/Scirra/Construct-Example-Projects) | Every example from the Construct example browser, saved as a folder project. `search_guides.py` finds them by topic. |
 | [Scirra/Construct-Addon-SDK](https://github.com/Scirra/Construct-Addon-SDK) | Templates and documentation for custom plugins, behaviors, effects and themes. |
