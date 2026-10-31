@@ -151,7 +151,7 @@ The folder's own files:
   a recording's brief and frames (`recording-describer.md`).
 - The skill's fonts stay out. The generator takes Inter from the user's
   font cache and draws a missing font in `system-ui`
-  (`paper-and-ink-look.md`), so the plugin has no need of them, and their
+  (`default-look.md`), so the plugin has no need of them, and their
   91 KiB count against the size limit.
 
 Text files under `plugin/data/` are written with LF line endings, as Git

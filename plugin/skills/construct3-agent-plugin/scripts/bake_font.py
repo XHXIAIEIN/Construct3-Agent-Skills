@@ -58,7 +58,7 @@ import c3project as c3
 MANIFEST = "tools/pixel-font.json"
 COLUMNS = 32                                # cells a row of the image
 # Spaces of U+2002 to U+200A in em, as SPACE_EMS of the template counts them; the font has none, so
-# each is baked as a blank cell of its width. tracked() spaces a tag's letters with U+2005.
+# each is baked as a blank cell of its width.
 SPACES = {" ": 0.5, " ": 1, " ": 0.33, " ": 0.25, " ": 0.17, " ": 0.65,
           " ": 0.29, " ": 0.18, " ": 0.09}
 ASCII = "".join(map(chr, range(0x21, 0x7F)))

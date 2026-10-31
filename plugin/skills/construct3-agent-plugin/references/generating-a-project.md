@@ -118,17 +118,17 @@ direction, or references or an existing project to take it from. The plan
 then names where it comes from in `USER_LOOK`, and the user picks the look
 before any art (`look.picker`): after the generator's first run,
 `python scripts/pick_look.py` has the first play screen drawn in three
-directions, paper and ink and two from the user's look, and stops for the
+directions, the default look and two from the user's look, and stops for the
 user's pick. The pick writes `USER_LOOK`, `PALETTE` with `canvas` and
 `canvas_alt` from the backdrop, and `ART_STYLE`, and keeps its screen as
 `art/look.png`, which every picture then follows. Save the user's
 reference pictures as PNG, JPEG or WebP in `art/references/`
 (`look.references`): the draw brief gives the colours measured from them,
 and the look review shows each screen beside them. When the user gives none,
-`USER_LOOK` stays empty and the game takes paper and ink, the template's
+`USER_LOOK` stays empty and the game takes the default look, the template's
 fallback, with no picker. `assets/look-manifest.json` holds every rule of
 the look, each under an id that this file cites, with its value and its
-record. With `USER_LOOK` set, a rule of scope `paper-and-ink` stops
+record. With `USER_LOOK` set, a rule of scope `default-look` stops
 nothing, and a rule of scope `every-look` still stops the run.
 
 The plan names the art direction in one sentence, `ART_STYLE`, which the
@@ -292,7 +292,7 @@ parameters are in the template.
   every frame.
 - Before placing, sizing or colouring anything on the screen, read
   `Construct3-Cookbook/guides/project-files/new-project.md`, "Viewport, look and
-  HUD": the layout, and the paper-and-ink look that the helpers below draw
+  HUD": the layout, and the default-look look that the helpers below draw
   when the user gave no look, with the numbers behind them.
 - Positions and sizes are whole units of the placement grid, never numbers
   picked one by one. `UNIT` follows the viewport (8 px for pixel art, 32 px
@@ -317,9 +317,9 @@ parameters are in the template.
   value_type, name, where, longest=...)`: the name in `TEXT_SIZE["name"]`,
   `GAP_IN` above the value in `TEXT_SIZE["number"]` and the light weight.
   What the player is on, a round, a level or a mode, is `hud_tag(type,
-  text)` top left, a small tracked tag, and the events set it with
-  `tracked_expr()`. A title, menu or pause screen sets its texts and
-  buttons on the vertical centre line (`screen.menu-axis`): `hud_header()`
+  text)` top left, a small tag in capitals such as `ROUND 1 / 6`, and
+  the events set its text in capitals. A title, menu or pause screen sets
+  its texts and buttons on the vertical centre line (`screen.menu-axis`): `hud_header()`
   centres its title at the top with a tag under it, and a button takes
   `"center"` for its column. The run warns of an instance of a layout or
   layer named title, menu or pause that sits off the line.
@@ -408,7 +408,7 @@ parameters are in the template.
   colour stops the run with the nearest role: a new object reuses the
   game's colours or adds one under the role it plays. A painting, a
   gradient or a photograph passes `painted=True`. `check_palette()` stops
-  the run on a palette that breaks `colour.structure`, and in paper and ink
+  the run on a palette that breaks `colour.structure`, and in the default look
   `palette.greys`.
 - A sprite is `art(file, kind, w, h, role, subject)` in `build_images()`. It
   takes the picture `art/<file>` when it is there, which `scripts/art.py`
@@ -445,7 +445,7 @@ parameters are in the template.
   variables `restWidth` and `restHeight`, so a size the user sets in the
   layout editor stays. `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
-  `Collect` does; the object needs the Tween behavior. In paper and ink the
+  `Collect` does; the object needs the Tween behavior. In the default look the
   Flash behavior stops the run (`motion.hit`). A squash acts on the art,
   never on an object that collides (`motion.squash-art`): a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of

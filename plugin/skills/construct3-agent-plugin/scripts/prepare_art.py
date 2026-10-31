@@ -6,7 +6,7 @@ units, and writes the list to art/wanted.json. art.py prints one step at a
 time for the pictures of the image route. When the user gave a look,
 USER_LOOK, it first asks for the look to be picked with pick_look.py, which
 writes ART_STYLE and keeps the picked first play screen as art/look.png. While
-ART_STYLE is empty, it asks for ART_STYLE. In paper and ink, while more than
+ART_STYLE is empty, it asks for ART_STYLE. In the default look, while more than
 one sprite is to make, it asks for the key picture, a line-up of the game's
 subjects that sets the style. Then it prints a prompt per picture, which
 starts with ART_STYLE so that the pictures share one style. Each picture is
@@ -229,8 +229,8 @@ def with_refusal(item: dict, refused: dict) -> dict:
 
 
 def reference_image(root: Path, wanted: dict) -> Path | None:
-    """The reference image of every sprite's prompt: art/look.png once the user's look is picked, else in paper
-    and ink the key picture; None while there is neither."""
+    """The reference image of every sprite's prompt: art/look.png once the user's look is picked, else in the
+    default look the key picture; None while there is neither."""
     if wanted.get("user_look", "").strip():
         return root / LOOK if (root / LOOK).is_file() else None
     return raw_of(root, "_key.png")
@@ -367,7 +367,7 @@ def unpicked(root: Path, wanted: dict) -> bool:
 
 def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
     """The next step only: the look picker while the user's look is unpicked, ART_STYLE while it is
-    empty, then in paper and ink the key picture while it is missing, then a prompt per picture."""
+    empty, then in the default look the key picture while it is missing, then a prompt per picture."""
     style, items = wanted.get("style", ""), wanted["images"]
     refused = refusals(root, wanted)
     states = {item["file"]: state(root, item, refused, wanted) for item in items}
@@ -390,8 +390,8 @@ def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
                 f"art.py again"]
     out = ([f"style: {style}"] if style.strip() else []) + (style_warning(style) if making else []) + \
         warnings(making, style)
-    # The user's look was picked on its first play screen, which every prompt then refers to; paper and
-    # ink has its key picture
+    # The user's look was picked on its first play screen, which every prompt then refers to; the default
+    # look has its key picture
     key_picture = reference_image(root, wanted)
     if not wanted.get("user_look", "").strip() and len(sprites) > 1 and key_picture is None:
         shown = lineup(sprites)

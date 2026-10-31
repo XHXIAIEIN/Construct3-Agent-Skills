@@ -40,10 +40,10 @@ title screen here is any title, menu, pause or settings screen.
 | The display type is about 8 times the smallest label | Display median 10.7% of the shorter side; over the smallest label a median 8.4, 5.1 to 14.4 between the quartiles | A screen's largest text over its smallest: a median 2 on play screens, at most 5.3 (`--screens`); title images are 1.6 to 12.6 times the screen's largest text | `display` over `tag`: 4.3 at 1080, 6.4 at 720, 2 in pixel art | `type.scale-contrast`, rejected |
 | Labels at 11 px | Smallest label a median 1.2% of the shorter side | The smallest text of every example is at least 1.78% | `type.min-size` holds 1.75% | `type.small-labels`, rejected |
 | Counters and labels in a monospaced face | 37 | 4 of 81 examples show a monospaced face on a screen | Inter, light for the count | `type.mono-labels`, rejected |
-| Small labels in tracked capitals | 84 uppercase, 21 also tracked | 46 of 59 lettered texts on title screens are capitals, but the 9 screens set all in capitals belong to 4 examples; 20 of 219 on play screens | `tracked()` sets a tag in tracked capitals | `type.caps-menu`, rejected |
+| Small labels in tracked capitals | 84 uppercase, 21 also tracked | 46 of 59 lettered texts on title screens are capitals, but the 9 screens set all in capitals belong to 4 examples; 20 of 219 on play screens | `hud_tag()` sets a tag in capitals | `type.caps-menu`, rejected |
 | One family for display and body | 105 one family, 95 two | 77 of 81 examples show one face on their screens | Inter in three weights | Already held by `type.inter` |
-| A dark ground | 105 dark, 66 light, 29 between | Play screens: lightness a median 0.37, 36 of 99 dark and 14 light; title screens 9 of 15 dark | Paper and ink is white; a picked look sets its own | `colour.dark-ground`, rejected |
-| A neutral ground, the hue left to the accents | Ground chroma a median 0.02, 0.07 at the third quartile | Play screens' ground chroma a median 0.055, 0.19 at the third quartile | Paper and ink's grounds are grey | `colour.neutral-ground`, rejected for every look |
+| A dark ground | 105 dark, 66 light, 29 between | Play screens: lightness a median 0.37, 36 of 99 dark and 14 light; title screens 9 of 15 dark | The default look is white; a picked look sets its own | `colour.dark-ground`, rejected |
+| A neutral ground, the hue left to the accents | Ground chroma a median 0.02, 0.07 at the third quartile | Play screens' ground chroma a median 0.055, 0.19 at the third quartile | The default look's grounds are grey | `colour.neutral-ground`, rejected for every look |
 | One accent hue | 113 palettes hold one strong hue, 49 none, 38 two or more | Not measured: the examples' colours are in their images | Four accent roles, each a kind of thing | `colour.one-hue`, rejected |
 | Small labels frame the content from the corners | 72 place labels in corners, 4 in all four | Of 103 play screens, 50 hold a text in no corner, 31 in one, 19 in two and 3 in three or four | The play HUD holds three: the tag, the count and the keys | `layout.corner-frame`, rejected |
 | Entrances ease out, mostly `expo.out` | `expo.out` 91, `power3.out` 50, `power2.out` 41, `back.out` 23 | 1181 of 2196 tweens in 138 examples use `easeinoutsine`; `easeoutsine` 309, `easeoutback` 84, an expo ease 3 | `TWEEN_STYLE` by class (`motion.tween-style`, open) | `motion.ease-out-entrance`, rejected |
@@ -91,7 +91,7 @@ evidence in its `says`:
   because `review_look.py` takes its screenshot 1 s after the layout
   starts and a game restarts far more often than a page changes.
 - `screen.edge-inset` is proposed. Adopting it changes `MARGIN`, a value
-  the owner chose on the paper-and-ink prototype, and the tests that hold
+  the owner chose on the default-look prototype, and the tests that hold
   it.
 - `motion.stagger` stays proposed. The websites step 60 to 80 ms and the
   examples 0.1 to 0.25 s; the owner picks the step.

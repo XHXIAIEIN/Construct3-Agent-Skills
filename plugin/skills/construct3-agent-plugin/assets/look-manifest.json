@@ -1,7 +1,7 @@
 {
-  "name": "paper-and-ink",
+  "name": "default-look",
   "version": 1,
-  "about": "The look of a generated game and the route its art takes: what the generator template holds, what stops its run, what the user has decided and what is still open. Paper and ink is the fallback, the game's look only when the user gave none: no style, no art direction, and no references or existing project to take one from. When the user gave one, the generator names where it comes from in USER_LOOK, PALETTE, the backdrop and the art take the user's look, and only the rules of scope every-look hold; a rule of scope paper-and-ink then stops and flags nothing, and its value is a default the user's look replaces. An agent hands the model the deliver steps and runs the confirm steps on what comes back. This file is the one owner of every look rule: the skill, its references, the template's comments and the guides cite a rule by its id and do not restate it, and a script that enforces a rule reads its value here.",
+  "about": "The look of a generated game and the route its art takes: what the generator template holds, what stops its run, what the user has decided and what is still open. The default look is the fallback, the game's look only when the user gave none: no style, no art direction, and no references or existing project to take one from. When the user gave one, the generator names where it comes from in USER_LOOK, PALETTE, the backdrop and the art take the user's look, and only the rules of scope every-look hold; a rule of scope default-look then stops and flags nothing, and its value is a default the user's look replaces. An agent hands the model the deliver steps and runs the confirm steps on what comes back. This file is the one owner of every look rule: the skill, its references, the template's comments and the guides cite a rule by its id and do not restate it, and a script that enforces a rule reads its value here.",
   "template": "assets/build_project.py",
   "decisions": [
     "Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md",
@@ -22,8 +22,8 @@
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
     "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
     "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
-    "Construct3-Agent-Skills/docs/decisions/paper-and-ink-is-the-fallback.md",
-    "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md",
+    "Construct3-Agent-Skills/docs/decisions/default-look-is-the-fallback.md",
+    "Construct3-Agent-Skills/docs/decisions/default-look.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
     "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md",
@@ -33,7 +33,7 @@
     "https://github.com/XHXIAIEIN/Construct3-RAG/blob/main/docs/decisions/published-game-visual-language.md"
   ],
   "status": {
-    "enforced": "held by the template, and a check stops the generator's run when it is broken; for a rule of scope paper-and-ink, only while USER_LOOK is empty",
+    "enforced": "held by the template, and a check stops the generator's run when it is broken; for a rule of scope default-look, only while USER_LOOK is empty",
     "adopted": "decided by the user; held by the template where it names a template value, else for the generator to follow; no check",
     "open": "the template holds a value the user has not chosen yet",
     "proposed": "evidence only; not in the template",
@@ -41,7 +41,7 @@
   },
   "scope": {
     "every-look": "holds whatever look the game has: contrast, the grid, a clean alpha channel, the screen, the layout's spacing, the art's route and the pacing",
-    "paper-and-ink": "the fallback look's taste: holds only while USER_LOOK is empty, the user having given no look; with USER_LOOK set, its check stops and flags nothing"
+    "default-look": "the fallback look's taste: holds only while USER_LOOK is empty, the user having given no look; with USER_LOOK set, its check stops and flags nothing"
   },
   "rules": [
     {
@@ -52,7 +52,7 @@
       "says": "A clear pixel is (0, 0, 0, 0), with no colour hidden under it to bleed into the edge when the image is scaled. A pixel-art image holds three alpha values, 0, 255 and the shadow's, so its edges stay hard; in a viewport taller than 360 px the edges are antialiased, their alpha the share of the pixel the shape covers.",
       "template": "write_png(), alphas()",
       "confirm": "check_look.py: alpha.pure",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "grid.unit",
@@ -102,7 +102,7 @@
       "strict": true,
       "says": "Every pixel of an image the template draws is a colour of PALETTE, whichever look it holds, named by the role it plays. The runtime's blends are outside it: an instance's opacity, a fade and the shadow's alpha.",
       "template": "PALETTE, rgb(), write_png()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "text.contrast",
@@ -119,12 +119,12 @@
     {
       "id": "type.inter",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "Labels are Inter in three weights, WOFF files that the generator copies from the user's font cache into fonts/ and lists; the skill and the plugin carry no font file. Light for the count the player plays for, regular for labels, tags and verbs, medium for titles and keys; a weight missing from the cache draws in system-ui with a warning, and Chinese falls back to the platform's face. Never bold: a weight is a file. In pixel art the labels are Sprite Fonts of PIXEL_FONT (type.pixel-font).",
       "template": "FONT",
       "value": "{'light': 'InterDisplay-Light', 'regular': 'Inter-Regular', 'medium': 'Inter-Medium'}",
       "helpers": "face(), copy_fonts()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "type.pixel-font",
@@ -141,12 +141,12 @@
     {
       "id": "type.sizes",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "Sizes by kind of text, the prototype's px at 720 high as points, scaled to the viewport's shorter side, so its tag reaches TEXT_MIN: a tracked tag 10, the name of a stat or a key 11, body text 12, a screen's title 20, the count 40; a banner two units.",
+      "scope": "default-look",
+      "says": "Sizes by kind of text, the prototype's px at 720 high as points, scaled to the viewport's shorter side, so its tag reaches TEXT_MIN: a tag 10, the name of a stat or a key 11, body text 12, a screen's title 20, the count 40; a banner two units.",
       "template": "TEXT_SIZE",
       "value": "{'tag': 15, 'name': 16, 'body': 18, 'title': 30, 'number': 60, 'display': 64}",
-      "helpers": "text_size(), tracked()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "helpers": "text_size()",
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "type.scale",
@@ -163,7 +163,7 @@
       "status": "enforced",
       "scope": "every-look",
       "strict": true,
-      "says": "A label's letters are at least 1.75% of the viewport's shorter side high, in every look: the smallest text of every official 2D game example is at least 1.78%, and video styles set nothing meant to be read under 1/54 of the frame's height. A smaller label stops the run with the kinds of TEXT_SIZE to raise and the size they need. Paper and ink's tag is 1.85%, 15 pt at 1080; a pixel-art letter, one unit, is 2.2% or more of a viewport 360 px high or less.",
+      "says": "A label's letters are at least 1.75% of the viewport's shorter side high, in every look: the smallest text of every official 2D game example is at least 1.78%, and video styles set nothing meant to be read under 1/54 of the frame's height. A smaller label stops the run with the kinds of TEXT_SIZE to raise and the size they need. The default look's tag is 1.85%, 15 pt at 1080; a pixel-art letter, one unit, is 2.2% or more of a viewport 360 px high or less.",
       "template": "TEXT_MIN",
       "value": "0.0175",
       "helpers": "on_scale(), em_px()",
@@ -189,12 +189,12 @@
     {
       "id": "lines.areas",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "A region or a range is a zone drawn as lines: a LINE px edge in solid over a canvas_alt fill, a 9-patch tiled at its size; a ring around the play is a ring in the line grey, a reach a dashed ring. A slot is a disc of canvas_alt the size of what fills it, and a board of slots has no frame.",
       "template": "LINE",
       "value": "max(1, round(min(VIEW_W, VIEW_H) / 720))",
       "helpers": "zone_image(), zone(), ring(), ring_cover()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "touch.target",
@@ -214,42 +214,42 @@
       "source": "Construct3-Agent-Skills/docs/decisions/ui-ux-pro-max-data.md"
     },
     {
-      "id": "hud.paper",
+      "id": "hud.default",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "No game name on the screen the player plays on: the round, the level or the mode top left as a small dim tag in tracked capitals; the count the player plays for top right, a small dim name over a large light number; the controls bottom left as keys in thin ink boxes with their verbs, dimmed to 35% once the player has used them; MARGIN a fifteenth of the shorter side in whole units.",
+      "scope": "default-look",
+      "says": "No game name on the screen the player plays on: the round, the level or the mode top left as a small dim tag in capitals, \"ROUND 1 / 6\" (hud.tag-plain); the count the player plays for top right, a small dim name over a large light number; the controls bottom left as keys in thin ink boxes with their verbs, dimmed to 35% once the player has used them; MARGIN a fifteenth of the shorter side in whole units.",
       "template": "MARGIN",
       "value": "max(1, int(min(VIEW_W, VIEW_H) / 15 / UNIT)) * UNIT",
       "helpers": "hud_tag(), hud_stat(), hud_keys(), hints()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "subject.size",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "In an open field the player and what it meets are drawn about 6% of the viewport's shorter side across, in whole units, small in a large field, and one that is tapped keeps a box TOUCH wide around its drawing; what is tapped on a board fills its TOUCH box.",
       "template": "SUBJECT",
       "value": "max(UNIT, round(0.06 * min(VIEW_W, VIEW_H) / UNIT) * UNIT)",
       "helpers": "shape(), art()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "subject.player-shape",
       "status": "adopted",
-      "scope": "paper-and-ink",
-      "says": "The player's stand-in in paper and ink is an ink rectangle, not the prototype's disc. It stands for the player's collision box, so it matches the rectangles of the scene it collides with, and its width and height show the proportions the game is tuned to.",
+      "scope": "default-look",
+      "says": "The player's stand-in in the default look is an ink rectangle, not the prototype's disc. It stands for the player's collision box, so it matches the rectangles of the scene it collides with, and its width and height show the proportions the game is tuned to.",
       "template": "shape()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "pointer.colours",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "A game the player points at things in shows the pointer as colours of the object itself: sky blue while the mouse is over it, amber for an instant when it is touched, then its own colour; frames of its image, so it keeps its shape, which need not read 3:1 on the paper. Off by default.",
       "template": "POINTER",
       "value": "False",
       "helpers": "pointer_frames(), pointer_drawn(), pointer_types(), pointer_module(), hit()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "pixel-art.sampling",
@@ -325,7 +325,7 @@
       "id": "layout.spread",
       "status": "adopted",
       "scope": "every-look",
-      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty is a warning of the generator and a finding of the look review, naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Round · 03\" is one item; a count with no word, a bar across two thirds of the screen and, in the review, the one label of an object tell none. It fires on no official 2D game example's layout.",
+      "says": "The HUD spreads over the screen's frame: a ninth of the screen off its middle that holds 3 items of the HUD while two corners stand empty is a warning of the generator and a finding of the look review, naming those corners. An item is a group, and one more for each part a label joins to another with \" · \" or \" | \" that holds a word, so \"Lives · 3\" is one item and \"Wave 3 · 12 left\" two; a count with no word, a bar across two thirds of the screen and, in the review, the one label of an object tell none. It fires on no official 2D game example's layout.",
       "template": "HUD_CROWD",
       "value": "3",
       "helpers": "spaced(), spread(), items()",
@@ -364,7 +364,7 @@
       "id": "type.two-families",
       "status": "proposed",
       "scope": "every-look",
-      "says": "The texts of a screen use at most two type families: of the official 2D game examples' 109 layouts that hold a Text, 95 use one face and 14 two, none three. One family alone, the web rule, fails 13% of them. Paper and ink's FONT holds weights of one family.",
+      "says": "The texts of a screen use at most two type families: of the official 2D game examples' 109 layouts that hold a Text, 95 use one face and 14 two, none three. One family alone, the web rule, fails 13% of them. The default look's FONT holds weights of one family.",
       "source": "Construct3-Agent-Skills/docs/decisions/web-landing-and-redesign-skills.md"
     },
     {
@@ -470,7 +470,7 @@
       "id": "type.caps-menu",
       "status": "rejected",
       "scope": "every-look",
-      "says": "A menu's texts in capitals: 46 of 59 lettered texts on the official 2D game examples' title screens are capitals, but the 9 screens set all in capitals belong to 4 of 11 examples, and play screens set 20 of 219; it is a game's style, not a rule. tracked() already sets a tag in tracked capitals.",
+      "says": "A menu's texts in capitals: 46 of 59 lettered texts on the official 2D game examples' title screens are capitals, but the 9 screens set all in capitals belong to 4 of 11 examples, and play screens set 20 of 219; it is a game's style, not a rule. hud_tag() already sets a tag in capitals.",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {
@@ -496,71 +496,67 @@
     },
     {
       "id": "hud.tag-plain",
-      "status": "proposed",
-      "scope": "paper-and-ink",
-      "says": "The fallback's tag, hud_tag(), is tracked() capitals with parts joined by \" · \" and the round padded to two digits, \"ROUND · 01 / 06\": the three devices frontend-design names as template chrome. Of the official 2D game examples' 679 texts, none spaces its letters apart and 2 join parts with a bar, none with a middle dot; at most 4 of 113 examples pad a level, round or wave. Changing the tag also changes the items layout.spread counts, which splits a label at \" · \".",
-      "options": [
-        "keep the tag as it is: the user chose it on screenshots",
-        "drop the middle dot and the padding, keep the tracked capitals: \"ROUND 1 / 6\"",
-        "a plain tag in sentence case at the tag size: \"Round 1 of 6\""
-      ],
+      "status": "adopted",
+      "scope": "default-look",
+      "says": "The default look's tag, hud_tag(), is capitals with no space between the letters, no middle dot and no zero padding: \"ROUND 1 / 6\", and the events set it the same way. The user picked it on 2026-10-31 over \"ROUND · 01 / 06\", whose spaced capitals, middle-dot join and padded round frontend-design names as template chrome. Of the official 2D game examples' 679 texts, none spaces its letters apart and 2 join parts with a bar, none with a middle dot; at most 4 of 113 examples pad a level, round or wave.",
+      "template": "hud_tag()",
       "source": "Construct3-Agent-Skills/docs/decisions/taste-skill-and-frontend-design.md"
     },
     {
       "id": "outline.width",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "An ink outline inside a shape's edge where SHAPE_STYLE turns it on, the prototype's 2 px at 720 scaled to the viewport; off on the paper, always on a hit frame.",
       "template": "SHAPE_STYLE['outline_width']",
       "value": "max(1, round(min(VIEW_W, VIEW_H) / 360))",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.form",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "No cast shadow on the paper. A game that turns it on gets a hard one: one unblurred copy of the shape, one direction for the whole scene.",
       "template": "SHAPE_STYLE['shadow']",
       "value": "False",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.distance",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "The shadow's offset, 2.7% of the viewport's shorter side.",
       "template": "SHAPE_STYLE['shadow_distance']",
       "value": "round(0.027 * min(VIEW_W, VIEW_H))",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.opacity",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "The shadow at half opacity.",
       "template": "SHAPE_STYLE['shadow_opacity']",
       "value": "0.5",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "shadow.angle",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "The shadow's direction, degrees clockwise from rightwards: down and to the right.",
       "template": "SHAPE_STYLE['shadow_angle']",
       "value": "45",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "palette.greys",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
-      "says": "Paper and ink: a white paper and a faint grey fill, a 15% ink line grey for structure the eye reads past, a 62% ink grey for edges and structure, a neutral grey dim, ink, an electric blue for what is collected, a deep orange for what hurts, a sky blue for what the pointer is over and an amber for a press, plus the hit's flash; the hues a design system's A400 accents. The player in ink. The paper and its fill at most 1.2:1, so the checker reads as texture.",
+      "says": "The default look: a white paper and a faint grey fill, a 15% ink line grey for structure the eye reads past, a 62% ink grey for edges and structure, a neutral grey dim, ink, an electric blue for what is collected, a deep orange for what hurts, a sky blue for what the pointer is over and an amber for a press, plus the hit's flash; the hues a design system's A400 accents. The player in ink. The paper and its fill at most 1.2:1, so the checker reads as texture.",
       "template": "{role: '#%02X%02X%02X' % colour for role, colour in PALETTE.items()}",
       "value": "{'canvas': '#FFFFFF', 'canvas_alt': '#EFEFEF', 'line': '#D7D7D7', 'solid': '#757575', 'dim': '#616161', 'ink': '#212121', 'reward': '#3D5AFE', 'danger': '#FF3D00', 'hover': '#00B0FF', 'pressed': '#FFC400', 'flash': '#FFFFFF'}",
       "helpers": "check_palette()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "colour.structure",
@@ -569,7 +565,7 @@
       "strict": true,
       "says": "solid, the role of edges and structure, reads at least 3:1 on canvas_alt, so structure shows without an outline, whatever colours the look gives them (WCAG 2.2, 1.4.11).",
       "template": "check_palette()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "colour.accent-contrast",
@@ -580,7 +576,7 @@
       "template": "[role for role in PALETTE if accent(role)]",
       "value": "['reward', 'danger', 'hover', 'pressed']",
       "helpers": "accent(), shape()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "colour.one-accent",
@@ -600,7 +596,7 @@
       "id": "colour.neutral-ground",
       "status": "rejected",
       "scope": "every-look",
-      "says": "A neutral ground for every look, the hue left to the accents, as motion-design websites keep theirs (ground chroma a median 0.02): the official 2D game examples' play screens reach a median 0.055 and 0.19 at the third quartile. Paper and ink's grounds are grey already.",
+      "says": "A neutral ground for every look, the hue left to the accents, as motion-design websites keep theirs (ground chroma a median 0.02): the official 2D game examples' play screens reach a median 0.055 and 0.19 at the third quartile. The default look's grounds are grey already.",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md"
     },
     {
@@ -623,7 +619,7 @@
     {
       "id": "backdrop.sheet",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
       "says": "The plain paper is the opaque Background layer's colour, canvas, and no object. In a game with something transparent, a mask or a background still to come, the backdrop is the transparency checker, cells of UNIT / 2 in canvas and canvas_alt: one Tiled Background behind everything and no area elsewhere, stretched to the screen in a one-screen layout, its cells following the screen's edge rather than the grid. With USER_LOOK set, backdrop() lays any Tiled Background of the user's look.",
       "template": "{kind: PATTERNS[kind] for kind in BACKDROPS}",
@@ -634,7 +630,7 @@
     {
       "id": "pattern.areas",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
       "says": "Objects stay flat; an area with a rule of its own is a Tiled Background of a pattern: low stripes for a harmless special surface, ink stripes for what moves or triggers, accent stripes for what hurts. Stripes at 45 degrees, a one-unit tile, offset so pieces meet without a seam; the caution and hazard stripes cover strips and small zones, their shorter side a quarter of the viewport's at most. With USER_LOOK set, area() lays any Tiled Background of the user's look, at any size.",
       "template": "{kind: roles for kind, roles in PATTERNS.items() if kind not in BACKDROPS}",
@@ -645,12 +641,12 @@
     {
       "id": "motion.squash",
       "status": "adopted",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "A squash sets a share of the object's rest size at once, holds it, and tweens back to the rest size, the size the instance has when its first squash starts, so a size set in the layout editor stays: a hit 0.8 x 1.2, back in 0.25 s easeoutback; a landing 1.2 x 0.8, back in 0.5 s easeoutelastic; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s easeoutelastic. A new squash stops the one running. hit() gives the hit's with the flash.",
       "template": "[(k['width'], k['height'], k['hold'], k['seconds'], k['ease']) for k in SQUASH.values()]",
       "value": "[(0.8, 1.2, 0, 0.25, 'easeoutback'), (1.2, 0.8, 0, 0.5, 'easeoutelastic'), (0.7, 1.3, 0.2, 0.75, 'easeoutelastic')]",
       "helpers": "squash(), hit()",
-      "source": "Construct3-Agent-Skills/docs/decisions/paper-and-ink-look.md"
+      "source": "Construct3-Agent-Skills/docs/decisions/default-look.md"
     },
     {
       "id": "motion.squash-art",
@@ -667,7 +663,7 @@
     {
       "id": "motion.hit",
       "status": "enforced",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "strict": true,
       "says": "A hit shows the shape's hit frame, filled in the flash role inside the ink outline with the same shadow, for 0.08 s of real time, then frame 0; never the Flash behavior.",
       "template": "HIT_FLASH['seconds']",
@@ -834,7 +830,7 @@
       "id": "look.picker",
       "status": "adopted",
       "scope": "every-look",
-      "says": "When the user gave a look, in words or references, the user picks it before any art is drawn or made: the art agent draws the first play screen at the viewport's size in three named directions, paper and ink and two from the user's look. Every two directions differ in two or more dimensions of an art direction (rendering, linework, colour temperature, light direction, proportions, framing), never only in their colours, and each keeps the roles of PALETTE and the kinds of TEXT_SIZE. pick_look.py checks and renders them behind a picker with a brief for the look judge, and stops for the user; the pick alone becomes USER_LOOK, PALETTE and ART_STYLE, and its screen art/look.png, which every drawing and every prompt then follows. review_look.py puts art/look.png beside the screenshot of the layout the game starts on, in its pair picture. It asks the look judge whether the screenshot differs from it in colours, light, rendering, outlining, proportions or view, and a yes is ugly. When the user gave no look, paper and ink applies with no picker. A rule of status open may be shown on the directions; the pick does not decide it.",
+      "says": "When the user gave a look, in words or references, the user picks it before any art is drawn or made: the art agent draws the first play screen at the viewport's size in three named directions, the default look and two from the user's look. Every two directions differ in two or more dimensions of an art direction (rendering, linework, colour temperature, light direction, proportions, framing), never only in their colours, and each keeps the roles of PALETTE and the kinds of TEXT_SIZE. pick_look.py checks and renders them behind a picker with a brief for the look judge, and stops for the user; the pick alone becomes USER_LOOK, PALETTE and ART_STYLE, and its screen art/look.png, which every drawing and every prompt then follows. review_look.py puts art/look.png beside the screenshot of the layout the game starts on, in its pair picture. It asks the look judge whether the screenshot differs from it in colours, light, rendering, outlining, proportions or view, and a yes is ugly. When the user gave no look, the default look applies with no picker. A rule of status open may be shown on the directions; the pick does not decide it.",
       "template": "USER_LOOK",
       "confirm": "pick_look.py: stop; review_look.py: the picked look's question",
       "source": "Construct3-Agent-Skills/docs/decisions/look-picker.md"
@@ -930,14 +926,14 @@
     {
       "id": "shadow.soft",
       "status": "rejected",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "A blurred translucent cast shadow reads as a smear on the checker.",
       "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
     {
       "id": "depth.parallax-layers",
       "status": "rejected",
-      "scope": "paper-and-ink",
+      "scope": "default-look",
       "says": "Lighter parallax layers for depth.",
       "source": "Construct3-Agent-Skills/docs/decisions/greybox-blockout.md"
     },
@@ -968,7 +964,7 @@
       "id": "look.references",
       "status": "adopted",
       "scope": "every-look",
-      "says": "The user's reference pictures for the look are PNG, JPEG or WebP files in art/references/ of the project. pick_look.py names them in the draw brief with the colours measured from each. The two directions from the user's look take their colours from these. review_look.py puts the references beside each screenshot that has some, in a pair picture with the colours measured from each side. It asks the look judge whether the screenshot looks like another game, and a yes is ugly. A reference whose file name is a layout's name goes with that layout, every other with the layout the game starts on. With USER_LOOK empty, the user took paper and ink over the references, so no pair is made.",
+      "says": "The user's reference pictures for the look are PNG, JPEG or WebP files in art/references/ of the project. pick_look.py names them in the draw brief with the colours measured from each. The two directions from the user's look take their colours from these. review_look.py puts the references beside each screenshot that has some, in a pair picture with the colours measured from each side. It asks the look judge whether the screenshot looks like another game, and a yes is ugly. A reference whose file name is a layout's name goes with that layout, every other with the layout the game starts on. With USER_LOOK empty, the user took the default look over the references, so no pair is made.",
       "confirm": "review_look.py: reference lines, question 8",
       "source": "Construct3-Agent-Skills/docs/decisions/reference-pairs.md"
     },
@@ -1044,14 +1040,14 @@
     }
   ],
   "deliver": [
-    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, and save the reference pictures in art/references/ (look.references). After the generator's first run and before any art, run pick_look.py and do what its last line says (look.picker): the art agent draws the first play screen in three directions, the user picks one, and the pick writes USER_LOOK, PALETTE's values by role, canvas and canvas_alt the backdrop's, and ART_STYLE. The rules of scope paper-and-ink are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes paper and ink, with no picker.",
+    "Settle the look first. If the user named a style, gave an art direction, or gave references or an existing project to take the look from, write where it comes from in USER_LOOK, and save the reference pictures in art/references/ (look.references). After the generator's first run and before any art, run pick_look.py and do what its last line says (look.picker): the art agent draws the first play screen in three directions, the user picks one, and the pick writes USER_LOOK, PALETTE's values by role, canvas and canvas_alt the backdrop's, and ART_STYLE. The rules of scope default-look are then defaults the user's look replaces. Otherwise leave USER_LOOK empty, and the game takes the default look, with no picker.",
     "Copy assets/build_project.py to the project's tools/ and rewrite only the game, above the helpers' begin marker and below their end marker: PROJECT_NAME, USER_LOOK, PALETTE's values by role, ART_STYLE, ART_ROUTE, BEATS, build_images(), build_object_types(), build_layouts(), the module_*() functions.",
     "Keep SHAPE_STYLE and the helpers between the markers; a helper the game changes is defined again below the end marker. Give every sprite an art() in whole units, which draws its stand-in until its picture arrives, and place it with shape_inst() on a grid cell; create runtime objects at grid_random().",
     "Run art.py after the generator and do what its last line says. On the SVG route it writes a brief for the drawings still to make: give it to a construct3:art-drawer sub-agent as its whole task. On the image route, with an image tool in the session, make each picture with the prompt it prints, then run art.py again. Never compute a picture pixel by pixel in Python: with nothing to hold a style, it mixes styles on one screen.",
-    "Keep PALETTE's roles, whatever their colours. In paper and ink: the player in ink, in the shape that subject.player-shape gives, and structure a rectangle in solid; a circle for what is collected, a triangle for what hurts. An area or a range is drawn as lines, zone() of a zone_image(), and a reach a dashed ring(); a slot is a disc of canvas_alt the size of what fills it; an area with a rule of its own is area() of a pattern(); the plain paper is the opaque Background layer's colour and no object, and backdrop() of the checker lies behind everything only where something is transparent, a mask or a background still to come. With USER_LOOK set, draw the stand-ins in the user's colours, and lay the areas and the backdrop in the user's look: area() and backdrop() take any Tiled Background type.",
+    "Keep PALETTE's roles, whatever their colours. In the default look: the player in ink, in the shape that subject.player-shape gives, and structure a rectangle in solid; a circle for what is collected, a triangle for what hurts. An area or a range is drawn as lines, zone() of a zone_image(), and a reach a dashed ring(); a slot is a disc of canvas_alt the size of what fills it; an area with a rule of its own is area() of a pattern(); the plain paper is the opaque Background layer's colour and no object, and backdrop() of the checker lies behind everything only where something is transparent, a mask or a background still to come. With USER_LOOK set, draw the stand-ins in the user's colours, and lay the areas and the backdrop in the user's look: area() and backdrop() take any Tiled Background type.",
     "Place the HUD with hud_tag() for the round or the level and no game name, hud_stat() for the count under its name, and hud_keys() with hints() for the controls. Place any other label with hud_text(), hud_bar(), labelled_bar() or band_text(); each holds it to the screen's edges with the Anchor behavior. Give each Text whose text the events set longest=, the widest text it shows at runtime (look.worst-data). Place the playfield at centred(w, h, play_area(hud)), and pass the HUD's groups and the playfield to spaced(). An instance placed by anchor() or row() takes behaviors=anchored(where). Lay a popup's dim over screen_box(), on the popup's own layer. Leave FULLSCREEN and z_order() as they are: they fill the screen and order each layer for any game.",
     "Write BEATS for the game's zones or rounds, and read the curve the generator prints; measure every gap of a platformer level with jump().",
-    "Give every object that can be hit a hit_frame() after its shape and the Tween behavior, and show a hit with hit(obj), last in its block; in paper and ink, never the Flash behavior.",
+    "Give every object that can be hit a hit_frame() after its shape and the Tween behavior, and show a hit with hit(obj), last in its block; in the default look, never the Flash behavior.",
     "Squash a landing and a jump with squash(art, \"land\") and squash(art, \"jump\"), on the art pinned to the collision mask, never on the mask.",
     "Pass painted=True only for a picture meant to hold its own colours and soft edges.",
     "Do not decide a rule whose status is open; ask the user, or keep the template's value."

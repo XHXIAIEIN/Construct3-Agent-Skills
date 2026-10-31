@@ -429,7 +429,7 @@ def lay_out_the_hud(view: tuple[int, int] = HUD_VIEW) -> dict:
               "const left = Math.min(...l.map(i => i.box.l)), right = Math.max(...l.map(i => i.box.r)), top = Math.min(...l.map(i => i.box.t));",
               f"const off = (left + right) / 2 - {w / 2};",
               f"return {{ok: Math.abs(off) <= {w * 0.02} && top <= 96, said: `${{[...new Set(l.map(i => i.type))]}} from x ${{left}} to ${{right}}, ${{off.toFixed(0)}} px off centre, top ${{top}}`}};"),
-        # The stand-in holds the score in a top corner, the left one in the plain sheet and the right one in paper and ink
+        # The stand-in holds the score in a top corner, the left one in the plain sheet and the right one in the default look
         check("The score text stays in its top corner of the window",
               "const s = vars.hud.find(i => i.type === 'ScoreText');",
               f"return {{ok: !!s && (s.box.l <= 96 || s.box.r >= {w - 96}) && s.box.t <= 160, said: s ? `ScoreText ${{JSON.stringify(s.box)}}` : 'no ScoreText'}};"),

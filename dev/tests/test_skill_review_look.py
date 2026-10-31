@@ -420,7 +420,7 @@ def test_review_look_finds_text_gathered_in_one_ninth_while_two_corners_stand_em
     assert found[0]["line"].endswith("while the top-right, bottom-left, bottom-right corners stand empty: give each "
                                      "item its own corner or edge, and each text one thing rather than several "
                                      "joined by · or |")
-    assert rl.worded("Round · 03") == 1 and rl.worded("[b]HP:[/b] 150 | ATK: 10") == 2 and rl.worded("00") == 0
+    assert rl.worded("Round 3 / 6") == 1 and rl.worded("[b]HP:[/b] 150 | ATK: 10") == 2 and rl.worded("00") == 0
     counts = [text(10 + n, "Counter", [40, 40 + 60 * n, 130, 90 + 60 * n], "00", [60, 40]) for n in range(3)]
     assert rules(rl, *counts) == []
     stats = text(20, "Stats", [2, 640, 1278, 680], "HP: 150 | ATK: 10 | DEF: 5", [400, 30], align=("left", "top"))
@@ -655,11 +655,11 @@ def test_a_screenshot_with_references_shows_its_pair_and_asks_whether_it_looks_l
     assert "pair picture" not in rl.brief({**PAIRED, "references": {}})
 
 
-def test_a_game_that_took_paper_and_ink_over_the_references_gets_no_pair():
-    """The user picked paper and ink over the look of the references, so the run says why it pairs nothing."""
+def test_a_game_that_took_default_look_over_the_references_gets_no_pair():
+    """The user picked the default look over the look of the references, so the run says why it pairs nothing."""
     lines = rl.report({"project": "Game", "status": "opened", "title": "Game - Construct 3", "editor": "e",
                        "warnings": [], "unpaired_references": 2, **{**PAIRED, "references": {}}})
-    assert any(line.startswith("reference: USER_LOOK is empty, so the game takes paper and ink, and no pair picture "
+    assert any(line.startswith("reference: USER_LOOK is empty, so the game takes the default look, and no pair picture "
                                "is made for the 2 pictures in art/references/") for line in lines), lines
     assert not any(rl.REFERENCE in line for line in lines)
 

@@ -6,7 +6,7 @@
 When the user gave the game a look, in words or references, USER_LOOK names
 where it comes from, and the look is picked before any art is drawn. The art
 agent draws the game's first play screen at its viewport size in three named
-directions: paper and ink, the fallback, and two from the user's look. Each
+directions: the default look, the fallback, and two from the user's look. Each
 differs from every other in two or more of the dimensions of an art direction
 (rendering, linework, colour temperature, light direction, proportions,
 framing), never only in its colours, and keeps the roles of PALETTE and the
@@ -32,7 +32,7 @@ Everything lies in .tmp/scripts/pick-look/ of the project:
                    construct3:look-judge sub-agent
 
 A run runs screens.py when it is there and checks every direction: its
-fields, that one of them is paper and ink with the template's PALETTE, that
+fields, that one of them is the default look with the template's PALETTE, that
 each ART_STYLE fixes all six dimensions, that every two directions differ in
 two or more of them, and that each drawing is the viewport's size, names
 roles and no colour, prefixes its ids with its name and gives every label a
@@ -68,14 +68,14 @@ from svg_kit import PICKER
 
 SCREENS = "screens.py"
 DIRECTIONS = "directions.json"
-FEWEST, MOST = 3, 5                          # directions: paper and ink and two from the user's look; five at most
+FEWEST, MOST = 3, 5                          # directions: the default look and two from the user's look; five at most
 MIN_AXES = 2                                 # dimensions in which every two directions differ, at least
 FIELDS = ("name", "axes", "right_when", "cost", "USER_LOOK", "ART_STYLE", "PALETTE")
 SETTINGS = ("USER_LOOK", "PALETTE", "ART_STYLE")
 TEXTS = re.compile(r"<text\b([^>]*)>")
 WEIGHTS = {"light": 300, "regular": 400, "medium": 500}
-# Paper and ink as a direction's ART_STYLE, from the template's look; the art agent may word it otherwise
-PAPER_AND_INK = ("flat fills on white paper, no outlines, areas and ranges as thin lines, neutral greys with two "
+# The default look as a direction's ART_STYLE, from the template's look; the art agent may word it otherwise
+DEFAULT_STYLE = ("flat fills on white paper, no outlines, areas and ranges as thin lines, neutral greys with two "
                  "saturated accents, no lighting or shading, simple geometric proportions on the grid, straight-on "
                  "top-down view of the whole board")
 # Asked of every render besides the look review's questions
@@ -88,8 +88,8 @@ def slug(name: str) -> str:
     return "-".join(re.findall(r"[a-z0-9]+", name.lower()))
 
 
-def paper_and_ink_palette() -> dict:
-    """PALETTE of the skill's template, paper and ink's colours by role."""
+def default_palette() -> dict:
+    """PALETTE of the skill's template, the default look's colours by role."""
     tree = ast.parse((c3.SKILL_DIR / "assets" / "build_project.py").read_text(encoding="utf-8"))
     node = next(n for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "PALETTE")
     return {role: list(c) for role, c in ast.literal_eval(node.value).items()}
@@ -172,7 +172,7 @@ def check(root: Path, wanted: dict, folder: Path) -> tuple[list[dict], list[str]
     roles, kinds = list(wanted["palette"]), list(wanted.get("text_size") or {})
     out = []
     if not FEWEST <= len(directions) <= MOST:
-        out.append(f"{DIRECTIONS}: {len(directions)} directions; the picker takes {FEWEST} to {MOST}, paper and ink "
+        out.append(f"{DIRECTIONS}: {len(directions)} directions; the picker takes {FEWEST} to {MOST}, the default look "
                    f"and two or more from the user's look")
     for i, d in enumerate(directions, 1):
         out += [f"direction {i} {d.get('name', '')!r}: {p}" for p in field_problems(d, roles)]
@@ -184,10 +184,10 @@ def check(root: Path, wanted: dict, folder: Path) -> tuple[list[dict], list[str]
                    f"name each by its direction, such as \"Ink wash\"")
     plain = [d for d in directions if not d["USER_LOOK"].strip()]
     if len(plain) != 1:
-        out.append(f"{DIRECTIONS}: {len(plain)} directions have an empty USER_LOOK; exactly one is paper and ink, "
+        out.append(f"{DIRECTIONS}: {len(plain)} directions have an empty USER_LOOK; exactly one is the default look, "
                    f"the fallback, and each other names where it comes from in the user's look")
-    elif changed := [r for r, c in paper_and_ink_palette().items() if r in roles and plain[0]["PALETTE"][r] != c]:
-        out.append(f"{plain[0]['name']}: paper and ink keeps the template's PALETTE, and its {', '.join(changed)} "
+    elif changed := [r for r, c in default_palette().items() if r in roles and plain[0]["PALETTE"][r] != c]:
+        out.append(f"{plain[0]['name']}: the default look keeps the template's PALETTE, and its {', '.join(changed)} "
                    f"differ; a direction with colours of its own takes a USER_LOOK")
     for i, a in enumerate(directions):
         for b in directions[i + 1:]:
@@ -476,11 +476,11 @@ def draw_brief(root: Path, wanted: dict, folder: Path, skill: str,
     """The art agent's whole task: the first play screen in three directions, and the form of directions.json."""
     c3proj = c3.load(root / "project.c3proj")
     first = c3proj.get("firstLayout") or "the first layout of project.c3proj"
-    ink = paper_and_ink_palette()
+    ink = default_palette()
     roles = ", ".join(f"{r} {c}" for r, c in wanted["palette"].items())
     w, h = wanted["view"]
-    example = {"name": "Paper and ink", "axes": {dim: "..." for dim in prepare_art.DIMENSIONS},
-               "right_when": "...", "cost": "...", "USER_LOOK": "", "ART_STYLE": PAPER_AND_INK,
+    example = {"name": "Default look", "axes": {dim: "..." for dim in prepare_art.DIMENSIONS},
+               "right_when": "...", "cost": "...", "USER_LOOK": "", "ART_STYLE": DEFAULT_STYLE,
                "PALETTE": {r: wanted["palette"][r] if r not in ink else ink[r] for r in wanted["palette"]}}
     lines = [
         "# Draw the first play screen of a Construct 3 game in three looks",
@@ -492,10 +492,15 @@ def draw_brief(root: Path, wanted: dict, folder: Path, skill: str,
         f"labels, and art/wanted.json names what each sprite shows.",
         "",
         "The three directions:",
-        "1. Paper and ink, the game's fallback look: USER_LOOK \"\", the template's PALETTE as it is, and an "
-        f"ART_STYLE such as \"{PAPER_AND_INK}\".",
+        "1. The default look, the game's fallback look: USER_LOOK \"\", the template's PALETTE as it is, and an "
+        f"ART_STYLE such as \"{DEFAULT_STYLE}\".",
         "2. and 3. Two directions from the user's look, each named by what it is (\"Ink wash\", \"Neon arcade\"), "
         "each with a USER_LOOK that says where in the user's look it comes from.",
+        "",
+        "A suggestion, which no check holds: in the right_when of each direction from the user's look, name the "
+        "thing of this game's own world it is taken from, such as a material, a place or an object of its fiction, "
+        "and why it would not suit another game of the same genre. A direction that would suit any game of the "
+        "genre is the genre's default look.",
         "",
         *reference_lines(refs),
         f"Every two directions differ in {MIN_AXES} or more of the six dimensions of an art direction "

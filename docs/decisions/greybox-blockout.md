@@ -35,7 +35,7 @@ Over reference blockouts and mock-ups of the stand-in:
 - Pattern marks areas and edges, not objects, as Tiled Backgrounds.
 - The look is neutral and costs a model no decisions: a template default it
   keeps, not a style it chooses per game. It is the fallback for a game the
-  user gave no look (`paper-and-ink-is-the-fallback.md`).
+  user gave no look (`default-look-is-the-fallback.md`).
 - A game's screen is the scene, not a dashboard. Of six mock-ups of one
   coin screen, three drew an app interface, with rounded cards, a score
   pill and a shadow on everything; the user read them as a template and as
@@ -44,7 +44,7 @@ Over reference blockouts and mock-ups of the stand-in:
   scattered over the screen, or on a board as wide as the screen, they
   read as untidy.
 - The palette, the type, the HUD and the subjects' sizes are those of
-  `paper-and-ink-look.md`.
+  `default-look.md`.
 - Where something is transparent, a mask, or a background still to come,
   the backdrop is the grey-and-white checker editors show for transparency.
 - Where a game turns them on, the shadow is hard at half opacity and the
@@ -62,7 +62,7 @@ The outline, shadow, hit and squash values come from the evidence in
 
 ### Contrast of the values
 
-The roles' colours and their ratios are in `paper-and-ink-look.md`. Every
+The roles' colours and their ratios are in `default-look.md`. Every
 colour a `shape()` is drawn in reads at least 3:1 on the darker checker
 grey, `canvas_alt`, so a shape shows on the paper and on the checker
 alone.
@@ -216,8 +216,8 @@ place, such as a title and a subtitle, each joining two facts with a middle
 dot, stacked in one corner while the other three stood empty.
 Two checks count the items of the HUD in each ninth of the screen: a
 group is one, and each part a label joins to another with " · " or " | "
-that holds a word is one more, so a round's tag with its number,
-"Round · 03", is one. A group whose labels hold no word, a count beside its
+that holds a word is one more, so a count with its name, "Lives · 3",
+is one. A group whose labels hold no word, a count beside its
 icon, tells nothing, and a text across two thirds of the screen is a bar
 along an edge, in no one place.
 
@@ -249,7 +249,7 @@ official example. The stand-in's tag, score and keys hold one corner each.
 
 ### Colour
 
-`PALETTE` holds the roles of `paper-and-ink-look.md` plus `flash`, the
+`PALETTE` holds the roles of `default-look.md` plus `flash`, the
 fill of a hit. Keep the roles and change values only. The player is `ink`;
 a bar is an `ink` fill in a `solid` frame. A game gives a role a hue of its
 own only where the palette and the shapes leave two things alike. The run
@@ -349,9 +349,9 @@ and a global `beat` counts them.
 ### The manifest
 
 `plugin/skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
-this record and of `paper-and-ink-look.md` with a status and a scope: `enforced` when a check stops the generator,
+this record and of `default-look.md` with a status and a scope: `enforced` when a check stops the generator,
 `adopted` when the user decided it and the template holds it, `proposed`,
-`rejected`; `every-look`, or `paper-and-ink` for the fallback's taste,
+`rejected`; `every-look`, or `default-look` for the fallback's taste,
 which stops nothing once `USER_LOOK` names a look the user gave. Its `deliver` steps are what a model writing the generator is
 given, its `confirm` steps what the agent runs on the result, among them
 `scripts/check_look.py`, which confirms the strict rules on the project's

@@ -213,7 +213,7 @@ DATA_STATES = ("demo", "worst", "empty", "one")
 WORST_NUMBER = "9999999"
 WORST_NAME = "Wolfeschlegel-Steinhausen"
 WORST_WIDE = "最长的名字也要放得下才行"
-# A count in a text: digits, each spaced from the next by one narrow space in a tracked() tag.
+# A count in a text: digits, each spaced from the next by one narrow space in a tag whose letters are spaced apart.
 COUNT = re.compile(r"\d(?:([   ])?\d)*")
 # Actions that set a Text's text, by their id in an event sheet.
 SETS_TEXT = ("set-text", "append-text", "typewriter-text")
@@ -466,7 +466,7 @@ def frame_findings(instances: list[dict]) -> list[dict]:
 
 def worded(text: str) -> int:
     """The parts of a text that hold a word, split where it joins them with " · ", " • " or " | ",
-    BBCode tags left out: "Round · 03" one, "Wave 3 · 12 left" two, a bare count "00" none."""
+    BBCode tags left out: "Round 3 / 6" one, "Wave 3 · 12 left" two, a bare count "00" none."""
     plain = re.sub(r"\[[^\]]*\]", "", text)
     return sum(1 for part in JOINED.split(plain) if re.search(r"[^\W\d_]", part))
 
@@ -938,7 +938,7 @@ def state_text(text: str, state: str, longest: str | None) -> str:
         first = iter([True])
 
         def nines(m: re.Match) -> str:
-            gap = m[1] or ""      # tracked() spaces each letter of a tag with a narrow space
+            gap = m[1] or ""      # a tag may space each letter with a narrow space
             digits = WORST_NUMBER if next(first, False) else "9" * len(m[0].replace(gap, "") if gap else m[0])
             return gap.join(digits) if gap else digits
         return re.sub(COUNT, nines, text)
@@ -1562,7 +1562,7 @@ def report(result: dict) -> list[str]:
     lines += [f"reference: {f} is not read, so no pair picture shows it: save it as PNG, JPEG or WebP"
               for f in result.get("unread_references", [])]
     if result.get("unpaired_references"):
-        lines.append(f"reference: USER_LOOK is empty, so the game takes paper and ink, and no pair picture is made "
+        lines.append(f"reference: USER_LOOK is empty, so the game takes the default look, and no pair picture is made "
                      f"for the {result['unpaired_references']} pictures in {art.REFERENCES.as_posix()}/. If the "
                      f"user wants their look, run pick_look.py again")
     if any(shows_something(d) for d in ran["layouts"]):
@@ -1735,7 +1735,7 @@ def main() -> int:
             # The look the user picked on the first play screen, held to the start layout's screenshot
             look = project / art.image_route.LOOK if cl.user_look(project) else None
             look = look if look and look.is_file() else None
-            # The user picked paper and ink over the look of the references, so the screen is meant to differ
+            # The user picked the default look over the look of the references, so the screen is meant to differ
             if refs and (project / c3.GENERATOR).is_file() and not cl.user_look(project):
                 result["unpaired_references"] = len(refs)
             elif (refs or look) and any(shows_something(d) for d in (result.get("preview") or {}).get("layouts", [])):
