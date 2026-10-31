@@ -79,8 +79,8 @@ Option 3, `scripts/pick_look.py`, manifest rule `look.picker`.
   both routes name the picker as the next step. The look review puts it
   beside the screenshot of the layout the game starts on and asks whether
   the screenshot differs from it (`reference-pairs.md`).
-- A rule of status `open`, such as `subject.player-shape`, may be shown on
-  the directions; the pick writes none of it, so it stays the owner's.
+- A rule of status `open` may be shown on the directions; the pick writes
+  none of it, so it stays the owner's.
 - On the template's game, three directions drawn by hand passed the
   checks, the keys and `?v=` switched them in headless Chrome, and the
   pick's values passed the generator's checks.
@@ -97,5 +97,3 @@ Option 3, `scripts/pick_look.py`, manifest rule `look.picker`.
   `shade()` mixes towards `ink` and `light()` towards `canvas`, so there
   they turn the other way. In the template's game the dark direction's
   coin edge came out lighter than its face.
-- The owner decides `subject.player-shape`, which the picker may show
-  but does not settle.

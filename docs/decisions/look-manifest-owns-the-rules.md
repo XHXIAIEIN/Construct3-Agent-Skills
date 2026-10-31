@@ -57,10 +57,11 @@ Option 2.
   section keeps the Construct facts (Anchor, *Unbounded scrolling*, the
   1 px line that drops out) and lists the rule ids by topic with a link to
   the manifest.
-- The player's stand-in shape is the rule `subject.player-shape`, open:
-  the prototype drew a disc and the shape vocabulary says rectangle. The
-  user picks on screenshots, and until then the deliver steps keep the
-  rectangle.
+- The player's stand-in shape is the rule `subject.player-shape`: an ink
+  rectangle, not the prototype's disc. The owner picked it on screenshots
+  of both shapes, because the stand-in is the player's collision box: a
+  rectangle matches the rectangles of the scene it collides with, and its
+  width and height show the proportions the game is tuned to.
 
 The evidence that the Cookbook section carried moves here, because it
 settles the values of these rules:
@@ -79,5 +80,3 @@ settles the values of these rules:
 
 - A rule is enforced by a script other than the template and
   `check_look.py`: that script reads its value from the manifest too.
-- The user picks the player's shape: `subject.player-shape` becomes
-  adopted with that value.
