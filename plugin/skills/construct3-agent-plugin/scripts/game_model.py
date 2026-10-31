@@ -50,8 +50,8 @@ from typing import Any
 TICK = 1 / 60               # seconds of one tick, at the runtime's 60 ticks a second
 AFTER_INPUT = 0.15          # seconds the game runs after each input, in the prototype and in the editor
 TAP_DOWN = 0.05             # seconds a tap stays down, as preview_project.py holds it
-KEY_DOWN = 0.1              # seconds a key stays down when its binding gives no "seconds"
-HOLD = (0.05, 3.0)          # seconds a hold step or a key's binding may hold it down
+KEY_DOWN = 0.1              # seconds a key stays down when its binding has no "seconds"
+HOLD = (0.05, 3.0)          # range of seconds a hold step or a key binding holds an input down
 PHASE = re.compile(r"([A-Za-z][A-Za-z0-9_]*)\s+(held|released)$")    # "charge held", "charge released"
 SETTLE = 1.0                # seconds a test runs after its last step before its last expects are read again
 OPS_MAX = 50_000            # effects one test may run before it counts as a loop
@@ -700,9 +700,9 @@ class Design:
                     self.bad(f"{path}.on", f"{source!r} is no input; the inputs are {', '.join(self.inputs) or 'none'}")
                 elif not holdable(inp):
                     self.bad(f"{path}.on", f"{source} is {how_tapped(inp)}" + (" with arguments" if inp["args"] else "")
-                             + f", which is not {phase}: a key or a tap on a point of the screen is held and released, "
-                               f"{{\"key\": \"Space\"}} or {{\"tap\": [0.5, 0.5]}}, and carries no arguments. Bind "
-                               f"{source} to one of them, or fire this rule on \"{source}\", the press")
+                             + f", so it cannot be held or released. Only a key or a tap on a point of the screen with "
+                               f"no arguments can: {{\"key\": \"Space\"}} or {{\"tap\": [0.5, 0.5]}}. Bind {source} to "
+                               f"one of them, or fire this rule on \"{source}\", the press")
             elif on.startswith("every"):
                 m = re.fullmatch(r"every\s+(\d+(?:\.\d+)?)", on)
                 if not m or not 0.05 <= float(m.group(1)) <= 60:
@@ -807,14 +807,14 @@ class Design:
                     self.bad(f"{at}.hold", f"{name!r} is no input; the inputs are {', '.join(self.inputs) or 'none'}")
                     continue
                 if not holdable(self.inputs[name]):
-                    self.bad(f"{at}.hold", f"{name} is {how_tapped(self.inputs[name])}, which is not held: a key or a "
-                                           f"tap on a point of the screen with no arguments is. Do it with "
+                    self.bad(f"{at}.hold", f"{name} is {how_tapped(self.inputs[name])}, which cannot be held. A key or "
+                                           f"a tap on a point of the screen with no arguments can. Do it with "
                                            f"{{\"do\": \"{name}\", ...}}")
                     continue
                 if set(s) != {"hold", "seconds"} or isinstance(seconds, bool) or not isinstance(seconds, (int, float)) \
                         or not HOLD[0] <= seconds <= HOLD[1]:
-                    self.bad(at, f"{{\"hold\": \"{name}\", \"seconds\": 0.8}}: how long the input stays down, "
-                                 f"{HOLD[0]:g} to {HOLD[1]:g} seconds, and nothing else")
+                    self.bad(at, f"{{\"hold\": \"{name}\", \"seconds\": 0.8}}: \"seconds\" is how long the input stays "
+                                 f"down, {HOLD[0]:g} to {HOLD[1]:g}, and the step holds only these two fields")
                     continue
                 step.update(input=name, args={}, seconds=float(seconds))
                 waited += seconds + AFTER_INPUT
@@ -1345,7 +1345,8 @@ class Sim:
                 self.run(r, dict(args))
         self.cause = ""
         down = down_for(self.d.inputs[name]) if seconds is None else seconds
-        # a key holds itself; a touch holds every screen input it fires, as Is in touch names no object
+        # Hold the key, or every screen input the touch fires
+        # Is in touch names no object
         self.held, self.held_by = (set(screen) if screen else {name}), f"{step} ({name})"
         self.advance(down)
         released, self.held = self.held, set()

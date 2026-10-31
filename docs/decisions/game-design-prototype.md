@@ -54,19 +54,19 @@ and the built game is held to the same tests.
   a timer that ends the round and counts as the win, or a timer that raises
   the score. Every test plays inputs, so none shows it; a run without input
   does.
-- A one-button game is often played by holding: a charge spent on the
+- Many one-button games are played by holding: a charge spent on the
   release, a stick that stretches while the button is down, a shield held
-  up. About half of the mechanics in ABA Games' survey of one-button games
-  ("The Possibilities of One-Button Games") work this way. A design whose
-  inputs only fire on the press cannot state them, so such a game reached
-  the editor untested. The runtime gives a hold as a condition, Keyboard
+  up. A design whose inputs fire only on the press cannot state them, so
+  the prototype cannot test such a game, and its first test is the editor
+  run. The runtime gives a hold as a condition, Keyboard
   *Key is down* and Touch *Is in touch*, and a release as a trigger,
   Keyboard *On key released* and Touch *On any touch end*; neither Touch
   ACE names an object. The preview holds a tap down 0.05 s and a key its
   `seconds`.
 - The release of a tap comes after the press, in whatever game the press
   left. A restart fired on the press of a game with a release rule is
-  undone by that release: the new game spends a charge of 0 and is lost.
+  undone by that release: the new game spends a charge of 0 and ends at
+  once.
 - The design step trades logic errors for games that are not delivered: a
   game that is delivered passed tests its model stated, and a game that
   fails says why. It does not by itself raise the share of games that play.
@@ -133,16 +133,17 @@ Option 4: `scripts/check_design.py`, `scripts/play_design.py`,
   the test, with the condition to add. A failed expect after a tap names
   the rule the tap ran as a tap on the screen.
 - A rule fires on an input's press, on `NAME held` every tick while it is
-  down, or on `NAME released` once when it comes up. Only a key or a tap on
-  a point with no arguments is held, the inputs the runtime's hold and
-  release ACEs serve. Every input stays down as long as the preview holds
-  it: a tap 0.05 s and a key its `seconds`, inside the 0.15 s that follow
-  the press. A key whose `seconds` passes 0.15 s holds the next step back
-  until it comes up. A test step
-  `{"hold": NAME, "seconds": s}` holds it 0.05 to 3 s, and 0.15 s run after
-  the release; `play_design.py` plays it as a hold or a key of that length.
-  A tap on an object holds and releases the screen inputs its tap fires, as
-  *Is in touch* and *On any touch end* do.
+  down, or on `NAME released` once when it comes up. Only a key, or a tap
+  on a point that carries no arguments, can be held, because the runtime's
+  hold and release ACEs serve only these. A tap on an object holds and
+  releases the screen inputs its tap fires, as *Is in touch* and *On any
+  touch end* do.
+- The prototype holds a tap 0.05 s and a key its `seconds`, as the preview
+  does. The game then runs on until 0.15 s have passed since the press. If
+  a key's `seconds` is longer than 0.15 s, the next step waits until the
+  key comes up. The step `{"hold": NAME, "seconds": s}` holds the input
+  for `s` seconds, from 0.05 to 3, and the game runs 0.15 s after the
+  release. `play_design.py` plays it as a hold or a key of that length.
 - A test runs 1 s more after its last step, and the expects at its end are
   read again. In the prototype a restart in that second that breaks one is
   refused, with the step that started it; a change by anything else is the

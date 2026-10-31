@@ -8,7 +8,7 @@ Run it after check_design.py passes on the design and the game is built from
 it, check_project.py passing. It reads where the design says each piece of
 state is kept ("stored_in": a global, an Array, an object's variable, text or
 position, or a count of the instances shown) and how each input is done in the game ("game": tap an object by
-its instance variables, tap a point of the screen, press a key; a hold step holds the tap or the key), and refuses
+its instance variables, tap a point of the screen, press a key, or hold the tap or the key), and refuses
 a name the project does not have. Then it writes one preview_project.py plan
 per test, from a first launch each, with the JavaScript generated from the
 design's expressions by this script, and plays them in one editor session:

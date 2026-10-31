@@ -880,15 +880,15 @@ def test_only_a_key_or_a_tap_on_a_point_is_held(tmp_path):
     design = charge(binding={"tap": "Pad"})
     code, out = check(tmp_path, design)
     assert code == 1
-    assert ("rules[1] 'charge'.on: press is a tap on Pad, which is not held: a key or a tap on a point of the screen is "
-            "held and released") in out
-    assert "tests[0].steps[0].hold: press is a tap on Pad, which is not held" in out
+    assert ("rules[1] 'charge'.on: press is a tap on Pad, so it cannot be held or released. Only a key or a tap on a "
+            "point of the screen with no arguments can") in out
+    assert "tests[0].steps[0].hold: press is a tap on Pad, which cannot be held" in out
     design = charge()
     design["tests"][0]["steps"][0]["seconds"] = 5
     design["rules"][2]["on"] = "jump released"
     code, out = check(tmp_path, design)
     assert code == 1
-    assert "tests[0].steps[0]: {\"hold\": \"press\", \"seconds\": 0.8}: how long the input stays down, 0.05 to 3" in out
+    assert "tests[0].steps[0]: {\"hold\": \"press\", \"seconds\": 0.8}: \"seconds\" is how long the input stays down" in out
     assert "rules[2] 'jump'.on: 'jump' is no input; the inputs are press" in out
 
 

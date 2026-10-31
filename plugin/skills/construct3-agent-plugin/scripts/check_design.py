@@ -18,13 +18,13 @@ reads the Array.
 
 Then it runs the rules as a prototype: each test from a first launch, 60
 ticks a second, an input followed by 0.15 s of play, as the editor runs the
-events. An input stays down as long as the editor holds it, a hold step for
-its seconds, and its "held" rules run every tick meanwhile, its "released"
-rules once at the end. A tap is also a tap on the screen: it fires the screen
-inputs whose region holds it, before the tapped object's rules, as the
-runtime does. After
-the last step the game runs 1 s more and the test's last expects are read
-again, so a restart that a Wait holds back shows. It refuses a failed expect
+events. An input stays down as long as the editor holds it: a tap 0.05 s, a
+key its seconds, a hold step its own seconds. Its "held" rules run every tick
+meanwhile, and its "released" rules run once when it comes up. A tap is also
+a tap on the screen: it fires the screen inputs whose region holds it, before
+the tapped object's rules, as the runtime does. After the last step the game
+runs 1 s more and the test's last expects are read again, so a restart that
+a Wait holds back shows. It refuses a failed expect
 with the values the state held, a rule no test reaches, a win or a lose no
 test reaches or that holds at launch, a win that comes within 120 s without
 any input unless the design says waiting is the win, an input after which no
