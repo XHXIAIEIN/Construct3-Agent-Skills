@@ -20,7 +20,7 @@ only, and the skill's text had to avoid naming them.
 |--------------|------:|------:|
 | `main` before this change | 463 | 6,721,753 |
 | of which `plugin/data/` | 399 | 4,476,104 |
-| after this change | 64 | 2,252,330 |
+| after this change | 64 | 2,255,653 |
 
 The directory refuses a folder over about 7,000,000 bytes
 (`plugin-folder.md`), so the data left less than 300,000 bytes for the
