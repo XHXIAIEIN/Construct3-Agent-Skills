@@ -8,6 +8,7 @@ passes throughout. An add-countdown run is the stand-in game with the events it 
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -694,9 +695,16 @@ def test_a_run_that_lacks_a_part_makes_the_coverage_incomplete(tmp_path: Path, p
     assert read_json(tmp_path / "it" / "benchmark.json")["coverage_complete"] is True
 
 
-def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path) -> None:
+@pytest.mark.parametrize("timing", [None, {"total_tokens": None, "tool_uses": None, "duration_ms": None}])
+def test_a_decision_over_an_incomplete_run_gives_no_verdict(tmp_path: Path, timing: dict | None) -> None:
+    """A run without timing.json, or with the nulls a driver writes for a worker cut off before its end, lacks
+    its timing."""
     iteration = restart_runs(tmp_path, {"with_skill": [5, 5, 4], "old_skill": [1, 2, 1]})
-    (iteration / "name-the-restart-event" / "old_skill_2" / "timing.json").unlink()
+    path = iteration / "name-the-restart-event" / "old_skill_2" / "timing.json"
+    if timing is None:
+        path.unlink()
+    else:
+        path.write_text(json.dumps(timing), encoding="utf-8")
     (iteration / "decision.json").write_text(json.dumps({
         "cases": ["name-the-restart-event"], "metric": "chain_depth", "direction": "up", "n_per_cell": 3}), encoding="utf-8")
     out = grade_iteration(tmp_path)
@@ -796,10 +804,11 @@ def test_check_the_third_round_grades_the_preview_the_coins_and_the_text(tmp_pat
     assert [ok for ok, _ in grader.grade_check_the_third_round(run_dir)] == [True, False, False, True]
 
 
-@pytest.mark.parametrize(("case", "count"), [("check-the-third-round", 3), ("four-coins-in-round-two", 4)])
+@pytest.mark.parametrize(("case", "count"), [("check-the-third-round", 3), ("four-coins-in-round-two", 4),
+                                           ("five-coins-in-round-two", 3)])
 def test_the_notes_of_a_fixture_rest_on_the_stand_in_as_it_is(tmp_path: Path, case: str, count: int) -> None:
-    """coins-notes and coins-first-tap hold notes that notes.py prints unmarked on the game they were laid out
-    from, the seeded hint included."""
+    """coins-notes, coins-first-tap and coins-holed hold notes that notes.py prints unmarked on the game they were
+    laid out from, the seeded hint and hole included."""
     code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", case,
                     "--arms", "with_skill", "--no-pin")
     assert code == 0, out
@@ -826,6 +835,28 @@ def test_the_second_round_case_keeps_the_first_launch_hint(tmp_path: Path) -> No
     path.write_text(json.dumps(sheet, indent="\t"), encoding="utf-8")
     kept = grader.grade_four_coins_in_round_two(run_dir)[3]
     assert not kept[0] and "original event sids present" in kept[1], kept
+
+
+def test_the_holed_coin_case_keeps_the_hole_out_of_the_print(tmp_path: Path) -> None:
+    """The hole is in the coin's polygon and images alone: the print of the sheet does not name it, only the arm
+    of the skill under test has the note, and a run that fills the hole fails the last assertion."""
+    code, out = run(tmp_path, EVALS / "make_fixtures.py", str(tmp_path / "runs"), "--cases", "five-coins-in-round-two",
+                    "--arms", "with_skill", "without_skill", "--no-pin")
+    assert code == 0, out
+    run_dir = tmp_path / "runs" / "five-coins-in-round-two" / "with_skill"
+    assert not (run_dir.with_name("without_skill") / "project" / "tools").exists()
+    project = run_dir.with_name("without_skill") / "project"
+    code, out = run(project, SKILL / "scripts" / "print_sheet.py", "Game", "--project", str(project))
+    assert code == 0 and not re.search(r"hole|polygon|collision", out, re.I), out
+    (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
+    assert [ok for ok, _ in grader.grade_five_coins_in_round_two(run_dir)] == [True] * 5
+    path = run_dir / "project" / "objectTypes" / "Coin.json"
+    coin = read_json(path)
+    for frame in coin["animations"]["items"][0]["frames"]:
+        frame["collisionPoly"]["points"] = frame["collisionPoly"]["points"][:34]
+    path.write_text(json.dumps(coin, indent="	"), encoding="utf-8")
+    kept = grader.grade_five_coins_in_round_two(run_dir)[4]
+    assert not kept[0] and "objectTypes/Coin.json" in kept[1], kept
 
 
 def test_a_kept_plan_is_no_changed_project_file(tmp_path: Path) -> None:

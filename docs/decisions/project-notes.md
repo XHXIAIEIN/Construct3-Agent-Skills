@@ -49,6 +49,25 @@ true in an old answer or plan.
   across two groups costs a run no search, so it shows no saving either
   (`.local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-96/`
   and `iteration-97/`).
+- The case `five-coins-in-round-two` needs a fact that no print of the
+  sheet holds: the coins have a square hole outside their collision
+  polygon, so a tap at a coin's middle collects nothing. Only
+  `objectTypes/Coin.json` and a probe in the game show it. In iteration 101
+  the arm of the changed skill had a note on it, and the arm of the previous
+  skill had no notes, three runs each. Every run passed. Every run with the
+  note read it at the end of its print of the sheet, and its first plan
+  tapped the coin's ring. Every run without it first planned a tap on the
+  coin, failed twice, probed two or three times and then read
+  `objectTypes/Coin.json`. Up to the first passing plan, the runs with the
+  note took 13.0 tool calls and 369,000 tokens on average, and the runs
+  without it 20.3 and 716,000. `chain_attempts` fell from 21.3 to 16.7
+  (p = 0.100). The rule written before the runs also asked that no run with
+  the note play anything before its first passing plan. Two runs broke that
+  rule for reasons other than the hole: one plan picked a coin that was
+  already shrinking away, and one run opened the editor's preview first. So
+  by that rule the result is mixed. A note saves the search for a fact that
+  the print of the sheet does not hold
+  (`.local/docs/evidence/skill-evals/construct3-agent-plugin/iteration-101/`).
 
 ## Options
 
@@ -101,8 +120,6 @@ Option 2.
 ## Re-evaluate when
 
 - A run checks a change in the preview and searches for a fact that a note
-  on the printed sheet holds. A case that measures this needs a fact that
-  the print of the sheet does not hold, such as a value set in a layout or a
-  duration that only a recording measures.
+  on the printed sheet holds.
 - A note goes stale with no mark, through an edit outside the event sheets,
   such as a layout or an object type that the fact depends on.

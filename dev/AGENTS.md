@@ -463,6 +463,11 @@ python dev/evals/run_trigger_eval.py dev/evals/train_queries.json --project <gam
   can change its language and what it agrees to write. The project's
   `CLAUDE.md` and `.claude/skills` and a `--plugin-dir` still load.
   `run_session.py` and `run_trigger_eval.py` pass it.
+- If a driver's main session hands the case to a sub-agent, its prompt
+  tells the session to run the sub-agent in the foreground and wait for its
+  report. `claude -p` exits when the main turn ends, and a sub-agent left
+  in the background stops with it: its transcript ends mid-task and its
+  `timing.json` holds nulls, which `grade.py` counts as missing timing.
 - A case with `turns`, such as `keep-checking-after-compaction`, is not a
   sub-agent run. `run_session.py <run folder>` runs its turns as one `claude
   -p` session, writes `answer.md`, `timing.json` and `outputs/session.json`,
