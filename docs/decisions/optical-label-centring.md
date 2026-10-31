@@ -31,9 +31,8 @@ A probe project from the template, previewed in the editor's preview
 (Edge on Windows 11), is measured by hide-and-diff: shots of each label
 shown, set to its capitals or Chinese, and hidden, and of its shape hidden.
 The offset runs from the centre of the shape's face to the centre of that
-ink, in px, negative upwards. At 1280×720 the Texts draw in system-ui
-(Inter was not in the font cache), with Chinese in the platform's fallback
-face. At 640×360 they are Sprite Fonts of Fusion Pixel 8 px
+ink, in px, negative upwards. At 1280×720 the Texts draw in system-ui,
+with Chinese in the platform's fallback face. At 640×360 they are Sprite Fonts of Fusion Pixel 8 px
 (`pixel-art-sprite-font.md`). These are the labels centred by their box:
 
 | Viewport | Label | Size | Capitals | Chinese |
@@ -51,6 +50,12 @@ that draws as the runtime draws puts capitals and Chinese 2.5 to 3.5 px
 high at 27 px in Segoe UI, Microsoft YaHei and Arial too (0.09 to 0.13 em),
 and a lowercase "x" within 1 px of the centre.
 
+In Inter 4.1, the subsets of `default-look.md`, the same probe lowered by
+system-ui's value measures every label 1.0 px low at both sizes, capitals
+and Chinese alike, because Chinese falls back to the platform's face but
+stands on Inter's line. Centred by their box, they would sit 2 px high at
+the title size (0.075 em) and 1 px high at the body size (0.063 em).
+
 A triangle 64 px high centred on a disc by its box has its area's centroid
 10.75 px below the disc's centre, a sixth of its height. The template's
 triangle points up, so its centroid is two thirds down from its apex.
@@ -62,7 +67,8 @@ A line taller than its box draws from the box's top: a bar's name whose
 
 A probe from the template measures every label within 0.5 px of its face's
 centre, down and across, at both viewports, and each triangle within
-0.31 px. `review_look.py` reports no `optical` finding on it. The shots, the
+0.31 px. In Inter every label measures 0.0 px off centre down.
+`review_look.py` reports no `optical` finding on either. The shots, the
 results and the probe are in `.local/docs/evidence/optical-align/`.
 
 ## Options
@@ -72,6 +78,7 @@ results and the probe are in `.local/docs/evidence/optical-align/`.
    menu stand on two lines.
 2. **One offset per face and size, set by the capitals and the Chinese.**
    They differ by at most half a pixel at 720 and half a font pixel at 360,
+   and not at all in Inter,
    so one value serves both, and every label of one size stands on one
    line. Chosen.
 3. **One offset per script.** It would separate values that differ by no
@@ -92,9 +99,10 @@ keep its size.
 ## Decision
 
 The template keeps `OPTICAL_EMS`, the share of the em by which capitals
-and Chinese sit high, measured for system-ui: 0.11, between 0.094 and
-0.125. A face that the table does not list takes that value, so Inter is
-corrected by system-ui's measurement until it is measured itself.
+and Chinese sit high, by face: 0.11 for system-ui, between 0.094 and 0.125,
+and 0.07 for Inter Regular and Medium, between 0.063 and 0.075. A face that
+the table does not list, InterDisplay Light among them, takes system-ui's
+value.
 `optical_drop()` returns the px for a text, a size and a weight: 0 for a
 text of short lowercase letters only, which sits centred. In pixel art it
 is the Sprite Font cell's centre less the centre of "H" as `bake_font.py`
@@ -119,9 +127,9 @@ the body size, 1.5 px high, is at the floor and not reported.
 
 ## Re-evaluate when
 
-- Inter is in the font cache of a machine that runs the probe: measure it
-  and give it its own line in `OPTICAL_EMS` if it differs from system-ui by
-  more than the shots resolve at the title size.
+- `FONT` names another face, or a label is set in InterDisplay Light:
+  measure it and give it its own line in `OPTICAL_EMS` if it differs from
+  system-ui by more than the shots resolve at the title size.
 - A release changes how `lib/gfx/text.js` places a line, such as its
   `textBaseline`.
 - `review_look.py` reports `optical` on a label that a template helper
