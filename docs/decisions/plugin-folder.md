@@ -1,6 +1,6 @@
-# The Plugin Folder Holds Its Sources; Only Its Data Is Built
+# The Plugin Folder Holds Only Its Sources
 
-Date: 2026-10-05
+Date: 2026-10-05, revised 2026-11-01
 
 ## Problem
 
@@ -45,30 +45,15 @@ three held none, so the fonts were not the cause. The limit lies between
 the two figures, so the build takes it as 7,000,000 bytes.
 
 The limit stays at 7,000,000 bytes, because the directory may refuse
-anything over 7 MB. On 2026-11-01 the template's pause menu took the folder
-to 7,012,971 bytes. The owner chose to store `icon.png` as a 256-colour
-palette PNG with its alpha, 512 × 512 as before. Quantized by octree
+anything over 7 MB. `icon.png` is stored as a 256-colour palette PNG with
+its alpha, 512 × 512. Quantized by octree
 without dithering, it went from 341,644 to 50,187 bytes. No pixel moved by
 more than 28 of 255 and the mean was 3.9. The two look the same at full
 size, and at 2× the gradient of the nose bands slightly.
 
-The skill reads these parts of the repository outside its own folder, by the
-paths in its scripts, `SKILL.md`, `references/` and the Construct 3 block:
-
-| Part | Read by | Kept as |
-|------|---------|---------|
-| `data/c3-schemas/` | every script, and agents directly | its files, a few hundred |
-| `data/c3-ts-defs/` except `sdk/` | `lookup_script_api.py`, which skips `sdk/` | one bundle |
-| `data/c3-examples/` | `search_guides.py`, `check_design.py` | two bundles per locale, from about a thousand small files |
-| `data/c3-example-usage/` | `lookup_ace.py` | one bundle, from about a hundred small files |
-| `data/c3-lang/` | `check_project.py`, two subtrees of about 10 KiB; `open_in_editor.py`, `preview_project.py` and agents, the texts of the plugins and behaviors that label a preview's inspector values (`reading-the-runtime.md`) | the two subtrees and those texts, about 100 KiB per locale |
-| `data/c3-guides/` | agents, from `SKILL.md` and the block | its files |
-| `data/c3-new-project/` | `new_project.py`; `check_project.py` names its `project.c3proj` for a project file without a `properties` block | its files, the icons included |
-| `plugin/skills/construct3-agent-plugin/` except `dev/evals/` | | its files |
-
-Copied as they are, these parts come to well over 512 files, most of them
-the examples. The schemas fit as files, and agents open them by path, so
-they stay as files.
+The skill's data is not part of this folder. Its scripts read it from a
+Construct3-RAG clone (`plugin-reads-the-clones.md`), so what the directory
+validates is the skill, its sub-agents and the plugin's own files.
 
 ## Options
 
@@ -76,65 +61,32 @@ they stay as files.
 - A plugin branch that CI builds and pushes, followed by the directory:
   main keeps one copy, but a release depends on a workflow that pushes, and
   the plugin can be validated only after that push.
-- A committed subfolder that a script builds and a test checks.
+- A committed subfolder that holds the plugin's sources, which a test checks.
 
 ## Decision
 
-`plugin/` is the plugin, and the plugin folder holds its sources. The
-skill, the manifest, the README, the icon, the licence and the sub-agents
-are edited in place under `plugin/`.
-Only `plugin/data/` is built: `dev/scripts/build_plugin.py` writes it from the
-`data/` of the Construct3-RAG clone beside this repository, and the result
-is committed. What the plugin does not need at run time lies beside the
-folder: the skill's evals under `dev/evals/`, the maintainers' guide
-`dev/AGENTS.md`, the tests, the docs and the records. The
-marketplace entry's source is `./plugin`, and the link into
-`~/.claude/skills/` of `plugin-tracks-commits.md` points at
+`plugin/` is the plugin, and it holds its sources only. The skill, the
+manifest, the README, the icon, the licence and the sub-agents are edited
+in place under `plugin/`, and nothing in it is built. What the plugin does
+not need at run time lies beside the folder: the skill's evals under
+`dev/evals/`, the maintainers' guide `dev/AGENTS.md`, the tests, the docs
+and the records. The marketplace entry's source is `./plugin`, and the link
+into `~/.claude/skills/` of `plugin-tracks-commits.md` points at
 `<clone>/plugin`.
 
-The build of `plugin/data/`:
-
-- Copies `data/c3-schemas/`, `data/c3-guides/`, `data/c3-new-project/` and
-  `data/c3-ts-defs/autocomplete-data.json` to the same paths. The skill's
-  scripts find `data/` in the folder above them, and an agent opens a
-  schema at the same relative path as in the Construct3-RAG clone. A
-  schema is written as the same JSON with an indent of one space instead
-  of the source's two, which takes 400 KiB off the folder and changes
-  nothing an agent or a script reads.
-- Writes `data/c3-ts-defs/` except `sdk/`, each locale of
-  `data/c3-examples/`, and `data/c3-example-usage/`, as bundles: JSON
-  objects from relative path to file content, each under 256 KiB. One
-  loader in `c3project.py` reads a data folder from its files, as in the
-  Construct3-RAG clone, and from its bundles, as here. `lookup_script_api.py`,
-  `search_guides.py`, `check_design.py` and `lookup_ace.py` read through
-  it, so in the plugin the TypeScript definitions, the examples and their
-  index are read through those scripts only. A bundled JSON file is
-  written without its indent, since only those scripts parse it: on
-  2026-10-20 that took 200 KiB off the folder, which had passed
-  7,000,000 bytes with `check_sounds.py` and `make_sounds.py`.
-- Writes `data/c3-lang/{locale}.json` with the two subtrees that
-  `check_project.py` reads. It also keeps the `name`, `properties` and
-  `debugger` texts of every plugin and behavior, at the same JSON paths.
-  Every key of a preview's inspector values is a path into those texts
-  below `text`, such as `behaviors.platform.debugger.vector-x`.
-  `open_in_editor.py --state` and a `state` step of `preview_project.py`
-  print each value under its text, and `reading-the-runtime.md` sends an
-  agent that reads `inspector` itself to the language pack for the label.
-- Copies `data/c3-new-project/`, Construct's icons included. A new project
-  is made by `new_project.py` of the skill, which copies the empty project
-  and gives it its own name and `uniqueId`. The icons are the ones the
-  editor's Project > New writes, so a new project looks as one made in the
-  editor.
-- Sets the version in `.claude-plugin/plugin.json` as
-  `plugin-tracks-commits.md` describes.
+`dev/scripts/build_plugin.py` sets the version in
+`.claude-plugin/plugin.json` as `plugin-tracks-commits.md` describes, and
+checks the folder: `--check` fails when the version differs from the one
+the build would set, when the plugin's files are more than 512 or more than
+7,000,000 bytes in all, hold a binary file other than a PNG or a file over
+256 KiB other than an image, or when `plugin/data/` exists.
 
 The folder's own files:
 
 - `bootstrap.py` stays outside, under `scripts/`. It clones the sibling
-  repositories beside the folder that holds `data/`, which for an install
-  is Claude Code's plugin cache, and a script that downloads and runs code
-  holds a version for a reviewer. A plugin user works without the siblings,
-  as the skill does wherever they are missing.
+  repositories, and a script that downloads and runs code holds a version
+  for a reviewer. The plugin's scripts print the `git clone` command of a
+  missing clone instead.
 - The icon goes at the plugin root, because the plugin manifest reference
   ("Manifest file") keeps only `plugin.json` in `.claude-plugin/`.
   `plugin.json` names it in `icon`, which Claude's directory reads for the
@@ -142,105 +94,52 @@ The folder's own files:
   the maintainer's English bulldog in front of a dark blue tiled wall,
   generated from a photo with a local image model and regenerated region
   by region until the dog's own markings, lids and teeth read at 32 px;
-  512 px square and about 330 KiB. Construct's logo is Scirra's mark and
-  stays out of the listing. No text of the plugin writes the icon's path
-  in backticks or a code block, which the checklist holds for a reviewer.
+  512 px square. Construct's logo is Scirra's mark and stays out of the
+  listing. No text of the plugin writes the icon's path in backticks or a
+  code block, which the checklist holds for a reviewer.
 - `plugin/README.md` describes the plugin route only, and states what the
-  plugin runs and what reaches the network: the checker's fetch of a
-  clone, and the browser that the scripts open on the Construct editor and
-  its preview. The checklist's "Prepare for the security scan" asks the
-  README to describe everything the plugin runs, sends or fetches.
+  plugin runs and what reaches the network: the checker's reads of each
+  clone's upstream and its pulls of the data clones, and the browser that
+  the scripts open on the Construct editor and its preview. The checklist's "Prepare for the security scan"
+  asks the README to describe everything the plugin runs, sends or fetches.
 - `plugin/agents/` holds the sub-agent types Claude Code reads from a
   plugin's folder: `project-worker`, whose tools are the ones the skill's
-  scripts need (`project-worker-agent.md`), `look-judge`, which only
-  reads the look review's brief and screenshots (`look-judge-agent.md`),
-  `design-judge`, which only reads the design review's brief
-  (`design-judge-agent.md`), and `recording-describer`, which only reads
-  a recording's brief and frames (`recording-describer.md`).
+  scripts need (`project-worker-agent.md`), `art-drawer`, `look-judge`,
+  which only reads the look review's brief and screenshots
+  (`look-judge-agent.md`), `design-judge`, which only reads the design
+  review's brief (`design-judge-agent.md`), and `recording-describer`,
+  which only reads a recording's brief and frames (`recording-describer.md`).
 - The skill's fonts stay out. The generator takes Inter from the user's
   font cache and draws a missing font in `system-ui`
-  (`default-look.md`), so the plugin has no need of them, and their
-  91 KiB count against the size limit.
+  (`default-look.md`), so the plugin has no need of them.
 
-Text files under `plugin/data/` are written with LF line endings, as Git
-stores them, so a checkout with CRLF files builds the same folder as any
-other, and `--check` and the version read a committed text file with its
-CRLF as LF. The repository has no `.gitattributes` to force LF at checkout:
-the directory refuses to validate a repository whose attributes could
-rewrite files at checkout, and it refused this one while
-`* text=auto eol=lf` was there. A test keeps the file out.
+The repository has no `.gitattributes` to force LF at checkout: the
+directory refuses to validate a repository whose attributes could rewrite
+files at checkout, and it refused this one while `* text=auto eol=lf` was
+there. A test keeps the file out. The limits and the version read a
+committed text file with its CRLF as LF, as Git stores it, so a checkout
+with `core.autocrlf` checks the same folder as any other.
 
-The skill names a file of the data folder as
-`Construct3-RAG/<path>`. A game project resolves it through its
-`Construct3-RAG:` line, which a plugin user's project often lacks. So the
-plugin bullet of `SKILL.md` says that `Construct3-RAG/` before `data/`
-stands for `${CLAUDE_PLUGIN_ROOT}/`, and the skill's text names
-no file that the plugin holds only in a bundle. Claude Code replaces that
-variable with the plugin's folder in the Markdown body of a skill when it
-loads the skill (Claude Code docs, "Plugin manifest reference",
-"Environment variables"). It does not replace the variable in a reference
-that the agent reads with a file tool, and a Bash command does not get it.
-So only `SKILL.md` can carry the variable, and its one sentence also covers
-the paths of the references.
-
-The scripts print a file of that folder by its absolute path. A TypeScript
-declaration that the plugin holds only in a bundle is printed as the
-`lookup_script_api.py` command that prints it.
-
-The folder stays under 512 files and 7,000,000 bytes. A test builds the data
-folder into a temporary directory and fails when it differs from
-`plugin/data/`, when the plugin's files are more than 512 or more than
-7,000,000 bytes in all, hold a binary file other than a PNG or a file over
-256 KiB other than an image, name in `icon` a file the folder does not hold,
-or lack a file or folder under `data/` that `SKILL.md`,
-`references/` or the game-project block names as `Construct3-RAG/<path>`.
-Another runs the plugin's scripts with no other clone, and fails when
-`search_guides.py` does not print the command that clones Construct3-Cookbook
-(`guides-in-cookbook.md`), or when
-`lookup_script_api.py` prints a file path instead of a command. The refresh
-workflow builds the data folder again from the current data of
-Construct3-RAG every day and pushes the build when it changed
-(`plugin-repository.md`).
-
-Edit the skill and the plugin's own files under `plugin/`;
-never edit `plugin/data/` by hand, because the next build overwrites it and
-the test fails until then.
+The skill names a file of the data as `Construct3-RAG/<path>`, a path in
+the Construct3-RAG clone. A test fails when `SKILL.md`, `references/` or the
+game-project block names such a path that the clone beside this repository
+lacks. Another runs the plugin's scripts from a copy in a temporary plugin
+cache: with a Construct3-RAG clone beside it they read the data, and
+without one each stops with the command that clones it there.
 
 ## Trade-offs
 
-- A data refresh is a large diff under `plugin/data/`: the bundles and the
-  reindented schemas add a blob on each change.
 - A file the skill's maintainers need and the plugin does not, such as an
   eval, lives beside the folder and not with the skill, so a script of the
   skill and its eval are two folders apart.
-- In the plugin, the TypeScript definitions and the examples are read
-  through their scripts only. The clone keeps them as files.
 - The checker's clone-behind check (`clone-update-check.md`) looks for
-  `.git` in the clone that holds the plugin folder. `search_guides.py`
-  looks for the example projects beside that clone. Run from
-  `<clone>/plugin`, both start at the clone, one folder up, which
+  `.git` in the clone that holds the plugin folder. Run from
+  `<clone>/plugin`, it starts at the clone, one folder up, which
   `c3project.clone_root` returns.
-- The icons are bundled images that `new_project.py` copies, which the
-  checklist holds for a reviewer when a script refers to them. The script
-  copies the empty project as a folder and names no image file.
-- The room under 512 files and under 7,000,000 bytes shrinks with each new
-  addon, which adds one schema file per locale, and with each release,
-  whose data grows.
 
 ## Re-evaluate when
 
-- The plugin folder nears 512 files. The next part to bundle is
-  `data/c3-schemas/{locale}/effects/`, the small files of the effects, which
-  agents reach through `lookup_ace.py`.
-- Re-validation of the built folder still reports a hold that this layout
-  should remove. If the icons are the only hold left, the next step is to
-  draw placeholder icons in code and bundle no image.
-- The plugin folder nears 7,000,000 bytes. The next cuts, in order: the
-  bundles' own indent, which saves little; the empty project's
-  icons drawn in code, 140 KiB; the schemas without the fields no script
-  or agent reads, which needs a survey of what the skill's text and the
-  scripts read first.
+- Re-validation of the folder still reports a hold that this layout should
+  remove.
 - The directory changes its limits, or states the size limit, which this
   record reads off two scans.
-- A reason appears for the plugin to carry Inter: its 91 KiB fit under
-  the limit.

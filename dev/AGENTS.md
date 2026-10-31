@@ -15,7 +15,7 @@ ship:
   project;
 - `evals/`, which tests the skill with agents;
 - `tests/`, the pytest suite (`dev/tests/AGENTS.md`);
-- `scripts/`, the data build and the measurements (`dev/scripts/AGENTS.md`).
+- `scripts/`, the plugin build and the measurements (`dev/scripts/AGENTS.md`).
 
 The plugin folder is held to the limits of Claude's directory
 (`docs/decisions/plugin-folder.md`), so a file that the skill does not read
@@ -30,18 +30,17 @@ run `git status`. Keep the changes that you did not make, because other
 sessions may work in the same checkout.
 
 `plugin/` is the source of the Claude Code plugin `construct3`, so edit the
-skill, the manifest, the README, the icon and the sub-agents in place. Only
-`plugin/data/` is built: `dev/scripts/build_plugin.py` writes it from the
-data of the Construct3-RAG clone beside this one. The files that the plugin
-does not ship are beside `plugin/`: this folder, the docs and the records.
-The reasons are in `docs/decisions/plugin-repository.md`,
+skill, the manifest, the README, the icon and the sub-agents in place. The
+plugin holds no data: the scripts read it from the Construct3-RAG clone
+beside this one (`docs/decisions/plugin-reads-the-clones.md`). The files
+that the plugin does not ship are beside `plugin/`: this folder, the docs
+and the records. The reasons are in `docs/decisions/plugin-repository.md`,
 `docs/decisions/plugin-folder.md` and `docs/decisions/dev-folder.md`.
 
-- Edit `plugin/` in place, except `plugin/data/`. Run the build after a data
-  change, because `dev/tests/test_plugin_folder.py` fails while
-  `plugin/data/` differs from a fresh build.
-- The build also sets the plugin's version. While the plugin's files equal
-  the published files, it sets the published version. When they differ, it
+- Edit `plugin/` in place, and do not add a data folder to it.
+  `dev/scripts/build_plugin.py --check` fails while `plugin/data/` exists.
+- `dev/scripts/build_plugin.py` sets the plugin's version. While the
+  plugin's files equal the published files, it sets the published version. When they differ, it
   raises the patch number by one. It never sets a version below the
   committed `version`. Raise `version` in
   `plugin/.claude-plugin/plugin.json` by hand only for a minor or major
@@ -58,15 +57,19 @@ The reasons are in `docs/decisions/plugin-repository.md`,
   folder, as the evals are.
 - Make a change to a schema, a language pack, an example index or a guide in
   Construct3-RAG, because the data belongs to that repository. When its
-  `main` changes, pull the clone beside this one and run the build.
-  `.github/workflows/refresh-plugin.yml` does the same every day, and it
-  pushes the build if the data changed. `docs/dev/data-pipeline.md` in the
-  Construct3-RAG clone describes that pipeline.
+  `main` changes, pull the clone beside this one; the scripts read the new
+  data at once. `docs/dev/data-pipeline.md` in the Construct3-RAG clone
+  describes its pipeline.
 - Do not write the Construct 3 version or the counts of the data into text,
   because every data refresh changes them. Read them from
-  `plugin/data/c3-schemas/_index.json`.
-- If a merge leaves conflicts in `plugin/data/`, run the build, stage the
-  folder, then commit the merge.
+  `Construct3-RAG/data/c3-schemas/_index.json`.
+- A script reaches the data only through `c3project.find_rag` or
+  `locate_rag`, and names a missing clone with `rag_clone_command`. The
+  plugin never makes a first clone. `check_project.py` pulls a data clone
+  that is behind its upstream and holds no work of its own.
+- Raise `RAG_DATA_FLOOR` in `c3project.py` when a script starts to read
+  what a newer data refresh added. The checker fails on a Construct3-RAG
+  clone whose data is older.
 - The end marker line of
   `plugin/skills/construct3-agent-plugin/assets/build_project.py` conflicts
   whenever both sides changed its helpers, because the line carries their
@@ -108,7 +111,7 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 | Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `dev/tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem, but it can leave the problems that are already there. So keep the final full `check_project.py` run and its fix-loop record |
 | Open or play a game | `scripts/open_in_editor.py --preview`. `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `dev/evals/play_cases.py`, `dev/tests/test_skill_preview_project.py` | Opening without input tests the startup only. Reaching a scene directly does not test the path to it |
 | Ship the skill to a game | `scripts/install.py --project FOLDER` mirrors the skill's folder into the game | `assets/game-project-block.md`, `c3project.py`, `dev/tests/test_skill_install.py` | An edited Construct 3 block and edited generator helpers keep their edits until `--replace-edited-block` or `--replace-edited-helpers` replaces them |
-| Ship the plugin | `dev/scripts/build_plugin.py` builds `plugin/` from the skill and the data of the Construct3-RAG clone beside this repository | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md` | Edit the sources, then build. The build sets the version from the plugin at the commit that HEAD shares with `origin/main` |
+| Ship the plugin | `dev/scripts/build_plugin.py` sets the version of `plugin/` and checks its limits | `dev/tests/test_plugin_folder.py`, `docs/decisions/plugin-folder.md`, `docs/decisions/plugin-tracks-commits.md`, `docs/decisions/plugin-reads-the-clones.md` | Edit the sources, then run it. It sets the version from the plugin at the commit that HEAD shares with `origin/main` |
 
 ## Rules
 
@@ -159,18 +162,13 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 - Write a path inside the skill relative to the skill's folder, because a
   relative link out of the folder breaks in a copy. Write a path outside the
   folder as follows:
-  - A file of the folder that the Construct 3 block names, `plugin/` with
-    its `data/`: `Construct3-RAG/<path>`, as the block writes it.
+  - A file of the Construct3-RAG clone that the Construct 3 block names:
+    `Construct3-RAG/<path>`, as the block writes it.
   - A guide of the Cookbook clone: `Construct3-Cookbook/guides/<path>`.
   - A record of this repository:
     `Construct3-Agent-Skills/docs/decisions/<file>`. A record of
     Construct3-RAG: its URL. Neither is in `plugin/`.
-- The plugin bullet of `SKILL.md` says where such a path lies in the plugin,
-  so the skill's text names no file that the plugin holds only in a bundle.
-- A script prints a file of that folder by its absolute path. It prints a
-  TypeScript declaration that the plugin holds only in a bundle as the
-  `lookup_script_api.py` command that prints it
-  (`docs/decisions/plugin-folder.md`).
+- A script prints a file of that clone by its absolute path.
 
 ### Scripts
 
@@ -241,7 +239,7 @@ these rules:
 - Before you write a rule about the folder, a file name or a file format,
   read Scirra's guide [Construct's project
   format](https://www.construct.net/en/tutorials/constructs-project-format-3275),
-  kept in `plugin/data/c3-guides/constructs-project-format.md`. It states
+  kept in `Construct3-RAG/data/c3-guides/constructs-project-format.md`. It states
   what the format keeps across releases: what `project.c3proj` indexes,
   image file names, the formats of sounds, fonts and icons, and which files
   the editor ignores.

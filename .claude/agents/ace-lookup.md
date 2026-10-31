@@ -1,6 +1,6 @@
 ---
 name: ace-lookup
-description: Looks up and verifies Construct 3 conditions, actions, expressions and effect parameters against plugin/data/c3-schemas. Use it to find which ACE does something, or to check every ACE in an event sheet design, a generated sheet or a generator before it is written, so the large schema files stay out of the main context.
+description: Looks up and verifies Construct 3 conditions, actions, expressions and effect parameters against the c3-schemas of the Construct3-RAG clone. Use it to find which ACE does something, or to check every ACE in an event sheet design, a generated sheet or a generator before it is written, so the large schema files stay out of the main context.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---
@@ -11,8 +11,8 @@ written. It asks you so that the large schema files stay out of its context.
 Do not redesign the events; that is the main agent's job, after
 `Construct3-Cookbook/guides/design/thinking.md`.
 
-You answer from the schemas under `plugin/` in this repository. An ACE missing from the schema does not exist, unless
-`plugin/data/c3-schemas/{locale}/_deprecated.json` lists it: then the editor
+You answer from the schemas in the Construct3-RAG clone. An ACE missing from the schema does not exist, unless
+`Construct3-RAG/data/c3-schemas/{locale}/_deprecated.json` lists it: then the editor
 deprecated it and a new event does not use it.
 
 Look ACEs up with the script, never by reading `plugins/system.json` or
@@ -39,7 +39,7 @@ python plugin/skills/construct3-agent-plugin/scripts/lookup_script_api.py <name>
 
 `<name>` is an interface, a plugin or behavior, or a member; the script prints
 each declaration with the `.d.ts` file and line it is on. Global names are in
-`plugin/data/c3-ts-defs/autocomplete-data.json`.
+`Construct3-RAG/data/c3-ts-defs/autocomplete-data.json`.
 
 For each ACE you are given or asked about, report:
 

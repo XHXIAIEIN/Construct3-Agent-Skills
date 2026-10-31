@@ -30,7 +30,8 @@ The command copies
 [`plugin/skills/construct3-agent-plugin/`](../plugin/skills/construct3-agent-plugin/SKILL.md)
 to the project's `.agents/skills/`. If no instruction file of the project
 names this repository, it also appends the block to `AGENTS.md`, with the
-path of this clone's `plugin/` on its `Construct3-RAG:` line. In an
+Construct3-RAG clone on its `Construct3-RAG:` line and this clone on its
+`Construct3-Agent-Skills:` line. In an
 instruction file that names this repository, it changes only the block that
 it wrote, as "Refreshing the block" describes.
 
@@ -145,6 +146,6 @@ On a machine that has only this clone, run this repository's
 `scripts/bootstrap.py --project <folder>`. It clones the sibling
 repositories that the block expects, the Cookbook among them, if they are
 missing. If the folder does not exist, it creates the folder as an empty
-project, a copy of `plugin/data/c3-new-project`. Then it runs `install.py`
-on the folder. The README's first section gives the clone command and this
+project, a copy of `Construct3-RAG/data/c3-new-project`. Then it runs
+`install.py` on the folder. The README's first section gives the clone command and this
 command to a reader who has only the URL.
