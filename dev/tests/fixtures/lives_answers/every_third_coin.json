@@ -1,0 +1,17 @@
+{
+ "from": "lives-as-hearts/with_skill of iteration 102: the stand-in's sheet with the lives the run added, all of them locals of the outer group",
+ "round_coins": [1, 3, 6, 2, 10, 1],
+ "locals": [
+  {"name": "ROUND_COINS", "start": "1,3,6,2,10,1", "constant": true},
+  {"name": "score", "start": 0, "static": true},
+  {"name": "beat", "start": 0, "static": true},
+  {"name": "MAX_LIVES", "start": 5, "constant": true},
+  {"name": "lives", "start": 5, "static": true},
+  {"name": "deal", "start": 0},
+  {"name": "COINS_PER_LIFE", "start": 3, "constant": true},
+  {"name": "collected", "start": 0, "static": true},
+  {"name": "used", "start": false, "static": true}
+ ],
+ "per_coin": {"score": 5, "collected": 1},
+ "life_every": 3
+}
