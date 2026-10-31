@@ -894,9 +894,8 @@ def test_quoted_combo_value_is_told_to_drop_the_quotes(project):
 
 def test_grouped_combo_value_must_be_an_item_id(project):
     """Set cursor style written with "16", the index of grabbing, opened and checked clean, and the
-    r506.3 preview kept the default cursor (2026-10-30). The project stores the item id."""
-    add_global_object(project, "Mouse")
-
+    r506.3 preview kept the default cursor (2026-10-30). The project stores the item id. The stand-in game's
+    pause menu has the Mouse."""
     def cursor(style: str):
         return lambda s: s["events"].append(block([cond("every-tick")], [
             {"id": "set-cursor-style2", "objectClass": "Mouse", "sid": 3, "parameters": {"cursor-style": style}}]))
@@ -1233,7 +1232,7 @@ def test_a_deprecated_ace_or_expression_warns_once_at_its_first_use(project):
     assert any("action set-minimum-framerate of System is deprecated" in w
                and "its parameters are not checked" in w for w in said), said
     assert any("unixtime is a deprecated expression of System" in w for w in said), said
-    assert "System: set-minimum-framerate (minimum-fps: 30) [deprecated]" in tool(project, "print_sheet", "Game")[1]
+    assert "System: set-minimum-framerate (minimum-fps: 30) [deprecated]" in tool(project, "print_sheet", "Game", "--limit", "0")[1]
 
 
 def rename_type(root: Path, old: str, new: str, sid: int = 7) -> None:
@@ -1376,8 +1375,8 @@ def test_a_second_object_type_of_a_single_global_plugin_is_an_error(project):
 
 def test_a_single_global_object_written_as_a_plain_one_is_an_error(project):
     """A Keyboard written like an Array, its instance in a layout's nonworld-instances: the editor refuses the
-    type with "reading 'hasOwnProperty'" and the instance with "wrong plugin type"."""
-    add_global_object(project, "Keyboard")
+    type with "reading 'hasOwnProperty'" and the instance with "wrong plugin type". The stand-in game's pause
+    menu has the Keyboard."""
     keyboard = {"name": "Keyboard", "plugin-id": "Keyboard", "sid": 3, "isGlobal": False, "instanceVariables": []}
     (project / "objectTypes" / "Keyboard.json").write_text(json.dumps(keyboard), encoding="utf-8")
     edit(project, "layouts/Game.json", lambda lay: lay.setdefault("nonworld-instances", []).append(
@@ -1389,7 +1388,7 @@ def test_a_single_global_object_written_as_a_plain_one_is_an_error(project):
 
 
 def test_a_single_global_object_as_the_editor_saves_it_passes(project):
-    add_global_object(project, "Keyboard")
+    add_global_object(project, "LocalStorage")
     code, out = check(project)
     assert code == 0 and "wrong plugin type" not in out, out
 
@@ -2318,7 +2317,7 @@ def screen_text(project: Path, change) -> str:
             for layer in layers:
                 yield layer
                 yield from flat(layer.get("subLayers", []))
-        hud = next(layer for layer in flat(d["layers"]) if layer.get("parallaxX") == 0)
+        hud = next(layer for layer in flat(d["layers"]) if any(i["type"] == "ScoreLabel" for i in layer["instances"]))
         text = next(i for i in hud["instances"] if i["type"] == "ScoreLabel")
         for layer in flat(d["layers"]):
             layer.update(instances=[], isTransparent=True)

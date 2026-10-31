@@ -28,8 +28,8 @@ def test_a_miss_of_print_sheet_prints_on_stdout(project):
     committed(project)
     for args, said in ((("Gmae",), "no event sheet named 'Gmae'; sheets: Game"),
                        (("Gmae", "--since", "HEAD"), "no event sheet named 'Gmae' on disk or in HEAD ("),
-                       (("Game", "--show", "40"), "sheet Game has 16 events; --show 40 is not one of them"),
-                       (("Game", "--events", "40"), "sheet Game has 16 events; --events 40 starts past its end"),
+                       (("Game", "--show", "60"), "sheet Game has 51 events; --show 60 is not one of them"),
+                       (("Game", "--events", "60"), "sheet Game has 51 events; --events 60 starts past its end"),
                        (("Game", "--show", "1", "--limit", "20"), "characters of JSON, over the limit of 20 (--limit)")):
         p = streams(project, f"{INSTALLED}/scripts/print_sheet.py", "--rag", str(PLUGIN), *args)
         assert p.returncode == 1 and p.stderr == "" and said in p.stdout, (args, p.stdout, p.stderr)
@@ -47,7 +47,7 @@ def test_outline_numbers_events_as_the_editor_does(built):
 
 
 def test_print_words_the_sheet_as_the_editor_does(built):
-    code, out = tool(built, "print_sheet", "Game")
+    code, out = tool(built, "print_sheet", "Game", "--limit", "0")
     assert code == 0
     assert "   6     Touch: On touched Coin (start)\n         Coin: NOT Is any Tween playing\n             -> Coin: Collect()" in out
     assert "       local constant string ROUND_COINS = 1,3,6,2,10,1" in out
@@ -62,7 +62,7 @@ def test_print_shows_a_group_description_and_a_variable_comment(project):
         next(ev for ev in top if ev.get("eventType") == "group")["description"] = "Round set-up\nand the first coins"
         next(ev for ev in top if ev.get("name") == "ROUND_COINS")["comment"] = "Coins per round"
     edit(project, SHEET, describe)
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0, out
     assert "   2   group Setup\n           // Round set-up\n           // and the first coins\n" in out
     assert "       local constant string ROUND_COINS = 1,3,6,2,10,1\n           // Coins per round\n" in out
@@ -80,21 +80,22 @@ def test_print_says_every_tick_only_where_an_event_without_conditions_runs_every
         sheet["events"] += [block([], [set_scale]),
                             {"eventType": "group", "title": "Idle", "children": [block([], [set_scale])]}]
     edit(project, SHEET, add)
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0, out
     assert "   6     Touch: On touched Coin (start)\n" in out
     assert "   7       (runs with its parent)\n               -> Coin: Set scale to 1.5" in out
     assert "   9   function AddScore(points: number)\n" in out
     assert "  10     (runs with its parent)\n             -> Coin: Set scale to 1.5" in out
-    assert "  19 (every tick)\n         -> Coin: Set scale to 1.5" in out
-    assert "  20 group Idle\n  21   (every tick)\n           -> Coin: Set scale to 1.5" in out
-    assert out.count("(every tick)") == 2 and out.count("(runs with its parent)") == 2, out
+    assert "  54 (every tick)\n         -> Coin: Set scale to 1.5" in out
+    assert "  55 group Idle\n  56   (every tick)\n           -> Coin: Set scale to 1.5" in out
+    # the third is the pause menu's highlight, which runs every tick
+    assert out.count("(every tick)") == 3 and out.count("(runs with its parent)") == 2, out
 
 
 def test_print_names_the_sub_events_of_an_event(project):
     """A trigger with no actions of its own looked empty to a model, which removed it and the
     sub-events that did the work."""
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0, out
     parent = next(line for line in out.splitlines() if "[sub-event" in line)
     number = int(parent.split()[0])
@@ -103,7 +104,7 @@ def test_print_names_the_sub_events_of_an_event(project):
 
 
 def test_print_follows_the_locale(built):
-    code, out = tool(built, "print_sheet", "Game", "--locale", "zh-CN")
+    code, out = tool(built, "print_sheet", "Game", "--locale", "zh-CN", "--limit", "0")
     assert code == 0 and "System: 场景开始" in out
 
 
@@ -117,7 +118,7 @@ def test_expression_names_are_english_in_every_locale(built):
 
 def test_print_stops_at_the_limit_and_names_the_part_that_continues(built):
     """A harness cuts long output without saying where; the script stops at an event and says how to go on."""
-    _, whole = tool(built, "print_sheet", "Game")
+    _, whole = tool(built, "print_sheet", "Game", "--limit", "0")
     parts, span = [], "1-"
     while span:
         code, out = tool(built, "print_sheet", "Game", "--events", span, "--limit", "900")
@@ -134,14 +135,14 @@ def test_print_stops_at_the_limit_and_names_the_part_that_continues(built):
 def test_print_of_a_part_starts_with_the_events_it_sits_in(built):
     code, out = tool(built, "print_sheet", "Game", "--events", "10")
     assert code == 0
-    assert out.splitlines()[:5] == ["== Game: events 10-10 of 16; a [context] row is an event these sit in, without its actions",
+    assert out.splitlines()[:5] == ["== Game: events 10-10 of 51; a [context] row is an event these sit in, without its actions",
                                     "   1 group Coins  [context]", "   9   group Restart  [context]",
                                     "         // Start the next round when the last coin is gone",
                                     "  10     System: Coin.Count = 0"]
     assert "Touch: On touched" not in out
 
 
-@pytest.mark.parametrize("span, said", [("40-", "has 16 events"), ("x", "40-80, 40- or 40"), ("5-2", "ends before it starts")])
+@pytest.mark.parametrize("span, said", [("60-", "has 51 events"), ("x", "40-80, 40- or 40"), ("5-2", "ends before it starts")])
 def test_print_refuses_a_range_it_cannot_read(built, span, said):
     code, out = tool(built, "print_sheet", "Game", "--events", span)
     assert code == 1 and said in out
@@ -165,9 +166,9 @@ def test_print_without_a_name_prints_the_map_when_the_sheets_do_not_fit(project)
     with_menu_sheet(project)
     code, out = tool(project, "print_sheet", "--limit", "900")
     assert code == 0
-    assert out.startswith("== Coins: 2 sheets, 32 events, 2 layouts.") and "-> " not in out
-    assert re.search(r"\n  Game +16 events +\d+ chars; layouts Game; ", out)
-    code, out = tool(project, "print_sheet")
+    assert out.startswith("== Coins: 2 sheets, 102 events, 2 layouts.") and "-> " not in out
+    assert re.search(r"\n  Game +51 events +\d+ chars; layouts Game; ", out)
+    code, out = tool(project, "print_sheet", "--limit", "0")
     assert code == 0 and "== Game\n" in out and "== Menu\n" in out
 
 
@@ -179,7 +180,7 @@ def test_print_counts_the_lines_of_a_script_stored_either_way(project):
             sheet["events"] += [{"eventType": "script", "script": script},
                                 {"eventType": "block", "conditions": [], "actions": [{"type": "script", "script": script}]}]
     edit(project, SHEET, add)
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0 and out.count("script, 2 lines") == 4 and out.count("script, 1 line\n") == 4, out
     assert "script, 67 lines" not in out and "script, 1 lines" not in out, out
 
@@ -218,7 +219,7 @@ def test_print_marks_what_the_editor_has_disabled(project):
         rows["restart_block"]["disabled"] = True
         rows["restart_block"]["conditions"][0]["disabled"] = True
     edit(project, SHEET, disable)
-    printed = {locale: tool(project, "print_sheet", "Game", "--locale", locale) for locale in ("en-US", "zh-CN")}
+    printed = {locale: tool(project, "print_sheet", "Game", "--locale", locale, "--limit", "0") for locale in ("en-US", "zh-CN")}
     for code, out in printed.values():
         assert code == 0, out
         note = ("-- a line marked [condition disabled] or [action disabled] does not run, but the other lines of "
@@ -246,7 +247,7 @@ def test_a_comparison_prints_as_its_sign_with_a_schema_or_without(project):
     assert ps.shown_param("gamepad", 0) == 0
     edit(project, SHEET, lambda sheet: events(sheet)["restart_block"]["conditions"].append(
         {"id": "compare-speed", "objectClass": "Ghost", "parameters": {"comparison": 3, "speed": "0"}}))
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0 and "Ghost: compare-speed (comparison: ≤, speed: 0)" in out, out
     assert "System: Coin.Count = 0" in out
 
@@ -258,7 +259,7 @@ def test_scripts_write_utf8_and_survive_a_code_page_that_cannot(built):
         env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
         if codec:
             env["PYTHONIOENCODING"] = codec
-        p = subprocess.run([sys.executable, str(script), "Game", "--locale", "zh-CN", "--rag", str(PLUGIN)],
+        p = subprocess.run([sys.executable, str(script), "Game", "--locale", "zh-CN", "--limit", "0", "--rag", str(PLUGIN)],
                            cwd=built, env=env, capture_output=True)
         assert p.returncode == 0, p.stdout + p.stderr
         assert want in p.stdout.decode(codec or "utf-8")
@@ -267,7 +268,7 @@ def test_scripts_write_utf8_and_survive_a_code_page_that_cannot(built):
 def test_print_names_a_renamed_functions_object(project):
     """A model read Renamed.Potion as a function named after the Functions object."""
     edit(project, "project.c3proj", lambda data: data.update(functionsName="Calls"))
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0, out
     assert out.startswith("note: Calls is this project's name for the built-in Functions object"), out
     assert "Calls: Call AddScore(" in out and "Functions: Call" not in out, out
@@ -361,7 +362,7 @@ def test_since_stops_at_the_limit_and_names_the_part_that_continues(project):
     code, out = tool(project, "print_sheet", "--since", "HEAD", "--limit", "1500")
     assert code == 0 and len(out) < 1500, out
     last = out.splitlines()[-1]
-    assert re.search(r"before event (\d+) of 56\. The rest: python \S+print_sheet.py Game --since HEAD --events \1- "
+    assert re.search(r"before event (\d+) of 91\. The rest: python \S+print_sheet.py Game --since HEAD --events \1- "
                      r".*--limit 1500$", last), last
     start = re.search(r"--events (\d+)-", last).group(1)
     code, rest = tool(project, "print_sheet", "Game", "--since", "HEAD", "--events", f"{start}-", "--limit", "0")
@@ -403,7 +404,7 @@ def test_the_list_of_groups_leaves_the_deeper_ones_out_to_fit(project):
 
 def test_a_sheet_that_fits_prints_as_before(built):
     """Under the limit nothing changes: the whole sheet, no list of groups."""
-    code, out = tool(built, "print_sheet", "Game")
+    code, out = tool(built, "print_sheet", "Game", "--limit", "0")
     assert code == 0 and out.startswith("== Game\n") and "Its groups and functions" not in out
 
 

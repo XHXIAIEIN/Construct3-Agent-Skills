@@ -453,9 +453,12 @@ parameters are in the template.
   the mask.
 - A tween takes the ease and the seconds of its class from `TWEEN_STYLE`:
   `style="hud_in"`, `"hud_out"`, `"bar"`, `"camera"`, `"world"` (the
-  default), `"popup"` or `"banner"` (`motion.tween-style`). A popup is
-  `popup(panel, dim)` to open and `popup(panel, dim, show=False)` to close,
-  with `popup_closed(panel, dim)` among the module's events. The motion
+  default), `"popup"` or `"banner"` (`motion.tween-style`). A popup is a
+  layer of its own over a veil, each made by `popup_layer()`:
+  `popup(layer, veil, manager)` opens it, `show=False` closes it, and
+  `popup_events(layer, veil, manager)` goes among the module's events. A
+  pause menu is `pause_types()`, `pause_menu()` on the popup's layer and
+  `pause_events()`, as the stand-in game sets them (`menu.pause`). The motion
   checks of `check_look.py` are the rules whose ids start with `motion.`.
   [motion-vocabulary.md](motion-vocabulary.md) names each motion with its
   helper and value: a pop, a float, a hit stop, a shake, a ticker, a stagger.

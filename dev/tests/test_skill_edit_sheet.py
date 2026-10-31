@@ -25,7 +25,7 @@ def source_tool(root: Path, name: str, *args: str) -> tuple[int, str]:
 
 
 def printed(root: Path) -> str:
-    return tool(root, "print_sheet", "Game")[1]
+    return tool(root, "print_sheet", "Game", "--limit", "0")[1]
 
 
 def sheet_on_disk(root: Path) -> dict:
@@ -70,7 +70,7 @@ def test_plan_puts_events_in_by_the_numbers_the_sheet_has_now(project):
                          {"id": "set-scale", "objectClass": "Coin", "parameters": {"scale": "1.5"}}]}]},
                      {"after": 9, "events": [{"eventType": "comment", "text": "Countdown."}, TIMER]})
     assert code == 0, out
-    assert out.splitlines()[0] == "Game: 4 operations, 16 events before and 19 now, 8 new sids"
+    assert out.splitlines()[0] == "Game: 4 operations, 51 events before and 54 now, 8 new sids"
     assert out.splitlines()[-1].startswith("ok:") and "open_in_editor" not in out     # check_project.py prints it
     sheet = printed(project)
     assert "== Game\n     global number timeLeft = 30\n     // Coins. Tap a coin" in sheet
@@ -380,7 +380,7 @@ def test_dry_run_checks_and_shows_and_writes_nothing(project):
 
 
 @pytest.mark.parametrize("operation, said", [
-    ({"after": 40, "events": [TIMER]}, "40 is not an event of the sheet, which has 16"),
+    ({"after": 90, "events": [TIMER]}, "90 is not an event of the sheet, which has 51"),
     ({"after": 8}, 'needs "events"'),
     ({"after": 8, "before": 2, "events": [TIMER]}, "an operation is one of"),
     ({"after": 8, "event": [TIMER]}, "an operation is one of"),

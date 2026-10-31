@@ -26,6 +26,7 @@
     "Construct3-Agent-Skills/docs/decisions/look-severity.md",
     "Construct3-Agent-Skills/docs/decisions/motion-atlas-layouts.md",
     "Construct3-Agent-Skills/docs/decisions/motion-by-class.md",
+    "Construct3-Agent-Skills/docs/decisions/pause-menu.md",
     "Construct3-Agent-Skills/docs/decisions/pixel-art-sprite-font.md",
     "Construct3-Agent-Skills/docs/decisions/reference-pairs.md",
     "Construct3-Agent-Skills/docs/decisions/tabular-count-digits.md",
@@ -714,10 +715,10 @@
       "id": "motion.popup",
       "status": "adopted",
       "scope": "every-look",
-      "says": "popup() opens a panel from 0.95 of its size at opacity 0 while its dim fades in to 50 %, in TWEEN_STYLE['popup'], and closes it the way it came; popup_closed() hides both once the close ends. The official examples fade their popups at their size and never scale one; the owner picked the scale and fade on a recording of the two side by side. Never from 0 (motion.panel-from-zero).",
-      "template": "(POPUP['scale'], POPUP['dim'])",
-      "value": "(0.95, 50)",
-      "helpers": "popup(), popup_closed(), screen_box()",
+      "says": "popup() opens a layer of its own from 0.95 of its size at opacity 0 while its veil, an opaque layer of canvas, fades in to 92 %, in TWEEN_STYLE['popup'], and closes it the way it came; popup_events() hides both once the close ends. The official examples fade their popups at their size and never scale one; the owner picked the scale and fade on a recording of the two side by side. Never from 0 (motion.panel-from-zero).",
+      "template": "(POPUP['scale'], POPUP['veil'])",
+      "value": "(0.95, 92)",
+      "helpers": "popup_layer(), popup(), popup_events()",
       "source": "Construct3-Agent-Skills/docs/decisions/motion-by-class.md"
     },
     {
@@ -827,6 +828,31 @@
       "scope": "every-look",
       "says": "A HUD object leaves faster than it enters, from web motion guides: of the 92 HUD objects of the official examples that fade both ways, 62 fade out in the same median time as in, 17 faster and 13 slower; fades in and out both take 0.5 s at the median.",
       "source": "Construct3-Agent-Skills/docs/decisions/look-from-impeccable.md"
+    },
+    {
+      "id": "menu.pause",
+      "status": "adopted",
+      "scope": "every-look",
+      "says": "A pause menu has no panel: a veil of canvas at 92 % covers the playfield under the HUD, which stays readable, and above the HUD the title \"Paused\" sits top centre on the HUD's margin and a column of rows on the centre line, each TOUCH high, 14 units wide, or as wide as its longest label needs in pixel art, and a unit apart, centred on the grid and each its own tap target, labelled at the title's size and weight with no key label. At rest a row is outlined in ink LINE wide with an ink label; the row that leaves the game has no outline and a dim label; the one current row, the first as the menu opens, is filled in ink with a canvas label, and the pointer, the keys and the gamepad move it. No row has a grey fill: the owner read a grey row at rest as hovered. The owner picked this on mockups over a card on a dim (menu.pause-panel) and a band (menu.pause-band), and dropped the key labels beside the rows.",
+      "template": "(POPUP['veil'], PAUSE['cols'])",
+      "value": "(92, 14)",
+      "helpers": "pause_types(), pause_width(), pause_menu(), pause_events(), pause_leave(), popup()",
+      "confirm": "dev/tests/test_skill_build_project.py: test_template_pauses_over_a_veil_with_a_column_of_rows",
+      "source": "Construct3-Agent-Skills/docs/decisions/pause-menu.md"
+    },
+    {
+      "id": "menu.pause-panel",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A pause menu in a card on a dim, the template's old popup(panel, dim): a card on a dim is the app look of avoid.dashboard.",
+      "source": "Construct3-Agent-Skills/docs/decisions/pause-menu.md"
+    },
+    {
+      "id": "menu.pause-band",
+      "status": "rejected",
+      "scope": "every-look",
+      "says": "A pause menu in a band across the middle of the screen: a portrait screen has no room for a band of rows beside the HUD.",
+      "source": "Construct3-Agent-Skills/docs/decisions/pause-menu.md"
     },
     {
       "id": "menu.hold-to-confirm",

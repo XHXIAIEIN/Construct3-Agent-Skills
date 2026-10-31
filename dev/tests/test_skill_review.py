@@ -12,7 +12,7 @@ def test_check_project_says_what_a_review_reports_above_its_last_line(built):
 
 
 def test_print_sheet_ends_with_it_and_a_cut_print_still_names_the_rest(built):
-    code, out = tool(built, "print_sheet", "--review")
+    code, out = tool(built, "print_sheet", "--review", "--limit", "0")
     assert code == 0 and out.splitlines()[-1].startswith("review: say first what the project does.")
     code, out = tool(built, "print_sheet", "--review", "--limit", "1200")
     lines = out.splitlines()

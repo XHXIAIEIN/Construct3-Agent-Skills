@@ -152,8 +152,7 @@ def add_global_object(root: Path, plugin: str) -> None:
 
 
 def add_keyboard(root: Path, key) -> None:
-    """A Keyboard object in the stand-in game, and an event on `key` pressed."""
-    add_global_object(root, "Keyboard")
+    """An event on `key` pressed of the stand-in game's Keyboard, which its pause menu reads."""
     edit(root, SHEET, lambda s: s["events"].append(block([cond("on-key-pressed", "Keyboard", {"key": key})])))
 
 

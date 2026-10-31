@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from tests.skill_helpers import (
-    SHEET, check, edit, cond, block, events, findings, warnings, plan, add_addon, add_global_object, add_keyboard,
+    SHEET, check, edit, cond, block, events, findings, warnings, plan, add_addon, add_keyboard,
     coin_copy, pathfinding_coin,
 )
 
@@ -153,7 +153,7 @@ def test_plan_warns_on_a_find_path_every_tick_in_an_event_it_did_not_create(proj
     pathfinding_coin(project)
     edit(project, SHEET, lambda s: s["events"].append(with_own_sids(
         block([cond("every-tick")], STYLE_ACTIONS[:1]), 940_000_000_000_000)))
-    code, out = plan(project, {"event": 17, "add-actions": [FIND_PATH]}, flags=("--dry-run",))
+    code, out = plan(project, {"event": 52, "add-actions": [FIND_PATH]}, flags=("--dry-run",))
     assert code == 0 and "Traceback" not in out, out
     assert [w for w in warnings(out) if "Find path runs every tick" in w], out
 
@@ -390,7 +390,7 @@ def test_plan_refuses_new_events_without_their_comments(project):
     before = (project / SHEET).read_bytes()
     code, out = plan(project, {"into": 0, "events": [{"eventType": "block", "conditions": [], "actions": STYLE_ACTIONS}]})
     assert code == 1 and (project / SHEET).read_bytes() == before, out
-    assert "operation 1: sheet Game event 17 (sid" in out
+    assert "operation 1: sheet Game event 52 (sid" in out
     assert "8 actions in a row without a comment action" in out and "no comment above it" in out
     assert "event 6 (sid" not in out and out.splitlines()[-1] == "the plan adds 2 problem(s) to the project; nothing was written"
     stepped = STYLE_ACTIONS[:4] + [{"type": "comment", "text": "Then the rest."}] + STYLE_ACTIONS[4:]
@@ -583,8 +583,7 @@ def test_style_names_the_pointer_read_under_on_movement(project):
     """C3-Polylines set its pointer from Mouse.X in On movement, which the runtime fires before it stores the new
     position, and its ribbons shot towards (0, 0) at the first move. A read in the trigger's actions or in a
     sub-event's condition is named with the trigger's event; a read every tick, MovementX in the trigger and
-    the words in a text are left alone."""
-    add_global_object(project, "Mouse")
+    the words in a text are left alone. The stand-in game's pause menu has the Mouse."""
     swipe = cond("compare-two-values", params={"first-value": "Touch.X", "comparison": 4, "second-value": "100"})
     rows = [block([ON_MOVEMENT], [follow("Mouse.X", "Mouse.Y(\"HUD\")")], [block([swipe], [SAY_DONE])])]
     edit(project, SHEET, lambda s: s["events"].append(with_own_sids(rows[0], 950_000_000_000_000)))
@@ -611,7 +610,6 @@ def test_style_names_the_pointer_read_under_on_movement(project):
 
 
 def test_plan_refuses_a_new_pointer_read_under_on_movement(project):
-    add_global_object(project, "Mouse")
     before = (project / SHEET).read_bytes()
     ev = {"eventType": "block", "conditions": [ON_MOVEMENT], "actions": [follow("Mouse.X", "Mouse.Y")]}
     code, out = plan(project, {"into": 0, "events": [comment("Follow the pointer."), ev]})

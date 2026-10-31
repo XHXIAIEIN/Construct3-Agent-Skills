@@ -108,8 +108,10 @@ of the two side by side:
 - `motion.tween-style`, adopted: a popup and a banner open with
   `easeoutquint` in 0.2 and 0.25 s, not the examples' `easeinoutsine` in
   0.5 s.
-- `motion.popup`, adopted: `popup()` opens a panel from 0.95 of its size and
-  opacity 0, not at its size as the examples fade theirs.
+- `motion.popup`, adopted: `popup()` opens from 0.95 of its size and
+  opacity 0, not at its size as the examples fade theirs. It opened a panel
+  over a dim until the pause menu made it a layer over a veil
+  ([pause-menu.md](pause-menu.md)).
 - `motion.frequency`, proposed: on the HUD only, instant for what each
   action changes and the popup class for a moment of the session; the
   world keeps its juice. `count_up()` would change under it.

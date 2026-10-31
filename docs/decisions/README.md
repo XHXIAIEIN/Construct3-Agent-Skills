@@ -4,6 +4,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
 - [The Game's Look: unslop's Spacing and Alignment Measured on Game Screens](look-from-unslop.md) — 2026-11-01
+- [The Pause Menu Is a Column of Rows Over a Paper Veil, Without a Panel](pause-menu.md) — 2026-11-01
 - [The Contact Sheet Comes in Pages a Model Reads at Their Own Size](contact-sheet-pages.md) — 2026-10-31
 - [Emil Kowalski's Other Skills Checked Against a Game Screen](emil-skills-for-a-game-screen.md) — 2026-10-31
 - [An Export Passes Only When Its Game Boots](export-boots-the-game.md) — 2026-10-31

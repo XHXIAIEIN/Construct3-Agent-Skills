@@ -41,10 +41,10 @@ taken where the official examples measure otherwise
   "offsetOpacity", "100", style="hud_in")`, and `"0"` with
   `style="hud_out"`. Value: 0.5 s, `easeinoutsine`.
 - **Scale in** - The element grows from a little under its size while it
-  fades in. `popup(panel, dim)` opens a panel from `POPUP["scale"]`, 0.95,
-  at opacity 0, and fades its dim in to `POPUP["dim"]`, 50 %, in 0.2 s
-  `easeoutquint`. `popup(panel, dim, show=False)` closes it the way it came,
-  and `popup_closed(panel, dim)` hides both when the close ends
+  fades in. `popup(layer, veil, manager)` opens a layer from
+  `POPUP["scale"]`, 0.95, at opacity 0, and fades its veil of canvas in to
+  `POPUP["veil"]`, 92 %, in 0.2 s `easeoutquint`. `show=False` closes it the
+  way it came, and `popup_events()` hides both layers when the close ends
   (`motion.popup`). Never from 0 (`motion.panel-from-zero`, a
   finding).
 - **Pop in** - Appears with an overshoot, as if it bounced into place. Set

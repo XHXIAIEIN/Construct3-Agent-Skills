@@ -7,7 +7,7 @@ from tests.skill_helpers import tool, edit, template_module, cond, block, png
 def test_check_look_passes_the_stand_in_and_names_each_fault(project):
     code, out = tool(project, "check_look")
     # One of the images is the fade's cover
-    assert code == 0 and out.splitlines()[-1].startswith("ok: 5 images, 2 world instances on a 32 px grid, "
+    assert code == 0 and out.splitlines()[-1].startswith("ok: 8 images, 2 world instances on a 32 px grid, "
                                                           "1 runtime creations"), out
     t = template_module()
     t.ROOT = project
@@ -99,7 +99,7 @@ def test_check_look_names_the_motion_that_breaks_the_hud_or_a_tween(project):
     game's own tweens, a coin's hit and its shrink in one action list among them, and the fade's
     cover in and out, raise none."""
     code, out = tool(project, "check_look")
-    assert code == 0 and "motion." not in out and out.splitlines()[-1].endswith(", 5 tweens"), out
+    assert code == 0 and "motion." not in out and out.splitlines()[-1].endswith(", 10 tweens"), out
     t = template_module()
     stop = t.stop_tweens("ScoreText", "count")
     count = t.tween_value("ScoreText", "count", "int(ScoreText.Text)", "score", "0.5", "easeoutquad")

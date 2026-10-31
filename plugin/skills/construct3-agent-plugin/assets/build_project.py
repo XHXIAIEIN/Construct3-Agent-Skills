@@ -1597,8 +1597,9 @@ def fade_to(layout: str | None = None) -> list:
 def add_fade(types: dict, layouts: dict, sheet: dict) -> None:
     """The cover fade_to() fades in: the type Fade, a Tiled Background of FADE's role with the Tween
     behavior, over screen_box() on a top layer of parallax 0 in each layout that runs `sheet`, opaque
-    at the start; and the group that fades it away when a layout starts and hides it after. A layout
-    with no sheet has no cover, because nothing would fade it away. Nothing without fade_to()."""
+    at the start; and the group that fades it away when a layout starts and hides it after. The cover
+    ignores the time scale. A layout with no sheet has no cover, because nothing would fade it away.
+    Nothing without fade_to()."""
     if not _fades:
         return
     write_png("fade.png", UNIT, UNIT, lambda x, y: (*rgb(FADE["role"]), 255))
@@ -1609,8 +1610,10 @@ def add_fade(types: dict, layouts: dict, sheet: dict) -> None:
                 tiledbg_inst("Fade", *screen_box(), 0, 0, behaviors=dict(TWEEN))]})
     seconds = f"{FADE['seconds']:g}"
     sheet["events"].append(module("Fade", events=[
+        # The cover runs on real time, as fade_to()'s wait does, so a pause or a slow motion cannot hold it
         *event("Fade the cover away as the layout starts", [on_start()],
-               [tween1("Fade", "fade-in", "offsetOpacity", "0", seconds, FADE["ease"])]),
+               [act("set-object-time-scale", "System", {"object": "Fade", "time-scale": "1"}),
+                tween1("Fade", "fade-in", "offsetOpacity", "0", seconds, FADE["ease"])]),
         *event("Hide the cover once it has faded away", [on_tween_finished("Fade", "fade-in")],
                [set_visible("Fade", False)]),
     ]))
@@ -1764,38 +1767,68 @@ def stop_tweens(obj: str, tag: str, beh: str = "Tween") -> dict:
     return act("stop-tweens", obj, {"tags": q(tag)}, beh=beh)
 
 
-# A popup's panel opens from `scale` of its size at opacity 0 while its dim fades in to `dim` %, in
-# the time and ease of TWEEN_STYLE["popup"], and closes the way it came.
-POPUP = {"scale": 0.95, "dim": 50}
+# A popup is a layer of its own. It opens from `scale` of its size at opacity 0 while a veil, an opaque
+# layer of canvas under it, fades in to `veil` %, in the time and ease of TWEEN_STYLE["popup"], and it
+# closes the way it came. It has no panel: a card on a dim is the dashboard look that the default look
+# avoids (look-manifest.json, menu.pause).
+POPUP = {"scale": 0.95, "veil": 92}
 
 
-def popup(panel: dict, dim: dict, show: bool = True, tween: str = "Tween") -> list:
-    """Actions that open the popup, or close it with show=False. `panel` and `dim` are their layout
-    instances, each with the Tween behavior `tween` and placed hidden, properties["initially-visible"]
-    False before link(): the dim over screen_box() on the popup's layer, the panel with its origin at
-    its centre and its labels and buttons link()ed to it, so they follow its position, opacity and
-    visibility. popup_closed() among the module's events hides both once the close ends.
-        event("Open the pause menu", [on_touched("PauseButton")], popup(PAUSE_PANEL, PAUSE_DIM))"""
-    p, d = panel["type"], dim["type"]
-    w, h = panel["world"]["width"], panel["world"]["height"]
+def popup_layer(name: str, veil: bool = False) -> dict:
+    """A layer of popup(): parallax 0, hidden, at opacity 0 and not interactive until popup() opens it.
+    veil=True makes it the veil, opaque in canvas: put it over the playfield and under the HUD that
+    stays readable, and the popup's own layer above the HUD."""
+    return layer(name, transparent=not veil, parallax=0) | {
+        "isInitiallyVisible": False, "isInitiallyInteractive": False, "color": [1, 1, 1, 0]}
+
+
+def popup(layer_: str, veil: str, manager: str, show: bool = True, tween: str = "Tween") -> list:
+    """Actions that open the popup_layer() `layer_` over the popup_layer() `veil`, or close both with
+    show=False. They run the value tween "popup" on `manager`, an object on `layer_` with the Tween
+    behavior `tween`, from the layer's opacity to 1 or to 0; popup_events() among the module's events
+    draws the layers from it. The open shows both layers and makes `layer_` interactive. The close
+    makes it not interactive at once, so a tap during the close does nothing, and popup_events()
+    hides both layers when it ends. At time scale 0, give `manager` Set object time scale 1.
+        event("Open the pause menu", [...], popup("Pause", "Veil", "PauseTitle"))"""
+    shown = [act("set-layer-visible", "System", {"layer": q(name), "visibility": "visible"})
+             for name in (layer_, veil)] if show else []
+    return [*shown, act("set-layer-interactive", "System", {"layer": q(layer_), "interactive": show}),
+            stop_tweens(manager, "popup", beh=tween),
+            tween_value(manager, "popup", f"LayerOpacity({q(layer_)}) / 100", "1" if show else "0", beh=tween,
+                        style="popup")]
+
+
+def popup_look(layer_: str, veil: str, v: str) -> list:
+    """Actions that draw a popup() opened to the share `v`, an expression from 0 to 1: `layer_` at
+    that opacity and from POPUP["scale"] to its size, the veil at that share of POPUP["veil"]."""
     k = POPUP["scale"]
-    if show:
-        return [set_visible(d, True), act("set-opacity", d, {"opacity": "0"}),
-                tween1(d, "popup", "offsetOpacity", f"{POPUP['dim']:g}", beh=tween, style="popup"),
-                set_visible(p, True), act("set-opacity", p, {"opacity": "0"}),
-                act("set-size", p, {"width": f"{w * k:g}", "height": f"{h * k:g}"}),
-                tween2(p, "popup", "size", f"{w:g}", f"{h:g}", beh=tween, style="popup"),
-                tween1(p, "popup-in", "offsetOpacity", "100", beh=tween, style="popup")]
-    return [tween1(d, "popup", "offsetOpacity", "0", beh=tween, style="popup"),
-            tween2(p, "popup", "size", f"{w * k:g}", f"{h * k:g}", beh=tween, style="popup"),
-            tween1(p, "popup-out", "offsetOpacity", "0", beh=tween, style="popup")]
+    return [act("set-layer-opacity", "System", {"layer": q(layer_), "opacity": f"{v} * 100"}),
+            act("set-layer-scale", "System", {"layer": q(layer_), "scale": f"{k:g} + {1 - k:g} * {v}"}),
+            act("set-layer-opacity", "System", {"layer": q(veil), "opacity": f"{v} * {POPUP['veil']:g}"})]
 
 
-def popup_closed(panel: dict, dim: dict, tween: str = "Tween") -> list:
-    """The event that hides the popup's panel and dim once popup(..., show=False) has faded the
-    panel out. An open during the close stops that fade, so the popup stays shown."""
-    return event(f"Hide {panel['type']} once it has closed", [on_tween_finished(panel["type"], "popup-out", beh=tween)],
-                 [set_visible(panel["type"], False), set_visible(dim["type"], False)])
+def popup_closed(layer_: str, veil: str) -> list:
+    """Actions that close a popup() at once. A layer keeps its visibility, opacity, scale and
+    interactivity across Restart layout, so On start of layout runs them in a layout that has one."""
+    return [*popup_look(layer_, veil, "0"),
+            *(act("set-layer-visible", "System", {"layer": q(name), "visibility": "invisible"})
+              for name in (layer_, veil)),
+            act("set-layer-interactive", "System", {"layer": q(layer_), "interactive": False})]
+
+
+def popup_events(layer_: str, veil: str, manager: str, tween: str = "Tween") -> list:
+    """The events that draw a popup() by popup_look() while its tween plays, and when the tween
+    ends leave the layers open, or close them after a close."""
+    return [*event(f"Draw {layer_} and {veil} as they open or close", [is_playing(manager, "popup", beh=tween)],
+                   popup_look(layer_, veil, f'{manager}.{tween}.Value("popup")')),
+            # The value reads 0 once the tween has ended, so the layer's last opacity says which way it went
+            *event(f"Settle {layer_} and {veil} when they have opened or closed",
+                   [on_tween_finished(manager, "popup", beh=tween)], [], children=[
+                       comment("Opened: the layers at their full look"),
+                       block([cond("compare-layer-opacity", "System", {"layer": q(layer_), "comparison": GT,
+                                                                       "opacity": "50"})], popup_look(layer_, veil, "1")),
+                       comment("Closed: the layers hidden"),
+                       block([else_()], popup_closed(layer_, veil))])]
 
 
 # Timer behavior
@@ -3149,6 +3182,186 @@ def hints(box_type: str, inputs: list | None = None, tween: str = "Tween") -> di
                                                   static=True)])
 
 
+# --- the pause menu ------------------------------------------------------------------------------
+# A pause menu without a panel (look-manifest.json, menu.pause): the veil of popup_layer() over the
+# playfield and under the HUD, so the round and the score stay readable, and above the HUD the title of
+# hud_header() and a column of rows, each TOUCH high, PAUSE["cols"] units wide and a unit apart, centred
+# on the screen. The current row is filled in ink with its label in canvas. The other rows are outlined
+# in ink, except the quiet row, which leaves the game and has no outline and a dim label. Names: PAUSE.
+PAUSE = {"layer": "Pause", "veil": "Veil", "title": "PauseTitle", "row": "PauseRow", "label": "PauseLabel",
+         "cols": 14}
+# Keys by their codes and gamepad buttons by their names: Esc and P, Up and W, Down and S, Enter and Space
+PAUSE_KEYS = {"toggle": (27, 80), "up": (38, 87), "down": (40, 83), "choose": (13, 32)}
+PAUSE_PAD = {"toggle": ("start-menu",), "back": ("button-b",), "up": ("d-pad-up",), "down": ("d-pad-down",),
+             "choose": ("button-a",)}
+
+
+def set_text_color(obj: str, role: str) -> dict:
+    """The action that turns the Text `obj` the colour of the PALETTE role `role`; in pixel art it tints
+    the Sprite Font's white glyphs."""
+    action = "set-default-color" if pixel_font() else "set-font-color"
+    return act(action, obj, {"color": "rgbEx255({}, {}, {})".format(*rgb(role))})
+
+
+def pause_width(items: list[str]) -> int:
+    """The px width of a row of pause_menu(): PAUSE["cols"] units, or the whole units the longest of
+    `items` needs at text_size("title"), as it does in pixel art."""
+    need = max(button_size(text, text_size("title"))[0] for text in items)
+    return max(units(PAUSE["cols"]), math.ceil(need / UNIT) * UNIT)
+
+
+def pause_types(items: list[str]) -> dict:
+    """Object types and images of pause_menu(items): types.update(pause_types(items)). A row is a Sprite
+    with the frames "rest", "quiet" and "current", with Tween for press(); the title carries the Tween
+    that popup() runs. Also the Mouse, the Keyboard and the Gamepad that pause_events() reads."""
+    w, h = pause_width(items), TOUCH
+
+    def look(edge: str | None, fill: str | None):
+        def pixel(x, y):
+            if fill:
+                return (*rgb(fill), 255)
+            return (*rgb(edge), 255) if edge and min(x, y, w - 1 - x, h - 1 - y) < LINE else (0, 0, 0, 0)
+        return pixel
+
+    frames = [control_frame(f"{PAUSE['row'].lower()}-default-{n:03d}.png", w, h, look(edge, fill), tag)
+              for n, (tag, edge, fill) in enumerate((("rest", "ink", None), ("quiet", None, None),
+                                                     ("current", None, "ink")))]
+    return {PAUSE["row"]: sprite_type(PAUSE["row"], [animation("Default", frames)],
+                                      ivars=[ivar_def("id", "number", "Which row, from 0 at the top: choosing it "
+                                                                      "runs that item of pause_events()."),
+                                             ivar_def("quiet", "boolean", "The row that leaves the game, drawn "
+                                                                          "without an outline and with a dim label.")],
+                                      behaviors=[beh_def("Tween")]),
+            PAUSE["label"]: text_type(PAUSE["label"]),
+            PAUSE["title"]: text_type(PAUSE["title"], behaviors=[beh_def("Tween")]),
+            "Mouse": single_global_type("Mouse", "Mouse", {}),
+            "Keyboard": single_global_type("Keyboard", "Keyboard", {}),
+            "Gamepad": single_global_type("Gamepad", "gamepad", {"analog-deadzone": 25})}
+
+
+def pause_menu(items: list[str], quiet: str | None = None) -> list[dict]:
+    """The title and the rows of the pause menu, for popup_layer(PAUSE["layer"]): "Paused" by
+    hud_header(), then a row for each of `items`, top down, centred on the screen and snapped to the
+    grid. Each row is its own tap target, labelled in text_size("title") and the title's weight.
+    `quiet` is the item that leaves the game. The first item is current when the menu opens."""
+    w, h = pause_width(items), TOUCH
+    size, weight = text_size("title"), TEXT_WEIGHT.get("title", "medium")
+    col = round((VIEW_W - w) / 2 / UNIT)
+    top = round((VIEW_H - len(items) * (h + UNIT) + UNIT) / 2 / UNIT)
+    drop = optical_drop("".join(items), size, weight)
+    title = hud_header(PAUSE["title"], "", "Paused", on="canvas")[0]
+    title["behaviors"] |= TWEEN
+    menu = [title]
+    for n, text in enumerate(items):
+        row_ = top + n * (h + UNIT) // UNIT
+        frame_ = 2 if n == 0 else 1 if text == quiet else 0
+        row = shape_inst(PAUSE["row"], f"{PAUSE['row'].lower()}-default-000.png", col, row_,
+                         ivars={"id": n, "quiet": text == quiet}, behaviors=dict(TWEEN))
+        row["properties"]["initial-frame"] = frame_
+        on, color = (("ink", "canvas"), ("canvas", "dim"), ("canvas", "ink"))[2 - frame_]
+        label = text_inst(PAUSE["label"], text, units(col), units(row_) + 2 * drop, w, h - 2 * drop, size,
+                          "center", color=color, on=on, weight=weight)
+        link(row, label, size=True)
+        menu += [row, label]
+    return menu
+
+
+def pause_leave() -> list:
+    """Actions that start an item which leaves the paused game, before its fade_to(): the menu stops
+    taking input and the game's time runs again, which the fade's cover needs."""
+    return [act("set-layer-interactive", "System", {"layer": q(PAUSE["layer"]), "interactive": False}),
+            act("set-time-scale", "System", {"time-scale": "1"})]
+
+
+def pause_events(choices: dict[str, list | None], playfield: tuple = ("Game",)) -> dict:
+    """The group of the pause menu: `choices` maps each item of pause_menu(), in its order, to its
+    actions, and the first, which resumes, to None. Esc, P or the gamepad's Start opens the menu and
+    closes it, and the gamepad's B closes it. Up, Down and the d-pad move the current row and wrap;
+    the pointer makes the row under it current once it moves, and a finger the row it lands on.
+    Enter, Space or the gamepad's A runs the current row, and a tap runs its row through press().
+    The highlight comes from the current row's id every tick (Construct3-Cookbook
+    guides/recipes/menus.md). While the menu is open, the time scale is 0 and the layers of
+    `playfield` take no touch. An item that leaves the game starts with pause_leave()."""
+    n = len(choices)
+    row, label, title, lay, veil = (PAUSE[k] for k in ("row", "label", "title", "layer", "veil"))
+
+    def paused() -> dict:
+        return cond("compare-boolean-eventvar", "System", {"variable": "paused"})
+
+    def pressed(action: str) -> list:
+        return [*(cond("on-key-pressed", "Keyboard", {"key": k}) for k in PAUSE_KEYS.get(action, ())),
+                *(cond("on-button-pressed", "Gamepad", {"gamepad": "0", "button": b})
+                  for b in PAUSE_PAD.get(action, ()))]
+
+    def frame_of(tag: str) -> dict:
+        return act("set-animation-frame", row, {"frame-number": q(tag)})
+
+    def playable(on: bool) -> list:
+        return [act("set-layer-interactive", "System", {"layer": q(p), "interactive": on}) for p in playfield]
+
+    open_ = steps(
+        ("Open on the first row, and take the pointer's place, so a pointer that stays put keeps it",
+         [set_bool_var("paused", True), set_var("pick", "0"),
+          set_var("mx", "Mouse.AbsoluteX"), set_var("my", "Mouse.AbsoluteY")]),
+        ("Stop the game's time, but not the menu's tweens, and keep touches off the game",
+         [act("set-time-scale", "System", {"time-scale": "0"}),
+          *(act("set-object-time-scale", "System", {"object": o, "time-scale": "1"}) for o in (row, title)),
+          *playable(False)]),
+        ("Show the menu over its veil", popup(lay, veil, title)))
+    close = [set_bool_var("paused", False), act("set-time-scale", "System", {"time-scale": "1"}),
+             *playable(True), *popup(lay, veil, title, show=False)]
+    chosen = flat([[comment(text), block([var_cmp("id", EQ, str(i))], acts or [call("PauseClose")])]
+                   for i, (text, acts) in enumerate(choices.items())])
+    return module("Pause", variables=[
+        var("paused", "boolean", "false", "The menu is open and the game stands still", static=True),
+        var("pick", "number", 0, "The current row's id, from 0 at the top", static=True),
+        var("mx", "number", 0, "Where the pointer was, to see it move", static=True),
+        var("my", "number", 0, "Where the pointer was, to see it move", static=True),
+    ], triggers=[
+        # The time scale outlasts a change of layout, and Restart layout keeps static variables and the layers' state
+        event("Start every layout unpaused, with the menu closed", [on_start()],
+              steps(("Let the game's time run and the game take touches",
+                     [set_bool_var("paused", False), act("set-time-scale", "System", {"time-scale": "1"}),
+                      *playable(True)]),
+                    ("Close the menu", popup_closed(lay, veil)))),
+    ], procedures=[
+        procedure("Stop the game's time and open the menu on its first row", func("PauseOpen", open_)),
+        procedure("Close the menu and let the game's time run", func("PauseClose", close)),
+        procedure("Run the item of the row with this id", func("PauseChoose", [], children=chosen,
+                                                               params=[param("id", "number", 0)])),
+    ], events=[
+        *event("Open the menu, or close it", pressed("toggle"), [], or_block=True, children=[
+            comment("Open: close it"),
+            block([paused()], [call("PauseClose")]),
+            comment("Closed: open it"),
+            block([else_()], [call("PauseOpen")])]),
+        *event("Close the menu", [*pressed("back"), paused()], [call("PauseClose")]),
+        *event("Move the current row up, from the top row to the bottom one", pressed("up"), [], or_block=True,
+               children=[block([paused()], [set_var("pick", f"(pick + {n - 1}) % {n}")])]),
+        *event("Move the current row down, from the bottom row to the top one", pressed("down"), [],
+               or_block=True, children=[block([paused()], [set_var("pick", f"(pick + 1) % {n}")])]),
+        *event("Run the current row", pressed("choose"), [], or_block=True,
+               children=[block([paused()], [call("PauseChoose", "pick")])]),
+        *event("Make the row a finger lands on current", [on_touched(row)], [set_var("pick", f"{row}.id")]),
+        *event("Make the row under the pointer current once the pointer moves", [paused()], [], children=[
+            block([cmp2("Mouse.AbsoluteX", NE, "mx"), cmp2("Mouse.AbsoluteY", NE, "my")],
+                  [set_var("mx", "Mouse.AbsoluteX"), set_var("my", "Mouse.AbsoluteY")], or_block=True, children=[
+                      block([cond("cursor-is-over-object", "Mouse", {"object": row})], [set_var("pick", f"{row}.id")])])]),
+        *press(row, [call("PauseChoose", f"{row}.id")]),
+        module("Draw", events=[
+            *event("Draw every row at rest: outlined, its label in ink", [],
+                   [frame_of("rest"), set_text_color(label, "ink")]),
+            *event("Draw the quiet row without its outline and with a dim label", [is_bool(row, "quiet")],
+                   [frame_of("quiet")],
+                   children=[block([pick_children(row, label)], [set_text_color(label, "dim")])]),
+            *event("Draw the current row filled in ink, its label in canvas", [ivar_cmp(row, "id", EQ, "pick")],
+                   [frame_of("current")],
+                   children=[block([pick_children(row, label)], [set_text_color(label, "canvas")])]),
+            *popup_events(lay, veil, title),
+        ]),
+    ])
+
+
 # --- groups and the play area -----------------------------------------------------------------
 # What belongs together sits closer than what does not. hud_stat() places a value under its name
 # as one group; spaced() stops the run on two groups too close. The playfield sits in what the HUD
@@ -3777,7 +3990,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp 797b7ff31e4f ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp a7f51732c00a ================
 
 
 # --- the game ---------------------------------------------------------------------------
@@ -3810,6 +4023,8 @@ HUD = [[hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")],
        hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-right", longest="999"),
        hud_keys("KeyBox", "KeyText", "KeyVerb", [("Tap", "collect")])]
 PLAY_AREA = play_area(flat(HUD))
+# The pause menu's items, top down; the last leaves the game
+PAUSE_ITEMS = ["Resume", "Restart", "Quit to title"]
 BOARD_LEFT, BOARD_TOP = centred(BOARD_W, BOARD_H, PLAY_AREA)
 if max(b["coins"] for b in BEATS) > CELLS:
     sys.exit(f"BEATS deal up to {max(b['coins'] for b in BEATS)} coins and the board has {CELLS} slots; "
@@ -3854,16 +4069,20 @@ def build_object_types() -> tuple[dict, dict, list]:
         "Touch": single_global_type("Touch", "Touch", {"use-mouse-input": True}),
     }
     types |= pointer_types()
+    types |= pause_types(PAUSE_ITEMS)
     families = {}
     containers = []
     return types, families, containers
 
 
 def build_layouts() -> dict[str, dict]:
+    # The pause menu's veil goes between the playfield and the HUD, and the menu above the HUD
     game = layout("Game", [
         layer("Background", transparent=False),
         layer("Game"),
+        popup_layer(PAUSE["veil"], veil=True),
         layer("UI", parallax=0),
+        popup_layer(PAUSE["layer"]),
     ], sheet="Game")
     # The Background layer's colour is the paper, on any screen. A checker backdrop is backdrop(type)
     # on layer("Backdrop", parallax=0, transparent=False) below it, with Background transparent.
@@ -3875,7 +4094,7 @@ def build_layouts() -> dict[str, dict]:
     # HUD on the edges: a tag by hud_tag(), a value under its name by hud_stat(), keys by hud_keys(),
     # a label by hud_text(), repeated items by row(), anything else by anchor(). The middle of the
     # screen is the game's
-    ui = game["layers"][2]["instances"]
+    ui = game["layers"][3]["instances"]
     ui.extend(flat(HUD))
     # A value as a bar: ui.extend(hud_bar("HpFrame", "HpFill", "top-left", units(12), dy=3))
     # Layout checks: HUD overlap, spacing between groups, the board centred and large enough
@@ -3883,6 +4102,9 @@ def build_layouts() -> dict[str, dict]:
     spaced([*HUD, [board]])
     balanced([board], PLAY_AREA)
     filled([board])
+    pause = game["layers"][4]["instances"]
+    pause.extend(pause_menu(PAUSE_ITEMS, quiet="Quit to title"))
+    no_overlap(pause, "layer Pause")
     # Off the HUD, everything starts on the grid: shape_inst() on a cell, grid_random() at runtime
     on_grid(game["layers"][1]["instances"], "layer Game")
     # Template instances of runtime-created objects, in a layout that never runs
@@ -3972,6 +4194,10 @@ def build_event_sheet() -> dict:
             # A touch collects the coin and its hit shows the pressed colour, so the group leaves the press to it
             *pointer_module("Coin", pressed=False),
             hints("KeyBox"),
+            # The stand-in has no title screen, so quitting starts the run again from the first round;
+            # a game with one fades to it, fade_to("Title")
+            pause_events({"Resume": None, "Restart": [*pause_leave(), *fade_to()],
+                          "Quit to title": [*pause_leave(), set_var("beat", "0"), *fade_to()]}),
         ]),
     ]
     return {"name": "Game", "events": events, "sid": sid()}

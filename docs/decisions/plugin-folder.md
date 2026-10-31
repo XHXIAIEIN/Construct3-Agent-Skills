@@ -44,6 +44,14 @@ scan with 6,908,884 bytes in `plugin/`; the four refused commits held
 three held none, so the fonts were not the cause. The limit lies between
 the two figures, so the build takes it as 7,000,000 bytes.
 
+The limit stays at 7,000,000 bytes, because the directory may refuse
+anything over 7 MB. On 2026-11-01 the template's pause menu took the folder
+to 7,012,971 bytes. The owner chose to store `icon.png` as a 256-colour
+palette PNG with its alpha, 512 × 512 as before. Quantized by octree
+without dithering, it went from 341,644 to 50,187 bytes. No pixel moved by
+more than 28 of 255 and the mean was 3.9. The two look the same at full
+size, and at 2× the gradient of the nose bands slightly.
+
 The skill reads these parts of the repository outside its own folder, by the
 paths in its scripts, `SKILL.md`, `references/` and the Construct 3 block:
 

@@ -846,7 +846,7 @@ def test_the_holed_coin_case_keeps_the_hole_out_of_the_print(tmp_path: Path) -> 
     run_dir = tmp_path / "runs" / "five-coins-in-round-two" / "with_skill"
     assert not (run_dir.with_name("without_skill") / "project" / "tools").exists()
     project = run_dir.with_name("without_skill") / "project"
-    code, out = run(project, SKILL / "scripts" / "print_sheet.py", "Game", "--project", str(project))
+    code, out = run(project, SKILL / "scripts" / "print_sheet.py", "Game", "--limit", "0", "--project", str(project))
     assert code == 0 and not re.search(r"hole|polygon|collision", out, re.I), out
     (run_dir / "project" / ".tmp" / "scripts" / "preview-project").mkdir(parents=True)
     assert [ok for ok, _ in grader.grade_five_coins_in_round_two(run_dir)] == [True] * 5

@@ -153,9 +153,9 @@ def test_pixel_art_game_bakes_its_fonts_and_check_look_finds_a_character_left_ou
         source.replace("VIEW_W, VIEW_H = 1920, 1080", "VIEW_W, VIEW_H = 320, 180"), encoding="utf-8")
     code, out = run(root, "tools/build_project.py")
     assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
-    assert "baked 94 characters into 5 Sprite Font types" in out, out
+    assert "baked 94 characters into 7 Sprite Font types" in out, out
     manifest = c3.load(root / "tools" / "pixel-font.json")
-    assert manifest["types"] == ["KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"]
+    assert manifest["types"] == ["KeyText", "KeyVerb", "PauseLabel", "PauseTitle", "RoundTag", "ScoreLabel", "ScoreText"]
     assert all(c3.load(root / "objectTypes" / f"{n}.json")["plugin-id"] == "Spritefont2" for n in manifest["types"])
     code, out = tool(root, "check_look")
     assert code == 0, out

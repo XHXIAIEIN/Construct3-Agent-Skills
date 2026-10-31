@@ -126,11 +126,11 @@ def test_a_rewritten_note_is_stamped_again_and_a_gone_one_cannot_be_confirmed(pr
 
 def test_a_whole_print_of_a_sheet_ends_with_its_notes(project):
     """A run reads the sheet before it plans a check; the notes on that sheet come with it, marks included."""
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     assert code == 0 and "notes:" not in out, out
     noted(project)
     edit(project, SHEET, lambda sheet: events(sheet)["add_score"]["actions"].pop())
-    code, out = tool(project, "print_sheet", "Game")
+    code, out = tool(project, "print_sheet", "Game", "--limit", "0")
     lines = out.splitlines()
     at = next(k for k, line in enumerate(lines) if line.startswith("notes: facts a check showed in the game"))
     assert lines[at + 1] == "  1. Game function AddScore [changed]: AddScore(points) adds points to score and shows it", out

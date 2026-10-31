@@ -332,7 +332,7 @@ def test_template_deals_the_coins_of_each_beat_round_after_round(built):
     sheet = json.loads((built / "eventSheets" / "Game.json").read_text(encoding="utf-8"))
     rounds = next(v for v in game_rows(sheet) if v.get("name") == "ROUND_COINS")
     assert rounds["initialValue"] == ",".join(str(b["coins"]) for b in t.BEATS) == "1,3,6,2,10,1"
-    code, out = tool(built, "print_sheet", "Game")
+    code, out = tool(built, "print_sheet", "Game", "--limit", "0")
     assert 'For "i" from 0 to int(tokenat(ROUND_COINS, beat, ",")) - 1' in out
     assert 'Set beat to (beat + 1) % tokencount(ROUND_COINS, ",")' in out
 
@@ -352,7 +352,7 @@ def test_template_fades_between_layouts(built):
     assert all(layer["name"] != "Fade" for layer in objects["layers"])
     fade = json.loads((built / "objectTypes" / "Fade.json").read_text(encoding="utf-8"))
     assert fade["plugin-id"] == "TiledBg" and (built / "images" / "fade.png").is_file()
-    code, out = tool(built, "print_sheet", "Game")
+    code, out = tool(built, "print_sheet", "Game", "--limit", "0")
     assert "Fade the cover away as the layout starts" in out and "Hide the cover once it has faded away" in out
     acts = t.fade_to("Menu")
     assert [a["id"] for a in acts] == ["set-visible", "tween-one-property", "wait", "go-to-layout"]
@@ -629,7 +629,7 @@ def test_generator_removes_the_files_of_a_type_it_no_longer_makes(project):
 def with_spare(make):
     def build():
         types, families, containers = make()
-        return types | {"Keyboard": single_global_type("Keyboard", "Keyboard", {})}, families, containers
+        return types | {"Storage": single_global_type("Storage", "LocalStorage", {})}, families, containers
     return build
 
 
@@ -637,13 +637,13 @@ build_object_types = with_spare(build_object_types)
 
 if __name__''', 1), encoding="utf-8")
     code, out = run(project, "tools/build_project.py")
-    assert code == 0 and (project / "objectTypes" / "Keyboard.json").is_file(), out
+    assert code == 0 and (project / "objectTypes" / "Storage.json").is_file(), out
     source.write_text(game, encoding="utf-8")
     code, out = run(project, "tools/build_project.py")
     assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
-    assert "removed objectTypes/Keyboard.json: the last run wrote it, and this run did not" in out.splitlines()
-    assert not (project / "objectTypes" / "Keyboard.json").exists() and warnings(out) == [], out
-    assert "objectTypes/Keyboard.json" not in json.loads((project / "tools" / "generated.json").read_text())["files"]
+    assert "removed objectTypes/Storage.json: the last run wrote it, and this run did not" in out.splitlines()
+    assert not (project / "objectTypes" / "Storage.json").exists() and warnings(out) == [], out
+    assert "objectTypes/Storage.json" not in json.loads((project / "tools" / "generated.json").read_text())["files"]
     spare = project / "objectTypes" / "Spare.json"
     spare.write_text("{}", encoding="utf-8")
     edit(project, "tools/generated.json", lambda g: g["files"].update({"objectTypes/Spare.json": "0" * 16}))
@@ -794,8 +794,9 @@ def test_template_orders_each_layer_as_an_editor_user_would(built, tmp_path):
     assert ordered[2] is far and ordered[5] is near
     assert t.z_order(ordered) == ordered
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
-    assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [],
-         ["KeyBox", "KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"], ["Fade"]]
+    assert [[i["type"] for i in layer["instances"]] for layer in game["layers"]] == [["Board"], [], [],
+         ["KeyBox", "KeyText", "KeyVerb", "RoundTag", "ScoreLabel", "ScoreText"],
+         ["PauseTitle", *["PauseRow", "PauseLabel"] * 3], ["Fade"]]
 
 
 def test_template_orders_a_zone_before_a_slider_whose_knob_covers_its_track(tmp_path):
@@ -1746,33 +1747,82 @@ def test_template_eases_a_tween_by_the_class_of_what_it_moves():
 
 
 def test_template_opens_a_popup_from_near_its_size_and_closes_it_the_way_it_came():
-    """popup() shows the dim and the panel at opacity 0, the panel at POPUP["scale"] of its size,
-    and tweens both in with the popup class; closing tweens them back the same way, and
-    popup_closed() hides both when the panel's fade out ends, which an open in the meantime stops."""
+    """popup() shows the popup's layer and its veil and tweens a value on the manager from the
+    layer's opacity in the popup class; popup_events() draws the layer from POPUP["scale"] to its
+    size at that opacity and the veil at that share of POPUP["veil"], and on the tween's end leaves
+    them open or closes them. popup_layer() starts hidden at opacity 0, the veil opaque in canvas."""
     t = template_module()
-    panel = t.sprite_inst("Panel", 960, 540, 640, 384)
-    dim = t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))
-    opened = t.popup(panel, dim)
-    assert [(a["id"], a["objectClass"]) for a in opened] == [
-        ("set-visible", "Dim"), ("set-opacity", "Dim"), ("tween-one-property", "Dim"),
-        ("set-visible", "Panel"), ("set-opacity", "Panel"), ("set-size", "Panel"),
-        ("tween-two-properties", "Panel"), ("tween-one-property", "Panel")]
-    assert opened[5]["parameters"] == {"width": "608", "height": "364.8"}
-    dim_in, size_in, fade_in = opened[2]["parameters"], opened[6]["parameters"], opened[7]["parameters"]
-    assert (dim_in["property"], dim_in["end-value"]) == ("offsetOpacity", "50")
-    assert (size_in["property"], size_in["end-x"], size_in["end-y"]) == ("size", "640", "384")
-    assert (fade_in["tags"], fade_in["end-value"]) == ('"popup-in"', "100")
-    assert {(p["time"], p["ease"]) for p in (dim_in, size_in, fade_in)} == {("0.2", "easeoutquint")}
-    closed = t.popup(panel, dim, show=False)
-    assert [(a["objectClass"], a["parameters"].get("end-value", a["parameters"].get("end-x"))) for a in closed] == [
-        ("Dim", "0"), ("Panel", "608"), ("Panel", "0")]
-    assert {(a["parameters"]["time"], a["parameters"]["ease"]) for a in closed} == {("0.2", "easeoutquint")}
-    comment, hide = t.popup_closed(panel, dim)
-    assert comment["text"] == "Hide Panel once it has closed"
-    assert (hide["conditions"][0]["id"], hide["conditions"][0]["parameters"]["tags"]) == ("on-tweens-finished",
-                                                                                         '"popup-out"')
-    assert [(a["objectClass"], a["parameters"]["visibility"]) for a in hide["actions"]] == [
-        ("Panel", "invisible"), ("Dim", "invisible")]
+    opened = t.popup("Pause", "Veil", "PauseTitle")
+    assert [(a["id"], a["parameters"].get("layer")) for a in opened] == [
+        ("set-layer-visible", '"Pause"'), ("set-layer-visible", '"Veil"'), ("set-layer-interactive", '"Pause"'),
+        ("stop-tweens", None), ("tween-value", None)]
+    value = opened[-1]["parameters"]
+    assert (opened[-1]["objectClass"], value["start-value"], value["end-value"], value["time"], value["ease"]) == (
+        "PauseTitle", 'LayerOpacity("Pause") / 100', "1", "0.2", "easeoutquint")
+    closed = t.popup("Pause", "Veil", "PauseTitle", show=False)
+    assert [a["id"] for a in closed] == ["set-layer-interactive", "stop-tweens", "tween-value"]
+    assert closed[0]["parameters"]["interactive"] is False and closed[-1]["parameters"]["end-value"] == "0"
+    _, draw, _, settle = t.popup_events("Pause", "Veil", "PauseTitle")
+    assert draw["conditions"][0]["id"] == "is-playing"
+    assert [a["parameters"] for a in draw["actions"]] == [
+        {"layer": '"Pause"', "opacity": 'PauseTitle.Tween.Value("popup") * 100'},
+        {"layer": '"Pause"', "scale": '0.95 + 0.05 * PauseTitle.Tween.Value("popup")'},
+        {"layer": '"Veil"', "opacity": 'PauseTitle.Tween.Value("popup") * 92'}]
+    opened_case, closed_case = (e for e in settle["children"] if e.get("eventType") != "comment")
+    assert opened_case["actions"][0]["parameters"]["opacity"] == "1 * 100"
+    assert [(a["id"], a["parameters"].get("visibility")) for a in closed_case["actions"][3:]] == [
+        ("set-layer-visible", "invisible"), ("set-layer-visible", "invisible"), ("set-layer-interactive", None)]
+    veil, menu = t.popup_layer("Veil", veil=True), t.popup_layer("Pause")
+    assert (veil["isTransparent"], veil["backgroundColor"][:3]) == (False, [v / 255 for v in t.rgb("canvas")])
+    for lay in (veil, menu):
+        assert (lay["isInitiallyVisible"], lay["isInitiallyInteractive"], lay["color"][3], lay["parallaxX"]) == (
+            False, False, 0, 0)
+
+
+def test_template_pauses_over_a_veil_with_a_column_of_rows(built):
+    """menu.pause: the stand-in's Game layout has the veil between the playfield and the HUD and the
+    menu above the HUD. The title sits top centre on the HUD's margin; the rows are TOUCH high and
+    PAUSE["cols"] units wide, a unit apart, centred on the grid, the first current (an ink fill and a
+    canvas label), the quiet last row without an outline and with a dim label, and no key label.
+    The sheet stops the game's time, keeps the menu's tweens running, reads keys, the gamepad and
+    the pointer, and draws the highlight from the current row every tick."""
+    t = template_module()
+    game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
+    assert [lay["name"] for lay in game["layers"]] == ["Background", "Game", "Veil", "UI", "Pause", "Fade"]
+    pause = game["layers"][4]["instances"]
+    title = next(i for i in pause if i["type"] == "PauseTitle")
+    assert (title["properties"]["text"], title["world"]["y"]) == ("Paused", t.MARGIN)
+    assert abs(title["world"]["x"] + title["world"]["width"] / 2 - t.VIEW_W / 2) <= 1
+    rows = [i for i in pause if i["type"] == "PauseRow"]
+    labels = [i for i in pause if i["type"] == "PauseLabel"]
+    w, h = t.pause_width(t.PAUSE_ITEMS), t.TOUCH
+    assert w == t.units(t.PAUSE["cols"])
+    pixel = template_module(VIEW="VIEW_W, VIEW_H = 640, 360")      # 14 units hold no title-size label there
+    need = pixel.button_size("Quit to title", pixel.text_size("title"))[0]
+    assert pixel.pause_width(pixel.PAUSE_ITEMS) == math.ceil(need / pixel.UNIT) * pixel.UNIT > pixel.units(14)
+    assert [(r["world"]["width"], r["world"]["height"]) for r in rows] == [(w, h)] * 3
+    tops = [r["world"]["y"] - h / 2 for r in rows]
+    assert tops[0] % t.UNIT == 0 and [b - a for a, b in zip(tops, tops[1:])] == [h + t.UNIT] * 2
+    assert abs(tops[0] + (3 * h + 2 * t.UNIT) / 2 - t.VIEW_H / 2) < t.UNIT
+    assert {r["world"]["x"] for r in rows} == {t.VIEW_W / 2}
+    assert [(r["instanceVariables"]["id"], r["instanceVariables"]["quiet"], r["properties"]["initial-frame"])
+            for r in rows] == [(0, False, 2), (1, False, 0), (2, True, 1)]
+    assert [(lb["properties"]["text"], lb["properties"]["size"], lb["properties"]["color"][:3]) for lb in labels] == [
+        (text, t.text_size("title"), [v / 255 for v in t.rgb(role)])
+        for text, role in (("Resume", "canvas"), ("Restart", "ink"), ("Quit to title", "dim"))]
+    assert all(lb["properties"]["font"] == t.face("medium") for lb in labels)
+    row = json.loads((built / "objectTypes" / "PauseRow.json").read_text(encoding="utf-8"))
+    assert [f["tag"] for f in row["animations"]["items"][0]["frames"]] == ["rest", "quiet", "current"]
+    rest, quiet, current = (png_pixels(built / "images" / f"pauserow-default-{n:03d}.png") for n in range(3))
+    ink = (*t.rgb("ink"), 255)
+    assert rest[0][0] == rest[t.LINE - 1][w // 2] == ink and rest[t.LINE][w // 2][3] == 0
+    assert {p[3] for line in quiet for p in line} == {0} and current[h // 2][w // 2] == ink
+    code, out = tool(built, "print_sheet", "Game", "--limit", "0")
+    for line in ("Set time scale to 0", "Set PauseRow time scale to 1", "Set PauseTitle time scale to 1",
+                 "Keyboard: On 27 pressed", "Start / Menu pressed", "Cursor is over PauseRow", 'Set layer "Game" interactive False',
+                 "Set pick to (pick + 2) % 3", "Set pick to (pick + 1) % 3"):
+        assert line.lower() in out.lower(), line
+    assert "Draw the current row filled in ink, its label in canvas" in out
 
 
 def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
@@ -1794,7 +1844,7 @@ def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     assert [a.get("id") for a in t.hit("Coin")] == ["stop-tweens", None, "set-instvar-value", "set-instvar-value",
                                                 "set-size", "tween-two-properties", "set-animation-frame", "wait",
                                                 "set-animation-frame"]
-    code, out = tool(built, "print_sheet")
+    code, out = tool(built, "print_sheet", "Game", "--limit", "0")
     assert 'Coin: Set size to (Self.restWidth * 0.8, Self.restHeight * 1.2)' in out
     assert 'Coin: Set animation frame to "hit"' in out and "System: Wait 0.08 seconds (use time scale: False)" in out, out
     t.ROOT = tmp_path
