@@ -619,6 +619,70 @@ def seed_first_tap_notes(root: Path) -> None:
     seed_notes(root, (*ROUND_NOTES, FIRST_TAP_NOTE))
 
 
+# A coin with a square hole: the hole spans HOLE of the coin's box on each axis
+HOLE = (0.3, 0.7)
+
+
+def holed_poly() -> list[float]:
+    """The coin's round collision polygon with the hole cut out through a slit on its right: a tap in the hole is
+    outside the polygon, so Touch's On touched Coin does not fire there."""
+    lo, hi = HOLE
+    outer = [(1, 0.52), (0.9619, 0.6913), (0.8536, 0.8536), (0.6913, 0.9619), (0.5, 1), (0.3087, 0.9619),
+             (0.1464, 0.8536), (0.0381, 0.6913), (0, 0.5), (0.0381, 0.3087), (0.1464, 0.1464), (0.3087, 0.0381),
+             (0.5, 0), (0.6913, 0.0381), (0.8536, 0.1464), (0.9619, 0.3087), (1, 0.48)]
+    hole = [(hi, 0.48), (hi, lo), (lo, lo), (lo, hi), (hi, hi), (hi, 0.52)]
+    return [v for point in outer + hole for v in point]
+
+
+def holed_png(size: int, face: tuple[int, int, int]) -> bytes:
+    """A coin of the given face colour with a dark rim and the square hole of HOLE, as an RGBA PNG."""
+    import struct
+    import zlib
+    lo, hi = (round(size * f) for f in HOLE)
+    r = size / 2
+    rows = bytearray()
+    for y in range(size):
+        rows.append(0)
+        for x in range(size):
+            d = ((x + 0.5 - r) ** 2 + (y + 0.5 - r) ** 2) ** 0.5
+            in_hole = lo <= x < hi and lo <= y < hi
+            rim = d > r - 8 or (lo - 6 <= x < hi + 6 and lo - 6 <= y < hi + 6)
+            rows += bytes((0, 0, 0, 0)) if d > r or in_hole else bytes((*(c // 2 for c in face), 255) if rim
+                                                                       else (*face, 255))
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(bytes(rows), 9)) + chunk(b"IEND", b""))
+
+
+def seed_holed(root: Path) -> None:
+    """The stand-in's coins as cash coins with a square hole that takes no tap. The sheet stays as it is, so no
+    print of it says why a tap on a coin's middle collects nothing: the coin's object type and images hold it,
+    and a probe in the game shows it."""
+    path = root / "objectTypes" / "Coin.json"
+    coin = read_json(path)
+    frames = coin["animations"]["items"][0]["frames"]
+    for frame in frames:
+        frame["collisionPoly"]["points"] = holed_poly()
+    for frame, face in zip(frames, ((236, 178, 54), (255, 226, 140))):
+        name = f"coin-default-{frames.index(frame):03d}.png"
+        (root / "images" / name).write_bytes(holed_png(frame["width"], face))
+    write_json(path, coin)
+
+
+# The fact a check of any round past the first needs, as a probe in the game showed it
+HOLE_NOTE = ("group", "Input", "a Coin is a cash coin whose square hole (the middle 40% of its box) is outside its "
+                               "collision polygon: a tap at its middle, as a tap on \"Coin\" or \"uid N\" lands, "
+                               "collects nothing; tap 15% of its width in from its left edge")
+
+
+def seed_holed_notes(root: Path) -> None:
+    seed_holed(root)
+    seed_notes(root, (ROUND_NOTES[0], ROUND_NOTES[2], HOLE_NOTE))
+
+
 # fixture -> (the fixture it starts from, the fault written into it). The seeded entries' sids start
 # with 6333, 6444, 6555, 6666, 6777, 6888 or 6999, so a grader can tell the example's own events from them.
 SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
@@ -631,10 +695,11 @@ SEEDS = {"families-key-pressed": ("example:families", seed_key_pressed),
          "platformer-door": ("example:template-platformer", seed_door),
          "coins-big-sheet": ("coins", seed_big_sheet),
          "coins-notes": ("coins", seed_notes),
-         "coins-first-tap": ("coins", seed_first_tap_notes)}
+         "coins-first-tap": ("coins", seed_first_tap_notes),
+         "coins-holed": ("coins", seed_holed_notes)}
 # Fixtures whose tools/notes.json only the with_... arms keep. The notes stand for what an earlier session of the
 # skill under test left, and an arm without that skill reads them as a file in tools/ all the same (iteration 96).
-NOTES_WITH_ONLY = {"coins-first-tap"}
+NOTES_WITH_ONLY = {"coins-first-tap", "coins-holed"}
 
 
 def seed_inverted_start(root: Path) -> None:

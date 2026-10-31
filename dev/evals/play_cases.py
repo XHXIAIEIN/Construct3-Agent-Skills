@@ -330,6 +330,22 @@ def four_coins_in_round_two() -> dict:
     ]}
 
 
+def five_coins_in_round_two() -> dict:
+    """The first three rounds deal 1, 5 and 6 coins. A coin's middle is a hole that takes no tap, so each tap goes on
+    its ring, 15% of its width in from its left edge."""
+    def deals(n: int, round_: str) -> dict:
+        return check(f"The {round_} round deals {n} coin{'s' * (n > 1)}",
+                     f"return {{ok: h.count('Coin') === {n}, said: `${{h.count('Coin')}} coin(s) in the {round_} round`}};")
+
+    ring = {"tap": {"js": "(c => c ? {x: c.getBoundingBox().left + c.width * 0.15, y: c.y, layer: c.layer.name} "
+                          ": {x: 4, y: 4})(vars.h.fresh('Coin'))"}}
+
+    return {"touch": True, "steps": [
+        *COINS, deals(1, "first"), ring, *next_round(), deals(5, "second"), *[ring] * 6, *next_round(),
+        deals(6, "third"),
+    ]}
+
+
 def turns(limit: bool = False) -> dict:
     """In round 2: a collect passes the turn once, the turn then holds still, and the next collect passes it back.
     With a limit, first in round 1: without a tap the turn passes once about every 5 seconds, and the seconds
@@ -810,6 +826,7 @@ PLANS: dict[str, Callable[[], dict]] = {
     "hud-over-a-scrolling-level": hud_over_a_scrolling_level,
     "fix-open-errors-past-the-message": fix_open_errors, "fix-endless-pulse": fix_endless_pulse,
     "two-buttons-in-the-generator": two_buttons, "four-coins-in-round-two": four_coins_in_round_two,
+    "five-coins-in-round-two": five_coins_in_round_two,
 }
 
 
