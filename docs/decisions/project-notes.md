@@ -15,9 +15,8 @@ true in an old answer or plan.
 
 ## Evidence
 
-- Aura Autopilot, a playtesting agent for Unreal, Unity and Godot
-  (<https://github.com/ramenvr/autopilot>, `autopilot/agents/session.py`),
-  keeps a `notes.md` of verified facts per game. Its first message to the
+- An open-source playtesting agent for Unreal, Unity and Godot keeps a
+  `notes.md` of verified facts per game. Its first message to the
   agent holds the notes and the code files changed since the last run, each
   with the lines of the notes that name it. Such a file is listed on every
   run until a run edits the note that names it.
@@ -39,7 +38,7 @@ true in an old answer or plan.
 
 ## Options
 
-1. A Markdown file of free lines, as in autopilot, with the sheet named in
+1. A Markdown file of free lines, as in that agent, with the sheet named in
    the text. A file name is a word that a script can find in a line, but a
    function or a group is not. So nothing marks a note whose events changed.
 2. A file that a script writes, each note with its sheet and its function,
