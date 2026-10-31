@@ -1013,13 +1013,122 @@ def test_a_step_handed_to_a_function_counts_by_the_constant_it_names() -> None:
 
 
 def test_the_lives_plan_counts_the_hearts_that_still_look_full() -> None:
-    """Lives kept in a static local or drawn from a count of coins are no number the runtime shows, so the lives
-    plan also watches, per sprite type of three or more on the UI layer, how many instances look like the
+    """Lives drawn from a count of coins are no number the runtime shows, so the lives plan also watches, per sprite type of three or more on the UI layer, how many instances look like the
     leftmost one, leaving the stand-in's HUD out."""
     plan = play_cases.plan_for("lives-as-hearts")
     code = "\n".join(line for step in plan["steps"] if "js" in step for line in step["js"])
     assert "vars.h.fullHearts = () =>" in code and f"stand = {json.dumps(play_cases.STAND_IN_HUD)}" in code
     assert "vars.watch.numbers = () => Object.assign(vars.h.numbers(), vars.h.fullHearts())" in code
+
+
+# A stand-in coins game under Node that plays a plan's until, js, tap and wait steps at 60 ticks a second. Its
+# locals are the fixture's, read through C3.Runtime's event sheet manager as the engine's are; runtime.globalVars
+# is empty. A tap takes the coin under it and adds per_coin to the locals, and lives loses 1 whenever collected
+# reaches a multiple of life_every. A second after the last coin of a round the layout ends and the next round
+# starts.
+FAKE_GAME = r"""
+const game = GAME, vars = {}, listeners = {}, layer = {name: 'Game'};
+let wallTime = 0, coins = [], round = 0, uid = 0, endAt = null;
+const locals = game.locals.map((v, n) => ({...v, value: v.start, sid: n + 1}));
+const local = name => locals.find(v => v.name === name);
+class Runtime {
+  Tick() {}
+  GetEventSheetManager() { return {GetAllLocalVariables: () => locals.map(v => ({
+    GetName: () => v.name, GetSID: () => v.sid, IsStatic: () => !!v.static, IsConstant: () => !!v.constant,
+    IsNumber: () => typeof v.start === 'number', GetValue: () => v.value, SetValue: x => { v.value = x; }}))}; }
+}
+globalThis.C3 = {Runtime};
+const engine = new Runtime(), fire = k => (listeners[k] || []).forEach(f => f());
+const runtime = {get wallTime() { return wallTime; }, get gameTime() { return wallTime; }, globalVars: {},
+  objects: {Coin: {getAllInstances: () => coins, getFirstInstance: () => coins[0] || null}},
+  addEventListener: (k, f) => (listeners[k] = listeners[k] || []).push(f)};
+const deal = () => { coins = Array.from({length: game.round_coins[round % game.round_coins.length]}, (_, n) => ({
+  uid: ++uid, layer, objectType: {name: 'Coin'}, instVars: {},
+  getBoundingBox: () => ({left: 100 + 150 * n, top: 100, right: 164 + 150 * n, bottom: 164, width: 64, height: 64})})); };
+const tick = () => {
+  wallTime += 1 / 60;
+  engine.Tick();
+  if (endAt !== null && wallTime >= endAt) { fire('beforeanylayoutend'); endAt = null; round++; deal(); fire('afteranylayoutstart'); }
+  fire('tick2');
+};
+const take = p => {
+  const c = coins.find(c => { const b = c.getBoundingBox(); return p.x >= b.left && p.x <= b.right && p.y >= b.top && p.y <= b.bottom; });
+  if (!c) return;
+  coins = coins.filter(o => o !== c);
+  for (const [k, n] of Object.entries(game.per_coin)) local(k).value += n;
+  if (local('collected').value % game.life_every === 0) local('lives').value -= 1;
+  if (!coins.length) endAt = wallTime + 1;
+};
+const wait = async s => { for (let n = 0; n < s * 60; n++) tick(); };
+// A step's promise, ticking until it settles: the plan's first step waits for a tick to hand over the engine.
+const settle = async p => { let done = false, out, err;
+  p.then(v => { done = true; out = v; }, e => { done = true; err = e; });
+  while (!done) { await new Promise(r => setImmediate(r)); if (!done) tick(); }
+  if (err) throw err;
+  return out; };
+(async () => {
+  deal();
+  const notes = {};
+  for (const s of STEPS) {
+    if (s.kind === 'wait') await wait(s.seconds);
+    else if (s.kind === 'until') {
+      for (let n = 0; !(await s.f(runtime, vars, wait)); n++) { if (n > s.timeout * 60) throw new Error('until timed out'); tick(); }
+    } else if (s.kind === 'tap') {
+      const t = await s.f(runtime, vars, wait), b = t.getBoundingBox && t.getBoundingBox();
+      take(b ? {x: b.left + b.width / 2, y: b.top + b.height / 2} : t);
+      tick();
+    } else {
+      const v = await settle(s.f(runtime, vars, wait));
+      if (s.note) notes[s.note] = v;
+    }
+  }
+  console.log(JSON.stringify(notes));
+})().catch(e => { console.error(e.stack); process.exit(1); });
+"""
+
+
+def play_on_fake_game(tmp_path: Path, case: str, game: dict) -> dict:
+    """The values of the plan's noted js steps, its checks among them, played on FAKE_GAME with game."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("the plan runs on a stand-in game under Node; install Node.js")
+    steps = []
+    for s in play_cases.plan_for(case)["steps"]:
+        if "wait" in s:
+            steps.append(f"{{kind: 'wait', seconds: {s['wait']}}}")
+        elif "until" in s or "js" in s or "tap" in s:
+            kind = next(k for k in ("until", "js", "tap") if k in s)
+            body = preview_project.code(s["tap"]["js"] if kind == "tap" else s[kind])
+            steps.append(f"{{kind: '{kind}', timeout: {s.get('timeout', 10)}, note: {json.dumps(s.get('note'))}, "
+                         f"f: async (runtime, vars, wait) => {{\n{body}\n}}}}")
+    script = tmp_path / "play.js"
+    script.write_text(FAKE_GAME.replace("GAME", json.dumps(game), 1).replace("STEPS", f"[{', '.join(steps)}]", 1),
+                      encoding="utf-8")
+    p = subprocess.run([node, str(script)], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert p.returncode == 0, p.stderr
+    return json.loads(p.stdout)
+
+
+@pytest.mark.parametrize(("answer", "passes", "said"), [
+    ("every_third_coin", True, "lives drops twice over round 3, 3 coin(s) apart"),
+    ("every_second_coin", False, "no number drops by one twice over round 3: score: 20 25 30 35 40 45 50; beat: 0; "
+                                 "lives: 3 2 1 0; collected: 4 5 6 7 8 9 10")])
+def test_the_lives_plan_reads_lives_and_score_kept_in_static_locals(tmp_path: Path, answer: str, passes: bool,
+                                                                    said: str) -> None:
+    """The stand-in keeps its score in a static local of its outer group, and a run adds the lives beside it, so
+    runtime.globalVars holds neither: the plan reads the statics through the engine. A life lost every third coin
+    passes, one lost every second coin does not."""
+    game = read_json(Path(__file__).parent / "fixtures" / "lives_answers" / f"{answer}.json")
+    notes = play_on_fake_game(tmp_path, "lives-as-hearts", game)
+    assert notes[play_cases.CHECK + "Every third coin of a round costs one life"] == {"ok": passes, "said": said}
+
+
+@pytest.mark.parametrize("after", [" (84.40% one colour, luminance deviation 35.6)",
+                                   ": 99.00% of it is one colour and its luminance deviates 0.4, under 2, so ...", ""])
+def test_a_shot_is_its_path_before_what_the_preview_says_of_the_frame(tmp_path: Path, after: str) -> None:
+    """preview_project.py says of a shot its path, then how much of the frame is one colour."""
+    result = {"preview": {"steps": [{"ok": True, "line": "31 shot tap0", "said": f"{tmp_path / '31-tap0.png'}{after}"}]}}
+    assert play_cases.shot_of(result, "tap0") == tmp_path / "31-tap0.png"
 
 
 def test_lives_drawn_from_a_count_of_coins_start_at_5_and_drop_by_one() -> None:
