@@ -37,7 +37,7 @@ Floor (what must hold), Reflex (the look a generator reaches for) and Finish
 | `fragile` | Fragile, Finish | right as shown and one realistic step from broken, as a text with no declared limit; or a finish of a pixel or two | warns; named in the hand-over |
 
 `text`, `stacked`, `overlap`, `edge`, `frame` and `faint` are broken.
-`crowd` is ugly. `optical` and `unlimited` are fragile. A yes to questions
+`crowd` is ugly. `optical`, `uneven` and `unlimited` are fragile. A yes to questions
 1-3 (text, cover, edge) is broken, and a yes to the others is ugly. A yes
 from before the change warns whatever its tier
 (`look-blocks-only-what-the-change-brought.md`).

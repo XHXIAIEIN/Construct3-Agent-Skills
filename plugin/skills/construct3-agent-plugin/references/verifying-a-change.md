@@ -197,10 +197,12 @@ frame (`frame`), texts gathered in one ninth of the screen while two
 corners stand empty (`crowd`), a text whose letters, measured on what lies
 behind them on screen, read under `text.contrast` (`faint`), a label or
 glyph whose ink sits off the centre of the shape it is centred on
-(`optical`), and Texts that events set with no declared longest text
-(`unlimited`). Except `optical`, none of the first six fires on the official
-examples. The generator's helpers centre their labels by ink, and `optical`
-reports a label placed off the centre by hand.
+(`optical`), three or more instances of one type on one line whose gaps
+differ by 0.5 px to a quarter of the unit (`uneven`), and Texts that events
+set with no declared longest text (`unlimited`). Except `optical`, none of
+the first six fires on the official examples. The generator's helpers centre
+their labels by ink and space their rows evenly, so `optical` and `uneven`
+report what was placed by hand.
 
 Each finding and each yes of the questions has a tier (`look.severity` in
 `assets/look-manifest.json`): `broken`, the player cannot read, reach or
