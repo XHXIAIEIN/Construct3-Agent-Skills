@@ -172,11 +172,13 @@ style among the drawn pictures; what it called a style of its own was a
 slot meant to stay empty and a bar the template draws, not a drawing. The
 runs and their transcripts' ids are in `.local/docs/evidence/art-route/`.
 
-## Open
+### No stroke library
 
-- Whether a stroke library such as a freehand-stroke one should replace
-  the kit's own `stroke()`, under which licence, and whether the plugin may
-  carry it or it goes to the user's cache, as the fonts do.
+The kit draws its brush lines with its own `stroke()` and its filters, and
+no third-party stroke library, such as a freehand-stroke one, replaces it.
+The owner decided so on 2026-10-31: the trial and the eval runs drew every
+picture in one style with the kit alone, and a library would bring a
+licence and a file that the plugin or the user's cache must carry.
 
 ## Re-evaluate when
 
