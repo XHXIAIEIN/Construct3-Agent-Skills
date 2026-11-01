@@ -469,7 +469,7 @@ def main() -> int:
     cookbook = c3.locate_cookbook(project.rag, project.root)[0]
     source = c3.locate_skills(project.root, rag=project.rag)
     if c3.offline():
-        clones = [c3.clone_root(source)] if source else []
+        clones = [c3.clone_root(source)] if source and not c3.in_cache(source) else []
         clones += [project.rag] + ([cookbook] if cookbook else [])
         print(f"note: CONSTRUCT3_RAG_OFFLINE is 1, so the clones at {', '.join(map(str, clones))} were not "
               f"compared with their upstreams")

@@ -94,6 +94,9 @@ def installed_plugin(tmp_path: Path, version: str = "1.0.0") -> Path:
     plugin's cache folder, with no clone holding it."""
     plugin = tmp_path / "cache" / "construct3" / version
     shutil.copytree(PLUGIN, plugin, ignore=shutil.ignore_patterns("__pycache__"))
+    manifest = plugin / ".claude-plugin" / "plugin.json"
+    manifest.write_text(json.dumps({**json.loads(manifest.read_text(encoding="utf-8")), "version": version}),
+                        encoding="utf-8")
     return plugin
 
 
@@ -248,3 +251,50 @@ def test_every_installed_version_reads_one_construct3_rag_clone(tmp_path):
     for plugin in (old, new):
         p = plugin_runner(tmp_path, plugin)("lookup_ace.py", "System", "wait")
         assert p.returncode == 0 and p.stdout.startswith("action wait - Wait [system]\n"), p.stdout + p.stderr
+
+
+def test_a_game_copy_installed_from_the_cache_is_compared_with_the_newest_version(tmp_path):
+    """Claude Code replaces a plugin's version folder at each update. install.py names the folder that holds the
+    version folders, so after an update the game's copy is still compared with the plugin, and refreshed from
+    the newest version, compared as numbers. A line written while it named a version folder leads there too, and
+    a line that leads nowhere tells the user to install again, not to clone a repository a plugin user lacks."""
+    plugin = installed_plugin(tmp_path, "1.3.0")
+    shutil.copytree(DATA, tmp_path / "home" / "Construct3-RAG" / "data")
+    run = plugin_runner(tmp_path, plugin)
+    assert run("new_project.py", "MyGame").returncode == 0
+    game = tmp_path / "MyGame"
+    p = run("install.py", "--project", str(game))
+    assert p.returncode == 0, p.stdout + p.stderr
+    agents = game / "AGENTS.md"
+    assert f"- Construct3-Agent-Skills: {plugin.parent.as_posix()}\n" in agents.read_text(encoding="utf-8")
+
+    copy = game / ".agents" / "skills" / "construct3-agent-plugin" / "scripts"
+    env = {k: v for k, v in os.environ.items() if k not in ("CONSTRUCT3_RAG", "CONSTRUCT3_COOKBOOK")}
+    env.update(PYTHONIOENCODING="utf-8", CONSTRUCT3_RAG_OFFLINE="1", CONSTRUCT3_HOME=str(tmp_path / "home"))
+
+    def check() -> str:
+        p = subprocess.run([sys.executable, str(copy / "check_project.py")], cwd=game, env=env,
+                           capture_output=True, text=True, encoding="utf-8", timeout=60)
+        return p.stdout + p.stderr
+
+    plugin.rename(plugin.parent / "1.3.1")
+    out = check()
+    assert "finds no" not in out and "git clone" not in out and out.rstrip().splitlines()[-1].startswith("ok:"), out
+    (copy / "print_sheet.py").write_text((copy / "print_sheet.py").read_text(encoding="utf-8") + "# edited\n",
+                                         encoding="utf-8")
+    out = check()
+    assert "differs from the clone's (scripts/print_sheet.py)" in out and f"{os.sep}1.3.1{os.sep}" in out, out
+    # 1.10.0 is newer than 1.3.1, though its name sorts first
+    newer = installed_plugin(tmp_path, "1.10.0")
+    assert f"{os.sep}1.10.0{os.sep}" in check()
+    # A line written with a version folder, since removed by an update
+    text = agents.read_text(encoding="utf-8")
+    agents.write_text(text.replace(f"Skills: {plugin.parent.as_posix()}\n", f"Skills: {plugin.as_posix()}\n"),
+                      encoding="utf-8")
+    assert f"Skills: {plugin.as_posix()}\n" in agents.read_text(encoding="utf-8") and not plugin.exists()
+    assert f"{os.sep}1.10.0{os.sep}" in check()
+    for folder in (newer, plugin.parent / "1.3.1"):
+        shutil.rmtree(folder)
+    out = check()
+    assert (f"finds no copy of the skill at {plugin.as_posix()}, which the project's 'Construct3-Agent-Skills:' "
+            f"line names") in out and "git clone" not in out, out

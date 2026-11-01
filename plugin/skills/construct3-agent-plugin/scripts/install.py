@@ -153,7 +153,7 @@ def add_block(project: Path, rag: Path, source: Path, skill_path: str, replace_e
     # The block records the clone for this project alone, and nothing here writes outside the
     # project: the next project starts with no record of the clone anywhere on the machine.
     notes.append(f"memory: keep 'Construct3-RAG: {rag.as_posix()}' and '{c3.SKILLS_CLONE}: "
-                 f"{c3.clone_root(source).as_posix()}' where your client stores notes between sessions; the next "
+                 f"{c3.skills_line(source).as_posix()}' where your client stores notes between sessions; the next "
                  f"project starts without this block")
     return notes
 

@@ -589,11 +589,34 @@ def own_plugin() -> Path | None:
 
 
 def plugin_in(folder: Path) -> Path | None:
-    """The plugin folder of a Construct3-Agent-Skills clone named by the clone's folder or by its plugin/."""
+    """The plugin folder named by a `Construct3-Agent-Skills:` line: plugin/ of a clone, named by the clone's
+    folder or by plugin/ itself, or the newest version of the plugin in Claude Code's plugin cache, named by the
+    folder that holds the version folders. A line written while it named a version folder still leads to the
+    newest version once that folder is gone or older."""
     for f in (folder / "plugin", folder):
         if (f / "skills" / SKILL / "SKILL.md").is_file():
-            return f
-    return None
+            return newest_version(f.parent) if is_cached_version(f) else f
+    return newest_version(folder) or (newest_version(folder.parent) if not folder.exists() else None)
+
+
+def is_cached_version(plugin: Path) -> bool:
+    """Whether a plugin folder is one version folder of Claude Code's plugin cache."""
+    return (plugin / PLUGIN_MANIFEST).is_file() and in_cache(plugin)
+
+
+def newest_version(folder: Path) -> Path | None:
+    """The version folder of the plugin in folder, as Claude Code's plugin cache holds them, whose version is
+    the highest, compared as numbers; None when folder holds none."""
+    versions = [f for f in folder.iterdir() if (f / PLUGIN_MANIFEST).is_file()
+                and (f / "skills" / SKILL / "SKILL.md").is_file()] if folder.is_dir() else []
+    return max(versions, key=lambda f: version_key(plugin_version(f) or f.name) or (), default=None)
+
+
+def skills_line(source: Path) -> Path:
+    """The folder a `Construct3-Agent-Skills:` line names for the plugin folder source: the clone that holds
+    it, or for a version of the plugin in Claude Code's plugin cache, the folder that holds the version
+    folders, which a plugin update keeps while it replaces the version folder."""
+    return source.parent if is_cached_version(source) else clone_root(source)
 
 
 def clones_home() -> Path:
@@ -863,6 +886,11 @@ def unsourced_copy(root: Path | None, rag: Path | None = None) -> str | None:
     Construct3-Agent-Skills clone to compare itself with, so nothing says when it is stale."""
     if own_plugin() or locate_skills(root, rag=rag):
         return None
+    named = next((c for _, c in instruction_lines(root, SKILLS_CLONE) if c), None)
+    if named:
+        return (f"this copy of the {SKILL} skill finds no copy of the skill at {named}, which the project's "
+                f"'{SKILLS_CLONE}:' line names, so it is not compared with the skill's source; run install.py "
+                f"--project <this project> of the plugin or clone the skill comes from, which writes the line again")
     return (f"this copy of the {SKILL} skill finds no {SKILLS_CLONE} clone, so it is not compared with the "
             f"skill's source; add '- {SKILLS_CLONE}: <folder>' to the project's AGENTS.md, or clone it beside "
             f"{RAG_CLONE}: git clone --depth 1 {SKILLS_URL}")
@@ -1677,7 +1705,7 @@ def block_lines(rag: Path, source: Path, skill_path: str, places: list[str] | No
         lines.pop()
     cookbook = locate_cookbook(rag)[0] or clone_places(COOKBOOK_CLONE, None, rag)[0][1]
     lines = [line.replace(f"<path-to>/{RAG_CLONE}", rag.as_posix())
-             .replace(f"<path-to>/{SKILLS_CLONE}", clone_root(source).as_posix())
+             .replace(f"<path-to>/{SKILLS_CLONE}", skills_line(source).as_posix())
              .replace(f"<path-to>/{COOKBOOK_CLONE}", cookbook.as_posix()).replace(BLOCK_SKILL_DEFAULT, skill_path)
              for line in lines]
     places = [line for line in places or [] if not (rag_line(line) and not is_clone(Path(rag_line(line))))]
