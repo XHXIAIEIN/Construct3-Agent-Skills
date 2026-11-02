@@ -510,15 +510,15 @@ def test_a_panel_is_a_9_patch_with_the_margins_measured_on_its_picture(project):
     wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
     item = next(i for i in wanted["images"] if i["file"] == "plaque.png")
     words = prepare_art.prompt(item, "flat cartoon")
-    assert words.startswith("flat cartoon; a wooden board.") and "ornaments only in the four corners" in words, words
+    assert words.startswith("flat cartoon; a wooden board.") and "nothing at its middle" in words, words
     raw =project / "art" / "raw" / "plaque.png"
     raw.parent.mkdir(parents=True, exist_ok=True)
     panel_picture("gem").save(raw)
     code, out = tool(project, "art")
-    assert "its width has no band that can stretch through the middle" in out, out
+    assert "its width has no band that can stretch through the middle" in out and "ask for it with art()" in out, out
     assert not (project / "art" / "plaque.png").exists()
     refused = json.loads((project / "art" / "refused.json").read_text(encoding="utf-8"))
-    assert "Ornaments only in the four corners" in refused["plaque.png"]["tell"]
+    assert "Nothing at the middle of any side" in refused["plaque.png"]["tell"]
 
     panel_picture().save(raw)
     code, out = tool(project, "art")
