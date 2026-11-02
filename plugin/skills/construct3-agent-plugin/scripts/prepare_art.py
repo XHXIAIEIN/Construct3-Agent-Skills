@@ -42,7 +42,8 @@ Each picture in art/raw/ is then:
 A panel of art_panel() is a 9-patch. It is cut out and trimmed the same way and scaled to fit its box at its
 own shape. The band of its width and of its height that repeats is measured, and what lies outside the bands
 is written to art/<name>.margins.json. A panel with ornaments at the middle of a side has no such band and is
-refused, because a 9-patch would smear them.
+refused, because a 9-patch would smear them: its refusal says to use art() for one size, or to make the
+ornament an art() of its own.
 
 Fitting needs Pillow (pip install pillow). A refused picture is recorded in
 art/refused.json, and its next prompt says what to make instead. After three
@@ -204,9 +205,10 @@ def prompt(item: dict, style: str, reference: bool = False) -> str:
     again = f" {item['tell']}" if item.get("tell") else ""
     if item["kind"] == "panel":
         return (f"{lead(style)}{subject}. One empty panel seen straight on, filling the picture with a little room "
-                f"around it, on a flat {name} {hex_of(key)} background: ornaments only in the four corners, each side "
-                f"straight and the same along its length, the middle of every side bare, a plain inside, no scenery, "
-                f"no shadow on the ground, no text.{again}")
+                f"around it, on a flat {name} {hex_of(key)} background: its material and bevel painted in full, the four "
+                f"corners as ornate as the style asks, each side straight and alike along its length with nothing at "
+                f"its middle, because an ornament there is made apart, no picture inside, no scenery, no shadow on "
+                f"the ground, no text.{again}")
     copy = (" The reference image sets the style and the palette; it is not a picture to copy, so draw only this "
             "subject.") if reference else ""
     return (f"{lead(style)}{subject}. One subject, whole and centred with room around it, on a flat {name} "
@@ -739,8 +741,11 @@ def fit_panel(root: Path, item: dict, raw: Path, subject, how: str, made: str) -
     if across is None or down is None:
         side = " and ".join(n for n, band in (("width", across), ("height", down)) if band is None)
         raise Unusable(f"its {side} has no band that can stretch through the middle, so a 9-patch would smear what "
-                       f"lies there", "make it again with ornaments only in the corners",
-                       "Ornaments only in the four corners: the middle of every side bare and straight.")
+                       f"lies there", "if it shows at one size, ask for it with art(), which keeps every ornament; else make "
+                                      "it again without what lies at the middle of a side, and make that an art() of its own, "
+                                      "linked on top of the panel",
+                       "Nothing at the middle of any side, because an ornament there is made apart. Keep the corners "
+                       "as ornate as they are.")
     margins = [across[0], w - across[1], down[0], h - down[1]]
     save(panel, root / "art" / rel, made)
     (root / "art" / f"{stem_of(rel)}.margins.json").write_text(json.dumps(margins), encoding="utf-8")

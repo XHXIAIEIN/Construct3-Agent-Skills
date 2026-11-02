@@ -1025,7 +1025,8 @@ def art_panel(name: str, w: int, h: int, role: str, subject: str) -> None:
     """images/<name lower>.png, the image of panel_type(): the picture art/<name lower>.png and the
     margins art.py measured on it, else a 16x16 stand-in of `role`. `subject` says what the panel
     looks like, for its prompt; w x h is the size the layouts mostly show it at. A panel asks for a
-    picture on the image route only."""
+    picture on the image route only. A control of one size is art(), which keeps any ornament. An
+    ornament at the middle of a panel's side is an art() of its own, link()ed on top of the panel."""
     rel = f"{name.lower()}.png"
     if ART_ROUTE == "image":
         if not subject.strip():
@@ -4033,7 +4034,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-11-01, stamp ccdab6f34ee1 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-11-02, stamp 25773b4f5b2e ================
 
 
 # --- the game ---------------------------------------------------------------------------

@@ -166,6 +166,13 @@ its picture. It asks for a picture on the image route only. A picture with
 ornaments at the middle of a side is refused, because a 9-patch would smear them.
 Do not write margins by hand for a picture.
 
+Keep the ornament and split the art by how it is shown. A button or plaque shown
+at one size is an `art()` sprite, however ornate, with its label on top. A panel
+that changes size is an `art_panel()`, with ornate corners and straight sides. A
+crest or medallion at the middle of its side is an `art()` of its own, placed
+after the panel with `link(panel, crest)`, so that the two move together and
+`no_overlap()` passes.
+
 ## Build, check, open
 
 Design first, as `designing-a-game.md` beside this file and
