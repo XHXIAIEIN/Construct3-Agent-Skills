@@ -70,13 +70,8 @@ Option 3.
 - `art_panel(name, w, h, role, subject)` asks for a picture on the image route
   and keeps a 16x16 stand-in until it is there, on either route. `panel_type()`
   and `panel_inst()` place it as a 9-patch at any size.
-- The prompt asks for the material painted in full, ornate corners and nothing at
-  the middle of a side, so that the first picture is one the test can take.
-- The test must not make the art plain. The example's button is good-looking
-  because of the ornaments at the middle of its edges, and a 9-patch cannot carry
-  them. So the art is split by how it is shown: a control of one size is an `art()`
-  sprite with any ornament, and an ornament on a panel that changes size is an
-  `art()` of its own, linked on top. The refusal names both ways.
+- The prompt asks for ornaments only in the four corners and the middle of every
+  side bare, so that the first picture is one the test can take.
 - `prepare_art.py` cuts it as it cuts a sprite, trims it and fits it into its box
   at its own shape. `stretch_band()` runs the median test above on each side. It
   looks at the outer quarters across the band only, because a frame's ornaments
