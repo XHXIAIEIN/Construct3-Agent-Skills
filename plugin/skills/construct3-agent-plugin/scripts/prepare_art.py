@@ -39,11 +39,6 @@ Each picture in art/raw/ is then:
              colour, with art/<name>.hit.png, its silhouette in the flash
              colour, for hit_frame()
 
-A panel of art_panel() is a 9-patch. It is cut out and trimmed the same way and scaled to fit its box at its
-own shape. The band of its width and of its height that repeats is measured, and what lies outside the bands
-is written to art/<name>.margins.json. A panel with ornaments at the middle of a side has no such band and is
-refused, because a 9-patch would smear them.
-
 Fitting needs Pillow (pip install pillow). A refused picture is recorded in
 art/refused.json, and its next prompt says what to make instead. After three
 refusals a picture keeps its stand-in.
@@ -131,10 +126,6 @@ SPILL = 60
 # A cut whose edge pixels lean to the key in more than this share, and more than FRINGE_MIN of
 # them, is refused.
 FRINGE, FRINGE_MIN = 0.005, 8
-# A panel's stretch band: the columns or rows, blurred by BAND_BLUR px, within BAND_TOLERANCE levels of the
-# median of the side's middle half in BAND_SAME of the pixels of the panel's outer quarters. The band holds
-# the side's middle and at least BAND_MIN of the side. docs/decisions/game-ui-workflow.md has the measurements.
-BAND_BLUR, BAND_TOLERANCE, BAND_SAME, BAND_MIN = 2, 32, 0.9, 0.2
 LINEUP = 4                                 # subjects in the key picture
 WORK = 4                                   # a picture is cut out at up to this many times its box
 REFUSED = "art/refused.json"               # the pictures and drawings refused, which the next run reads
@@ -202,11 +193,6 @@ def prompt(item: dict, style: str, reference: bool = False) -> str:
         return f"{lead(style)}{subject}. A full-frame background scene, no characters in front, no text."
     name, key = key_for(item, style)
     again = f" {item['tell']}" if item.get("tell") else ""
-    if item["kind"] == "panel":
-        return (f"{lead(style)}{subject}. One empty panel seen straight on, filling the picture with a little room "
-                f"around it, on a flat {name} {hex_of(key)} background: ornaments only in the four corners, each side "
-                f"straight and the same along its length, the middle of every side bare, a plain inside, no scenery, "
-                f"no shadow on the ground, no text.{again}")
     copy = (" The reference image sets the style and the palette; it is not a picture to copy, so draw only this "
             "subject.") if reference else ""
     return (f"{lead(style)}{subject}. One subject, whole and centred with room around it, on a flat {name} "
@@ -700,54 +686,6 @@ def save(img, path: Path, made: str = "") -> None:
     img.save(path, pnginfo=info)
 
 
-def stretch_band(img, axis: int) -> tuple[int, int] | None:
-    """The (start, end) of the columns (axis 0) or rows (axis 1) of an RGBA picture that a 9-patch can
-    stretch: the alike neighbours through the side's middle, or None without enough of them. Only the
-    outer quarters across the band count, because a frame's ornaments lie there and a painted inside
-    does not."""
-    from statistics import median
-    from PIL import Image, ImageFilter
-    pic = img if axis == 0 else img.transpose(Image.Transpose.TRANSPOSE)
-    w, h = pic.size
-    px = pic.filter(ImageFilter.BoxBlur(BAND_BLUR)).tobytes()
-    rows = [y for y in range(h) if y < h / 4 or y >= h * 3 / 4]
-    # The side as it runs: an ornament narrower than the middle half does not change a median of it
-    usual = {y: [median(px[4 * (y * w + x) + k] for x in range(w // 4, w - w // 4)) for k in range(4)] for y in rows}
-
-    def alike(x: int) -> bool:
-        same = sum(all(abs(px[4 * (y * w + x) + k] - usual[y][k]) <= BAND_TOLERANCE for k in range(4)) for y in rows)
-        return same >= BAND_SAME * len(rows)
-
-    start = end = (w - 1) // 2
-    if not alike(start):
-        return None
-    while start > 0 and alike(start - 1):
-        start -= 1
-    while end + 1 < w and alike(end + 1):
-        end += 1
-    return (start, end + 1) if end + 1 - start >= BAND_MIN * w else None
-
-
-def fit_panel(root: Path, item: dict, raw: Path, subject, how: str, made: str) -> list[str]:
-    """Writes the panel `subject`, cut out and trimmed, at its own shape inside its box, with its margins."""
-    from PIL import Image
-    rel = item["file"]
-    f = min(item["width"] / subject.width, item["height"] / subject.height)
-    w, h = max(1, round(subject.width * f)), max(1, round(subject.height * f))
-    panel = clean(resample(subject, (w, h), Image.HAMMING))
-    across, down = stretch_band(panel, 0), stretch_band(panel, 1)
-    if across is None or down is None:
-        side = " and ".join(n for n, band in (("width", across), ("height", down)) if band is None)
-        raise Unusable(f"its {side} has no band that can stretch through the middle, so a 9-patch would smear what "
-                       f"lies there", "make it again with ornaments only in the corners",
-                       "Ornaments only in the four corners: the middle of every side bare and straight.")
-    margins = [across[0], w - across[1], down[0], h - down[1]]
-    save(panel, root / "art" / rel, made)
-    (root / "art" / f"{stem_of(rel)}.margins.json").write_text(json.dumps(margins), encoding="utf-8")
-    return [f"{stem_of(rel)}: {raw.name}, {how} -> art/{rel} {w}x{h}, margins left {margins[0]}, right {margins[1]}, "
-            f"top {margins[2]}, bottom {margins[3]}"]
-
-
 def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[str]:
     """Fits the picture raw into the box of item and records `made`, the made_from() of its prompt;
     returns its line and any note on it. Raises Unusable when the picture cannot be used."""
@@ -783,8 +721,6 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[
                      f"around it")
     box = alpha.point(lambda a: 255 if a >= 16 else 0).getbbox()
     subject = cut.crop(box)
-    if item["kind"] == "panel":
-        return fit_panel(root, item, raw, subject, how, made) + notes
     f = min(w / subject.width, h / subject.height)
     sw, sh = max(1, round(subject.width * f)), max(1, round(subject.height * f))
     pixel_art = wanted.get("pixel_art", False)

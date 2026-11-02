@@ -1018,47 +1018,6 @@ def art(rel: str, kind: str, w: int, h: int, role: str, subject: str, ox: float 
     return FRAMES[rel]
 
 
-PANELS: dict[str, tuple] = {}              # width, height and (left, right, top, bottom) margins of each panel image
-
-
-def art_panel(name: str, w: int, h: int, role: str, subject: str) -> None:
-    """images/<name lower>.png, the image of panel_type(): the picture art/<name lower>.png and the
-    margins art.py measured on it, else a 16x16 stand-in of `role`. `subject` says what the panel
-    looks like, for its prompt; w x h is the size the layouts mostly show it at. A panel asks for a
-    picture on the image route only."""
-    rel = f"{name.lower()}.png"
-    if ART_ROUTE == "image":
-        if not subject.strip():
-            sys.exit(f"art_panel({name!r}): say what the panel looks like, the words its prompt is made of")
-        ART[rel] = {"file": rel, "kind": "panel", "width": w, "height": h, "origin": [0, 0], "subject": subject,
-                    "role": role, "route": "image"}
-    picture, margins = ROOT / "art" / rel, ROOT / "art" / f"{name.lower()}.margins.json"
-    if not picture.exists() or not margins.exists():
-        write_png(rel, 16, 16, lambda x, y: (*rgb("ink" if x < 2 or y < 2 or x >= 14 or y >= 14 else role), 255))
-        PANELS[name] = (16, 16, (2, 2, 2, 2))
-        return
-    data = picture.read_bytes()
-    target = ROOT / "images" / rel
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-    wrote(target)
-    PANELS[name] = (*struct.unpack(">II", data[16:24]), tuple(json.loads(margins.read_text(encoding="utf-8"))))
-
-
-def panel_type(name: str, ivars: list = (), behaviors: list = ()) -> dict:
-    """The 9-patch type of the panel art_panel() wrote for `name` in build_images()."""
-    if name not in PANELS:
-        sys.exit(f"panel_type({name!r}): write its image first with art_panel({name!r}, ...) in build_images()")
-    return image_type(name, "NinePatch", PANELS[name][0], PANELS[name][1], 0, 0, ivars, behaviors)
-
-
-def panel_inst(name: str, x: float, y: float, w: float, h: float, ivars=None, behaviors=None) -> dict:
-    """A panel at any size from (x, y), its top-left: its corners keep their size and its sides stretch."""
-    if name not in PANELS:
-        sys.exit(f"panel_inst({name!r}): write its image first with art_panel({name!r}, ...) in build_images()")
-    return ninepatch_inst(name, x, y, w, h, 0, 0, PANELS[name][2], ivars=ivars, behaviors=behaviors)
-
-
 def write_wanted() -> None:
     """Writes art/wanted.json for the skill's scripts/art.py, with the roles and the grid its drawings
     take, and prints how many sprites still show their stand-in."""
@@ -2577,14 +2536,12 @@ def backdrop(otype: str, width: int | None = None, height: int | None = None) ->
     return tiledbg_inst(otype, *screen_box(width, height), 0, 0)
 
 
-def ninepatch_inst(otype: str, x: float, y: float, w: float, h: float, ox: float = 0, oy: float = 0.5,
-                   margin: int | tuple = 2, edges: str = "stretch", fill: str = "stretch", ivars=None, behaviors=None,
+def ninepatch_inst(otype: str, x: float, y: float, w: float, h: float, ox: float = 0, oy: float = 0.5, margin: int = 2,
+                   edges: str = "stretch", fill: str = "stretch", ivars=None, behaviors=None,
                    seams: str = "overlap") -> dict:
-    """A 9-patch instance; `margin` is the border its corners keep, in image pixels, or its (left, right,
-    top, bottom). Seams "overlap" lays each part a pixel over the next, so no gap shows; "exact" keeps a
-    line its width."""
-    left, right, top, bottom = (margin,) * 4 if isinstance(margin, int) else margin
-    return instance(otype, {"left-margin": left, "right-margin": right, "top-margin": top, "bottom-margin": bottom,
+    """A 9-patch instance; `margin` is the border its corners keep, in image pixels. Seams "overlap"
+    lays each part a pixel over the next, so no gap shows; "exact" keeps a line its width."""
+    return instance(otype, {"left-margin": margin, "right-margin": margin, "top-margin": margin, "bottom-margin": margin,
                             "edges": edges, "fill": fill, "initially-visible": True, "origin": origin_name(ox, oy),
                             "seams": seams},
                     world(x, y, w, h, ox, oy), ivars, behaviors)
@@ -4033,7 +3990,7 @@ def build_and_check() -> None:
     sys.exit(subprocess.run([sys.executable, str(checker), "--project", str(ROOT), "--style"]).returncode)
 
 
-# ==== construct3-agent-plugin helpers: end; version 2026-11-01, stamp ccdab6f34ee1 ================
+# ==== construct3-agent-plugin helpers: end; version 2026-10-31, stamp a7f51732c00a ================
 
 
 # --- the game ---------------------------------------------------------------------------
