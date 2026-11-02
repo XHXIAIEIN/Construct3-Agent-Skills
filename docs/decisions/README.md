@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [The Game's Look: What kill-game-slop Adds to the Review](look-from-kill-game-slop.md) — 2026-11-02
 - [The Clones Live in One Home Folder, and setup.py Lists the Missing Ones](clones-home.md) — 2026-11-01
 - [The Game's Look: unslop's Spacing and Alignment Measured on Game Screens](look-from-unslop.md) — 2026-11-01
 - [The Pause Menu Is a Column of Rows Over a Paper Veil, Without a Panel](pause-menu.md) — 2026-11-01
