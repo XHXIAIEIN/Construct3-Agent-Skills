@@ -1796,3 +1796,27 @@ def test_a_turn_under_a_condition_on_the_direction_is_a_flip(tmp_path):
                                      {"id": "to-right", "else": True, "do": ["dir = 1"]}]
     assert by_words(graded_by(mechanic_run(tmp_path, "design-a-reverse-runner", branches)), "tap flips")[0] == (
         True, "rows the tap flips that an effect of a rule without an input reads: ['dir'] (flipped: ['dir'])")
+
+
+def saved_sheet(*rows: dict) -> list[dict]:
+    write = {"id": "set-item", "objectClass": "LocalStorage", "parameters": {"key": '"best"', "value": "Best"}}
+    say = {"id": "set-text", "objectClass": "Notice", "parameters": {"text": '"Saved"'}}
+    return [{"eventType": "block", "sid": 1, "conditions": [{"id": "on-created"}], "actions": [write]},
+            *[{**r, "actions": [say if a == "say" else a for a in r["actions"]]} for r in rows]]
+
+
+REPORTED = {"id": "on-item-set", "objectClass": "LocalStorage"}
+
+
+@pytest.mark.parametrize(("rows", "passed"), [
+    ([{"eventType": "block", "sid": 2, "conditions": [REPORTED], "actions": ["say"]}], True),
+    ([{"eventType": "block", "sid": 2, "conditions": [{"id": "on-created"}], "actions": ["say"]}], False),
+    ([{"eventType": "function-block", "functionName": "Say", "sid": 2, "conditions": [], "actions": ["say"]},
+      {"eventType": "block", "sid": 3, "conditions": [REPORTED], "actions": [{"callFunction": "Say"}]}], True),
+    ([{"eventType": "function-block", "functionName": "Say", "sid": 2, "conditions": [], "actions": ["say"]},
+      {"eventType": "block", "sid": 3, "conditions": [{"id": "on-created"}], "actions": [{"callFunction": "Say"}]}], False),
+    ([], False)])
+def test_saved_counts_only_once_the_write_is_reported(tmp_path: Path, rows: list, passed: bool) -> None:
+    (tmp_path / "layouts").mkdir()
+    (tmp_path / "layouts" / "Game.json").write_text(json.dumps({"layers": []}), encoding="utf-8")
+    assert grader.saved_shown_where(saved_sheet(*rows), tmp_path)[0] is passed
