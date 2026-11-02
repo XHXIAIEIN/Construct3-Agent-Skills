@@ -708,3 +708,26 @@ def test_preview_project_keeps_a_plan_in_the_project_and_needs_one_to_replay(pro
     kept.unlink()
     code, out = run(project, SCRIPT, "--all")
     assert code in (2, 3) and ("no kept plan in" in out or "no Edge, Chrome or Chromium" in out), out
+
+
+def test_a_shot_step_prints_the_findings_of_its_frame_and_fails_nothing(monkeypatch, tmp_path):
+    """A notice over a counter shows for a moment, so the frame is read at once, without the wait of a settled
+    layout. The step passes, since a frame in motion may show what is gone a moment later."""
+    layers = {"UI": {"parallax": [0, 0], "shown": True, "view": [0, 0, 1280, 720]}}
+    texts = [{"type": kind, "uid": uid, "layer": "UI", "box": [100 + uid * 20, 100 + uid * 10, 300 + uid * 20, 140 + uid * 10], "shown": True, "angle": 0,
+              "root": uid, "text": words, "textSize": [150, 30], "align": ["left", "top"], "em": 24}
+             for uid, kind, words in ((1, "Score", "Score 10"), (2, "Notice", "Round clear"))]
+    asked = []
+
+    def evaluate(code, wait, session):
+        asked.append((code, session))
+        return {"layout": "Game", "size": [1280, 720], "viewport": [1280, 720], "layers": layers, "instances": texts}
+
+    game = SimpleNamespace(win=SimpleNamespace(evaluate=evaluate), live="live")
+    monkeypatch.setattr(pp, "screenshot", lambda game, path: path.name)
+    said, read = pp.do_step(game, {"shot": "notice"}, 3, tmp_path)
+    assert said == "03-notice.png" and asked[0][1] == "live" and "setTimeout" not in asked[0][0]
+    assert len(read["findings"]) == 1 and read["findings"][0].startswith("  ") and " overlap: " in read["findings"][0]
+    assert pp.attempt(game, {"shot": "notice"}, 3, tmp_path)[0] is True
+    texts[1]["box"] = [100, 300, 300, 340]
+    assert pp.do_step(game, {"shot": "notice"}, 4, tmp_path) == ("04-notice.png", None)

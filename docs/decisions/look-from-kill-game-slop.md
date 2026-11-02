@@ -33,8 +33,8 @@ Task: find what the review of a Construct 3 game can use from it.
 | Slop score | Turned down: verify a success condition, not a score | Findings and yes answers, each with a place | None |
 | Edit specification when the editor is out of reach | Target, change, scope, status, marked unapplied | `open_in_editor.py` drives the editor, and exit 3 says that no check ran | None |
 | Three-arm eval: generic review, brief principles, full skill | Fresh conversations, a judge key kept apart, controls that must be preserved. All three arms scored the same, and the skill gained no rule from it | `grade.py` and `compare.py` test arms by permutation, and `judge_look.py` holds screenshots out | None |
-| Relevant moments | Reach a reachable coincidence of two transient things, such as a toast over a timing cue, and judge it | Proposal 1 (below) | Proposed |
-| State truth | A shown word or mark must match the state it claims: "Ready" with 0.8 s left, a prompt for the other player's keys | Proposal 2 (below) | Proposed |
+| Relevant moments | Reach a reachable coincidence of two transient things, such as a toast over a timing cue, and judge it | Decision 1 (below) | A `shot` prints its frame's findings; step 1 plays the moment |
+| State truth | A shown word or mark must match the state it claims: "Ready" with 0.8 s left, a prompt for the other player's keys | Decision 2 (below) | Step 5 reads the claimed state |
 | Preservation condition | Before a fix, name what must stay, and check it after the fix | The hand-over gives before, after and why. No step names what the fix must keep | Re-evaluate (below) |
 
 ### Two gaps at the level of the code
@@ -60,37 +60,36 @@ screen and has no case of a text that claims a state.
    a second vocabulary makes every reply longer.
 2. **Add yes/no questions for moments and state truth.** One screenshot cannot
    answer either, and a new question needs a run of `judge_look.py`.
-3. **Proposals on the check's own steps and tools.** Chosen: each one changes
-   what a run reaches, and each one waits for its eval iteration.
+3. **Changes on the check's own steps and tools.** Chosen: each one changes
+   what a run reaches.
 
 ## Decision
 
-Option 3. These two changes are proposed and not made, because a change to a
-reference or to what a script prints is an eval iteration
-(`dev/AGENTS.md`, "Evals"):
+Option 3:
 
-1. **The checks run on a played frame.** A `shot` step prints `text`,
-   `overlap`, `stacked` and `edge` findings from the instances at that frame,
-   through `review_look.findings(snap, only=...)`. Step 1 of
-   `verifying-a-change.md` gains a case: a change that shows something for a
-   moment is also played with the other transient thing the flow can show at
-   that time, when the game can reach both. A forced coincidence counts as a
-   claim left open, as step 7 says. Before the change,
-   `dev/evals/sweep_outputs.py` shows what the extra lines print.
-2. **A text that claims a state is read against that state.** Step 5 gains a
-   case: where a text or a mark claims a state (Saved, Ready, Locked, a full
-   bar, a key prompt), the plan reads the value it claims while it shows. A
-   Local Storage write shows why: *On item set* and *On error* arrive later, so
-   a "Saved" set beside the write claims more than the game knows
-   (`Construct3-Cookbook/guides/plugins/localstorage.md`).
+1. **The checks run on a played frame.** A `shot` step prints the `text`,
+   `overlap`, `stacked` and `edge` findings of its frame. `FRAME_JS` reads the
+   instances without the wait of `LOOK_JS`, because what a moment shows may be
+   gone after it. These lines fail no step, because a frame in motion can show
+   a fault that is gone when the motion rests. Step 1 of
+   `verifying-a-change.md` plays a change that shows something for a moment
+   together with the other transient thing the flow can show at that time.
+2. **A text that claims a state is read against that state.** Step 5 reads the
+   value that a text or a mark claims while it shows (Saved, Ready, Locked, a
+   full bar, a key prompt). *On item set* and *On error* arrive after a Local
+   Storage write, so a "Saved" set beside the write claims more than the game
+   knows (`Construct3-Cookbook/guides/plugins/localstorage.md`).
+
+The eval cases `two-notices-at-once` and `saved-best-score` exercise these
+changes.
 
 ## Re-evaluate when
 
-- The owner takes proposal 1 or 2: run its eval iteration, then rewrite this
-  record to what holds.
+- A shot's findings make runs chase faults of a frame in motion: print them only
+  for a frame that holds still.
 - A run's look fix removes something the user asked to keep: add a preservation
   condition to the look step.
 - A generated game hides a timing cue under a notice on a recording: use that
-  recording as the case for proposal 1.
+  recording as a case for the played frame.
 - The source's held-out eval with human judges reports a difference between its
   arms: read which cases decided it.

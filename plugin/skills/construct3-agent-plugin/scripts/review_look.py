@@ -282,6 +282,11 @@ LOOK_JS = r"""(async () => {
           viewport: [runtime.viewportWidth, runtime.viewportHeight], layers, instances};
 })()"""
 
+# The instances as a played frame shows them, read at once: what a moment shows may be gone after LOOK_JS's wait.
+FRAME_JS = LOOK_JS.replace("  await new Promise(r => setTimeout(r, 300));\n", "")
+# The findings that hold on any frame: the others read a settled layout or its measured ink.
+PLAYED = ("text", "stacked", "overlap", "edge")
+
 
 def area(box) -> float:
     return max(0.0, box[2] - box[0]) * max(0.0, box[3] - box[1])
@@ -1021,6 +1026,11 @@ def findings(snap: dict, only: tuple[str, ...] | None = None) -> list[dict]:
            "crowd": lambda: crowd_findings(instances, layers, one_screen),
            "uneven": lambda: uneven_findings(instances, layers, one_screen, snap["viewport"][1])}
     return tiered([f for rule, find in run.items() if only is None or rule in only for f in find()])
+
+
+def played_lines(win, session: str | None) -> list[str]:
+    """The finding lines of the frame a plan's shot step is on."""
+    return [finding_line(f) for f in findings(win.evaluate(FRAME_JS, wait=20, session=session), PLAYED)]
 
 
 def tiered(found: list[dict], at: str | None = None) -> list[dict]:

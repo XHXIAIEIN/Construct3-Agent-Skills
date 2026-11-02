@@ -359,6 +359,42 @@ def five_coins_in_round_two() -> dict:
     ]}
 
 
+# What a player reads: the visible texts that match a pattern, and where a text's letters sit in its box.
+SHOWN = ("vars.h.shown = re => Object.values(runtime.objects).flatMap(o => o.getAllInstances()).filter(i => "
+         "typeof i.text === 'string' && re.test(i.text) && i.isVisible && i.opacity > 0.05 && i.layer.isVisible);",
+         "vars.h.ink = i => { const b = i.getBoundingBox(), w = Math.min(i.textWidth, b.width), "
+         "t = Math.min(i.textHeight, b.height), "
+         "x = i.horizontalAlign === 'center' ? (b.left + b.right - w) / 2 : i.horizontalAlign === 'right' ? b.right - w : b.left, "
+         "y = i.verticalAlign === 'center' ? (b.top + b.bottom - t) / 2 : i.verticalAlign === 'bottom' ? b.bottom - t : b.top; "
+         "return [x, y, x + w, y + t]; };")
+
+
+def two_notices_at_once() -> dict:
+    """The second round deals 3 coins. The last is taken as soon as Last coin! shows, so Round clear arrives inside
+    that notice's 2 seconds."""
+    take = {"tap": {"js": "vars.h.spot('Coin') || {x: 4, y: 4}"}}
+    return {"touch": True, "steps": [
+        *COINS, js(*SHOWN), *collect(2), take, take,
+        {"until": "vars.h.shown(/last coin/i).length > 0", "timeout": 5},
+        check("With one coin left, Last coin! shows",
+              "return {ok: h.count('Coin') === 1, said: `${h.count('Coin')} coin(s) with the notice on screen`};"),
+        take,
+        {"until": "vars.h.shown(/round clear/i).length > 0", "timeout": 5},
+        check("Taken at once, Round clear does not lie over Last coin!",
+              "const clear = h.ink(h.shown(/round clear/i)[0]), last = h.shown(/last coin/i).map(h.ink);",
+              "const over = last.filter(b => b[0] < clear[2] && clear[0] < b[2] && b[1] < clear[3] && clear[1] < b[3]);",
+              "return {ok: !over.length, said: `Round clear at ${clear.map(Math.round)}, Last coin! at ${last.map(b => b.map(Math.round))}`};"),
+    ]}
+
+
+def saved_best_score() -> dict:
+    return {"touch": True, "steps": [
+        *COINS, js(*SHOWN), tap(),
+        {"until": "vars.h.shown(/saved/i).length > 0", "timeout": 6},
+        check("Saved shows after a new best", "return {ok: true, said: h.shown(/saved/i)[0].text};"),
+    ]}
+
+
 def turns(limit: bool = False) -> dict:
     """In round 2: a collect passes the turn once, the turn then holds still, and the next collect passes it back.
     With a limit, first in round 1: without a tap the turn passes once about every 5 seconds, and the seconds
@@ -840,7 +876,8 @@ PLANS: dict[str, Callable[[], dict]] = {
     "hud-over-a-scrolling-level": hud_over_a_scrolling_level,
     "fix-open-errors-past-the-message": fix_open_errors, "fix-endless-pulse": fix_endless_pulse,
     "two-buttons-in-the-generator": two_buttons, "four-coins-in-round-two": four_coins_in_round_two,
-    "five-coins-in-round-two": five_coins_in_round_two,
+    "five-coins-in-round-two": five_coins_in_round_two, "two-notices-at-once": two_notices_at_once,
+    "saved-best-score": saved_best_score,
 }
 
 

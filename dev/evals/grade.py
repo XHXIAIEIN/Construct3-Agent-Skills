@@ -1645,6 +1645,54 @@ def grade_five_coins_in_round_two(run: Path) -> list[tuple[bool, str]]:
     return [*grade_four_coins_in_round_two(run), unchanged(run, ("eventSheets/Game.json", "tools/"))]
 
 
+WRITE_REPORTED = {"on-item-set", "on-any-item-set", "on-all-sets-complete"}
+
+
+def saved_shown_where(events: list, project: Path) -> tuple[bool, str]:
+    """Whether every action that shows the word Saved runs when the write is reported: under such a trigger, or in
+    a function that only such a trigger calls. A Text placed with the word counts when an action shows it."""
+    placed = set()
+    for path in (project / "layouts").glob("*.json"):
+        for layer in json.loads(path.read_text(encoding="utf-8"))["layers"]:
+            placed |= {i["type"] for i in layer["instances"]
+                       if "saved" in str((i.get("properties") or {}).get("text", "")).lower()}
+
+    def reported(ev: dict, above: tuple) -> bool:
+        return any(c.get("id") in WRITE_REPORTED and c.get("objectClass") == "LocalStorage"
+                   for c in conditions_over(ev, above))
+
+    called, others = set(), set()
+    for ev, above in walk(events):
+        for a in ev.get("actions", []):
+            if a.get("callFunction"):
+                (called if reported(ev, above) else others).add(a["callFunction"])
+    shows, wrong = 0, []
+    for ev, above in walk(events):
+        for a in ev.get("actions", []):
+            word = "saved" in values([a]).lower()
+            if not word and not (a.get("objectClass") in placed and a.get("id") in ("set-visible", "set-opacity")):
+                continue
+            shows += 1
+            owner = next((e.get("functionName") for e in (*above, ev) if e.get("eventType") == "function-block"), None)
+            if not reported(ev, above) and not (owner in called and owner not in others):
+                wrong.append(f"{a.get('id')} on {a.get('objectClass')}, event sid {ev.get('sid')}")
+    if not shows:
+        return False, "no action shows the word Saved"
+    return not wrong, f"{shows} action(s) show Saved" + (f"; beside the write: {wrong[0]}" if wrong else ", all once it is reported")
+
+
+def grade_saved_best_score(run: Path) -> list[tuple[bool, str]]:
+    project = run / "project"
+    events = sheet_of(project)
+    if events is None:
+        missing = (False, "eventSheets/Game.json is not readable JSON")
+        return [*checker_and_warnings(project), missing, missing]
+    writes = [a for ev, _ in walk(events) for a in ev.get("actions", [])
+              if a.get("id") == "set-item" and a.get("objectClass") == "LocalStorage"]
+    return [*checker_and_warnings(project), (bool(writes), f"{len(writes)} Set item action(s)"),
+            saved_shown_where(events, project)]
+
+
 def grade_design_a_catch_game(run: Path) -> list[tuple[bool, str]]:
     project = run / "project"
     design = project / "tools" / "design.json"
@@ -2188,7 +2236,8 @@ GRADERS = {"add-countdown": grade_add_countdown, "fix-load-errors": grade_fix_lo
            "walk-cycle-frames": grade_walk_cycle_frames, "card-game-art": grade_card_game_art,
            "look-from-references": grade_look_from_references, "check-the-third-round": grade_check_the_third_round,
            "four-coins-in-round-two": grade_four_coins_in_round_two,
-           "five-coins-in-round-two": grade_five_coins_in_round_two}
+           "five-coins-in-round-two": grade_five_coins_in_round_two,
+           "two-notices-at-once": grade_four_coins_in_round_two, "saved-best-score": grade_saved_best_score}
 
 
 # The columns trace.py counts from a transcript: four cost columns, then the route columns.

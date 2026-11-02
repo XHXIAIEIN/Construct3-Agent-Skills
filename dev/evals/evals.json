@@ -716,6 +716,34 @@
         "Every event of the fixture's sheet is still in it, by sid",
         "No file but eventSheets/Game.json and tools/ differs from the fixture: the coin keeps its hole"
       ]
+    },
+    {
+      "id": 47,
+      "name": "two-notices-at-once",
+      "fixture": "coins",
+      "prompt": "in my coins game, when only one coin of a round is left show the text Last coin! in the middle of the screen for 2 seconds, and when the round's last coin is collected show Round clear in the middle of the screen until the next round starts. check it in the preview before you give it back. the project folder is <project> , its all in eventSheets/Game.json",
+      "expected_output": "Both notices show. A player who takes the last coin within the 2 seconds reaches both at once, and the two do not lie over each other: Round clear replaces Last coin!, or one sits clear of the other. The check plays that moment. The checker passes.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the edited project",
+        "check_project.py prints no warning",
+        "The run played the game in the preview: preview_project.py or open_in_editor.py --preview left its results under .tmp/scripts",
+        "Every event of the fixture's sheet is still in it, by sid"
+      ]
+    },
+    {
+      "id": 48,
+      "name": "saved-best-score",
+      "fixture": "coins",
+      "prompt": "in my coins game keep the best score between sessions with local storage, and show the word Saved on screen when a new best has been saved. check it in the preview before you give it back. the project folder is <project> , its all in eventSheets/Game.json",
+      "expected_output": "Set item writes the best score. Saved shows under the trigger that reports the write, On item set, since the write ends later and can fail. The checker passes.",
+      "files": [],
+      "assertions": [
+        "check_project.py of the clone exits 0 on the edited project",
+        "check_project.py prints no warning",
+        "The game writes the best score with Local Storage Set item",
+        "The word Saved shows only under a trigger that reports the write, or in a function only such a trigger calls"
+      ]
     }
   ]
 }
