@@ -5,11 +5,10 @@ Date: 2026-10-31
 ## Problem
 
 Without a describer, the agent that wrote the events opens its own contact
-sheet and judges the motion by what it meant the events to show. The look
-review sends its screenshots to a reviewer that has not seen the project
-(`look-judge-agent.md`) for that reason, and the reason holds for the frames
-of a recording too. The look judge answers fixed yes/no questions about
-layouts at rest, so it cannot take a claim of one change, such as "the bar
+sheet and judges the motion by what it meant the events to show. So the
+frames of a recording go to a reviewer that has not seen the project.
+Fixed yes/no questions about layouts at rest cannot take a claim of one
+change, such as "the bar
 slides to its new length and never passes it".
 
 A plan that fails to reach a ledge or open a door is read as proof that the
@@ -38,11 +37,8 @@ game cannot do it, although the plan is as likely at fault as the events.
 
 ## Options
 
-1. **Keep the self-review of the contact sheet.** No cost, and the bias the
-   look review was built to avoid.
-2. **Send the sheet to `look-judge`.** Its questions are fixed yes/no
-   questions about layouts, and its model was measured on those alone.
-3. **Expectations and questions on the `record` step, a brief of the frames
+1. **Keep the self-review of the contact sheet.** No cost, and the bias above.
+2. **Expectations and questions on the `record` step, a brief of the frames
    beside the recording, and a read-only describer type.** Chosen.
 4. **A separate command over an existing recording**, such as
    `preview_project.py --describe NN-NAME`. It serves a recording the user
@@ -89,7 +85,7 @@ Option 3.
   game's own values, named, show it impossible. The hand-over names each
   open claim.
 - The describer runs `claude-sonnet-5-5`, the model of the design judge,
-  between the look judge's Haiku and the art drawer's Opus. Its answers
+  below the art drawer's Opus. Its answers
   are not measured against recordings of known motion.
 
 ## Re-evaluate when

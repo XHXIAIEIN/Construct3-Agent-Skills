@@ -18,9 +18,7 @@ out the examples tagged "3D", and hud, rows and edges read only the game example
 the others read every example,
 since a popup, an idle motion, a tween or a text on a 2D layer is the same in a 3D game, and icons
 reports 2D games and the studio's games apart. Genres are the examples' tags in data/c3-examples.
-docs/decisions/borrowed-numbers.md, docs/decisions/motion-atlas-layouts.md,
-docs/decisions/look-from-impeccable.md and docs/decisions/look-from-unslop.md cite the summaries;
-the rows stay in .local/docs/evidence/.
+docs/decisions/borrowed-numbers.md cites the summaries; the rows stay in .local/docs/evidence/.
 actors needs Pillow, to read the opaque height of the player's picture.
 Exit codes: 0 done (a line says when nothing was measured), 2 bad arguments or no Pillow for actors.
 """

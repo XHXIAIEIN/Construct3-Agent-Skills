@@ -1,33 +1,18 @@
-# Art from the Image Tool
+# Pictures Are Cut Out and Fitted to the Box
 
 Date: 2026-10-06
 Schema: Construct 3 r495.2
 
 ## Problem
 
-The generator template draws stand-ins, and the skill said nothing about
-where the art comes from beyond "the user or real assets". The template's
-own comment said that real projects draw with Pillow. So an agent asked for
-a game that looks finished drew the art itself, in code, even when its
-client had an image model it could call.
-
-Task: an agent with an image generation tool makes the game's art with it,
-and the art drops into the generated project without changing a layout or
-an event; an agent without one keeps the stand-ins.
+A game can take pictures that the user gives or that an image tool makes.
+Before Construct can use one, it needs the background removed when the picture
+is opaque, the subject trimmed and fitted to the box the layouts place, the
+editor's file names, a hit frame, and a clear pixel holding no colour. Left to
+the agent, each run writes its own chroma key, the step a small model gets
+wrong: fringes, holes, a ground shadow.
 
 ## Evidence
-
-A small model whose client ships an image model built a card game from the
-skill and drew all of its art in Pillow, even when asked outright to use its
-image ability, because a script that writes `images/` at the sizes the
-generator registers was the only route the skill showed. The art had four
-drawing styles on one screen, and fifteen enemies were one shape template in
-different colours; two redraws in code did not fix it.
-
-Before Construct can use a picture of the image tool, it needs what the
-model had no tool for: the background removed when the picture comes back
-opaque, the subject trimmed and fitted to the box the layouts place, the
-editor's file names, a hit frame, and a clear pixel holding no colour.
 
 The cut-out was measured on eight real image-model pictures, one figure
 each on magenta or green: two full-body illustrations, two in pixel art,
@@ -67,100 +52,30 @@ left key on the edge that 4 and 5 px cleared.
 On white, a cut also erases the subject's whites. LANCZOS makes pixels in
 colours the source never had: a light rim and a key tint.
 
-What `--list` warns of was measured on the subjects of a card game that a
-small model generated with `art()`, all in Chinese. Many end in "无文字" (no
-text), which the prompt asks for too, so a word after a negation does not
-count. Most name the outline that `ART_STYLE` names, so a style word that
-`ART_STYLE` also names does not count. Three groups of enemies and the
-buttons are one subject in several colours or elements. Text similarity of
-the subjects does not find these groups: two different creatures scored
-0.87, one creature in two elements 0.94. The same subject without its
-colour and element words does. Printed all at once, that game's prompts
-passed the output limit, and its key picture showed four cards that
-differ only in colour.
-
-A published sprite tool that draws several poses in one picture reports
-four a picture as stable, and repeated or dropped subjects at nine and
-twelve.
-
-The key picture was passed as a reference to the image tool of each
-client below. One coding agent's built-in image tool takes a list of local
-picture paths as references. Given two drawn characters, it drew both in
-one picture, with features that the prompt did not describe. Given one,
-it drew the same character in a new pose. Its pictures came back opaque,
-on a magenta that varied by up to 20 levels per channel. A Claude Code
-session has no image tool of its own, and a design connector's image
-tool takes a prompt only. A chat client's agent mode edits from a list
-of reference picture URLs. The clients, the pictures and the calls are
-in `.local/docs/evidence/borrowed-numbers/image-refs/`.
-
 ## Options
 
-1. **A line in `SKILL.md`: use the image tool.** The model went back to
-   Pillow when told so directly: without a way to fit a picture into the
-   project, prose does not move it.
-2. **Leave the cut-out and fitting to the agent.** Each run writes its own
-   chroma key, the step a small model gets wrong (fringes, holes, the
-   ground shadow it was told not to draw).
-3. **`art()` in the template and `prepare_art.py` in the skill.** Chosen.
-4. **Keep drawing the art in code.** The result above; rejected.
-5. **The skill calls an image model.** Every client has its own tool, and
+1. **Leave the cut-out and fitting to the agent.** The faults above.
+2. **`art()` in the template and `prepare_art.py` in the skill.** Chosen.
+3. **The skill calls an image model.** Every client has its own tool, and
    the default path calls no model; rejected.
 
 ## Decision
 
-Option 3.
+Option 2.
 
 - `art(file, kind, w, h, role, subject)` in `assets/build_project.py`
-  declares a sprite by what its picture shows, in a box of whole units. It
-  draws the stand-in `shape()` until `art/<file>` exists, then copies that
-  picture in with the stand-in's box, origin and collision polygon: the
-  layouts and events stay as they were. Kind `"scene"` is an opaque
-  backdrop. The generator writes `art/wanted.json` and prints how many
-  sprites still show their stand-in, with the command that prints their
-  prompts.
-- `ART_STYLE`, one sentence of art direction, leads every prompt, so the
-  pictures share one style.
+  declares a sprite by what its picture shows, in a box. It draws the stand-in
+  `shape()` until `art/<file>` exists, then copies that picture in with the
+  stand-in's box, origin and collision polygon: the layouts and events stay as
+  they were. Kind `"scene"` is an opaque backdrop. The generator writes
+  `art/wanted.json` and prints how many sprites still show their stand-in.
 - `scripts/art.py`, the entry point of both routes (`art-entry-point.md`),
-  runs this route through `prepare_art.py`. It prints the next step only, so that no
-  picture is made before what it depends on. When the user gave a look,
-  it first asks for the look to be picked on the first play screen
-  (`look-picker.md`), which writes `ART_STYLE` and keeps the picked screen
-  as `art/look.png`. While `ART_STYLE` is empty, it asks for that. In
-  the default look, with more than one sprite to make and no
-  `art/raw/_key.png`, it asks for the key picture: a line-up of four
-  subjects, the first of each object before a second of one, shown to the
-  user when they are there to choose one. Then it prints a prompt per
-  picture still to make, the aspect ratio to ask for, and where to save it,
-  `art/raw/`. A sprite is asked for on a flat key colour, magenta, or green
-  for a subject in pink or purple, with no ground shadow and no text. Its
-  prompt gives `art/look.png` or the key picture as the reference image,
-  which sets the style and the palette and is not a picture to copy. A
-  scene's prompt does not, because the key picture's background is the key
-  colour.
-- `--list` warns of three kinds of subject and prints the prompts all the
-  same:
-  - a sprite's subject that names a background or a shadow;
-  - a subject that names text, or a drawing style that `ART_STYLE` does
-    not;
-  - three or more subjects of one kind and box that are the same without
-    their colour, shade and element words.
-
-  A word after "no", "without", "无" or "不含" does not count.
-- `--list` also warns, above the prompts, when `ART_STYLE` names nothing
-  of one of the dimensions of `DIMENSIONS`: the rendering, the linework,
-  the colour temperature, the light direction, the proportions and the
-  framing. Each prompt leaves such a dimension to the image tool, picture
-  by picture. A dimension counts when the sentence names a word of its
-  list, English or Chinese. A negated word counts too, since "no outlines"
-  fixes the linework, and `<dimension> unspecified` leaves one open on
-  purpose. The line that asks for an empty `ART_STYLE` names the
-  dimensions, and so does the comment above `ART_STYLE` in the template,
-  whose two examples pass. It stays a warning, because a sentence can fix a
-  dimension in words that no list holds.
+  fits each picture saved as `art/raw/<name>.png`, `.jpg` or `.webp` through
+  `prepare_art.py`. The repository writes no prompt for an image tool
+  (`mechanical-checks-only.md`).
 - `scripts/prepare_art.py` keeps a picture's own transparency. Otherwise it
   refuses a picture whose edge is not one flat colour, is neither key, or
-  is crossed by the subject, saying what to make instead. It removes the
+  is crossed by the subject, saying what it needs instead. It removes the
   key where it joins the edge, with a shadow cast on it (the key darker),
   and the key in shade wherever it shows through a gap. Each edge pixel,
   up to 3 px in from the background, or a pixel per 240 px of the
@@ -170,42 +85,24 @@ Option 3.
   the subject's. Its colour is the pixel less its share of the
   background, divided by that alpha. Key light inside the
   subject gets the colour around it back. It refuses a cut that leaves
-  more than 0.5% of the edge leaning to the key, naming the other key.
+  more than 0.5% of the edge leaning to the key.
   Then it trims the subject, fits it into its box (on the box's bottom
   when the origin is at the feet) with alpha and colour scaled apart
   through a filter without negative lobes, clears the colour under alpha
   0, and writes the hit frame, the silhouette in the flash colour. It
-  marks each file so that `check_look.py` lets its soft edges through.
+  marks each file so that `check_project.py` lets its soft edges through.
   Its line counts the gap pixels and the recoloured ones.
 - A refused picture is recorded in `art/refused.json` by a fingerprint of
-  its bytes, so that a second run on it does not count it again. `--list`
-  gives its prompt again with a sentence for the image tool on what the
-  refused picture got wrong, and with the other key when the edge leaned
-  to the first. After three
-  refusals a picture keeps its stand-in, and both runs say so, count it
-  and go on. A new subject in `art()` starts the count again.
-- Each fitted picture records in a PNG text chunk, `c3-art-prompt`, a
-  fingerprint of what it was made from: its prompt, which starts with
-  `ART_STYLE` and names its subject, and the reference image, `art/look.png`
-  or the key picture. A fitted picture newer than its raw picture whose
-  record differs from the current prompt is in the state `restyle`, and
-  its prompt is printed again. So a change of `ART_STYLE`, of the picked
-  look or of the subject puts each picture made before it in `restyle`. A
-  fitted picture without a record has nothing to compare, so it stays
-  done. The sentence that a refusal adds and the key colour that it names
-  are left out of the fingerprint, because they do not change the
-  picture's style.
+  its bytes, so that a second run on it does not count it again. After three
+  refusals a picture keeps its stand-in, and the run says so, counts it
+  and goes on. A new subject in `art()` starts the count again.
 - A raw picture is turned upright by its EXIF orientation tag before it is
   cut, because a phone or a camera can save a picture unturned and record
   the turn in the tag.
-- Without an image tool, the stand-ins stay. `SKILL.md`, the reference on
-  generating a project and the look manifest say that art is not drawn in
-  code.
 
 ## Open
 
-- No run of a small model with an image tool has used the route. The
-  real pictures behind the thresholds were not made in a session of this
+- The real pictures behind the thresholds were not made in a session of this
   skill: the full-body ones are reduced to about half their size and to a
   palette, the stills to an eighth. They stay out of
   the repository: `dev/tests/test_skill_prepare_art.py` runs on such a folder
@@ -218,43 +115,16 @@ Option 3.
   on the pixel grid.
 - Tiled Backgrounds, 9-patches and the HUD's bars keep their drawn
   images; `art()` covers sprites and backdrops.
-- Contrast of the art against the backdrop is the user's call on a
-  screenshot, as `review_look.py` asks it; no check measures it.
-- No game's whole set of pictures was made with the key picture as the
-  reference, so whether it holds one style across them is untested. A
-  client whose image tool takes no reference, such as a prompt-only one,
-  gets the style from `ART_STYLE` alone. The English warning words were
-  tried on subjects written for the tests, not on a model's run. The cap
-  of three refusals and the four subjects of the key picture are choices;
-  neither was measured on an image tool here.
-- The dimensions of `DIMENSIONS` are a choice. No run here has shown that
-  naming them steadies the pictures, and their words were tried on the
-  template's examples and the tests' sentences only.
-- The buttons of the card game are one thing in several colours, as
-  meant, and get the colour warning; it says that it applies to different
-  things.
+- The cap of three refusals is a choice.
 
 ## Re-evaluate when
 
-- A run with an image tool still draws the art in code: the route needs a
-  line in a tool's output, not only `SKILL.md`.
-- A real picture of the image tool is refused for its edge, or leaves a
-  fringe, a hole, a shadow or a tint: put it in the folder of the
-  real-picture test and change the thresholds in `prepare_art.py`, whose
-  comments give what each was measured against.
+- A real picture is refused for its edge, or leaves a fringe, a hole, a shadow
+  or a tint: put it in the folder of the real-picture test and change the
+  thresholds in `prepare_art.py`, whose comments give what each was measured
+  against.
 - A subject in the key made darker, a dark magenta cloth under magenta,
   is taken for a gap. Then the gap rule needs the region's size or its
   link to the background.
-- An image tool returns pictures with transparency as a rule: the key
-  colour drops out of the prompt.
-- The pictures of one game drift apart in style despite the key picture:
-  generate several subjects on one picture and cut them apart.
-- A warning fires on a subject that comes out right, or a subject comes
-  out wrong without one: change the word lists in `prepare_art.py`, and
-  add the subject to the ones above.
-- The style warning names a dimension that the sentence fixes in other
-  words, or pictures from a sentence without the warning still differ in
-  one way: add the words, or the dimension, to `DIMENSIONS`.
 - A picture keeps its stand-in after three refusals that a fourth picture
-  would have fixed, or the image tool itself refuses a prompt: the cap or
-  the refusal's sentence needs that run's evidence.
+  would have fixed: the cap needs that run's evidence.

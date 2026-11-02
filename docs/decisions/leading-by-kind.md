@@ -31,11 +31,11 @@ lines of the count measure 84 + 2.4 + 84 px and three lines of body text
 On the template's game with a paragraph of three lines added, the
 paragraph's lines move from 28 to 30.7 px apart and wrap at the same
 words, and the count's box shrinks from 96 to 87 px with the same glyph in
-it. `review_look.py` finds the same two faults before and after, both the
+it. `check_screens.py` finds the same two faults before and after, both the
 template's own. The screenshots are in `.local/docs/evidence/round2-type/`.
 
 The official 2D examples add little: 130 of their 137 texts of several
-lines add no line height, and none adds 0.3 em (`ui-ux-pro-max-data.md`).
+lines add no line height, and none adds 0.3 em.
 Body text at 1.28 em adds 0.11 em.
 
 ## Options

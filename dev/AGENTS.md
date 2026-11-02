@@ -107,7 +107,7 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 | Task | Responsibility and interface | Read together | Constraint and source |
 |------|------------------------------|---------------|-----------------------|
 | Check or resume a design review | `scripts/review_design.py --check` prints findings and questions, and writes the questions with the printed sheets into `brief.md` for `construct3:design-judge`. The optional `--prepare FOLDER --resume` supplies evidence and saved judgements | `design_review.py`, `print_sheet.py`, `c3project.py`, `dev/tests/test_skill_design_review.py`, `references/design-review.md`, `plugin/agents/design-judge.md` | A saved judgement is reused only while its input version matches. An edit carries the line that `print_sheet.py` printed for its event. `docs/decisions/plan-names-the-event-line.md` |
-| Check a change as a whole | `scripts/verify_change.py` runs, in order, the checker, the design review, the editor and its preview, the kept plays and the look. Its last line is the next step, and `--status` prints where the steps stand | `check_project.py`, `review_design.py`, `open_in_editor.py`, `review_look.py`, `dev/evals/trace.py`, `dev/tests/test_skill_verify_change.py` | An editor step runs again only when a file of the project outside `tools/plans/` changed after it passed, and the play step also when a kept plan changed. A design question waits for `--answered`, a look question for a reply that `review_look.py --reply` checked against the brief of the run that asked it. `docs/decisions/verify-change.md` |
+| Check a change as a whole | `scripts/verify_change.py` runs, in order, the checker, the design review, the editor and its preview, the kept plays and the screen check. Its last line is the next step, and `--status` prints where the steps stand | `check_project.py`, `review_design.py`, `open_in_editor.py`, `check_screens.py`, `dev/evals/trace.py`, `dev/tests/test_skill_verify_change.py` | An editor step runs again only when a file of the project outside `tools/plans/` changed after it passed, and the play step also when a kept plan changed. A design question waits for `--answered`. `docs/decisions/verify-change.md` |
 | Apply an event edit | `scripts/edit_sheet.py SHEET PLAN.json --dry-run` checks the whole project with the changed sheet in place of its file | `check_project.py`, `print_sheet.py`, `dev/tests/test_skill_edit_sheet.py` | It refuses a plan that adds a problem, but it can leave the problems that are already there. So keep the final full `check_project.py` run and its fix-loop record |
 | Open or play a game | `scripts/open_in_editor.py --preview`. `scripts/preview_project.py PLAN.json` drives inputs and reads state | `references/editor-and-preview.md`, `dev/evals/play_cases.py`, `dev/tests/test_skill_preview_project.py` | Opening without input tests the startup only. Reaching a scene directly does not test the path to it |
 | Ship the skill to a game | `scripts/install.py --project FOLDER` mirrors the skill's folder into the game | `assets/game-project-block.md`, `c3project.py`, `dev/tests/test_skill_install.py` | An edited Construct 3 block and edited generator helpers keep their edits until `--replace-edited-block` or `--replace-edited-helpers` replaces them |
@@ -144,7 +144,7 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
   the moment it matters, because every run reads all of it before its first
   command. Write a fact or a tool entry, not an instruction to follow a step
   that a script's last line already names: iterations 80 and 81 left out the
-  check loop and the runs still reached the look check. A rule the agent
+  check loop and the runs still reached the screen check. A rule the agent
   cannot learn from the files or the output, such as the `agents` branch,
   stays an instruction (`docs/decisions/skill-body-budget.md`).
 - Name every script in one of two tables, which a test holds. A script that
@@ -173,8 +173,8 @@ paths in the table are under `plugin/skills/construct3-agent-plugin/`.
 ### Scripts
 
 - Scripts use the standard library, with these exceptions:
-  - `art.py` needs Pillow to read, cut out and resample the pictures of an
-    image tool (`prepare_art.py`). It renders the drawings of the SVG route
+  - `art.py` needs Pillow to read, cut out and resample the pictures of
+    `art/raw/` (`prepare_art.py`). It renders the drawings of the SVG route
     in the browser that `open_in_editor.py` drives, without Pillow.
   - In `preview_project.py` Pillow is optional. It numbers the frames of a
     recording's contact sheet, which ffmpeg alone tiles without numbers, and
@@ -403,9 +403,6 @@ The method is <https://agentskills.io/skill-creation/evaluating-skills> and
 | `grade.py` | `grading.json` per run, with the evidence and the level of each assertion, and `benchmark.json` per iteration: the mean and deviation per case and arm of every cost and route column, the Cookbook columns among them, the runs that passed everything with a 95% interval, the difference between arms, the verdict of the iteration's `decision.json`, the runs that lack a part under `incomplete_runs`, and under `meta` the commits and flags the grading ran with. `<arm>_2` is a second run of `<arm>` |
 | `compare.py` | The within-task permutation test of one column between two arms over a `benchmark.json`, which is the test that `grade.py` runs for the verdict |
 | `measure_design.py` | What each rule of `scripts/review_design.py` finds over the official examples and game projects, with looser variants, and every hit as JSON to read before a rule becomes a finding |
-| `measure_layout.py` | How much of the screen the one-screen layouts of the official 2D game examples cover, and how much larger their largest object is than the next: the thresholds of the generator template's playfield checks. `--text` measures their texts: each size against the viewport, the sizes of a layout, how near the edge the nearest text sits and how many items gather in one ninth of the screen. `--screens` measures the largest text of each kind of screen and the title image of each title screen. `--frame` measures, by kind of screen, the texts on the vertical centre line, the corners they hold, their capitals, their faces and the ground's colour. `--labels` counts the labels in capitals, the spaced letters, the parts joined by a dot or a bar and the zero padding |
-| `label_look.py` | Briefs that have labeller agents answer the questions of `scripts/review_look.py` about a set of screenshots, and their replies merged into labels, with an adjudicator agent settling where they differ |
-| `judge_look.py` | Those questions put to a judge that has not seen the games, through the brief that `review_look.py` writes, and the judge's agreement, TPR and TNR against the labels per question, each line marked when it rests on too few labels. Held-out screenshots stay out of the briefs and the score until `--held-out` (`docs/decisions/look-judge-calibration.md`) |
 | `sweep_outputs.py` | What the scripts print over every example and game project, including a dry run of a small plan, recorded and compared |
 | `sweep_round_trip.py` | Every event of every example written back as `print_sheet.py --show` prints it, and the events after which `edit_sheet.py` would write a different sheet |
 | `train_queries.json`, `validation_queries.json` | The trigger queries, in a fixed 60/40 split, with near misses as the negatives |

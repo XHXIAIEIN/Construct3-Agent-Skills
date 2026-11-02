@@ -104,14 +104,12 @@ The folder's own files:
   asks the README to describe everything the plugin runs, sends or fetches.
 - `plugin/agents/` holds the sub-agent types Claude Code reads from a
   plugin's folder: `project-worker`, whose tools are the ones the skill's
-  scripts need (`project-worker-agent.md`), `art-drawer`, `look-judge`,
-  which only reads the look review's brief and screenshots
-  (`look-judge-agent.md`), `design-judge`, which only reads the design
+  scripts need (`project-worker-agent.md`), `art-drawer`, `design-judge`, which only reads the design
   review's brief (`design-judge-agent.md`), and `recording-describer`,
   which only reads a recording's brief and frames (`recording-describer.md`).
 - The skill's fonts stay out. The generator takes Inter from the user's
   font cache and draws a missing font in `system-ui`
-  (`default-look.md`), so the plugin has no need of them.
+  (`template-font.md`), so the plugin has no need of them.
 
 The repository has no `.gitattributes` to force LF at checkout: the
 directory refuses to validate a repository whose attributes could rewrite

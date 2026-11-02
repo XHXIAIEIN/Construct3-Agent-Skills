@@ -156,17 +156,6 @@ offset by the safe-area insets, which the helpers do not compute.
   slider whose knob covers it stays before the knob, on its panel.
   Equal keys keep the placement order. A game that draws by another rule,
   such as a 3D layer by depth, defines `z_order()` below the end marker.
-- `check_look.py` warns, `screen.fill`, when `project.c3proj` is in a
-  *Letterbox* mode. It is a warning, not a finding, because the editor
-  accepts the mode and the bars can be a choice.
-- `check_look.py` warns, `screen.safe-area`, when *Viewport fit* is
-  *Cover* and no event expression or script reads the insets. It is a
-  warning, because the editor accepts *Cover* and a game may move its HUD
-  by other means. A preview with a notch emulated put the stand-in game's
-  top HUD under the notch (`borrowed-numbers.md`, "Safe area and notch").
-- `check_look.py` does not flag an edge HUD element without Anchor.
-  Position alone does not tell an edge element from a centred one, so the
-  check would give false findings.
 
 ## Re-evaluate when
 

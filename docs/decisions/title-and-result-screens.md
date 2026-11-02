@@ -14,8 +14,8 @@ is closer to a poster, so its type was measured on its own.
 
 ## Evidence
 
-`dev/evals/measure_layout.py --screens` sorts the texts of the official 2D
-game examples by the screen they make, from the name of the layout or of
+The texts of the official 2D game examples were sorted by the screen they
+make, from the name of the layout or of
 the layer that holds them. Credits, tutorials and stores are left out. A
 size is a Text's size in px, or a Sprite Font's character height, as a
 share of the viewport's shorter side.
@@ -80,5 +80,4 @@ of scope every-look:
   and the template and its test change with it.
 - A result screen needs a second line at `display` size, such as two
   players' scores.
-- The example clone updates: rerun `measure_layout.py --screens`, and read
-  any new title image into `TITLE_IMAGES`.
+- The example clone updates: read any new title image into `TITLE_IMAGES`.

@@ -71,14 +71,14 @@ the expressions, so it can refuse a project that the checker passes.
 | `scripts/print_sheet.py [SHEET ...] [--events A-B]` | A sheet as the editor words it, under its event numbers; `--map` the layouts that run each sheet, `--find NAME` the events that use a name, `--since COMMIT` what changed |
 | `scripts/print_layout.py [LAYOUT ...]` | Layers and instances in Z order with box, size and text, `on no object` for a label off its button |
 | `scripts/edit_sheet.py SHEET PLAN.json` | A change to a sheet, as a plan on its event numbers, checked before anything is written; `--new` creates the sheet |
-| `scripts/verify_change.py` | Runs the four scripts below and the look in order, each again only when the files changed; its last line names the next step. `--status` prints where the checks stand |
+| `scripts/verify_change.py` | Runs the four scripts below and the screen check in order, each again only when the files changed; its last line names the next step. `--status` prints where the checks stand |
 | `scripts/check_project.py` | Its first step: every project file against the schemas and the editor's load rules; it passes when the last line starts with `ok:`. Alone: `--style` for a project the agent wrote, `--review` for one someone asks about |
 | `scripts/review_design.py` | Its second step, `--check`: the full checker, then design findings and questions; [references/design-review.md](references/design-review.md) covers `--prepare` |
 | `scripts/open_in_editor.py` | Its editor step: `opened`, or `failed` with the editor's message; `--preview` also runs the game for a few seconds and prints its errors, `--install-addon` installs a custom addon first. The first run takes up to 40 seconds |
 | `scripts/preview_project.py PLAN.json` | Play the preview from a plan: tap, drag, press keys, wait `until` an expression holds, read the state, take screenshots. `--keep NAME` keeps a plan that passes; `verify_change.py` replays the kept ones |
 
 [references/scripts.md](references/scripts.md) lists the scripts for a new
-game's design, the look, sounds, the facts that earlier checks showed about
+game's design, sounds, the facts that earlier checks showed about
 the game, a picture of a sheet, Advanced Random, export, packing, art, the
 first-use check, a new project and the install, with the generator template
 and the runtime probe.
@@ -89,9 +89,7 @@ at about 10 000 characters and its last line says how to get the rest;
 
 `verify_change.py` takes minutes once it opens the editor. A finding names
 its place, `sheet Game event 15 action 2`, and what to write. `stop:` names
-a finding that two changes left standing. A new yes of the look review
-fails the look step until the third round, which passes it. A yes from
-before the change goes into the hand-over. Exit code 3 or a
+a finding that two changes left standing. Exit code 3 or a
 `skipped:` line is a check that did not run; exit code 2 and `stopped at`
 give the cause. `pack_project.py` refuses files that the check has not
 passed.
@@ -196,7 +194,7 @@ writes nothing.
 | File | Holds |
 |------|-------|
 | [references/designing-a-game.md](references/designing-a-game.md) | A new game as a design, checked and played as a prototype |
-| [references/generating-a-project.md](references/generating-a-project.md) | A project written as one Python generator: its markers, the art, the look and the look checks |
+| [references/generating-a-project.md](references/generating-a-project.md) | A project written as one Python generator: its markers, the art and the helpers |
 | [references/checker-rules.md](references/checker-rules.md) | What each checker finding means, and editor errors the checker lets through |
 | [references/export-project.md](references/export-project.md) | Export |
 | [references/reading-the-runtime.md](references/reading-the-runtime.md) | What an event did in the preview |

@@ -28,38 +28,10 @@ summary.
   (`not-checked-is-not-a-pass.md`), 5 for a browser profile another run
   holds, and a summary line (`design:`, `look:`) with a questions block.
 - The editor steps take the time: the first open takes up to 40 seconds,
-  and the look visits every layout. The checker and the design review read
+  and the screen step visits every layout. The checker and the design review read
   the files in seconds. On a warm profile each editor script spends about
   1 second starting the browser and loading the editor, and 4 seconds
   opening the project, before its own preview work.
-- When no plan is kept, the run that asks the look questions also asks for
-  one. Eval iterations 73 to 75 ran `fix-next-round` and `fix-wasd-twitch`
-  through `construct3:project-worker` on Haiku 5.5, two runs a cell,
-  against main of the day. The column is the runs that end with the look
-  step not passed, as `dev/evals/trace.py` counts it:
-
-  | Iteration | The script as | Ended with the look step not passed | Gave the brief to the judge | Passed every assertion |
-  |-----------|---------------|-------------------------------------|-----------------------------|------------------------|
-  | 73 | the answers' digest holding `tools/plans/` | 3 of 4 | 3 of 4 | 4 of 4 |
-  | 73 | main | 3 of 4 | 4 of 4 | 4 of 4 |
-  | 74 | the digest without `tools/plans/` | 1 of 4 | 1 of 4 | 4 of 4 |
-  | 74 | main | 3 of 4 | 4 of 4 | 4 of 4 |
-  | 75 | that digest, and the look step passing on a checked reply | 0 of 4 | 4 of 4 | 4 of 4 |
-  | 75 | main | 2 of 4 | 3 of 4 | 4 of 4 |
-
-  - With `tools/plans/` in the digest, each run that ended so kept its plan
-    after the look questions were asked. The plan changed the digest, every
-    answer recorded before it counted no more, and the design and look
-    questions came again; the workers stopped there.
-  - With the plans out of the digest and `--answered` recording every
-    question the last run asked, 2 runs of iteration 74 passed the look step
-    with no judge started, no screenshot read and no reply: they kept the
-    plan and ran `--answered`.
-  - In iteration 75, one run passed the look step on a review whose preview
-    had stopped answering: no layout was visited, so no question was asked,
-    and the script exited 0.
-  - A judge's reply can say yes about art that the change did not touch, as
-    in `fix-wasd-twitch`, whose enemies look alike in the official example.
 
 ## Options
 
@@ -97,28 +69,14 @@ hand-over already used: checked, reviewed, opened, previewed, played, looked.
   that answers is visible in its transcript, and the eval can count one
   that skipped. An answer holds for the files it was asked about: a change
   asks the questions again, as the old loop's "repeat step 2" did.
-- The look questions pass on a reply, not on `--answered`. Each run of
-  `review_look.py` names itself in its result, and `review_look.py --reply`
-  writes its verdict onto the run whose brief the reply answers. The look
-  step passes on that run's reply when it answers every question with no
-  new yes, and the files are the ones it was asked about. A yes from before
-  the change goes into the hand-over
-  (`look-blocks-only-what-the-change-brought.md`). A new yes fails the step,
-  and the agent fixes it, which asks again. The owner chose this on 2026-10-30,
-  because a step that passed with "name its yes in the hand-over" let a
-  yes about a stand-in among drawn art reach the user. After three replies
-  with a yes the step passes, and the hand-over names each yes left, so a
-  judge that keeps a wrong yes cannot hold the chain forever. In a
-  generated game the step runs `check_look.py` before the review. An agent that answers the brief itself saves its answers as
-  `reply.md` and checks them with `--reply` too. When the look step waits,
-  a reply that answers every question no ends with the command that goes
-  on.
+- The screen step passes when `check_screens.py` reports no finding. Its warnings
+  go on the `ok:` line for the hand-over (`mechanical-checks-only.md`).
 - A missing play does not stop the run. Without `tools/plans/` or
   `tools/design.json`, played does not run, and the `ok:` line names `played`
   among the steps that did not run. A plan for every change would also be demanded
   for a rename.
 - Exit 3 and a `skipped:` last line name the steps that did not run and the
-  last one that passed. `review_look.py` exits 3 when the project opened but
+  last one that passed. `check_screens.py` exits 3 when the project opened but
   its preview did not run, since no layout was looked at. `--status` prints
   where the steps stand without running them, which is what an agent needs
   after a compaction.
@@ -140,8 +98,6 @@ each step it printed a line for. The runs of iterations 73 to 75 are in
   after their last edit no more often than before this change.
 - A step's outcome depends on something outside the project's files, such
   as an addon installed in the editor, and a cached pass hides a change.
-- Runs pass the look step on replies that no judge and no reading of the
-  screenshots produced, such as a `reply.md` written without opening them.
 - The exit 3 of a preview that did not run has no eval run behind it,
   because the eval cannot make a preview stop. A run that meets it shows
   whether agents run the review again or hand over the step as skipped.

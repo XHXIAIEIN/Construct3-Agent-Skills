@@ -33,8 +33,8 @@ names, not values, and no page invents a grey.
 - `modelcontextprotocol/ext-apps`, `examples/basic-host/src/host-styles.ts`,
   holds the full table the host pages declare, which is where the tiered
   background, tiered border and accent family above were read.
-- The first palette took Anthropic's brand colours, warm the default look
-  with a coral accent. The user kept the structure it came with (radii,
+- The first palette took Anthropic's brand colours, warm with a coral
+  accent. The user kept the structure it came with (radii,
   spacing, the focus ring, the contrast floor) and rejected the colours on
   2026-10-15: the pages went back to the white ground, grey rules and blue
   marks of the template before the redesign, now on the token layer.
@@ -228,7 +228,7 @@ here, the pages' own fallback.
   probe that reads every declared token's resolved value, screenshots of
   every entry state in both themes through a real browser with no page
   errors, and the pytest suites that read the template
-  (`dev/tests/test_skill_preview_project.py`, `dev/tests/test_skill_review_look.py`).
+  (`dev/tests/test_skill_preview_project.py`, `dev/tests/test_skill_check_screens.py`).
 - A token nothing uses is deleted, not kept for later.
 
 ## Re-evaluate when

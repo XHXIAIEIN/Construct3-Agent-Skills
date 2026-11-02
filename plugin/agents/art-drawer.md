@@ -6,7 +6,7 @@ model: claude-opus-5-5
 omitClaudeMd: true
 ---
 
-Your whole task is in the brief that the task names. Read it, then the
+Your whole task is in the brief.md that the task names. Read it, then the
 docstring of the svg_kit.py it names, then the game's art/wanted.json.
 
 Write the game's tools/drawings.py as the brief says: one drawing function

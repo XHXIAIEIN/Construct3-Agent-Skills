@@ -8,9 +8,8 @@ Date: 2026-10-29
 the agent that wrote the events answered them. `verify_change.py --answered`
 records that answer without reading it. That agent knows what its change
 was meant to do, so it reads the events as it meant them, and a question
-about its own work tends to pass. The look questions already go to a reviewer
-that has not seen the game (`look-judge-agent.md`); the design questions had
-no such reviewer.
+about its own work tends to pass. The design questions had no reviewer that had
+not seen the game.
 
 The `--prepare` batches cannot be that reviewer's input. On a one-sheet
 official example the batch holds 300 000 characters on one line, about
@@ -68,7 +67,7 @@ The replies, the briefs and the scripts that ran them are in
    but it adds yes answers that would break the game, and its answers differ
    between runs.
 4. The same brief and judge on Sonnet (chosen).
-5. Also check the reply with a `--reply` step, as `review_look.py` does, and
+5. Also check the reply with a `--reply` step, and
    pass `verify_change.py` only on a checked reply. Left for later.
 
 ## Decision
@@ -80,8 +79,7 @@ summary, where `verify_change.py` keeps it. Under
 set, it prints the line and writes no file. `plugin/agents/design-judge.md`
 is shown as `construct3:design-judge`, with `tools: Read`,
 `model: claude-sonnet-5-5` and `omitClaudeMd: true`. `project-worker` gives a
-brief of `review_design.py` to it and a brief of `review_look.py` to
-`construct3:look-judge`. A session without the plugin gives the brief to
+brief of `review_design.py` to it. A session without the plugin gives the brief to
 any sub-agent, or the agent answers the questions itself from
 `print_sheet.py`. `verify_change.py --answered` still records the answers
 without reading them.

@@ -170,7 +170,7 @@ Option 4: `scripts/check_design.py`, `scripts/play_design.py`,
   where the place wants it. A key names the type of that name, the object
   that a state row of that name is kept in, or every type whose name holds
   its words. `check_design.py` prints which entries are places, and
-  `review_look.py` asks about the others in one question on its screenshots.
+  the others are not checked.
 
 ## Re-evaluate when
 

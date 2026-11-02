@@ -55,7 +55,7 @@ preview, with every input driven by a plan (`plan-pause.json` and
 - A pause during the first 0.3 s of a layout froze the fade cover over the
   screen, because the cover tweened on game time.
 
-`review_look.py` on a copy of the game that opens the menu as it starts
+`check_screens.py` on a copy of the game that opens the menu as it starts
 found only the template's two optical warnings on the row of keys, and the
 reviewer answered no to all seven questions (`review-paused-1920.png`,
 `review-reply.md`). The screenshots before and after the change are

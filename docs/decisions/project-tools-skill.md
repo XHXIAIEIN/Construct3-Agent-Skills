@@ -36,7 +36,7 @@ plugin holds no copy (`plugin-tracks-commits.md`).
 
 - `plugin/skills/construct3-agent-plugin/`: `SKILL.md`; `scripts/`, one script per
   intent, each named in `SKILL.md`, over the shared `c3project.py`;
-  `check_design.py`, `play_design.py` and `review_look.py` also over
+  `check_design.py`, `play_design.py` and `check_screens.py` also over
   `game_model.py`, and `review_design.py` over `design_review.py`;
   `references/`; `assets/`, among them `build_project.py`, the generator
   template, and `game-project-block.md`, the Construct 3 block of the
@@ -183,7 +183,7 @@ Each of these was a failure seen in an eval run or a game project.
   `--help`: about 930 tokens. Against the text that keeps them, the cut lost
   no more calls (2.0 against 2.2 a run, one-sided p 0.81) and as many runs
   passed every assertion (7 of 9 each). How far the check chain got swung
-  between batches on the same text: `review_look` in 6 of 9 runs in
+  between batches on the same text: `check_screens` in 6 of 9 runs in
   iteration 64, 3 of 9 in iteration 65.
 - `description` says what the skill checks a project against, not where
   that data comes from. While it named the Construct3-RAG schemas, a
