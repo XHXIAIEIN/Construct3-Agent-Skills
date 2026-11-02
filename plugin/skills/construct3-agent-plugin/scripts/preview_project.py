@@ -43,7 +43,7 @@ Steps, each an object with one of these keys, and "note" for a label:
   state [TYPE ...]              the globals, every type's count, the named types' instances with
                                 their inspector values, named in --locale
   shot NAME                     a screenshot, NN-NAME.png in --shots; named as not drawn yet when it
-                                is one colour and flat; prints its frame's findings of review_look.py
+                                is one colour and flat; prints its frame's findings of check_screens.py
   record NAME, watch, fps, expect, ask
                                 record from here to the next record step or the end: NN-NAME.mp4 with
                                 ffmpeg or .gif with Pillow, the frames, a contact sheet of up to 12
@@ -1190,9 +1190,9 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
             game.record(value, shots / f"{n:02d}-{value}", step.get("watch") or {}, step.get("fps"),
                         {k: step[k] for k in ("expect", "ask") if k in step})
         return "; ".join(filter(None, ["recording" if value else "", said])), None
-    # Imported here because review_look imports this module
-    import review_look
-    found = review_look.played_lines(game.win, game.live)
+    # Imported here because check_screens imports this module
+    import check_screens
+    found = check_screens.played_lines(game.win, game.live)
     return screenshot(game, shots / f"{n:02d}-{value}.png"), {"findings": found} if found else None
 
 

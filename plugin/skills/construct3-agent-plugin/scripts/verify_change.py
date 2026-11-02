@@ -11,7 +11,7 @@ The steps, by the words a hand-over names them with:
   previewed  and its preview ran the start layout without an error
   played     preview_project.py --all, the kept plans of tools/plans/, and play_design.py
              tools/design.json; with neither, the step does not run and does not stop the others
-  looked     review_look.py, a screenshot of every layout: findings, and questions to answer
+  screened   check_screens.py, a screenshot of every layout and its mechanical faults
 
 Once the checker passes, a notes: line names the notes of tools/notes.json
 whose events changed since they were verified, on every run until notes.py
@@ -27,11 +27,8 @@ checker and the design review always run, because they take seconds.
 
 A question is answered for the files it was asked about. Have the design
 questions it printed answered, through the brief of review_design.py, then run
-it with --answered, which records them. The look
-questions pass on a reply that review_look.py --reply checked against the brief
-of the run that asked them: one that answers every question, each yes saying
-where. A change to the project asks them again, as it reruns the checks;
-keeping a plan does not. --status runs nothing and
+it with --answered, which records them. A change to the project asks them
+again, as it reruns the checks; keeping a plan does not. --status runs nothing and
 prints each step's outcome on the files as they are now. The steps run with
 CONSTRUCT3_RAG set to the clone and CONSTRUCT3_RAG_IN_VERIFY=1, under which
 the checker's ok: line names no next step.
@@ -59,17 +56,16 @@ import c3project as c3
 import notes
 import open_in_editor as oe
 
-STEPS = ("checked", "reviewed", "opened", "previewed", "played", "looked")
-EDITOR_STEPS = ("opened", "previewed", "played", "looked")      # rerun only when the files changed
+STEPS = ("checked", "reviewed", "opened", "previewed", "played", "screened")
+EDITOR_STEPS = ("opened", "previewed", "played", "screened")      # rerun only when the files changed
 RECORD = c3.VERIFY_RECORD
 PLANS = Path("tools") / "plans"
-# Where review_look.py writes its result by default.
-LOOK_RESULT = c3.script_folder(Path(), "review-look") / "result.json"
-LOOK_ROUNDS = 3              # replies with a yes before the look step passes with the yes left for the hand-over
+# Where check_screens.py writes its result by default.
+SCREENS_RESULT = c3.script_folder(Path(), "check-screens") / "result.json"
 DESIGN = Path("tools") / "design.json"
 QUESTION = re.compile(r"^\s+\d+\.\s+(.*\S)")
 SCRIPT_OF = {"checked": "check_project.py", "reviewed": "review_design.py", "opened": "open_in_editor.py",
-             "previewed": "open_in_editor.py", "played": "preview_project.py", "looked": "review_look.py"}
+             "previewed": "open_in_editor.py", "played": "preview_project.py", "screened": "check_screens.py"}
 EPILOG = """examples:
   python scripts/verify_change.py
   python scripts/verify_change.py --answered
@@ -82,7 +78,7 @@ output, one line per step it ran or found passed, the output of the step that st
   opened    passed: on these files, earlier
   previewed passed: on these files, earlier
   played    not run: no kept plan in tools/plans/ and no tools/design.json
-  looked    asked: look: 0 findings on 2 layouts, 0 runtime errors; 7 questions
+  screened  passed: screens: 0 findings on 2 layouts, 0 runtime errors
   ...
   next: <the one thing to do>
 the last line on a pass: ok: and the steps that did not run; with a step that did not run: skipped:
@@ -102,7 +98,7 @@ def files_digest(root: Path) -> str:
     """Every file of the project outside its dot folders (.tmp, .git, the skill's copy), its kept plans and its
     notes: what the steps read, images and scripts included, which the checker's own digest leaves out."""
     # A kept plan or a note changes nothing the game runs, and the play step asks for a plan in the run that asks
-    # the design and look questions: either in this digest would void every answer recorded before it
+    # the design questions: either in this digest would void every answer recorded before it
     return digest((f, rel) for f in sorted(root.rglob("*")) for rel in [f.relative_to(root)]
                   if f.is_file() and not any(part.startswith(".") for part in rel.parts)
                   and "__pycache__" not in rel.parts and not rel.is_relative_to(PLANS) and rel != notes.NOTES)
@@ -333,73 +329,34 @@ def played(run: Run) -> tuple[int, str] | None:
     return None
 
 
-def look_result(run: Run) -> dict:
-    """The result of the last run of review_look.py on the project, with the verdict of the reply checked
-    against its brief; {} without one."""
+def screens_result(run: Run) -> dict:
+    """The result of the last run of check_screens.py on the project; {} without one."""
     try:
-        result = json.loads((run.root / LOOK_RESULT).read_text(encoding="utf-8"))
+        result = json.loads((run.root / SCREENS_RESULT).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     return result if isinstance(result, dict) else {}
 
 
-def looked(run: Run) -> tuple[int, str] | None:
-    if run.passed_here("looked"):
-        show("looked", "passed", "on these files, earlier")
+def screened(run: Run) -> tuple[int, str] | None:
+    if run.passed_here("screened"):
+        show("screened", "passed", "on these files, earlier")
         return None
-    # The look questions pass on a reply that review_look.py --reply checked against the brief of the run that
-    # asked them, on the same files; --answered records the design questions alone
-    kept, result = run.record["steps"].get("looked") or {}, look_result(run)
-    reply = result.get("reply") or {}
-    if kept.get("state") == "asked" and run.on_these_files("looked", kept) and kept.get("run") \
-            and result.get("run") == kept["run"] and reply.get("complete"):
-        # A yes is a fault to fix and look at again; the rounds count the replies with a yes, across file changes
-        rounds = run.record.get("look_rounds", 0) + bool(reply.get("yes"))
-        if not reply.get("yes") or rounds >= LOOK_ROUNDS:
-            run.record["look_rounds"] = 0
-            run.record["look_left"] = reply.get("yeses", []) if reply.get("yes") else []
-            # A yes from before passes
-            run.record["look_before"] = reply.get("before", [])
-            from_before = len(run.record["look_before"])
-            line = (f"look: {reply['file']} answers every question" + (
-                f" and still has {reply['yes']} yes after {rounds} rounds: name each in the hand-over"
-                if reply.get("yes") else f" with no new yes; name the {from_before} yes from before in the hand-over"
-                if from_before else " no"))
-            run.keep("looked", "passed", line, 0)
-            show("looked", "passed", line)
-            for left in run.record["look_left"]:
-                print(f"  left: {left}")
-            for left in run.record["look_before"]:
-                print(f"  from before: {left}")
-            return None
-        run.record["look_rounds"] = rounds
-        line = f"look: {reply['file']} has {reply['yes']} yes, round {rounds} of {LOOK_ROUNDS}"
-        run.keep("looked", "failed", line, 1)
-        show("looked", "failed", line)
-        return 1, (f"next: fix each yes that review_look.py --reply printed, in the generator or the drawings, then run "
-                   f"{again(run)}, which looks again")
     if (run.root / c3.GENERATOR).is_file():
         code, out = run.script("check_look.py")
         if code:
-            return stopped(run, "looked", code, out, f"next: fix every line above in tools/build_project.py, run it, "
-                                                     f"then run {again(run)}")
-    code, out = run.script("review_look.py", *run.browser())
+            return stopped(run, "screened", code, out, f"next: fix every line above in tools/build_project.py, run it, "
+                                                       f"then run {again(run)}")
+    code, out = run.script("check_screens.py", *run.browser())
     if code in (2, 3, 5):
-        return could_not(run, "looked", "review_look.py", code, out)
-    told = next((line for line in out.splitlines() if line.startswith("next:")), "")
+        return could_not(run, "screened", "check_screens.py", code, out)
     shown = without_next(out)
-    summary = next((line for line in shown.splitlines() if line.startswith("look: ")), last_line(shown))
-    if code == 0 and not questions_of(shown):
-        run.keep("looked", "passed", summary, code)
-        show("looked", "passed", summary)
+    summary = next((line for line in shown.splitlines() if line.startswith("screens: ")), last_line(shown))
+    if code == 0:
+        run.keep("screened", "passed", summary, code)
+        show("screened", "passed", summary)
         return None
-    how = told.removeprefix("next: ").rstrip(".")
-    ended = stopped(run, "looked", code or 1, shown,
-                    f"next: {how}; then run {again(run)}" if how else
-                    f"next: fix every finding above and have the questions answered as the brief: line says, then "
-                    f"run {again(run)}", "failed" if code else "asked")
-    run.record["steps"]["looked"]["run"] = look_result(run).get("run")
-    return ended
+    return stopped(run, "screened", code, shown, f"next: fix every finding above, then run {again(run)}")
 
 
 def skipped(run: Run, step: str, out: str) -> str:
@@ -412,32 +369,26 @@ def skipped(run: Run, step: str, out: str) -> str:
                if done else "Nothing passed on these files"))
 
 
-RUNNERS = (("checked", checked), ("reviewed", reviewed), ("opened", opened), ("played", played), ("looked", looked))
+RUNNERS = (("checked", checked), ("reviewed", reviewed), ("opened", opened), ("played", played), ("screened", screened))
 
 
-def look_warnings(run: Run) -> list[str]:
-    """What the look step leaves for the hand-over once it passed: each yes still there after its rounds, each yes
-    the screen showed before the change, and the fragile findings of the review it passed on, which warn and do not
-    stop it."""
-    if not run.passed_here("looked"):
+def screen_warnings(run: Run) -> list[str]:
+    """The warnings of the screen check that passed, which do not stop it and go in the hand-over."""
+    if not run.passed_here("screened"):
         return []
-    layouts = (look_result(run).get("preview") or {}).get("layouts", [])
-    fragile = [f"{d['layout']}: {f['rule']}" for d in layouts for f in d.get("findings", []) if f.get("tier") == "fragile"]
-    return ([f"look yes {y}" for y in run.record.get("look_left", [])]
-            + [f"look yes from before {y}" for y in run.record.get("look_before", [])]
-            + [f"warns {w}" for w in fragile])
+    layouts = (screens_result(run).get("preview") or {}).get("layouts", [])
+    return [f"{d['layout']}: {f['rule']}" for d in layouts for f in d.get("findings", []) if f.get("warn")]
 
 
 def handed_over(run: Run, upto: str) -> str:
-    """The ok: line: the last step that passed on these files, the steps that did not run on them, and what the
-    look left to name."""
+    """The ok: line: the last step that passed on these files, the steps that did not run on them, and the warnings
+    to name."""
     done = [s for s in STEPS[:STEPS.index(upto) + 1] if run.passed_here(s)]
     left = [s for s in STEPS if not run.passed_here(s)]
-    named = look_warnings(run)
+    named = screen_warnings(run)
     return (f"ok: {done[-1]} on these files"
             + (f"; not run: {', '.join(left)}" if left else "")
-            + (f"; name in the hand-over, each fix in three parts, before, after and why: {'; '.join(named)}"
-               if named else "")
+            + (f"; name in the hand-over, these warn: {'; '.join(named)}" if named else "")
             + f". Hand over with the events that changed: "
             + c3.script_command(run.root, "print_sheet.py", " --since <the user's branch>")
             + "; pack a project handed over as a file with pack_project.py")
@@ -457,7 +408,7 @@ def status(run: Run) -> int:
     done = [s for s in STEPS if run.passed_here(s)]
     no_play = (run.record["steps"].get("played") or {}).get("state") == "not run"
     if all(run.passed_here(s) or s == "played" and no_play for s in STEPS):
-        print(handed_over(run, "looked"))
+        print(handed_over(run, "screened"))
     else:
         print(f"status: {'the last step that passed on these files is ' + done[-1] if done else 'no step passed on these files'}; "
               f"run {again(run)} to go on")
@@ -467,13 +418,13 @@ def status(run: Run) -> int:
 def main() -> int:
     ap = c3.argument_parser(
         "Run the checks of a change in order: the checker, the design review, the editor and its preview, the kept "
-        "plays and the look. A step that opens the editor runs again only when a file changed since it passed. It "
+        "plays and the screen check. A step that opens the editor runs again only when a file changed since it passed. It "
         "stops at the first step that finds something or asks something, and its last line says what to do next.",
         EPILOG)
     ap.add_argument("--style", action="store_true",
                     help="pass --style to the checker; on by itself when tools/build_project.py generates the project")
-    ap.add_argument("--upto", choices=STEPS, default="looked", metavar="STEP",
-                    help=f"stop after this step, one of {', '.join(STEPS)} (default: looked)")
+    ap.add_argument("--upto", choices=STEPS, default="screened", metavar="STEP",
+                    help=f"stop after this step, one of {', '.join(STEPS)} (default: screened)")
     ap.add_argument("--answered", action="store_true",
                     help="the questions the last run printed are answered: record them, then run the steps")
     ap.add_argument("--status", action="store_true", help="run nothing; print each step's outcome on these files")

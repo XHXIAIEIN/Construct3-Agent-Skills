@@ -489,7 +489,7 @@ def test_trace_counts_the_route_of_a_run(tmp_path: Path) -> None:
         "reread_skill_md_after_compaction": None, "chain_depth_after_compaction": None, "lookups_after_compaction": None}
     assert trace["chain"] == {"check_project": {"calls": 4, "passed": True}, "review_design": {"calls": 1, "passed": False},
                               "open_in_editor": {"calls": 1, "passed": False}, "preview_project": {"calls": 1, "passed": True},
-                              "review_look": {"calls": 0, "passed": False}}
+                              "check_screens": {"calls": 0, "passed": False}}
     assert trace["help_reads_by_script"] == {"preview_project": 2}
     assert trace["outside"] == [] and len(trace["outside_reads"]) == 2
     assert Path(trace["transcript"]) == transcript.resolve()
@@ -606,7 +606,7 @@ def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
     depth given."""
     iteration = tmp_path / "it"
     answer = (ANSWERS / "english_all_three.md").read_text(encoding="utf-8")
-    ends = {1: "check_project", 2: "review_design", 4: "preview_project", 5: "review_look"}
+    ends = {1: "check_project", 2: "review_design", 4: "preview_project", 5: "check_screens"}
     for arm, cell in depths.items():
         for n, depth in enumerate(cell):
             case = iteration / "name-the-restart-event" / (arm if n == 0 else f"{arm}_{n + 1}")
@@ -615,7 +615,7 @@ def restart_runs(tmp_path: Path, depths: dict[str, list[int]]) -> Path:
             (case / "trace.json").write_text(json.dumps({
                 "tool_calls": 20 + depth, "lost_calls": 1, "turns": 15, "output_tokens": 3000, "read_skill_md": True,
                 "first_script": "check_project", "chain_depth": depth, "chain_end": ends[depth],
-                "chain_reached": "review_look", "chain_attempts": depth + 1,
+                "chain_reached": "check_screens", "chain_attempts": depth + 1,
                 "preview_failed": 0, "help_reads": 1, "repeat_help": 0, "plan_refusals": 0, "hand_edits": 0,
                 "lookups_before_first_edit": 8, "data_reads": 1, "other_clone_reads": 0, "entry_chars": 30000,
                 "printed_command_failures": 0, "print_sheet_chars": 9000, "whole_sheet_prints": 0,
@@ -641,8 +641,8 @@ def test_grade_carries_the_route_columns_and_decides_on_one(tmp_path: Path) -> N
     benchmark = read_json(iteration / "benchmark.json")
     with_skill = benchmark["by_case"]["name-the-restart-event"]["with_skill"]
     assert with_skill["chain_depth"] == {"mean": 4.667, "runs": 3, "stddev": 0.577}
-    assert with_skill["chain_end"] == {"preview_project": 1, "review_look": 2} and with_skill["first_script"] == {"check_project": 3}
-    assert with_skill["chain_reached"] == {"review_look": 3}
+    assert with_skill["chain_end"] == {"preview_project": 1, "check_screens": 2} and with_skill["first_script"] == {"check_project": 3}
+    assert with_skill["chain_reached"] == {"check_screens": 3}
     assert with_skill["compaction_skill"] == {"re-attached": 3} and with_skill["checked_after_last_edit"]["mean"] == 1
     assert set(grader.TRACE_COLUMNS) <= set(with_skill["runs"][0])
     assert with_skill["runs"][0]["tool_calls"] == 25 and with_skill["lost_calls"]["mean"] == 1
@@ -650,7 +650,7 @@ def test_grade_carries_the_route_columns_and_decides_on_one(tmp_path: Path) -> N
     assert with_skill["read_design_guide"]["mean"] == 0.667 and with_skill["cookbook_reads"]["mean"] == 3.667
     assert benchmark["run_summary"]["delta"]["with_skill - old_skill"]["pointer_follows"] == 1
     assert benchmark["run_summary"]["delta"]["with_skill - old_skill"]["chain_depth"] == pytest.approx(10 / 3, abs=0.01)
-    assert benchmark["run_summary"]["with_skill"]["chain_end"] == {"preview_project": 1, "review_look": 2}
+    assert benchmark["run_summary"]["with_skill"]["chain_end"] == {"preview_project": 1, "check_screens": 2}
     assert benchmark["decision"]["verdict"] == "holds" and benchmark["decision"]["p"] == 0.05
     code, out = run(tmp_path, EVALS / "compare.py", str(iteration / "benchmark.json"), "chain_depth")
     assert code == 0 and out.strip() == ("chain_depth up: with_skill - old_skill = +10 over 1 case, one-sided p = 0.050 "

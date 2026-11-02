@@ -2143,7 +2143,7 @@ def test_a_data_file_is_listed_with_the_type_the_editor_writes_for_its_extension
 
 
 def test_template_declares_the_longest_text_of_each_text_the_events_set(built, tmp_path, capsys):
-    """tools/texts.json holds the widest text each helper's `longest` gave, which review_look.py shows in its
+    """tools/texts.json holds the widest text each helper's `longest` gave, which check_screens.py shows in its
     worst data; a Text whose text the events set with no `longest` gets a warning."""
     assert json.loads((built / "tools" / "texts.json").read_text(encoding="utf-8"))["longest"]["ScoreText"] == "999"
     t = template_module()

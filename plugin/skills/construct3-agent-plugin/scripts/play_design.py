@@ -1,5 +1,5 @@
 """Play a design's acceptance tests in the Construct 3 editor, on the game
-built from it, and check the look of its first screen.
+built from it, and check its first screen.
 
     python scripts/play_design.py DESIGN.json [--project FOLDER] [--plan-only OUT.json]
                                   [--browser EXE] [--profile FOLDER] [--out RESULT.json] [--limit CHARS]
@@ -29,12 +29,12 @@ text or variable in the layout the game starts on, a count of shown instances).
 Before the tests it previews the game once without input and checks the first
 screen: what it shows (texts, frames, counts of instances) and whether the
 win or the lose holds there, against the prototype, and the faults
-review_look.py finds (a text cut by its box, two labels over each other, a HUD
+check_screens.py finds (a text cut by its box, two labels over each other, a HUD
 instance cut by the screen's edge, instances stacked on one box), and a play
 area off the screen's middle. It also names each object whose middle lies
 outside the place its screen entry gives: a third of the screen (top-left,
-bottom, centre) or a side of another entry (below the board). An entry in
-other words is left to the questions of review_look.py.
+bottom, centre) or a side of another entry (below the board). No script
+checks an entry in other words.
 
 --plan-only writes the plans to OUT.json and plays nothing.
 """
@@ -55,12 +55,12 @@ import check_design as cd
 import game_model as gm
 import open_in_editor as oe
 import preview_project as play
-import review_look as look
+import check_screens as screens
 
 # A failed test is a difference between the game and a design whose prototype passes it, so the fix
 # goes into the game. A model that may edit the test or the design's numbers instead makes it pass
 # without the game changing.
-FIX_THE_GAME = ("next: fix the game where each line says: its events, or its layout for a look: or start: line. "
+FIX_THE_GAME = ("next: fix the game where each line says: its events, or its layout for a screen: or start: line. "
                 "Then run this again. Do not change a test or a number of the design to make it pass: the "
                 "prototype passes them, so the game differs from the design. Change the design only when the user "
                 "agrees that it was wrong, then run check_design.py on it again")
@@ -71,8 +71,8 @@ EPILOG = """examples:
 
 output:
   opened   <project>  (<window title>, <the editor it opened in>)
-  first screen: 2 findings; places: 2 of 3 checked (board, status); review_look.py asks about ...
-    look: Text Status uid 9 "White wins! Tap to play again": the text needs 380x40 px and its box is 288x40 ...
+  first screen: 2 findings; places: 2 of 3 checked (board, status); no script checks ...
+    screen: Text Status uid 9 "White wins! Tap to play again": the text needs 380x40 px and its box is 288x40 ...
     screen: screen.status "below the board": Text Status uid 9 has its middle at (360, 300) on layer 'HUD' ...
   tests:
     ok    a blocked four does not win: 12 steps
@@ -435,10 +435,10 @@ def launch_js(design: gm.Design, still: dict) -> str:
 
 
 def first_screen_plan(design: gm.Design, model: Model) -> dict:
-    """The plan that previews the game without input: the look of its first screen, then what it shows."""
+    """The plan that previews the game without input: the faults of its first screen, then what it shows."""
     return {"viewport": list(model.size), "touch": True, "steps": [
         {"wait": 0.6},
-        {"js": f"return await {look.LOOK_JS};", "note": "look"},
+        {"js": f"return await {screens.SNAPSHOT_JS};", "note": "snapshot"},
         {"js": launch_js(design, launch_values(design)), "note": "start"},
     ]}
 
@@ -544,7 +544,7 @@ def centre_findings(snap: dict) -> list[dict]:
     screen = (view[0] + view[2]) / 2
     if abs(middle - screen) > CENTRE_SLACK * vw:
         return [{"rule": "centre", "uids": [i["uid"]], "line":
-                 f"{look.name(i)}, the play area, has its middle at x {round(middle)} and the screen's is at "
+                 f"{screens.name(i)}, the play area, has its middle at x {round(middle)} and the screen's is at "
                  f"{round(screen)}: place it centred across the screen"}]
     return []
 
@@ -554,7 +554,7 @@ def on_screen(insts: list[dict], snap: dict) -> list[float]:
     boxes = []
     for i in insts:
         v = snap["layers"][i["layer"]]["view"]
-        b = look.drawn(i) if (i.get("text") or "").strip() else i["box"]
+        b = screens.drawn(i) if (i.get("text") or "").strip() else i["box"]
         w, h = (v[2] - v[0]) or 1, (v[3] - v[1]) or 1
         boxes.append([(b[0] - v[0]) / w, (b[1] - v[1]) / h, (b[2] - v[0]) / w, (b[3] - v[1]) / h])
     return [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]
@@ -565,10 +565,10 @@ def screen_findings(design: gm.Design, types, snap: dict) -> tuple[list[dict], l
     names, read on the first screen; and what was not checked, with why."""
     shown: dict[str, list[dict]] = {}
     for i in snap["instances"]:
-        if look.sized(i) and i["layer"] in snap["layers"]:
+        if screens.sized(i) and i["layer"] in snap["layers"]:
             shown.setdefault(i["type"], []).append(i)
     vw, vh = snap["viewport"]
-    slack = (look.TOLERANCE / vw, look.TOLERANCE / vh)
+    slack = (screens.TOLERANCE / vw, screens.TOLERANCE / vh)
     places = gm.screen_places(design)
     found, checked, words, unnamed, absent = [], [], [], [], []
     for p in places:
@@ -588,7 +588,7 @@ def screen_findings(design: gm.Design, types, snap: dict) -> tuple[list[dict], l
         checked.append(p.key)
         box = on_screen(mine, snap)
         mx, my = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-        what = look.name(mine[0]) if len(mine) == 1 else f"{', '.join(objs)} ({len(mine)} instances)"
+        what = screens.name(mine[0]) if len(mine) == 1 else f"{', '.join(objs)} ({len(mine)} instances)"
         layer = mine[0]["layer"]
         view = snap["layers"][layer]["view"]
 
@@ -615,8 +615,7 @@ def screen_findings(design: gm.Design, types, snap: dict) -> tuple[list[dict], l
     if places:
         notes.append(f"{len(checked)} of {len(places)} checked" + (f" ({', '.join(checked)})" if checked else ""))
         if words:
-            notes.append(f"review_look.py asks about {', '.join(words)}, whose words before the first comma are not "
-                         f"a place")
+            notes.append(f"no script checks {', '.join(words)}, whose words before the first comma are not a place")
         if unnamed:
             notes.append(f"{', '.join(unnamed)} name{'s' if len(unnamed) == 1 else ''} no object: write the key as "
                          f"the object type's name")
@@ -672,8 +671,8 @@ def report(design: gm.Design, plans_meta: list, result: dict, types=()) -> tuple
     snap = by_note.get(2, {}).get("value")
     places: list[str] = []
     if isinstance(snap, dict) and "instances" in snap:
-        for f in look.findings(snap) + centre_findings(snap):
-            screen.append(f"    look: {f['line']}")
+        for f in screens.findings(snap) + centre_findings(snap):
+            screen.append(f"    screen: {f['line']}")
         placed, places = screen_findings(design, types, snap)
         screen += [f"    screen: {f['line']}" for f in placed]
     start = by_note.get(3, {}).get("value")

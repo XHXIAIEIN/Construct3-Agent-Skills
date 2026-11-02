@@ -168,8 +168,8 @@ def test_the_installed_plugin_without_construct3_rag_points_to_setup(tmp_path):
 
 def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     """A general-purpose sub-agent starts with every tool and server of the session; the plugin's agent
-    type names only the tools the skill's scripts are run and read with, and Agent, which starts the look
-    judge on the brief of review_look.py (docs/decisions/project-worker-agent.md, which measures the cost).
+    type names only the tools the skill's scripts are run and read with, and Agent, which starts the design
+    judge on the brief of review_design.py (docs/decisions/project-worker-agent.md, which measures the cost).
     A plain frontmatter parser reads it, so no value holds ': '."""
     agent = PLUGIN / "agents" / "project-worker.md"
     text = agent.read_text(encoding="utf-8")
@@ -179,7 +179,7 @@ def test_the_plugin_agent_carries_only_the_tools_the_scripts_need():
     assert [t.strip() for t in fields["tools"].split(",")] == ["Bash", "PowerShell", "Read", "Edit", "Write", "Grep",
                                                                "Glob", "Skill", "Agent"]
     assert "construct3:construct3-agent-plugin" in body and "SKILL.md" in body
-    assert "`brief:`" in body and "construct3:look-judge" in body and "construct3:design-judge" in body
+    assert "`brief:`" in body and "construct3:design-judge" in body
     assert "construct3:recording-describer" in body and "preview_project.py" in body
     # A judge started in the background outlives a worker that ends first, and its reply reaches no one.
     assert "`run_in_background: false`" in body
@@ -223,19 +223,6 @@ def test_the_art_drawer_draws_on_a_fixed_model_from_its_brief():
     assert [t.strip() for t in fields["tools"].split(",")] == ["Read", "Write", "Edit", "Bash"]
     assert fields["omitClaudeMd"] == "true" and fields["model"].startswith("claude-"), fields["model"]
     assert "brief.md" in body and "three rounds" in body and "tools/drawings.py" in body
-
-
-def test_the_look_judge_only_reads_and_runs_the_measured_model():
-    """The look judge answers review_look.py's brief apart from the agent that built the game: it can only read,
-    it starts without the project's instruction files, and it names the model whose answers were measured by its
-    full ID, which a client's alias table cannot move (docs/decisions/look-judge-agent.md)."""
-    text = (PLUGIN / "agents" / "look-judge.md").read_text(encoding="utf-8")
-    head, body = text.split("\n---\n", 1)
-    fields = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines())
-    assert fields["name"] == "look-judge" and len(fields["description"]) < 1024
-    assert fields["tools"] == "Read" and fields["omitClaudeMd"] == "true"
-    assert fields["model"].startswith("claude-haiku-"), fields["model"]
-    assert "brief.md" in body
 
 
 def test_every_installed_version_reads_one_construct3_rag_clone(tmp_path):
