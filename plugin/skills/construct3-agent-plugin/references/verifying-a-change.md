@@ -33,7 +33,12 @@ about the editor or the preview goes to `editor-and-preview.md`.
    (`Construct3-Cookbook/guides/plugins/system.md`). A change
    with no condition of its own, a colour, a size, a duration, a volume,
    has one case: reach the scene where it shows and read it as step 5
-   says. [observed in a game project, r504 preview, 2026-10-02: an
+   says. A change that shows something for a moment, a notice, a hint, a
+   banner, has one more case when the flow can show another such thing at
+   that time: play to both at once and take a `shot`, which prints the `text`,
+   `stacked`, `overlap` and `edge` findings of that frame. A finding on a
+   frame in motion may be the motion, so let it rest and shoot again.
+   [observed in a game project, r504 preview, 2026-10-02: an
    idle hint to deploy a piece was played with the slot's column holding an
    enemy, without one, where it had to fall back to a merge hint, and
    followed through by dragging as the hand showed]
@@ -101,7 +106,12 @@ about the editor or the preview goes to `editor-and-preview.md`.
    that samples one value in a loop does the same for a value read once.
    Wait with `until` on the result, not a fixed
    `wait`, so a slow run does not fail and a fast one does not hide a
-   second firing. [observed in a game project, r504 preview, 2026-10-02:
+   second firing. A text or a mark that claims a state (Saved, Ready, Locked,
+   a full bar, a key prompt) claims more than a change on screen, so read the
+   value it claims while it shows. Local Storage answers a write later with
+   *On item set* or *On error*, so a Saved set beside the write says what the
+   game does not know yet (`Construct3-Cookbook/guides/plugins/localstorage.md`).
+   [observed in a game project, r504 preview, 2026-10-02:
    a guide hand that fades in, presses and drags was read as a drag
    between two slots from the first two samples less than 0.5 px apart and
    the last sample after 1.5 s]
@@ -274,8 +284,8 @@ memory of the events, not from the picture, is not answered.
 A layout reached by `goToLayout` starts without what the game's flow sets up
 before it, and one whose start events leave at once is printed as left for
 the layout they went to. Play to such a scene with a plan of
-`scripts/preview_project.py` and a `shot` step, and answer the same
-questions about that screenshot. [observed in a generated card game, r495.2
+`scripts/preview_project.py` and a `shot` step, which prints the findings
+that hold on any frame, and answer the same questions about that screenshot. [observed in a generated card game, r495.2
 preview, 2026-10-04: the combat layout, reached directly, went to the ending
 at once; played to by a plan, the same checks over its instances found the
 names, descriptions and costs of five cards stacked on one card, in a

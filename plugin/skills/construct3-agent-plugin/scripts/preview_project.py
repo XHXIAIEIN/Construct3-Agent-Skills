@@ -43,7 +43,7 @@ Steps, each an object with one of these keys, and "note" for a label:
   state [TYPE ...]              the globals, every type's count, the named types' instances with
                                 their inspector values, named in --locale
   shot NAME                     a screenshot, NN-NAME.png in --shots; named as not drawn yet when it
-                                is one colour and flat
+                                is one colour and flat; prints its frame's findings of review_look.py
   record NAME, watch, fps, expect, ask
                                 record from here to the next record step or the end: NN-NAME.mp4 with
                                 ffmpeg or .gif with Pillow, the frames, a contact sheet of up to 12
@@ -80,7 +80,7 @@ replays each kept plan from a first launch, into .tmp/scripts/preview-project/pl
 
 The result is what open_in_editor.py writes, plus "preview": {"started", "layout", "runtime",
 "viewport", "pixel_ratio", "touch", "seconds", "planned", "errors", "recorded", "steps": [{"step",
-"line", "ok", "said", "errors", "layout", "value" of a js step, "state" of a state step, "reloaded"}]}.
+"line", "ok", "said", "errors", "layout", "value" of a js step, "state" of a state step, "findings" of a shot step, "reloaded"}]}.
 """
 from __future__ import annotations
 
@@ -1190,7 +1190,10 @@ def do_step(game: Game, step: dict, n: int, shots: Path) -> tuple[str, dict | No
             game.record(value, shots / f"{n:02d}-{value}", step.get("watch") or {}, step.get("fps"),
                         {k: step[k] for k in ("expect", "ask") if k in step})
         return "; ".join(filter(None, ["recording" if value else "", said])), None
-    return screenshot(game, shots / f"{n:02d}-{value}.png"), None
+    # Imported here because review_look imports this module
+    import review_look
+    found = review_look.played_lines(game.win, game.live)
+    return screenshot(game, shots / f"{n:02d}-{value}.png"), {"findings": found} if found else None
 
 
 def screenshot(game: Game, path: Path) -> str:
@@ -1367,6 +1370,7 @@ def report(result: dict, label: Callable[[str], str] = oe.key_name) -> list[str]
             lines.append(f"    trail: {trail(ran['first_layout'], ran['steps'])}")
         if "state" in done:
             lines += ["  " + line for line in oe.state_lines(done["state"], label)]
+        lines += ["  " + line for line in done.get("findings", [])]
         lines += oe.runtime_lines(done["errors"], "    ")
     if ran.get("recorded"):
         lines.append(f"  {ran['recorded']}")
