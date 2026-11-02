@@ -422,8 +422,9 @@ def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str,
     """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), for the frames of one
     animation whose box, feet or middle differ (art.frames), and for two kinds drawn alike (art.alike)."""
     found = []
-    # A picture the PNG reader cannot read is the generator's to refuse, when art() takes it
-    done = [i for i in done if c3.png_rgba((root / "art" / i["file"]).read_bytes())]
+    # A picture the PNG reader cannot read is the generator's to refuse, when art() takes it. A panel keeps its
+    # own shape and has no frames or kind to compare
+    done = [i for i in done if i["kind"] != "panel" and c3.png_rgba((root / "art" / i["file"]).read_bytes())]
     # Which scene a picture lies on is the layouts' and the events' to say: with scenes, the look review judges
     # the pictures on the screenshots, and this check holds the pictures to the canvas of a game without one
     scenes = [i for i in done if i["kind"] == "scene"]
@@ -524,7 +525,15 @@ def contact_page(root: Path, wanted: dict, done: list[dict]) -> str:
         for item in items:
             src = (root / "art" / item["file"]).as_uri()
             w, h = item["width"], item["height"]
-            if max(w, h) > LARGE:                  # a scene or a panel: once, at most half the sheet's width
+            if item["kind"] == "panel":            # as a 9-patch shows it: at its box, and wider and lower
+                left, right, top, bottom = json.loads((root / "art" / f"{stem_of(item['file'])}.margins.json").read_text())
+                nine = (f"box-sizing:border-box;border-style:solid;border-width:{top}px {right}px {bottom}px {left}px;"
+                        f"border-image:url({src}) {top} {right} {bottom} {left} fill stretch;{pixel}")
+                f = min(1, SHEET_W / 4 / w)
+                low = max(top + bottom, round(h * f / 2))
+                shown = (f"<div style=\"{nine}width:{round(w * f)}px;height:{round(h * f)}px\"></div>"
+                         f"<div style=\"{nine}width:{round(w * f * 3 / 2)}px;height:{low}px\"></div>")
+            elif max(w, h) > LARGE:                # a scene: once, at most half the sheet's width
                 f = min(1, SHEET_W / 2 / w, (PAGE_H - HEADING_H) / h)
                 shown = f"<img src=\"{src}\" width=\"{round(w * f)}\" height=\"{round(h * f)}\" style=\"{pixel}\">"
             else:
