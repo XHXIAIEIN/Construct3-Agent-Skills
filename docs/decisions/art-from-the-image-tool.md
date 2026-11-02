@@ -216,9 +216,8 @@ Option 3.
   palette rounds the blend.
 - Pixel art: a picture is resampled and its alpha cut at half, not redrawn
   on the pixel grid.
-- Tiled Backgrounds and the HUD's bars keep their drawn images; `art()`
-  covers sprites and backdrops, and `art_panel()` covers panels
-  (`game-ui-workflow.md`).
+- Tiled Backgrounds, 9-patches and the HUD's bars keep their drawn
+  images; `art()` covers sprites and backdrops.
 - Contrast of the art against the backdrop is the user's call on a
   screenshot, as `review_look.py` asks it; no check measures it.
 - No game's whole set of pictures was made with the key picture as the
