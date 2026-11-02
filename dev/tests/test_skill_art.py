@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from tests.skill_helpers import SKILL, png, png_pixels, run, script_module, tool
+from tests.skill_helpers import png, png_pixels, run, script_module, tool
 
 art = script_module("art")
 oe = script_module("open_in_editor")
@@ -151,46 +151,24 @@ def test_the_kit_draws_pixel_art_on_the_grid_in_roles_alone(project):
         kit.drawing(COIN).shade("reward")
 
 
-def test_a_picture_lost_on_the_canvas_and_frames_that_drift_are_found(project):
-    """art.contrast: a pale picture on the white canvas; art.frames: two frames of one animation whose feet stand
-    on different rows. Three versions that keep a finding leave it for the hand-over."""
+def test_frames_that_drift_are_found(project):
+    """art.frames: two frames of one animation whose feet stand on different rows. Three versions that keep a finding
+    leave it for the hand-over."""
     wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
     item = wanted["images"][0]
     frames = [dict(item, file=f"hero-walk-00{i}.png", width=32, height=32) for i in range(2)]
-    pale = png(160, 160, lambda x, y: (240, 240, 240, 255) if 20 <= x < 140 and 20 <= y < 140 else (0, 0, 0, 0))
-    (project / "art" / COIN).write_bytes(pale)
     for i, f in enumerate(frames):
         (project / "art" / f["file"]).write_bytes(
             png(32, 32, lambda x, y, i=i: (33, 33, 33, 255) if 8 <= x < 24 and 4 <= y < 28 - 3 * i else (0, 0, 0, 0)))
-    found = art.look_findings(project, wanted, [item, *frames])
-    assert [line.split(":")[0] for _, line in found] == ["art.contrast", "art.frames"], found
-    assert "0% of its edge reads 3:1 on the canvas #FFFFFF" in found[0][1]
-    assert "hero-walk: its frames stand on rows 24 to 27" in found[1][1]
+    found = art.frame_findings(project, wanted, frames)
+    assert [line.split(":")[0] for _, line in found] == ["art.frames"], found
+    assert "hero-walk: its frames stand on rows 24 to 27" in found[0][1]
+    path = project / "art" / frames[0]["file"]
+    first = path.read_bytes()
     for n in range(3):
-        (project / "art" / COIN).write_bytes(pale[:-12] + bytes([n]) + pale[-11:])     # another version, as pale
-        fix, kept = art.counted(project, found[:1])
+        path.write_bytes(first[:-12] + bytes([n]) + first[-11:])                       # another version, as far off
+        fix, kept = art.counted(project, found)
     assert fix == [] and kept[0].endswith("still so after 3 versions: name it in the hand-over"), kept
-
-
-def test_two_kinds_drawn_alike_are_found_and_poses_of_one_are_not(project):
-    """art.alike: two pictures of one box for different subjects that look the same cell by cell; a colour of
-    its own tells one apart, and the frames of one animation are poses of one subject."""
-    wanted = json.loads((project / "art" / "wanted.json").read_text(encoding="utf-8"))
-    item = wanted["images"][0]
-    blob = lambda colour: png(32, 32, lambda x, y: colour if 6 <= x < 26 and 6 <= y < 26 else (0, 0, 0, 0))
-    kinds = [dict(item, file="goblin-default-000.png", width=32, height=32, subject="a goblin"),
-             dict(item, file="orc-default-000.png", width=32, height=32, subject="an orc"),
-             dict(item, file="slime-default-000.png", width=32, height=32, subject="a slime"),
-             dict(item, file="hero-walk-000.png", width=32, height=32, subject="the hero, walk 1"),
-             dict(item, file="hero-walk-001.png", width=32, height=32, subject="the hero, walk 2"),
-             dict(item, file="hero-default-000.png", width=32, height=32, subject="the hero, standing")]
-    for k, colour in zip(kinds, [(200, 40, 40, 255), (201, 40, 40, 255), (40, 160, 60, 255), (9, 9, 9, 255),
-                                 (9, 9, 9, 255), (9, 9, 9, 255)]):
-        (project / "art" / k["file"]).write_bytes(blob(colour))
-    found = art.alike_findings(project, kinds)
-    assert [line for _, line in found] == [
-        "art.alike: orc-default-000 and goblin-default-000 look the same, though one is 'a goblin' and the other "
-        "'an orc': give each a shape, a colour or a mark of its own"], found
 
 
 def test_a_box_inside_a_rounded_box_takes_its_radius_less_the_gap():
@@ -239,50 +217,6 @@ def test_an_eased_gradient_runs_between_two_roles_on_its_curve(project):
         d.gradient("sky", "canvas", "ink")
     with pytest.raises(SystemExit, match="the curves are linear, ease"):
         d.gradient("dusk", "canvas", "ink", ease="bounce")
-
-
-def test_the_users_references_are_the_pictures_of_art_references_measured_on_one_page(tmp_path):
-    """PNG, JPEG and WebP are references, embedded as data URLs, as a file: picture would taint the canvas that
-    measures them; any other file there is named as not read."""
-    folder = tmp_path / "art" / "references"
-    assert art.references(tmp_path) == ([], [])
-    folder.mkdir(parents=True)
-    for name in ("b.JPG", "a.png", "c.webp", "d.bmp"):
-        (folder / name).write_bytes(png(4, 2, lambda x, y: (255, 0, 0, 255)))
-    refs, unread = art.references(tmp_path)
-    assert [p.name for p in refs] == ["a.png", "b.JPG", "c.webp"] and [p.name for p in unread] == ["d.bmp"]
-    assert art.png_size(refs[0]) == (4, 2)
-    page = art.measure_page([[("reference: a.png", refs[0]), ("reference: b.JPG", refs[1])], [("game: <Map>", refs[0])]],
-                            320, 180)
-    assert page.count("<img data-measure src=\"data:image/png;base64,") == 2 and "data:image/jpeg;base64," in page
-    assert "height:75px" in page and "game: &lt;Map&gt;" in page and "%%" not in art.MEASURE_JS
-
-
-class Measurer:
-    """Stands for the browser: the shot of a page, and the colours its script would have measured."""
-
-    def __init__(self):
-        self.page = self
-        self.asked = []
-
-    def shot(self, html, name, w, h=None):
-        self.asked.append((name, w, h, html.count("<img data-measure")))
-        return b"pair"
-
-    def evaluate(self, script):
-        assert script == "window.palettes"
-        return [[{"hex": f"#00000{n}", "share": 1.0}] for n in range(self.asked[-1][3])]
-
-
-def test_a_reference_pair_fits_the_references_and_the_screenshot_into_the_screenshots_shape(tmp_path):
-    shot = tmp_path / "Map.png"
-    shot.write_bytes(png(16, 9, lambda x, y: (0, 0, 0, 255)))
-    renderer = Measurer()
-    data, refs, own = art.reference_pair(renderer, [("reference: Map.png", shot), ("picked look: look.png", shot)],
-                                         shot, "game: Map")
-    assert data == b"pair" and refs == [[{"hex": "#000000", "share": 1.0}], [{"hex": "#000001", "share": 1.0}]]
-    assert own == [{"hex": "#000002", "share": 1.0}]
-    assert renderer.asked == [("pair-game-Map", 2 * (1067 + 12) + 12, None, 3)]
 
 
 def test_the_contact_sheet_is_cut_into_pages_between_rows_and_a_heading_keeps_its_row():

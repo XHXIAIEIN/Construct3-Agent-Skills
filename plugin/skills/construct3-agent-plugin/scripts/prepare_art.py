@@ -1,37 +1,16 @@
-"""The image route of scripts/art.py: the prompts of the pictures an image tool makes, and the cut-out
-and fit of each picture it made.
+"""The picture route of scripts/art.py: the cut-out and fit of each picture in art/raw/.
 
 The generator's art() asks for each sprite by what it shows, in a box of whole
-units, and writes the list to art/wanted.json. art.py prints one step at a
-time for the pictures of the image route. When the user gave a look,
-USER_LOOK, it first asks for the look to be picked with pick_look.py, which
-writes ART_STYLE and keeps the picked first play screen as art/look.png. While
-ART_STYLE is empty, it asks for ART_STYLE. In the default look, while more than
-one sprite is to make, it asks for the key picture, a line-up of the game's
-subjects that sets the style. Then it prints a prompt per picture, which
-starts with ART_STYLE so that the pictures share one style. Each picture is
-saved as art/raw/<name>.png, .jpg or .webp, where <name> is the image's file
-name without .png, and the key picture as art/raw/_key.png: each sprite's
-prompt then gives art/look.png or the key picture as the reference image.
+units, and writes the list to art/wanted.json. A picture of the route is saved
+as art/raw/<name>.png, .jpg or .webp, where <name> is the image's file name
+without .png. Each one is then:
 
-The prompts come with warnings of subjects that will come out wrong. A subject
-must not name a background, a shadow, text, or a drawing style that ART_STYLE
-does not name. Several subjects that differ only in colour or element words
-come out as one figure in several colours. A warning also names what
-ART_STYLE leaves to the image tool of the rendering, the linework, the colour
-temperature, the light direction, the proportions or the framing, so that the
-pictures can differ in it. "framing unspecified" in ART_STYLE leaves the
-framing open on purpose.
-
-Each picture in art/raw/ is then:
-
-  cut out    a picture with transparency keeps it. Any other picture was
-             asked for on a flat magenta or green, the key. The key is
-             removed where it touches the edge and where it shows through a
-             gap, and taken out of the colour of the edge pixels it blends
-             with. A picture on another background, or one whose edge still
-             leans to the key after the cut, is refused with what to make
-             instead
+  cut out    a picture with transparency keeps it. Any other picture must lie
+             on a flat magenta or green, the key. The key is removed where it
+             touches the edge and where it shows through a gap, and taken out
+             of the colour of the edge pixels it blends with. A picture on
+             another background, or one whose edge still leans to the key after
+             the cut, is refused with what it needs instead
   fitted     trimmed to the subject and fitted into its box, centred, standing
              on the box's bottom when the origin is at the feet; a scene
              covers its box and is cropped
@@ -40,77 +19,15 @@ Each picture in art/raw/ is then:
              colour, for hit_frame()
 
 Fitting needs Pillow (pip install pillow). A refused picture is recorded in
-art/refused.json, and its next prompt says what to make instead. After three
-refusals a picture keeps its stand-in.
+art/refused.json. After three refusals a picture keeps its stand-in.
 """
 import hashlib
 import json
 import math
-import re
-import sys
-from collections import Counter
 from pathlib import Path
-
-# python -I leaves this script's folder off sys.path, and the modules beside it are imported from there
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import c3project as c3
 
 RAW_TYPES = (".png", ".jpg", ".jpeg", ".webp")
 KEYS = {"magenta": (255, 0, 255), "green": (0, 255, 0)}
-# a subject in these colours is asked for on green, because a cut on magenta would remove its colour too
-NEAR_MAGENTA = ("pink", "magenta", "purple", "violet", "fuchsia", "lilac", "lavender", "rose", "粉", "紫", "品红")
-# Words in a subject that the prompt or ART_STYLE already decides, in English and Chinese. A word
-# after a negation such as "without" or "无" is not counted: "无文字" asks for what the prompt asks
-# for. docs/decisions/art-from-the-image-tool.md records what they were measured on.
-NAMES = {
-    "background": ("background", "backdrop", "scenery", "背景"),
-    "shadow": ("shadow", "阴影", "影子", "投影"),
-    "text": ("text", "lettering", "letter", "caption", "writing", "word", "文字", "字样", "文本", "字母"),
-}
-STYLE_WORDS = ("pixel", "8-bit", "16-bit", "vector", "cartoon", "anime", "manga", "chibi", "realistic", "watercolo",
-               "oil paint", "painterly", "sketch", "line art", "cel-shad", "cel shad", "low poly", "low-poly", "3d",
-               "outline", "像素", "矢量", "扁平", "卡通", "动漫", "二次元", "写实", "水彩", "油画", "素描", "手绘",
-               "线稿", "描边", "赛璐璐", "低多边形", "厚涂", "风格")
-# The words by which ART_STYLE fixes each dimension. The prompts warn of a dimension with none of them.
-# "<dimension> unspecified" leaves it open on purpose. A negated word counts: "no outlines" fixes
-# the linework. An English word matches as a whole word, with an optional plural; a Chinese word
-# matches anywhere. docs/decisions/art-from-the-image-tool.md.
-DIMENSIONS = {
-    "rendering": ("flat", "vector", "pixel", "pixelated", "8-bit", "16-bit", "cartoon", "anime", "manga", "realistic",
-                  "painterly", "painted", "watercolor", "watercolour", "gouache", "oil", "ink", "pencil", "crayon",
-                  "sketch", "cel", "shaded", "shading", "gradient", "textured", "low-poly", "low poly", "3d", "voxel",
-                  "clay", "hand-drawn", "像素", "矢量", "扁平", "平涂", "卡通", "动漫", "二次元", "写实", "水彩", "油画", "水墨",
-                  "素描", "手绘", "赛璐璐", "厚涂", "低多边形", "渲染"),
-    "linework": ("outline", "outlined", "line", "lineart", "linework", "lineless", "stroke", "contour", "edge",
-                 "描边", "线条", "线稿", "勾线", "轮廓"),
-    "colour temperature": ("warm", "cool", "cold", "neutral", "temperature", "暖", "冷", "中性"),
-    "light direction": ("lit", "lighting", "light from", "light source", "backlit", "backlight", "rim light",
-                        "top light", "side light", "overhead", "from above", "from the left", "from the right",
-                        "top-left", "top left", "top-right", "top right", "upper left", "upper right", "光照", "光源",
-                        "打光", "顶光", "侧光", "逆光", "背光", "光向", "左上", "右上"),
-    "proportions": ("proportion", "chibi", "super-deformed", "big-headed", "heads tall", "head-to-body", "stocky",
-                    "chunky", "slender", "lanky", "elongated", "squat", "stubby", "比例", "头身", "q版", "大头", "修长",
-                    "矮胖"),
-    "framing": ("view", "framing", "full body", "full-body", "half body", "half-body", "bust", "portrait", "close-up",
-                "profile", "isometric", "top-down", "three-quarter", "3/4", "side-on", "front-facing", "seen from",
-                "angle", "全身", "半身", "正面", "侧面", "侧视", "俯视", "俯瞰", "等距", "视角", "特写", "构图",
-                "四分之三"),
-}
-# A text that ends in a negation: "no", "not", "without" or "free of" and up to two words, or a Chinese one
-NEGATION = re.compile(r"(?:\b(?:no|not|without|free of)\b(?:\W+\w+){0,2}\W*|无|不含|没有|不带|不要|去掉)$")
-# Colour and element words: subjects the same without them come out as one figure in several colours.
-COLOUR_WORDS = ("red", "green", "blue", "yellow", "orange", "purple", "pink", "violet", "white", "black", "grey",
-                "gray", "brown", "golden", "gold", "silver", "cyan", "teal", "crimson", "scarlet", "azure", "navy",
-                "magenta", "dark", "light", "pale", "fire", "water", "ice", "earth", "wood", "metal", "poison",
-                "lightning", "thunder", "wind", "鎏金", "红", "绿", "蓝", "黄", "橙", "紫", "粉", "白", "黑", "灰",
-                "褐", "棕", "金", "银", "青", "赤", "翠", "湛", "碧", "色", "暗", "深", "浅", "亮", "木", "水", "火",
-                "土", "冰", "雷", "毒")
-# Any of them, the longest first so that 鎏金 matches before 金; an English word matches as a whole word
-COLOURED = re.compile("|".join(rf"\b{w}\b" if w.isascii() else w for w in sorted(COLOUR_WORDS, key=len, reverse=True)))
-VARIANTS = 3                               # this many subjects that differ only in colour or element words: a warning
-RATIOS = ((1, 1), (4, 3), (3, 4), (3, 2), (2, 3), (16, 9), (9, 16), (2, 1), (1, 2))      # the ratios a prompt names
 # RGB distances from the background colour, the key as the model painted it. NEAR: background
 # that joins the edge. POCKET: a gap in the subject, anywhere, when it also lies within KEYLINE of
 # the key made darker or lighter. docs/decisions/art-from-the-image-tool.md has the measurements.
@@ -126,34 +43,21 @@ SPILL = 60
 # A cut whose edge pixels lean to the key in more than this share, and more than FRINGE_MIN of
 # them, is refused.
 FRINGE, FRINGE_MIN = 0.005, 8
-LINEUP = 4                                 # subjects in the key picture
 WORK = 4                                   # a picture is cut out at up to this many times its box
 REFUSED = "art/refused.json"               # the pictures and drawings refused, which the next run reads
 TRIES = 3                                  # refusals before a picture keeps its stand-in
 STAND_IN = (f"{TRIES} times, so it keeps its stand-in. To try again, change its subject in art(), which starts the "
             f"count again")
 MARK = "c3-art"                            # the PNG text key check_project.py reads as a painting
-MADE_FROM = "c3-art-prompt"                # the PNG text key that holds made_from() of the picture's prompt
-LOOK = "art/look.png"                      # the first play screen in the look the user picked, from pick_look.py
 
 
 class Unusable(Exception):
-    """A picture the run cannot use. `problem` says what is wrong with it, and `again` what to
-    make instead. `tell` is the sentence the picture's next prompt adds for the image tool, and
-    `key` the key colour that prompt asks for when it changes. A file Pillow cannot read has no
-    `again`, because it is saved again, not made again."""
+    """A picture the run cannot use. `problem` says what is wrong with it, and `again` what it needs instead. A
+    file Pillow cannot read has no `again`, because it is saved again, not replaced."""
 
-    def __init__(self, problem: str, again: str = "", tell: str = "", key: str | None = None):
+    def __init__(self, problem: str, again: str = ""):
         super().__init__(f"{problem}; {again}" if again else problem)
-        self.again, self.tell, self.key = again, tell, key
-
-
-def key_for(item: dict, style: str) -> tuple[str, tuple]:
-    """The key colour a sprite is asked for on: the one its last refusal named, else green when its
-    subject or ART_STYLE names a colour of NEAR_MAGENTA, else magenta."""
-    words = f"{item['subject']} {style}".lower()
-    name = item.get("key") or ("green" if any(w in words for w in NEAR_MAGENTA) else "magenta")
-    return name, KEYS[name]
+        self.again = again
 
 
 def hex_of(c: tuple) -> str:
@@ -169,34 +73,10 @@ def refusal(n: int) -> str:
     return f"(refusal {n} of {TRIES}; after {TRIES} it keeps its stand-in)"
 
 
-def again_on(name: str) -> str:
-    """What to make instead when the cut needs the other key, or a clean one."""
-    return f"make it again on a flat {name} {hex_of(KEYS[name])} background, or with a transparent one"
-
-
-def ratio(w: int, h: int) -> str:
-    """The ratio of RATIOS nearest to w:h, as "4:3"."""
-    a, b = min(RATIOS, key=lambda r: abs(math.log(r[0] / r[1]) - math.log(w / h)))
-    return f"{a}:{b}"
-
-
-def lead(style: str) -> str:
-    """ART_STYLE as the start of a prompt."""
-    return f"{style.strip().rstrip('。. ')}; " if style.strip() else ""
-
-
-def prompt(item: dict, style: str, reference: bool = False) -> str:
-    """The prompt of one picture. With `reference`, a sprite's prompt says what the key picture
-    is for. With item["tell"], it says what the picture last refused got wrong."""
-    subject = item["subject"].strip().rstrip("。. ")
-    if item["kind"] == "scene":
-        return f"{lead(style)}{subject}. A full-frame background scene, no characters in front, no text."
-    name, key = key_for(item, style)
-    again = f" {item['tell']}" if item.get("tell") else ""
-    copy = (" The reference image sets the style and the palette; it is not a picture to copy, so draw only this "
-            "subject.") if reference else ""
-    return (f"{lead(style)}{subject}. One subject, whole and centred with room around it, on a flat {name} "
-            f"{hex_of(key)} background: no scenery, no shadow on the ground, no text.{again}{copy}")
+def on_a_key() -> str:
+    """What a picture needs when it cannot be cut from its background."""
+    return (f"give it a transparent background, or a flat magenta {hex_of(KEYS['magenta'])} or green "
+            f"{hex_of(KEYS['green'])} one")
 
 
 def raw_of(root: Path, rel: str) -> Path | None:
@@ -211,9 +91,8 @@ def fingerprint(path: Path) -> str:
 
 
 def refusals(root: Path, wanted: dict) -> dict:
-    """art/refused.json, by file name: the pictures refused, by fingerprint, and the `tell` and
-    `key` of the last refusal. A record whose subject differs from the one art() asks for is
-    ignored."""
+    """art/refused.json, by file name: the pictures refused, by fingerprint. A record whose subject differs from the
+    one art() asks for is ignored."""
     try:
         data = json.loads((root / REFUSED).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -222,211 +101,18 @@ def refusals(root: Path, wanted: dict) -> dict:
     return {rel: r for rel, r in data.items() if isinstance(r, dict) and subjects.get(rel) == r.get("subject")}
 
 
-def with_refusal(item: dict, refused: dict) -> dict:
-    """The item with the `tell` and `key` of its last refusal, which its next prompt carries."""
-    r = refused.get(item["file"])
-    return {**item, **{k: r[k] for k in ("tell", "key") if r.get(k)}} if r else item
-
-
-def reference_image(root: Path, wanted: dict) -> Path | None:
-    """The reference image of every sprite's prompt: art/look.png once the user's look is picked, else in the
-    default look the key picture; None while there is neither."""
-    if wanted.get("user_look", "").strip():
-        return root / LOOK if (root / LOOK).is_file() else None
-    return raw_of(root, "_key.png")
-
-
-def made_from(root: Path, item: dict, wanted: dict) -> str:
-    """A fingerprint of what a picture is made from: its prompt, which starts with ART_STYLE, and the
-    reference image that a sprite's prompt gives. item is art()'s, without the sentence a refusal adds."""
-    reference = reference_image(root, wanted) if item["kind"] != "scene" else None
-    text = (prompt(item, wanted.get("style", ""), reference is not None) + "|"
-            + (fingerprint(reference) if reference else ""))
-    return hashlib.sha256(text.encode()).hexdigest()[:16]
-
-
-def state(root: Path, item: dict, refused: dict, wanted: dict) -> str:
+def state(root: Path, item: dict, refused: dict) -> str:
     """make: no picture yet; again: its pictures were refused, fewer than TRIES; stand-in: TRIES
-    were; prepare: a picture newer than its fitted art and not refused; restyle: fitted art made
-    from another ART_STYLE, reference image or subject; done."""
+    were; prepare: a picture newer than its fitted art and not refused; done."""
     raw, out = raw_of(root, item["file"]), root / "art" / item["file"]
     if out.exists() and (raw is None or out.stat().st_mtime >= raw.stat().st_mtime):
-        # A picture without the record has nothing to compare
-        made = c3.png_text(out.read_bytes()).get(MADE_FROM)
-        return "restyle" if made and made != made_from(root, item, wanted) else "done"
+        return "done"
     r = refused.get(item["file"])
     if raw is not None and (r is None or fingerprint(raw) not in r["pictures"]):
         return "prepare"
     if r is None:
         return "make"
     return "stand-in" if len(r["pictures"]) >= TRIES else "again"
-
-
-def lineup(sprites: list[dict]) -> list[dict]:
-    """The sprites of the key picture, LINEUP of them: the first of each object before a second of
-    one, so that it shows the kinds of things the game holds rather than the frames of one."""
-    seen, first, more = set(), [], []
-    for item in sprites:
-        obj = item["file"].split("-")[0]
-        (more if obj in seen else first).append(item)
-        seen.add(obj)
-    return (first + more)[:LINEUP]
-
-
-def named(subject: str, words, whole: bool = True) -> list[str]:
-    """The words of `words` that `subject` names, as it writes them, not counting one after a
-    negation. An English word matches whole, or with `whole` false as the start of a word:
-    "outline" in "outlined"."""
-    low = subject.lower()
-    found = []
-    for w in words:
-        start = rf"\b{re.escape(w)}" if w.isascii() else re.escape(w)
-        end = (r"s?\b" if w.isascii() else "") if whole else r"\w*"
-        hit = next((m for m in re.finditer(start + end, low) if not NEGATION.search(low[:m.start()])), None)
-        if hit:
-            found.append(hit.group())
-    return found
-
-
-def joined(names: list[str], last: str) -> str:
-    """The names joined by commas, with `last` before the final name."""
-    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {last} {names[-1]}"
-
-
-def left_open(style: str) -> list[str]:
-    """The dimensions that ART_STYLE neither names a word of nor marks "<dimension> unspecified"
-    ("light: unspecified" counts too)."""
-    low = style.lower().replace("color", "colour")
-
-    def says(w: str) -> bool:
-        return w in low if not w.isascii() else bool(re.search(rf"(?<![a-z0-9]){re.escape(w)}s?(?![a-z0-9])", low))
-
-    def open_on_purpose(dim: str) -> bool:
-        first, *rest = dim.split()
-        name = rf"{first.rstrip('s')}\w*" + "".join(rf"(?:\s+{w})?" for w in rest)
-        return bool(re.search(rf"(?<![a-z0-9]){name}[\s:=-]*unspecified", low))
-
-    return [dim for dim, words in DIMENSIONS.items() if not any(map(says, words)) and not open_on_purpose(dim)]
-
-
-def style_warning(style: str) -> list[str]:
-    """A warning when ART_STYLE leaves a dimension of DIMENSIONS to the image tool."""
-    if not (left := left_open(style)):
-        return []
-    them = "it" if len(left) == 1 else "them"
-    return [f"warning: ART_STYLE names no {joined(left, 'or')}, so each prompt leaves {them} to the image tool and "
-            f"the pictures can differ in {them}. Name {them} in ART_STYLE, or write \"{left[0]} unspecified\" there "
-            f"to leave {'it' if len(left) == 1 else 'one'} open. Then run python tools/build_project.py."]
-
-
-def warnings(items: list[dict], style: str) -> list[str]:
-    """One warning for each thing a subject says that its prompt or ART_STYLE already decides, and
-    one for the groups of subjects that differ only in colour or element words."""
-    def listed(found: list[str]) -> str:
-        return ", ".join(found[:5]) + (f" and {len(found) - 5} more" if len(found) > 5 else "")
-
-    def stem(item: dict) -> str:
-        return stem_of(item["file"])
-
-    sprites = [item for item in items if item["kind"] != "scene"]
-    out = []
-    for words, what, among, why in (
-            ("background", "a background", sprites, "A sprite is made on the key colour alone and cut out, so take "
-                                                    "the background out of the subject, or make the picture a scene"),
-            ("shadow", "a shadow", sprites, "The cut removes a shadow together with the background, so take it out "
-                                            "of the subject"),
-            ("text", "text", items, "The image tool misspells words, so take them out of the subject and write them "
-                                    "with a Text object")):
-        if found := [stem(item) for item in among if named(item["subject"], NAMES[words])]:
-            out.append(f"warning: {listed(found)}: the subject names {what}. {why}")
-    styles = {}
-    unnamed = [w for w in STYLE_WORDS if w not in style.lower()]
-    for item in items:
-        for w in unnamed:
-            if written := named(item["subject"], [w], whole=False):
-                styles.setdefault(written[0], []).append(stem(item))
-    for word, found in styles.items():
-        out.append(f"warning: {listed(found)}: the subject names the drawing style \"{word}\", and ART_STYLE does "
-                   f"not. Pictures in two styles do not match, so add the style to ART_STYLE or take it out of the "
-                   f"subject")
-    groups = {}
-    for item in items:
-        bare = re.sub(r"\b(?:a|an|the)\b|[\W_]+", "", COLOURED.sub("", item["subject"].lower()))
-        groups.setdefault((item["kind"], item["width"], item["height"], bare), []).append(stem(item))
-    if same := [listed(found) for found in groups.values() if len(found) >= VARIANTS]:
-        out.append(f"warning: {'; '.join(same)}: the subjects differ only in colour or element words, so each group "
-                   f"comes out as one figure in several colours. If they are different things, say in each subject "
-                   f"what else sets it apart: its shape, its size, what it holds")
-    return out
-
-
-def unpicked(root: Path, wanted: dict) -> bool:
-    """Whether the user gave a look, USER_LOOK, and its direction is not picked yet: no art/look.png."""
-    return bool(wanted.get("user_look", "").strip()) and not (root / LOOK).is_file()
-
-
-def list_prompts(root: Path, wanted: dict, skill: str) -> list[str]:
-    """The next step only: the look picker while the user's look is unpicked, ART_STYLE while it is
-    empty, then in the default look the key picture while it is missing, then a prompt per picture."""
-    style, items = wanted.get("style", ""), wanted["images"]
-    refused = refusals(root, wanted)
-    states = {item["file"]: state(root, item, refused, wanted) for item in items}
-    counts = Counter(states.values())
-    to_make = counts["make"] + counts["again"] + counts["restyle"]
-    count = f"to make: {to_make}, to prepare: {counts['prepare']}, done: {counts['done']}" + \
-        (f", stand-ins: {counts['stand-in']}" if counts["stand-in"] else "")
-    making = [item for item in items if states[item["file"]] in ("make", "again", "restyle")]
-    sprites = [item for item in making if item["kind"] != "scene"]
-    if to_make and unpicked(root, wanted):
-        return [f"look: the user gave one, USER_LOOK, and it is not picked yet. Run python {skill}/scripts/"
-                f"pick_look.py, which has the first play screen drawn in three directions for the user to pick; the "
-                f"pick writes ART_STYLE and PALETTE, and keeps its screen as {LOOK}, the reference image of every "
-                f"prompt", f"{count}; next: python {skill}/scripts/pick_look.py"]
-    if to_make and not style.strip():
-        return ["style: none. Write ART_STYLE in tools/build_project.py: one sentence of art direction, agreed with "
-                f"the user, that fixes the {joined(list(DIMENSIONS), 'and')}, so that every picture shares it",
-                *warnings(making, style),
-                f"{count}; next: write ART_STYLE, run python tools/build_project.py, then python {skill}/scripts/"
-                f"art.py again"]
-    out = ([f"style: {style}"] if style.strip() else []) + (style_warning(style) if making else []) + \
-        warnings(making, style)
-    # The user's look was picked on its first play screen, which every prompt then refers to; the default
-    # look has its key picture
-    key_picture = reference_image(root, wanted)
-    if not wanted.get("user_look", "").strip() and len(sprites) > 1 and key_picture is None:
-        shown = lineup(sprites)
-        subjects = "; ".join(item["subject"].rstrip("。. ") for item in shown)
-        name, key = key_for({"subject": subjects}, style)
-        return out + [f"key picture: \"{lead(style)}a line-up of {subjects}, side by side on a flat {name} "
-                      f"{hex_of(key)} background, no text\". If the user is in the session, show it and keep the "
-                      f"one they choose. Save it as art/raw/_key.png",
-                      f"{count}; next: make the key picture, then python {skill}/scripts/art.py for "
-                      f"the prompts of the others"]
-    for item in items:
-        rel, s = item["file"], states[item["file"]]
-        stem = stem_of(rel)
-        if s in ("make", "again", "restyle"):
-            reference = key_picture is not None and item["kind"] != "scene"
-            tried = (f" again {refusal(len(refused[rel]['pictures']))}" if s == "again" else
-                     f" again, as ART_STYLE, the reference image or the subject changed since art/{rel} was made"
-                     if s == "restyle" else "")
-            given = f", {key_picture.relative_to(root).as_posix()} as the reference image" if reference else ""
-            out.append(f"make {stem}{tried}: ratio {ratio(item['width'], item['height'])}, for a {item['width']}x"
-                       f"{item['height']} box{given} -> art/raw/{stem}.png")
-            out.append(f"  \"{prompt(with_refusal(item, refused), style, reference)}\"")
-        elif s == "stand-in":
-            out.append(f"stand-in {stem}: refused {STAND_IN}")
-        else:
-            out.append(f"{s} {stem}: {raw.name if (raw := raw_of(root, rel)) else 'art/' + rel}")
-    if to_make:
-        out.append(f"{count}; next: make each with the image tool, then python {skill}/scripts/art.py")
-    elif counts["prepare"]:
-        out.append(f"{count}; next: python {skill}/scripts/art.py")
-    elif counts["stand-in"]:
-        out.append(f"{count}; next: python tools/build_project.py")
-    else:
-        out.append(f"ok: all {counts['done']} pictures done; next: python tools/build_project.py")
-    return out
 
 
 def leaning_to(key: tuple):
@@ -438,7 +124,7 @@ def leaning_to(key: tuple):
     return lambda c: min(c[k] for k in on) - max(c[k] for k in off)
 
 
-def cut_out(img, key: tuple) -> tuple[object, str]:
+def cut_out(img) -> tuple[object, str]:
     """The picture as RGBA with its background clear, and a line that gives the background's
     colour and counts the pixels cleared in gaps and recoloured. Raises Unusable when the picture
     cannot be cut cleanly."""
@@ -453,25 +139,21 @@ def cut_out(img, key: tuple) -> tuple[object, str]:
     colours = [tuple(data[4 * i:4 * i + 3]) for i in edge]
     bg = tuple(sorted(c[k] for c in colours)[len(colours) // 2] for k in range(3))
     near = sum(sum((a - b) ** 2 for a, b in zip(c, bg)) < NEAR ** 2 for c in colours) / len(colours)
-    name = next(n for n, c in KEYS.items() if c == key)
-    flat = (f"Nothing but flat {name} {hex_of(key)} around the subject, out to every edge, or a transparent "
-            f"background.")
     if near < 0.5:
-        raise Unusable(f"its edge is not one flat colour, {near:.0%} of it near {hex_of(bg)}", again_on(name), flat)
-    # the background is the key asked for, or the other one, as a model paints it: the keyed
-    # channels lit, the others dark, as in (216, 46, 147) or (8, 162, 24)
+        raise Unusable(f"its edge is not one flat colour, {near:.0%} of it near {hex_of(bg)}", on_a_key())
+    # the background is a key as a model paints it: the keyed channels lit, the others dark, as in (216, 46, 147) or
+    # (8, 162, 24)
     painted = [n for n, k in KEYS.items()
                if min(c for c, on in zip(bg, k) if on) >= 96
                and max(c for c, on in zip(bg, k) if not on) <= 0.35 * min(c for c, on in zip(bg, k) if on)]
     if not painted:
         raise Unusable(f"its background is {hex_of(bg)}, neither magenta nor green, and a cut on it would also "
-                       f"remove the subject's parts in that colour", again_on(name), flat)
+                       f"remove the subject's parts in that colour", on_a_key())
     name = painted[0]
     key = KEYS[name]
     if near < 0.9:
         raise Unusable(f"the subject runs off the picture over {1 - near:.0%} of its edge, so it is cut off",
-                       "make it again whole and centred, with room around it",
-                       "Show all of the subject, smaller, with room on every side.")
+                       "use one with the whole subject and room around it")
     n = w * h
     br, bgr, bb = bg
     rgb = [data[4 * i:4 * i + 3] for i in range(n)]
@@ -618,10 +300,8 @@ def cut_out(img, key: tuple) -> tuple[object, str]:
     cut = Image.frombytes("RGBA", (w, h), bytes(out))
     left, band = fringe(cut, key)
     if left > max(FRINGE_MIN, FRINGE * band):
-        other = next(k for k in KEYS if k != name)
         raise Unusable(f"after the cut, {left} of the {band} pixels along the subject's edge lean to {name}: a "
-                       f"fringe the cut left, or a subject too near the key", again_on(other),
-                       f"Keep {name} out of the subject and its edge, or make the background transparent.", other)
+                       f"fringe the cut left, or a subject too near the key", on_a_key())
     return cut, f"background {hex_of(bg)}, {gaps} px cleared in gaps, {spill} px of key light recoloured"
 
 
@@ -675,20 +355,18 @@ def clean(img):
     return Image.frombytes("RGBA", img.size, bytes(data))
 
 
-def save(img, path: Path, made: str = "") -> None:
-    """The picture as a PNG marked as a painting, and with `made`, the made_from() of its prompt."""
+def save(img, path: Path) -> None:
+    """The picture as a PNG marked as a painting."""
     from PIL import PngImagePlugin
     info = PngImagePlugin.PngInfo()
     info.add_text(MARK, "painted")
-    if made:
-        info.add_text(MADE_FROM, made)
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, pnginfo=info)
 
 
-def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[str]:
-    """Fits the picture raw into the box of item and records `made`, the made_from() of its prompt;
-    returns its line and any note on it. Raises Unusable when the picture cannot be used."""
+def prepare(root: Path, item: dict, wanted: dict, raw: Path) -> list[str]:
+    """Fits the picture raw into the box of item; returns its line and any note on it. Raises Unusable when the
+    picture cannot be used."""
     from PIL import Image, ImageOps
     rel, w, h = item["file"], item["width"], item["height"]
     stem = stem_of(rel)
@@ -702,23 +380,20 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[
         s = max(w / rw, h / rh)
         big = img.convert("RGB").resize((max(w, round(rw * s)), max(h, round(rh * s))), Image.LANCZOS)
         left, top = (big.width - w) // 2, (big.height - h) // 2
-        save(big.crop((left, top, left + w, top + h)).convert("RGBA"), root / "art" / rel, made)
+        save(big.crop((left, top, left + w, top + h)).convert("RGBA"), root / "art" / rel)
         return [f"{stem}: {raw.name} {rw}x{rh} -> art/{rel} {w}x{h}, cropped to cover it"]
     s = min(1.0, min(WORK * max(w, h), 1024) / max(rw, rh))
     work = img if s == 1 else resample(img.convert("RGBA"), (max(1, round(rw * s)), max(1, round(rh * s))),
                                        Image.HAMMING)
-    key_name, key = key_for(item, wanted.get("style", ""))
-    cut, how = cut_out(work, key)
+    cut, how = cut_out(work)
     alpha = cut.getchannel("A")
     solid = alpha.point(lambda a: 255 if a >= 128 else 0).getbbox()
     if solid is None:
         raise Unusable(f"nothing is left of the subject once the background is removed ({how})",
-                       "make the subject in colours far from the background",
-                       f"Draw the subject in colours far from {key_name}.")
+                       "use one whose subject has colours far from the background")
     notes = []
     if solid[0] == 0 or solid[1] == 0 or solid[2] == cut.width or solid[3] == cut.height:
-        notes.append(f"  note: the subject touches the picture's edge and may be cut off; make it whole, with room "
-                     f"around it")
+        notes.append("  note: the subject touches the picture's edge and may be cut off")
     box = alpha.point(lambda a: 255 if a >= 16 else 0).getbbox()
     subject = cut.crop(box)
     f = min(w / subject.width, h / subject.height)
@@ -732,7 +407,7 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[
     oy = item.get("origin", [0.5, 0.5])[1]
     canvas.paste(subject, ((w - sw) // 2, h - sh if oy >= 0.75 else (h - sh) // 2))
     canvas = clean(canvas)
-    save(canvas, root / "art" / rel, made)
+    save(canvas, root / "art" / rel)
     flash = tuple(wanted.get("flash", (255, 255, 255)))
     hit = Image.new("RGBA", (w, h), (*flash, 255))
     hit.putalpha(canvas.getchannel("A"))
@@ -740,7 +415,7 @@ def prepare(root: Path, item: dict, wanted: dict, raw: Path, made: str) -> list[
     fill = sw * sh / (w * h)
     if fill < 0.5:
         notes.append(f"  note: the subject, {sw}x{sh}, fills {fill:.0%} of its {w}x{h} box; give art() a box of "
-                     f"the subject's shape, or make the subject again so that it fills a {ratio(w, h)} picture")
+                     f"the subject's shape")
     return [f"{stem}: {raw.name} {rw}x{rh}, {how} -> art/{rel} {w}x{h}, the subject {sw}x{sh} in it"] + notes
 
 
@@ -750,7 +425,7 @@ def fit(root: Path, item: dict, wanted: dict, refused: dict) -> tuple[list[str],
     rel = item["file"]
     raw = raw_of(root, rel)
     try:
-        lines = prepare(root, with_refusal(item, refused), wanted, raw, made_from(root, item, wanted))
+        lines = prepare(root, item, wanted, raw)
         refused.pop(rel, None)
         return lines, True
     except Unusable as e:
@@ -759,9 +434,6 @@ def fit(root: Path, item: dict, wanted: dict, refused: dict) -> tuple[list[str],
             r = refused.setdefault(rel, {"subject": item["subject"], "pictures": []})
             if (seen := fingerprint(raw)) not in r["pictures"]:
                 r["pictures"].append(seen)
-            r["tell"] = e.tell
-            if e.key:
-                r["key"] = e.key
             line += f". Refused {STAND_IN}" if len(r["pictures"]) >= TRIES else f" {refusal(len(r['pictures']))}"
         return [line], False
 

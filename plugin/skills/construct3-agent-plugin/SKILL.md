@@ -116,10 +116,9 @@ passed.
   baked into them. `python scripts/bake_font.py` bakes the characters of a
   changed text.
 - A generated game's pictures come through `art()`, and
-  `python scripts/art.py` runs after the generator. Without an image
-  generation tool, it hands the drawings to a `construct3:art-drawer`
-  sub-agent. Never compute a picture pixel by pixel in Python: with nothing
-  to hold a style, it mixes styles.
+  `python scripts/art.py` runs after the generator. It hands the drawings to
+  a `construct3:art-drawer` sub-agent and fits the pictures saved in
+  `art/raw/`.
 
 ## Look an ACE up
 

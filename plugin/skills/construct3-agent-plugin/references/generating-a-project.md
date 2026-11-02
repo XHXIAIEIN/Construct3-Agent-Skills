@@ -113,48 +113,26 @@ avoid").
 
 ## Plan the art
 
-The look is the user's when the user gives one: a style, an art
-direction, or references or an existing project to take it from. The plan
-then names where it comes from in `USER_LOOK`, and the user picks the look
-before any art (`look.picker`): after the generator's first run,
-`python scripts/pick_look.py` has the first play screen drawn in three
-directions, the default look and two from the user's look, and stops for the
-user's pick. The pick writes `USER_LOOK`, `PALETTE` with `canvas` and
-`canvas_alt` from the backdrop, and `ART_STYLE`, and keeps its screen as
-`art/look.png`, which every picture then follows. Save the user's
-reference pictures as PNG, JPEG or WebP in `art/references/`
-(`look.references`): the draw brief gives the colours measured from them,
-and the look review shows each screen beside them. When the user gives none,
-`USER_LOOK` stays empty and the game takes the default look, the template's
-fallback, with no picker.
-
-The plan names the art direction in one sentence, `ART_STYLE`, which the
-pick writes for a look the user gave, and each sprite with what its picture
-shows and its box in units. Every sprite is an
-`art()`, which shows its stand-in until its picture is in `art/`, and each
-picture takes one of two routes (`art.routes`):
+The plan names each sprite with what its picture shows and its box in units.
+Every sprite is an `art()`, which shows its stand-in until its picture is in
+`art/`, and each picture takes one of two routes:
 
 - `ART_ROUTE = "svg"`, the template's default: the pictures are drawn in
   code as SVG and rendered in the browser. An object whose frames must keep
   one box and baseline, such as a character that walks, takes
   `art(..., route="svg")` on either route.
-- `ART_ROUTE = "image"`, when this session has an image generation tool:
-  the tool makes each picture from the prompt that `scripts/art.py` prints.
+- `ART_ROUTE = "image"`, when the user gives the pictures or this session has
+  an image tool: save each picture as `art/raw/<name>.png`, with a transparent
+  background or on a flat magenta or green one.
 
 After the generator has run, run `python scripts/art.py` and do what its
 last line says. It runs the game's `tools/drawings.py`, renders every
-drawing, fits every picture of the image tool, runs the generator again so
+drawing, cuts out and fits every picture of `art/raw/`, runs the generator again so
 that `art()` takes them, and writes a contact sheet of every picture, in
 pages that a model reads without scaling them down. For the drawings still to make,
 it writes a brief: give it as the whole task to a `construct3:art-drawer`
-sub-agent, which draws them all in one style with `scripts/svg_kit.py` and
-reads every page of its contact sheet before it returns. A picture of the
-image tool made from another `ART_STYLE`, picked look or subject than the
-current ones is in the state `restyle`, and the table prints its prompt
-again.
-Without that agent type, draw them yourself as the brief says. Never compute
-a picture pixel by pixel in Python: with nothing to hold a style, it mixes
-styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md`).
+sub-agent, which draws them all with `scripts/svg_kit.py`. Without that agent
+type, draw them yourself as the brief says.
 
 ## Build, check, open
 
@@ -188,7 +166,7 @@ above. Then:
    scripts/print_sheet.py`, before anyone opens the editor.
 3. Run `python scripts/verify_change.py`, as SKILL.md's "Check after every
    change" says, until it ends with `ok:`: the design review with `--style`,
-   the editor and its preview, the kept plays and the look. A game with a
+   the editor and its preview, the kept plays and the screen check. A game with a
    design also plays its tests there, `tools/design.json`, until every test
    passes in the editor as it passed in the prototype. Fix what a step
    finds, a `failed` or a `runtime:` line included, in the generator, not

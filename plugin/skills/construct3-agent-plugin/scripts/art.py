@@ -15,9 +15,9 @@ ART_ROUTE and art(..., route=) choose:
           colour. A drawing is refused when it names a colour instead of a
           role, holds an id that does not start with its own name, or is not
           the size of its box. Pillow is not needed
-  image   made by the session's image tool: the table gives the prompt of each
-          picture to make as art/raw/<name>.png; this script cuts the picture
-          out of its key colour and fits it to its box (prepare_art.py), which
+  image   a picture the user or the session's image tool gives, saved as
+          art/raw/<name>.png; this script cuts it out of a transparent, magenta
+          or green background and fits it to its box (prepare_art.py), which
           needs Pillow
 
 A run runs tools/drawings.py when it is there, renders every drawing newer than
@@ -29,13 +29,12 @@ game's canvas, frames of one object side by side, in pages of at most
 .tmp/scripts/art/contact-N.png, N from 1.
 
 When drawings are still to make, it writes .tmp/scripts/art/brief.md, the
-whole task of the construct3:art-drawer sub-agent: the pictures, the kit, the
-look and the questions to answer on the contact sheet. When the user gave a
-look, USER_LOOK, it is picked first: pick_look.py keeps the picked first play
-screen as art/look.png, which the brief names.
+whole task of the construct3:art-drawer sub-agent: the pictures, the kit and
+the roles.
 
 A picture refused three times keeps its stand-in, recorded in
-art/refused.json; change its subject in art() to try again.
+art/refused.json; change its subject in art() to try again. The frames of one
+animation that differ in box, feet or middle are named as art.frames.
 
 Exit 0: no picture failed, the last line starting with ok: once every picture
 is in art/. Exit 1: a drawing or a picture was refused, or tools/drawings.py or
@@ -43,7 +42,6 @@ the generator failed. Exit 2: no art/wanted.json. Exit 3: drawings wait to be
 rendered and there is no Edge, Chrome or Chromium here.
 """
 import base64
-import hashlib
 import json
 import os
 import re
@@ -60,7 +58,6 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 
 import c3project as c3
 import prepare_art as image_route
-from checker_common import contrast_ratio
 
 DRAWINGS = Path("tools") / "drawings.py"
 FOLDER = "art"                               # .tmp/scripts/art/ of the project
@@ -78,9 +75,7 @@ PAGE_H = 2240                                # px: the most a page of the contac
 # Claude scales an image down above 2576 px on its long side or 4784 tiles of 28 px; 1600x2240 is 4640 tiles
 HEADING_H = 160                              # px: room for an object's heading above a scene on its page
 RENDER_WAIT = 10                             # seconds a drawing may take to render
-EDGE_CONTRAST = 3                            # art.contrast: what the edge of a picture reads against the canvas
-EDGE_SHARE = 0.5                             # the share of the edge that must read so
-FINDINGS = "findings.json"                   # the versions of each picture a look check found, in .tmp/scripts/art/
+FINDINGS = "findings.json"                   # the versions of each picture art.frames found, in .tmp/scripts/art/
 
 
 def stem_of(rel: str) -> str:
@@ -189,113 +184,6 @@ class Renderer:
         self.browser.close()
 
 
-# --- the user's references ---------------------------------------------------------------------
-REFERENCES = Path("art", "references")      # the pictures the user gave for the game's look
-REFERENCE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
-COLOURS = 8                                  # colours measured from a picture, commonest first
-MEASURE_PX = 96                              # px: the long side a picture is measured at
-BIN_BITS = 3                                 # bits kept of each channel when colours are counted
-PAIR_H = 600                                 # px: the height of a pair's pictures
-
-# The commonest colours of every img[data-measure], as swatches under it and in window.palettes, on load
-# A file: picture taints the canvas, so the pictures are data: URLs
-MEASURE_JS = """addEventListener('load', () => {
-  window.palettes = [...document.querySelectorAll('img[data-measure]')].map(img => {
-    const s = Math.min(1, %(px)d / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.max(1, Math.round(img.naturalWidth * s)), h = Math.max(1, Math.round(img.naturalHeight * s));
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    const g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h);
-    const d = g.getImageData(0, 0, w, h).data, bins = new Map(), cut = 8 - %(bits)d;
-    let n = 0;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 128) continue;
-      const k = (d[i] >> cut) << 16 | (d[i + 1] >> cut) << 8 | d[i + 2] >> cut, b = bins.get(k) || [0, 0, 0, 0];
-      b[0] += d[i]; b[1] += d[i + 1]; b[2] += d[i + 2]; b[3]++; bins.set(k, b); n++;
-    }
-    const hex = v => Math.round(v).toString(16).padStart(2, '0').toUpperCase();
-    const top = [...bins.values()].sort((a, b) => b[3] - a[3]).slice(0, %(k)d)
-      .map(b => ({hex: '#' + hex(b[0] / b[3]) + hex(b[1] / b[3]) + hex(b[2] / b[3]), share: b[3] / n}));
-    const row = img.parentElement.querySelector('.swatches');
-    for (const t of top) {
-      const s = row.appendChild(document.createElement('span'));
-      s.style.background = t.hex; s.style.flexGrow = Math.max(t.share, 0.04);
-      s.textContent = t.hex + ' ' + (t.share < .005 ? '<1' : Math.round(t.share * 100)) + '%%';
-      s.style.color = parseInt(t.hex.slice(1, 3), 16) * .3 + parseInt(t.hex.slice(3, 5), 16) * .59
-        + parseInt(t.hex.slice(5), 16) * .11 > 140 ? '#111' : '#EEE';
-    }
-    return top;
-  });
-});""" % {"px": MEASURE_PX, "bits": BIN_BITS, "k": COLOURS}
-
-PAIR_CSS = ("html,body{margin:0;background:#202020;color:#EEE;font:14px system-ui,sans-serif}"
-            ".pair{display:flex;gap:12px;padding:12px}.side{display:flex;flex-direction:column;gap:8px}"
-            "figure{margin:0;display:flex;flex-direction:column;gap:4px}"
-            "img{object-fit:contain;display:block}"
-            ".swatches{display:flex;height:22px;font-size:11px;line-height:22px;overflow:hidden}"
-            ".swatches span{padding:0 3px;white-space:nowrap;overflow:hidden}")
-
-
-def references(root: Path) -> tuple[list[Path], list[Path]]:
-    """The user's reference pictures in art/references/ by name, and the files there that are no picture this
-    script can measure."""
-    folder = root / REFERENCES
-    files = sorted(p for p in folder.iterdir() if p.is_file()) if folder.is_dir() else []
-    return ([p for p in files if p.suffix.lower() in REFERENCE_TYPES],
-            [p for p in files if p.suffix.lower() not in REFERENCE_TYPES])
-
-
-def data_url(path: Path) -> str:
-    kind = REFERENCE_TYPES[path.suffix.lower()]
-    return f"data:{kind};base64,{base64.b64encode(path.read_bytes()).decode()}"
-
-
-def png_size(path: Path) -> tuple[int, int]:
-    """Width and height from a PNG's header."""
-    return struct.unpack(">II", path.read_bytes()[16:24])
-
-
-def measure_page(sides: list[list[tuple[str, Path]]], w: int, h: int) -> str:
-    """A page with the pictures of each side in a column, (caption, file) each, fitted together into a box w x h
-    px with the colours measured from each under it."""
-    def side(pictures: list[tuple[str, Path]]) -> str:
-        each = (h - 30 * (len(pictures) - 1)) // len(pictures)
-        return "<div class=\"side\">" + "".join(
-            f"<figure><img data-measure src=\"{data_url(file)}\" style=\"width:{w}px;height:{each}px\">"
-            f"<div class=\"swatches\"></div><figcaption>{html_text(caption)}</figcaption></figure>"
-            for caption, file in pictures) + "</div>"
-    return (f"<!doctype html><html><head><meta charset=\"utf-8\"><style>{PAIR_CSS}</style>"
-            f"<script>{MEASURE_JS}</script></head><body><div class=\"pair\">{''.join(map(side, sides))}</div>"
-            f"</body></html>")
-
-
-def html_text(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def measure(renderer: Renderer, sides: list[list[tuple[str, Path]]], name: str, w: int, h: int) -> tuple[bytes, list]:
-    """The page of measure_page() as a PNG, and the colours measured from each picture, in the order of the
-    pictures: [{"hex", "share"}, ...] each."""
-    shot = renderer.shot(measure_page(sides, w, h), name, len(sides) * (w + 12) + 12)
-    return shot, renderer.page.evaluate("window.palettes")
-
-
-def reference_pair(renderer: Renderer, refs: list[tuple[str, Path]], shot: Path,
-                   caption: str) -> tuple[bytes, list, list]:
-    """The user's references, (caption, file) each, on the left and a screenshot on the right, each fitted into a
-    box of the screenshot's shape PAIR_H px high: the pair as a PNG, the colours measured from each reference, and
-    from the screenshot."""
-    sw, sh = png_size(shot)
-    w = round(PAIR_H * sw / sh)
-    sides = [refs, [(caption, shot)]]
-    data, palettes = measure(renderer, sides, "pair-" + re.sub(r"[^\w-]+", "-", caption), w, PAIR_H)
-    return data, palettes[:-1], palettes[-1]
-
-
-def colours(palette: list[dict]) -> str:
-    """Measured colours as the scripts print them: #RRGGBB and its share, commonest first."""
-    return ", ".join(f"{c['hex']} {c['share']:.0%}" if c["share"] >= 0.005 else f"{c['hex']} <1%" for c in palette)
-
-
 def pixels_of(data: bytes, pixel_art: bool) -> tuple[int, int, list[tuple]]:
     w, h, px = c3.png_rgba(data)
     if pixel_art:
@@ -342,29 +230,7 @@ def svg_state(root: Path, item: dict, refused: dict) -> str:
     return "stand-in" if len(r["pictures"]) >= TRIES else "redraw"
 
 
-# --- the look checks of the pictures ---------------------------------------------------------
-def edge_share(root: Path, item: dict, back: tuple, band: int) -> float | None:
-    """The share of the picture's edge, its shown pixels beside a clear one, where a pixel within `band` px inside
-    it reads EDGE_CONTRAST:1 on the colour `back`: an outline that reads, or a body just inside a dark outline.
-    None for a picture with no edge."""
-    w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
-    behind = [v / 255 for v in back]
-    reads = [p[3] >= 128 and contrast_ratio([v / 255 for v in p[:3]], behind) >= EDGE_CONTRAST for p in px]
-    shown = [p[3] >= 128 for p in px]
-    edge = hits = 0
-    for i, on in enumerate(shown):
-        if not on:
-            continue
-        x, y = i % w, i // w
-        if all(0 <= nx < w and 0 <= ny < h and shown[ny * w + nx]
-               for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))):
-            continue
-        edge += 1
-        hits += any(reads[ny * w + nx] for ny in range(max(0, y - band), min(h, y + band + 1))
-                    for nx in range(max(0, x - band), min(w, x + band + 1)))
-    return hits / edge if edge else None
-
-
+# --- the frames of one animation --------------------------------------------------------------
 def baseline(root: Path, item: dict) -> tuple[int, int] | None:
     """The lowest shown row of a picture and the middle of its shown columns."""
     w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
@@ -375,66 +241,11 @@ def baseline(root: Path, item: dict) -> tuple[int, int] | None:
     return max(y for _, y in shown), (min(xs) + max(xs)) // 2
 
 
-# art.alike: cells a side, and the mean channel difference, of 1, under which two pictures look the same
-ALIKE_CELLS = 16
-ALIKE = 0.03
-
-
-def signature(root: Path, item: dict) -> list[float]:
-    """The picture as ALIKE_CELLS x ALIKE_CELLS cells of mean RGBA, of 1, each colour weighted by its alpha: a
-    clear pixel's hidden colour counts for nothing."""
-    w, h, px = c3.png_rgba((root / "art" / item["file"]).read_bytes())
-    sums = [[0.0] * 4 for _ in range(ALIKE_CELLS * ALIKE_CELLS)]
-    counts = [0] * len(sums)
-    for n, (r, g, b, a) in enumerate(px):
-        cell = (n // w * ALIKE_CELLS // h) * ALIKE_CELLS + n % w * ALIKE_CELLS // w
-        for c, v in enumerate((r * a / 255, g * a / 255, b * a / 255, a)):
-            sums[cell][c] += v / 255
-        counts[cell] += 1
-    return [v / max(1, counts[cell]) for cell, four in enumerate(sums) for v in four]
-
-
-def alike_findings(root: Path, done: list[dict]) -> list[tuple[str, str]]:
-    """art.alike: two pictures of one box for different subjects that look the same, cell by cell: two kinds a
-    player cannot tell apart. Two pictures of one object are poses of one subject and left out, unless both are
-    frames of its Default animation, which often holds kinds that events pick."""
-    def kinds(a: dict, b: dict) -> bool:
-        (ta, *ra), (tb, *rb) = a["file"].split("-"), b["file"].split("-")
-        return ta != tb or ra[:1] == rb[:1] == ["default"]
-    seen: list[tuple[dict, list[float]]] = []
-    found = []
-    for item in sorted(done, key=lambda i: i["file"]):
-        mine = signature(root, item)
-        for other, theirs in seen:
-            if (other["width"], other["height"]) != (item["width"], item["height"]) \
-                    or other["subject"] == item["subject"] or not kinds(other, item):
-                continue
-            if sum(abs(u - v) for u, v in zip(mine, theirs)) / len(mine) < ALIKE:
-                found.append((item["file"], f"art.alike: {stem_of(item['file'])} and {stem_of(other['file'])} look "
-                                            f"the same, though one is {other['subject']!r} and the other "
-                                            f"{item['subject']!r}: give each a shape, a colour or a mark of its own"))
-                break
-        seen.append((item, mine))
-    return found
-
-
-def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str, str]]:
-    """(picture, line) for each picture whose edge is lost on the canvas (art.contrast), for the frames of one
-    animation whose box, feet or middle differ (art.frames), and for two kinds drawn alike (art.alike)."""
+def frame_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str, str]]:
+    """(picture, line) for the frames of one animation whose box, feet or middle differ (art.frames)."""
     found = []
     # A picture the PNG reader cannot read is the generator's to refuse, when art() takes it
     done = [i for i in done if c3.png_rgba((root / "art" / i["file"]).read_bytes())]
-    # Which scene a picture lies on is the layouts' and the events' to say: with scenes, the look review judges
-    # the pictures on the screenshots, and this check holds the pictures to the canvas of a game without one
-    scenes = [i for i in done if i["kind"] == "scene"]
-    canvas, band = tuple(wanted["palette"]["canvas"]), 2 * wanted["line_width"]
-    for item in [] if scenes else done:
-        share = edge_share(root, item, canvas, band)
-        if share is not None and share < EDGE_SHARE:
-            found.append((item["file"], f"art.contrast: {stem_of(item['file'])}: {share:.0%} of its edge reads "
-                                        f"{EDGE_CONTRAST}:1 on the canvas {hexes(wanted['palette'])['canvas']}, by "
-                                        f"its outline or the body inside it, and half of it should: give it an outline "
-                                        f"in a role that reads on the canvas, or a body that does"))
     animations: dict[str, list[dict]] = {}
     for item in done:
         animations.setdefault(item["file"].rsplit("-", 1)[0], []).append(item)
@@ -455,7 +266,7 @@ def look_findings(root: Path, wanted: dict, done: list[dict]) -> list[tuple[str,
             found.append((frames[0]["file"], f"art.frames: {name}: its frames stand on rows {min(feet)} to "
                                              f"{max(feet)} and are centred from x {min(middles)} to {max(middles)}; "
                                              f"draw them with one function from the same d.ground and centre"))
-    return found + alike_findings(root, done)
+    return found
 
 
 def counted(root: Path, found: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
@@ -542,16 +353,6 @@ def contact_page(root: Path, wanted: dict, done: list[dict]) -> str:
 
 
 # --- the brief of the art sub-agent --------------------------------------------------------
-LOOK = (
-    "Is any picture a plain shape where the others are drawn, or drawn in a style of its own: another line "
-    "weight, another way of shading, a smooth shape among pixel art?",
-    "Do two pictures that stand for different things look alike, so that a player could take one for the other?",
-    "Does any picture read badly on the canvas behind it: too faint, too close to its colour, or lost in it?",
-    "Do the frames of one object change its size, its proportions or the line its feet stand on?",
-    "Does any picture fail to show its subject as the table names it?",
-)
-
-
 def brief(root: Path, wanted: dict, items: list[dict], skill: str) -> str:
     lines = [
         "# Draw the art of a Construct 3 game as SVG",
@@ -561,10 +362,6 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str) -> str:
         f"{(c3.SKILL_DIR / 'scripts' / 'svg_kit.py').as_posix()} first. Its pictures, boxes and roles are in "
         f"{(root / 'art' / 'wanted.json').as_posix()}.",
         "",
-        f"Art direction: {wanted.get('style') or '(none given: flat shapes with an ink outline, light from the top left)'}",
-        *([f"The look the user picked is its first play screen in {(root / image_route.LOOK).as_posix()}: open it "
-           f"with the Read tool and draw every picture in its rendering, linework and light."]
-          if (root / image_route.LOOK).is_file() else []),
         f"Roles: {', '.join(f'{r} {c}' for r, c in hexes(wanted['palette']).items())}. The canvas behind the "
         f"game is {hexes(wanted['palette'])['canvas']}.",
         "",
@@ -580,18 +377,15 @@ def brief(root: Path, wanted: dict, items: list[dict], skill: str) -> str:
         "role, so its hit frame shows the flash. A colour the subjects need and the roles lack is a new role: add it "
         "to PALETTE in tools/build_project.py, above the helpers' begin marker, named by what it plays (`slime`, "
         "`bone`, `gold`), then run the generator.",
-        "- Use the textures and stroke() so that a picture is more than plain shapes, the same ones on every "
-        "picture, so that all of them read as one style.",
         "- Fill most of the box: a picture is fitted to nothing, it is the box.",
         "",
         f"Then run python {skill}/scripts/art.py --project {root.as_posix()}, which runs your script, renders the "
         f"drawings, runs the generator and writes the contact sheet as pages "
         f"{(c3.script_folder(root, FOLDER) / 'contact-N.png').as_posix()}, N from 1, which its output lists. Open "
-        f"every page with the Read tool and answer each question below, yes or no, over all the pages together:",
-        *(f"{i}. {q}" for i, q in enumerate(LOOK, 1)),
+        f"every page with the Read tool to see what you drew.",
         "",
-        "Fix every yes in the drawings and run art.py again: three rounds at most. Reply with the questions still "
-        "answered yes after the last round, each with the picture it is about, or `none`.",
+        "Fix what its output refuses or names as art.frames and run art.py again: three rounds at most. Reply with "
+        "what it still refuses or names after the last round, or `none`.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -619,16 +413,15 @@ def table(rows: list[tuple[str, str, str, str]]) -> list[str]:
 
 
 NEXT = {"draw": "draw art/{stem}.svg", "redraw": "draw art/{stem}.svg again, as its line above says",
-        "render": "run art.py", "make": "make art/raw/{stem}.png, prompt below",
-        "again": "make art/raw/{stem}.png again, prompt below", "prepare": "run art.py",
-        "restyle": "make art/raw/{stem}.png again, its prompt changed; prompt below",
+        "render": "run art.py", "make": "save its picture as art/raw/{stem}.png",
+        "again": "save another picture as art/raw/{stem}.png, as its line above says", "prepare": "run art.py",
         "stand-in": "keeps its stand-in: change its subject in art() to try again", "done": "-"}
 
 
 def states(root: Path, wanted: dict) -> dict[str, str]:
     refused = image_route.refusals(root, wanted)
     return {item["file"]: svg_state(root, item, refused) if item.get("route") == "svg"
-            else image_route.state(root, item, refused, wanted) for item in wanted["images"]}
+            else image_route.state(root, item, refused) for item in wanted["images"]}
 
 
 def main() -> int:
@@ -700,7 +493,7 @@ def main() -> int:
             finally:
                 renderer.close()
         raw = [item for item in wanted["images"] if item.get("route") != "svg"
-               and image_route.state(root, item, refused, wanted) == "prepare"]
+               and image_route.state(root, item, refused) == "prepare"]
         if raw:
             try:
                 import PIL  # noqa: F401
@@ -711,7 +504,7 @@ def main() -> int:
                 lines, ok = image_route.fit(root, item, wanted, refused)
                 out += lines
                 wrote += ok
-                failed += not ok and image_route.state(root, item, refused, wanted) != "stand-in"
+                failed += not ok and image_route.state(root, item, refused) != "stand-in"
         image_route.keep_refusals(root, refused)
         if wrote:
             ran, last = run_generator(root)
@@ -723,12 +516,10 @@ def main() -> int:
         (stem_of(item["file"]), item.get("route", "image"), now[item["file"]],
          NEXT[now[item["file"]]].format(stem=stem_of(item["file"]))) for item in wanted["images"]]
     out += table(rows)
-    images = [item for item in wanted["images"] if item.get("route") != "svg"]
-    prompts = []
-    if any(now[item["file"]] in ("make", "again", "restyle") for item in images):
+    to_save = [item for item in wanted["images"] if item.get("route") != "svg"
+               and now[item["file"]] in ("make", "again")]
+    if to_save:
         (root / "art" / "raw").mkdir(parents=True, exist_ok=True)      # where the pictures are saved
-        prompts = image_route.list_prompts(root, {**wanted, "images": images}, skill)
-        out += prompts[:-1]
     done = [item for item in wanted["images"] if now[item["file"]] == "done"]
     folder = c3.script_folder(root, FOLDER)
     if done and wrote:
@@ -751,24 +542,21 @@ def main() -> int:
     sheets = sheet_pages(root) if done else []
     if sheets:
         out.append(f"contact sheet: {len(sheets)} page{'s' * (len(sheets) > 1)}, " + ", ".join(map(str, sheets)))
-    fix, kept = counted(root, look_findings(root, wanted, done)) if done else ([], [])
+    fix, kept = counted(root, frame_findings(root, wanted, done)) if done else ([], [])
     out += fix + kept
     drawings = [item for item in wanted["images"] if item.get("route") == "svg"
                 and now[item["file"]] in ("draw", "redraw")]
     counts = {s: list(now.values()).count(s) for s in set(now.values())}
     count = ", ".join(f"{s}: {n}" for s, n in sorted(counts.items()))
-    if drawings and image_route.unpicked(root, wanted):
-        out.append(f"{count}; next: the user gave a look, USER_LOOK, and it is not picked yet: run "
-                   f"{c3.script_command(root, 'pick_look.py')}, which has the first play screen drawn in three "
-                   f"directions for the user to pick, then this script")
-    elif drawings:
+    if drawings:
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "brief.md").write_text(brief(root, wanted, [i for i in wanted["images"] if i.get("route") == "svg"],
                                                skill), encoding="utf-8")
         out.append(f"{count}; next: start a construct3:art-drawer sub-agent with {folder / 'brief.md'} as its whole "
                    f"task, or draw them as that brief says yourself; then run {c3.script_command(root, 'art.py')}")
-    elif prompts:
-        out.append(prompts[-1])
+    elif to_save:
+        out.append(f"{count}; next: save each picture the table names in art/raw/, then run "
+                   f"{c3.script_command(root, 'art.py')}")
     elif any(s in ("render", "prepare") for s in now.values()):
         out.append(f"{count}; next: run {c3.script_command(root, 'art.py')}")
     elif failed or fix:
