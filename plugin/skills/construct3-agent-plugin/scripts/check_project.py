@@ -129,6 +129,10 @@ class Checker(FileChecks, ExpressionChecks, EventChecks, SheetChecks):
         self.check_uniqueness()
         self.check_files_and_addons()
         self.check_secrets()
+        if (self.p.root / c3.GENERATOR).is_file() and not self.unsaved:
+            self.check_generated_images()
+            self.check_pixel_font()
+            self.check_value_restarts()
         self.warn_deprecated()
 
     def deprecated_use(self, where: str, what: str) -> None:

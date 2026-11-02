@@ -12,7 +12,7 @@ import pytest
 
 from tests.skill_helpers import (
     RAG, DATA,
-    REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, every_event, game_rows, collect_tween,
+    REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, png, template_module, every_event, game_rows, collect_tween,
     warnings,
     findings, plan, add_addon, add_global_object, add_keyboard, coin_copy, pathfinding_coin, solid_board, EXAMPLES,
     NEEDS_EXAMPLES,
@@ -2432,3 +2432,31 @@ def test_a_disabled_event_still_opens_with_the_editor(project, change, said):
     edit(project, SHEET, broken)
     code, out = check(project)
     assert code == 1 and said in out, out
+
+
+def test_the_checker_holds_a_generated_projects_images_and_value_tweens(project):
+    """A generated project: a colour under a clear pixel, a soft edge in pixel art and a value tween restarted without
+    Stop are errors. The stand-in raises none, and a project without tools/build_project.py is not asked."""
+    code, out = tool(project, "check_project")
+    assert code == 0, out
+    t = template_module()
+    t.ROOT = project
+    t.write_png("glow.png", 1, 1, lambda x, y: (*t.PALETTE["danger"], 37), painted=True)
+    (project / "images" / "dirty.png").write_bytes(png(1, 1, lambda x, y: (9, 9, 9, 0)))
+    stop = t.stop_tweens("ScoreText", "count")
+    count = t.tween_value("ScoreText", "count", "int(ScoreText.Text)", "score", "0.5", "easeoutquad")
+    edit(project, "eventSheets/Game.json", lambda s: s["events"].extend([
+        block([cond("on-any-touch-start", "Touch")], [count]), block([cond("on-any-touch-end", "Touch")], [stop, count])]))
+    code, out = tool(project, "check_project")
+    assert code == 1, out
+    assert "alpha.pure: images/dirty.png has 1 clear pixels that hold a colour, the first at (0,0)" in out
+    assert "glow.png" not in out                    # above pixel art an edge keeps its antialiasing
+    assert ("motion.value-restart: sheet Game: ScoreText starts the value tween 'count' from int(ScoreText.Text), "
+            "the number it shows, without Stop 'count' first") in out
+    assert out.count("motion.value-restart") == 1   # the count after its Stop passes
+    edit(project, "project.c3proj", lambda p: p.update(viewportWidth=320, viewportHeight=180))
+    _, out = tool(project, "check_project")
+    assert re.search(r"alpha.pure: images/glow.png has alpha 37 at \(0,0\); the project's shadow is", out), out
+    (project / "tools" / "build_project.py").unlink()
+    _, out = tool(project, "check_project")
+    assert "alpha.pure" not in out and "motion.value-restart" not in out, out

@@ -86,7 +86,7 @@ def probe(ffprobe: str, path: Path) -> dict:
 
 
 def marked(ffprobe: str, path: Path) -> bool:
-    """Whether path carries the COMMENT tag make_sounds.py writes, as check_look.py knows a painting by its chunk."""
+    """Whether path carries the COMMENT tag make_sounds.py writes, as the checker knows a painting by its chunk."""
     return probe(ffprobe, path).get("tags", {}).get("comment") == MARK
 
 

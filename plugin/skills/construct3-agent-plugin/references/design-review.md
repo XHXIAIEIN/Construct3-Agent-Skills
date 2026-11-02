@@ -81,7 +81,7 @@ pending runtime checks remain distinct there.
 An `insufficient_evidence` answer remains pending on the next resume.
 Runtime state and visual judgements are checked on each run.
 Use `open_in_editor.py`, the target input plan of `preview_project.py` and
-`review_look.py` for that evidence.
+`check_screens.py` for that evidence.
 
 Exit 0 means preparation or answer validation finished.
 It does not mean every judgement passed or the game was played.

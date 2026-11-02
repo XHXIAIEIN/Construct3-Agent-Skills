@@ -303,5 +303,3 @@ def test_a_text_still_showing_a_placeholder_is_a_finding():
     hidden = {**text(4, "End", [0, 130, 100, 150], "Text", [40, 16]), "shown": False}
     found = cs.placeholder_findings([*shown, hidden])
     assert [f["uids"] for f in found] == [[1], [2]] and "still shows a placeholder" in found[0]["line"]
-
-

@@ -132,7 +132,7 @@ REFUSED = "art/refused.json"               # the pictures and drawings refused, 
 TRIES = 3                                  # refusals before a picture keeps its stand-in
 STAND_IN = (f"{TRIES} times, so it keeps its stand-in. To try again, change its subject in art(), which starts the "
             f"count again")
-MARK = "c3-art"                            # the PNG text key check_look.py reads as a painting
+MARK = "c3-art"                            # the PNG text key check_project.py reads as a painting
 MADE_FROM = "c3-art-prompt"                # the PNG text key that holds made_from() of the picture's prompt
 LOOK = "art/look.png"                      # the first play screen in the look the user picked, from pick_look.py
 

@@ -528,6 +528,44 @@ class SheetChecks:
                 self.group_titles.add(ev["title"])
             self.declared_groups(ev.get("children") or [])
 
+    def check_value_restarts(self) -> None:
+        """A generated project's value tween that starts from the number a Text shows, or from a tween's value, has
+        Stop for its tag before it, or runs only while that tag is not playing: a second one under a tag that still
+        plays runs beside the first, and the shown number jumps when the first ends."""
+        def tag_of(action: dict) -> str:
+            return str((action.get("parameters") or {}).get("tags", "")).strip().strip('"')
+
+        def blocks(events: list, conds: tuple = (), above: tuple = ()):
+            """(conditions, actions, actions of the enclosing blocks) of every block, a sub-event with its parents'
+            conditions."""
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+                here = (*conds, *(ev.get("conditions") or []))
+                acts = [a for a in ev.get("actions") or [] if isinstance(a, dict)]
+                if acts:
+                    yield here, acts, above
+                yield from blocks(ev.get("children") or [], here, (*above, *acts))
+
+        for sname, sheet in self.sheets.items():
+            for conds, acts, above in blocks(sheet["events"]):
+                for i, a in enumerate(acts):
+                    p = a.get("parameters")
+                    if a.get("id") != "tween-value" or not isinstance(p, dict) or "yes" in (
+                            p.get("loop"), p.get("ping-pong")):
+                        continue
+                    obj, start, tag = a.get("objectClass"), str(p.get("start-value", "")), tag_of(a)
+                    stopped = any(b.get("objectClass") == obj and (b.get("id") == "stop-all-tweens" or (
+                        b.get("id") == "stop-tweens" and tag_of(b) == tag)) for b in (*above, *acts[:i]))
+                    guarded = any(k.get("id") in ("is-playing", "is-any-playing") and k.get("objectClass") == obj
+                                  and k.get("isInverted") for k in conds)
+                    if re.search(r"\.Text\b|\.Value\(", start) and not stopped and not guarded:
+                        self.err(f"motion.value-restart: sheet {sname}: {obj} starts the value tween {tag!r} from "
+                                 f"{start}, the number it shows, without Stop {tag!r} first; a second value tween "
+                                 f"under a tag that still plays runs beside the first, and the shown number jumps "
+                                 f"when the first ends. Put stop_tweens({obj!r}, {tag!r}) before it, as the "
+                                 f"template's count_up() does")
+
     def check_sheets(self) -> None:
         for sname, sheet in self.sheets.items():
             if not (isinstance(sheet.get("name"), str) and sheet["name"]):

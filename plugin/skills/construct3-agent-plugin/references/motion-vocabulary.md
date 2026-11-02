@@ -9,10 +9,7 @@ event needs a motion and the helper is not obvious.
 Each class of object keeps one kind of motion, so the player can tell what
 matters. `TWEEN_STYLE` in `assets/build_project.py` holds the ease and the
 seconds by class; a tween helper takes `style=` and a given time or ease
-wins over it. The rules and their status are in
-`assets/look-manifest.json`, under the ids that start with `motion.`. A
-rule whose status is `open` or `proposed` is the user's to decide: keep the
-template's value.
+wins over it.
 
 The glossary's shape, term then meaning, follows the animation-vocabulary
 skill of [emilkowalski/skills](https://github.com/emilkowalski/skills)

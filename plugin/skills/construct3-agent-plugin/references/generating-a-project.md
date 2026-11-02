@@ -126,10 +126,7 @@ reference pictures as PNG, JPEG or WebP in `art/references/`
 (`look.references`): the draw brief gives the colours measured from them,
 and the look review shows each screen beside them. When the user gives none,
 `USER_LOOK` stays empty and the game takes the default look, the template's
-fallback, with no picker. `assets/look-manifest.json` holds every rule of
-the look, each under an id that this file cites, with its value and its
-record. With `USER_LOOK` set, a rule of scope `default-look` stops
-nothing, and a rule of scope `every-look` still stops the run.
+fallback, with no picker.
 
 The plan names the art direction in one sentence, `ART_STYLE`, which the
 pick writes for a look the user gave, and each sprite with what its picture
@@ -218,11 +215,6 @@ The project's README explains the objects, the groups, the constants and how
 to regenerate. It is the second copy of the design, for the user, and it says
 that a change made in the editor is moved into the generator before the next
 run, and that the run stops until then.
-
-When another model writes the generator, give it the `deliver` steps of
-`assets/look-manifest.json`, then run its `confirm` steps on the result,
-`scripts/check_look.py` among them. A rule whose status is `open` is the
-user's to decide.
 
 ## Writing the generator
 
@@ -368,7 +360,7 @@ parameters are in the template.
 - A text holds no emoji: the run stops on one in a layout or in a text the
   events set (`text.no-emoji`). An icon is art in its own box beside the
   text. A Text that the events set starts with real text, never `Text` or
-  Lorem ipsum, which `review_look.py` reports if it is still shown
+  Lorem ipsum, which `check_screens.py` reports if it is still shown
   (`text.placeholder`).
 - A button is `button(type, file, label, text, col, row)`, its shape drawn
   at `button_size(text)`; col `"center"` puts it on the cell nearest the
@@ -458,8 +450,7 @@ parameters are in the template.
   `popup(layer, veil, manager)` opens it, `show=False` closes it, and
   `popup_events(layer, veil, manager)` goes among the module's events. A
   pause menu is `pause_types()`, `pause_menu()` on the popup's layer and
-  `pause_events()`, as the stand-in game sets them (`menu.pause`). The motion
-  checks of `check_look.py` are the rules whose ids start with `motion.`.
+  `pause_events()`, as the stand-in game sets them (`menu.pause`).
   [motion-vocabulary.md](motion-vocabulary.md) names each motion with its
   helper and value: a pop, a float, a hit stop, a shake, a ticker, a stagger.
 - A label is `TEXT_SIZE["body"]`, a screen's title `TEXT_SIZE["title"]`, the
@@ -484,7 +475,7 @@ parameters are in the template.
   ASCII. After an edit by hand, run it again. A word that events build
   from parts that no string holds goes in with `--add`, which the next
   runs keep; `--replace` drops what is no longer in use.
-  `check_look.py` names a character in use that is not baked, since it
+  `check_project.py` names a character in use that is not baked, since it
   draws as nothing.
 - A game the player points at things in sets `POINTER = True`; the
   template's default is `False`, and the `pointer_*()` helpers then add

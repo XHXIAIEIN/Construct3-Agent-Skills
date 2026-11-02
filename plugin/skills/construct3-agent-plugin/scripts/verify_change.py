@@ -342,11 +342,6 @@ def screened(run: Run) -> tuple[int, str] | None:
     if run.passed_here("screened"):
         show("screened", "passed", "on these files, earlier")
         return None
-    if (run.root / c3.GENERATOR).is_file():
-        code, out = run.script("check_look.py")
-        if code:
-            return stopped(run, "screened", code, out, f"next: fix every line above in tools/build_project.py, run it, "
-                                                       f"then run {again(run)}")
     code, out = run.script("check_screens.py", *run.browser())
     if code in (2, 3, 5):
         return could_not(run, "screened", "check_screens.py", code, out)

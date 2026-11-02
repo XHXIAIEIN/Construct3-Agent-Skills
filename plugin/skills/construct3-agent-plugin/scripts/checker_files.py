@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+import bake_font
 import c3project as c3
 from c3project import LOWER, RESOURCE_FOLDERS, closest, folder_items, script_command
 from checker_common import (
@@ -16,6 +17,9 @@ from checker_common import (
     SPRITE_FONT_DEFAULTS, member_types, replaced_in_own_text, first_few, effect_names, contrast_ratio,
     hex_colour, layer_instances, frames_of,
 )
+
+# The tallest viewport of pixel art; above it the template antialiases every edge.
+PIXEL_ART_HEIGHT = 360
 
 
 class FileChecks:
@@ -308,6 +312,57 @@ class FileChecks:
                 if isinstance(fr, dict):
                     sprite_ids.setdefault(fr.get("imageSpriteId"), []).append(f"the frame images/{stem}.png of {shown}")
         self.check_sprite_ids(sprite_ids)
+
+    def check_generated_images(self) -> None:
+        """A generated project's images: a clear pixel holds no colour; in pixel art a drawn image is clear, opaque or
+        the shadow's one alpha, unless art.py's mark says it keeps soft edges. Above 360 px the template
+        antialiases every edge. Reading every pixel costs seconds, so edit_sheet.py's check of a sheet skips it."""
+        soft = self.p.data.get("viewportHeight", 1080) > PIXEL_ART_HEIGHT
+        partial: dict[str, dict[int, tuple[int, int]]] = {}      # image: {alpha: first (x, y)}
+        for png in sorted((self.p.root / "images").rglob("*.png")):
+            rel = png.relative_to(self.p.root).as_posix()
+            data = png.read_bytes()
+            img = c3.png_rgba(data)
+            if img is None:
+                self.err(f"alpha.pure: {rel} is not an 8-bit non-interlaced PNG; write it as the template's "
+                         f"write_png() does")
+                continue
+            w, _, pixels = img
+            hidden = [i for i, px in enumerate(pixels) if px[3] == 0 and px[:3] != (0, 0, 0)]
+            if hidden:
+                self.err(f"alpha.pure: {rel} has {len(hidden)} clear pixels that hold a colour, the first at "
+                         f"({hidden[0] % w},{hidden[0] // w}); write a clear pixel as (0, 0, 0, 0)")
+            if soft or "c3-art" in c3.png_text(data):
+                continue
+            for i, px in enumerate(pixels):
+                if 0 < px[3] < 255:
+                    partial.setdefault(rel, {}).setdefault(px[3], (i % w, i // w))
+        # The shadow is the alpha the most images hold; any other is a soft edge.
+        held = [a for alphas in partial.values() for a in alphas]
+        shadow = max(set(held), key=held.count) if held else None
+        for rel, alphas in partial.items():
+            others = sorted(a for a in alphas if a != shadow)
+            if others:
+                x, y = alphas[others[0]]
+                more = f" and {len(others) - 1} more values" if len(others) > 1 else ""
+                self.err(f"alpha.pure: {rel} has alpha {others[0]} at ({x},{y}){more}; the project's shadow is "
+                         f"{shadow}, and a drawn image is clear, opaque or the shadow. A picture meant to keep soft "
+                         f"edges goes through art.py, which marks it")
+
+    def check_pixel_font(self) -> None:
+        """The characters in use that the Sprite Fonts of bake_font.MANIFEST lack, which draw as nothing."""
+        root = self.p.root
+        if not (root / bake_font.MANIFEST).is_file():
+            return
+        manifest = c3.load(root / bake_font.MANIFEST)
+        types = set(manifest.get("types") or [])
+        layouts = bake_font.layouts_of(root)
+        used = bake_font.chars_of(bake_font.in_use(root, layouts, types) + manifest.get("added", ""))
+        have = bake_font.baked(layouts, types)
+        missing = "".join(ch for ch in used if ch not in have)
+        if missing:
+            self.err(f"type.pixel-font: {len(missing)} characters in use are not baked into the Sprite Fonts, and "
+                     f"draw as nothing: {missing}; run {c3.script_command(root, 'bake_font.py')}")
 
     def check_sprite_ids(self, sprite_ids: dict) -> None:
         """Report an imageSpriteId that two images or frames share.

@@ -1506,47 +1506,6 @@ def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
     assert (p["properties"]["sampling"], p["properties"]["fullscreenMode"]) == ("nearest", "integer-scale-outer")
 
 
-def test_look_manifest_matches_the_template():
-    """assets/look-manifest.json is what an agent hands a model and confirms against: every value
-    it names in the template is the template's, and every status and scope is one it defines. The
-    rules that stop the run in the default look alone are its taste; legibility and the grid hold in
-    every look."""
-    manifest = json.loads((SKILL / "assets" / "look-manifest.json").read_text(encoding="utf-8"))
-    t = template_module()
-    ids = [r["id"] for r in manifest["rules"]]
-    assert len(ids) == len(set(ids))
-    for rule in manifest["rules"]:
-        assert rule["status"] in manifest["status"], rule["id"]
-        assert rule["scope"] in manifest["scope"], rule["id"]
-        if rule["status"] in ("enforced", "adopted", "open") and "value" in rule:
-            assert eval(rule["template"], vars(t)) == eval(rule["value"], vars(t)), rule["id"]
-        if rule["status"] == "open":
-            assert rule.get("options"), rule["id"]
-        named = rule.get("helpers", "") + ("" if "value" in rule else rule.get("template", ""))
-        for name in re.findall(r"(\w+)\(\)", named):
-            assert callable(getattr(t, name, None)), (rule["id"], name)
-        assert rule["source"] in manifest["decisions"], rule["id"]
-    for record in manifest["decisions"]:
-        if record.startswith("Construct3-Agent-Skills/"):
-            assert (REPO / record.removeprefix("Construct3-Agent-Skills/")).is_file(), record
-    # check_look.py enforces the manifest's values, so they cannot drift from the template's
-    check_look = script_module("check_look")
-    assert check_look.COLLIDING == t.COLLIDING
-    for view in ("VIEW_W, VIEW_H = 320, 180", "VIEW_W, VIEW_H = 720, 1280", "VIEW_W, VIEW_H = 1920, 1080"):
-        sized = template_module(VIEW=view)
-        assert check_look.rule_value("grid.unit", VIEW_W=sized.VIEW_W, VIEW_H=sized.VIEW_H) == sized.UNIT
-    assert {r["id"] for r in manifest["rules"] if r.get("strict")} >= {
-        "alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn"}
-    enforced = {r["scope"]: set() for r in manifest["rules"]}
-    for r in manifest["rules"]:
-        if r["status"] == "enforced":
-            enforced[r["scope"]].add(r["id"])
-    assert enforced["default-look"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
-    assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
-                                      "colour.palette-only", "colour.structure", "colour.accent-contrast",
-                                      "text.contrast", "type.scale", "type.min-size", "control.parts", "pixel-art.sampling"}
-
-
 def test_template_keeps_alpha_pure_and_shapes_on_the_grid(tmp_path):
     """A drawn image holds nothing under a clear pixel; in pixel art it is clear, opaque or the
     shadow's alpha, while a larger viewport antialiases its edges. A shape covers whole cells and

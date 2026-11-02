@@ -89,7 +89,7 @@ def stem_of(rel: str) -> str:
 
 def png(w: int, h: int, pixels: list[tuple], painted: bool) -> bytes:
     """An 8-bit RGBA PNG, a clear pixel written as (0, 0, 0, 0). A painted one carries the text chunk
-    that check_look.py reads as a picture with soft edges."""
+    that check_project.py reads as a picture with soft edges."""
     def chunk(tag: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
     rows = b"".join(b"\0" + b"".join(bytes(p if p[3] else (0, 0, 0, 0)) for p in pixels[y * w:(y + 1) * w])

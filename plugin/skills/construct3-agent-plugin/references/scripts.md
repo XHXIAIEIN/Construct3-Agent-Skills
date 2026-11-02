@@ -7,9 +7,8 @@ needs only now and then. Each prints its options and examples with `--help`.
 |--------|-----|
 | `scripts/check_design.py DESIGN.json` | A new game's design before any project file: refuses a gap by its path, then plays its acceptance tests on the rules as a prototype, without the editor |
 | `scripts/play_design.py DESIGN.json` | The same tests played in the editor on the game built from the design, then the first screen against the prototype; each failure names the test, the step and the rules to compare |
-| `scripts/review_look.py` | Preview the project, visit every layout and print a screenshot of each, the faults the runtime shows on it, and fixed yes/no questions to answer from the screenshots |
+| `scripts/check_screens.py` | Preview the project, visit every layout and print a screenshot of each and the mechanical faults the runtime shows on it, in each data state and on three shapes of screen. `verify_change.py` runs it as its last step; run it alone to see one layout |
 | `scripts/bake_font.py [--add TEXT] [--replace] [--check]` | The characters a pixel-art game shows, baked from the pixel font of the user's font cache into the images of its Sprite Fonts: appended by default, `--add` for words that events build at runtime, `--replace` to drop what is no longer in use, `--check` to list what is in use and not baked |
-| `scripts/check_look.py` | The strict rules of `assets/look-manifest.json` on a project built from `assets/build_project.py`, after the generator's check ends with `ok:` |
 | `scripts/check_sounds.py` | Sounds measured against `tools/sounds.json` |
 | `scripts/make_sounds.py` | Placeholder sounds for `tools/sounds.json` |
 | `scripts/notes.py` | The facts that earlier checks showed about the game, each kept on the function, group or event it rests on ([verifying-a-change.md](verifying-a-change.md), step 9) |
