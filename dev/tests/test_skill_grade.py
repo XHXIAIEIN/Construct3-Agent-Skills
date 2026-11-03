@@ -1815,6 +1815,14 @@ REPORTED = {"id": "on-item-set", "objectClass": "LocalStorage"}
       {"eventType": "block", "sid": 3, "conditions": [REPORTED], "actions": [{"callFunction": "Say"}]}], True),
     ([{"eventType": "function-block", "functionName": "Say", "sid": 2, "conditions": [], "actions": ["say"]},
       {"eventType": "block", "sid": 3, "conditions": [{"id": "on-created"}], "actions": [{"callFunction": "Say"}]}], False),
+    ([{"eventType": "block", "sid": 2, "conditions": [REPORTED], "actions": ["say"]},
+      {"eventType": "block", "sid": 3, "conditions": [{"id": "on-error", "objectClass": "LocalStorage"}],
+       "actions": [{"id": "set-text", "objectClass": "Notice", "parameters": {"text": '"Not saved"'}}]}], True),
+    ([{"eventType": "function-block", "functionName": "Note", "sid": 2, "conditions": [],
+       "actions": [{"id": "set-text", "objectClass": "Notice", "parameters": {"text": "note"}}]},
+      {"eventType": "block", "sid": 3, "conditions": [REPORTED], "actions": [{"callFunction": "Note", "parameters": ['"Saved"']}]},
+      {"eventType": "block", "sid": 4, "conditions": [{"id": "on-error", "objectClass": "LocalStorage"}],
+       "actions": [{"callFunction": "Note", "parameters": ['"Not saved"']}]}], True),
     ([], False)])
 def test_saved_counts_only_once_the_write_is_reported(tmp_path: Path, rows: list, passed: bool) -> None:
     (tmp_path / "layouts").mkdir()
