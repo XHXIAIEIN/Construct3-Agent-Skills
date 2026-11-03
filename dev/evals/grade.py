@@ -1650,7 +1650,8 @@ WRITE_REPORTED = {"on-item-set", "on-any-item-set", "on-all-sets-complete"}
 
 def saved_shown_where(events: list, project: Path) -> tuple[bool, str]:
     """Whether every action that shows the word Saved runs when the write is reported: under such a trigger, or in
-    a function that only such a trigger calls. A Text placed with the word counts when an action shows it."""
+    a function that only such a trigger calls. A Text placed with the word counts when an action shows it. An event
+    that says Not saved reports the failed write, so it shows no claim of a save."""
     placed = set()
     for path in (project / "layouts").glob("*.json"):
         for layer in json.loads(path.read_text(encoding="utf-8"))["layers"]:
@@ -1661,13 +1662,14 @@ def saved_shown_where(events: list, project: Path) -> tuple[bool, str]:
         return any(c.get("id") in WRITE_REPORTED and c.get("objectClass") == "LocalStorage"
                    for c in conditions_over(ev, above))
 
+    claims = [(ev, above) for ev, above in walk(events) if "not saved" not in values(ev.get("actions", [])).lower()]
     called, others = set(), set()
-    for ev, above in walk(events):
+    for ev, above in claims:
         for a in ev.get("actions", []):
             if a.get("callFunction"):
                 (called if reported(ev, above) else others).add(a["callFunction"])
     shows, wrong = 0, []
-    for ev, above in walk(events):
+    for ev, above in claims:
         for a in ev.get("actions", []):
             word = "saved" in values([a]).lower()
             if not word and not (a.get("objectClass") in placed and a.get("id") in ("set-visible", "set-opacity")):

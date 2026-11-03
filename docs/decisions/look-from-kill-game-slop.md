@@ -81,7 +81,11 @@ Option 3:
    knows (`Construct3-Cookbook/guides/plugins/localstorage.md`).
 
 The eval cases `two-notices-at-once` and `saved-best-score` exercise these
-changes.
+changes. In iteration 103, two runs per case and arm, every run of both arms
+passed every assertion, so these cases tell the arms apart no more. Chain
+attempts went down by 7 in the changed arm. Runs of both arms played the two
+notices at once, and every run set Saved under *On item set*, so the eval shows
+no change of behaviour from these two decisions.
 
 ## Re-evaluate when
 

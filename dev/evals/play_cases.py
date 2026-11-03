@@ -371,13 +371,15 @@ SHOWN = ("vars.h.shown = re => Object.values(runtime.objects).flatMap(o => o.get
 
 def two_notices_at_once() -> dict:
     """The second round deals 3 coins. The last is taken as soon as Last coin! shows, so Round clear arrives inside
-    that notice's 2 seconds."""
+    that notice's 2 seconds. A collected coin can stay in the object count while its tween plays, and a coin in play
+    has no tween, because the fixture's tap refuses a coin with one."""
     take = {"tap": {"js": "vars.h.spot('Coin') || {x: 4, y: 4}"}}
     return {"touch": True, "steps": [
         *COINS, js(*SHOWN), *collect(2), take, take,
         {"until": "vars.h.shown(/last coin/i).length > 0", "timeout": 5},
         check("With one coin left, Last coin! shows",
-              "return {ok: h.count('Coin') === 1, said: `${h.count('Coin')} coin(s) with the notice on screen`};"),
+              "const left = runtime.objects.Coin.getAllInstances().filter(i => ![...i.behaviors.Tween.allTweens()].length).length;",
+              "return {ok: left === 1, said: `${left} coin(s) in play with the notice on screen`};"),
         take,
         {"until": "vars.h.shown(/round clear/i).length > 0", "timeout": 5},
         check("Taken at once, Round clear does not lie over Last coin!",
