@@ -235,9 +235,7 @@ the first line.
   no counterpart here.
 - HUD share: no cap. A borrowed cap of 20 to 25% of the screen falls
   inside the examples' upper quarter, games built around their interface,
-  and would flag them. A cap guards against a HUD that crowds the
-  playfield. That shows in the playfield's share, and `filled()` warns on
-  it under `PLAYFIELD_MIN` (`greybox-blockout.md`).
+  and would flag them. A cap would say how much HUD a game may have.
 - Popups: no `popup()` helper with a scale pop. A popup fades, as the HUD's
   motion in `new-project.md` says for menus.
 - Idle motion: a row in `prompts/references/feel.md` for a pickup: Sine
@@ -263,14 +261,10 @@ the first line.
   saving and open it again, since a save then would write over the change.
 - Design size: no warning in `check_design.py`. A threshold needs runs that
   build games from designs of different sizes, some of which fail.
-- Safe area: no question in `review_look.py`, whose screenshots come from
-  the preview and cannot show a notch. `check_look.py` warns,
-  `screen.safe-area`, when `viewportFit` is `cover` and no event expression
-  or script reads the insets; the look manifest holds the rule. It is a
-  warning, because the editor accepts the setting and a game may move its
-  HUD by other means.
+- Safe area: no check, because the preview's screenshots cannot show a notch
+  and a game may move its HUD by other means.
 - The first runtime error: `open_in_editor.py`, `preview_project.py` and
-  `review_look.py` print each distinct error once, in the order it first
+  `check_screens.py` print each distinct error once, in the order it first
   came, with how many times it came. The summary line keeps the total. The
   `next:` line after a preview with errors says to fix the first error
   first, because the errors after it can follow from it.
@@ -280,7 +274,6 @@ the first line.
 - A generated game's player falls outside the examples' range and reads
   wrong in a preview, or a template for one genre is added: it takes that
   genre's median.
-- A generated game's HUD covers its playfield while `filled()` passes it.
 - A preview at another rate, or a Construct release, moves a jump window
   by more than a tick: rerun the probe, whose plan and log reader are in
   `.local/docs/evidence/borrowed-numbers/coyote/`.

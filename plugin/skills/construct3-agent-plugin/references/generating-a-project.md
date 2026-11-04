@@ -8,7 +8,7 @@ produces the whole project, and `scripts/check_project.py` catches the
 mistakes the editor would otherwise report one at a time.
 
 The file has three parts. The game's settings come first: `PROJECT_NAME`,
-`VIEW_W` and `VIEW_H`, the grid, `PALETTE` and the rest of the look. The
+`VIEW_W` and `VIEW_H`, the grid, `PALETTE`, the text sizes and the motion values. The
 helpers follow between a begin and an end marker, the same in every game.
 The game comes last: `BEATS`, `build_files()`, `build_images()`,
 `build_object_types()`, `build_layouts()` and the `module_*()` functions of
@@ -113,51 +113,26 @@ avoid").
 
 ## Plan the art
 
-The look is the user's when the user gives one: a style, an art
-direction, or references or an existing project to take it from. The plan
-then names where it comes from in `USER_LOOK`, and the user picks the look
-before any art (`look.picker`): after the generator's first run,
-`python scripts/pick_look.py` has the first play screen drawn in three
-directions, the default look and two from the user's look, and stops for the
-user's pick. The pick writes `USER_LOOK`, `PALETTE` with `canvas` and
-`canvas_alt` from the backdrop, and `ART_STYLE`, and keeps its screen as
-`art/look.png`, which every picture then follows. Save the user's
-reference pictures as PNG, JPEG or WebP in `art/references/`
-(`look.references`): the draw brief gives the colours measured from them,
-and the look review shows each screen beside them. When the user gives none,
-`USER_LOOK` stays empty and the game takes the default look, the template's
-fallback, with no picker. `assets/look-manifest.json` holds every rule of
-the look, each under an id that this file cites, with its value and its
-record. With `USER_LOOK` set, a rule of scope `default-look` stops
-nothing, and a rule of scope `every-look` still stops the run.
-
-The plan names the art direction in one sentence, `ART_STYLE`, which the
-pick writes for a look the user gave, and each sprite with what its picture
-shows and its box in units. Every sprite is an
-`art()`, which shows its stand-in until its picture is in `art/`, and each
-picture takes one of two routes (`art.routes`):
+The plan names each sprite with what its picture shows and its box in units.
+Every sprite is an `art()`, which shows its stand-in until its picture is in
+`art/`, and each picture takes one of two routes:
 
 - `ART_ROUTE = "svg"`, the template's default: the pictures are drawn in
   code as SVG and rendered in the browser. An object whose frames must keep
   one box and baseline, such as a character that walks, takes
   `art(..., route="svg")` on either route.
-- `ART_ROUTE = "image"`, when this session has an image generation tool:
-  the tool makes each picture from the prompt that `scripts/art.py` prints.
+- `ART_ROUTE = "image"`, when the user gives the pictures or this session has
+  an image tool: save each picture as `art/raw/<name>.png`, with a transparent
+  background or on a flat magenta or green one.
 
 After the generator has run, run `python scripts/art.py` and do what its
 last line says. It runs the game's `tools/drawings.py`, renders every
-drawing, fits every picture of the image tool, runs the generator again so
+drawing, cuts out and fits every picture of `art/raw/`, runs the generator again so
 that `art()` takes them, and writes a contact sheet of every picture, in
 pages that a model reads without scaling them down. For the drawings still to make,
 it writes a brief: give it as the whole task to a `construct3:art-drawer`
-sub-agent, which draws them all in one style with `scripts/svg_kit.py` and
-reads every page of its contact sheet before it returns. A picture of the
-image tool made from another `ART_STYLE`, picked look or subject than the
-current ones is in the state `restyle`, and the table prints its prompt
-again.
-Without that agent type, draw them yourself as the brief says. Never compute
-a picture pixel by pixel in Python: with nothing to hold a style, it mixes
-styles on one screen (`Construct3-Agent-Skills/docs/decisions/art-drawn-in-code.md`).
+sub-agent, which draws them all with `scripts/svg_kit.py`. Without that agent
+type, draw them yourself as the brief says.
 
 ## Build, check, open
 
@@ -191,7 +166,7 @@ above. Then:
    scripts/print_sheet.py`, before anyone opens the editor.
 3. Run `python scripts/verify_change.py`, as SKILL.md's "Check after every
    change" says, until it ends with `ok:`: the design review with `--style`,
-   the editor and its preview, the kept plays and the look. A game with a
+   the editor and its preview, the kept plays and the screen check. A game with a
    design also plays its tests there, `tools/design.json`, until every test
    passes in the editor as it passed in the prototype. Fix what a step
    finds, a `failed` or a `runtime:` line included, in the generator, not
@@ -209,7 +184,7 @@ above. Then:
    written, as the section "Adding an entry" of
    `Construct3-Cookbook/guides/pitfalls.md` says, `editor-and-preview.md`
    beside this file when it is about the editor or the preview, and the
-   places that section names for a file format or the look.
+   places that section names for a file format.
 6. Commit the generator with the files it produced, on the branch `agents`
    (SKILL.md, "Before the first command"); the diff of the generated JSON is
    the review of the change.
@@ -218,11 +193,6 @@ The project's README explains the objects, the groups, the constants and how
 to regenerate. It is the second copy of the design, for the user, and it says
 that a change made in the editor is moved into the generator before the next
 run, and that the run stops until then.
-
-When another model writes the generator, give it the `deliver` steps of
-`assets/look-manifest.json`, then run its `confirm` steps on the result,
-`scripts/check_look.py` among them. A rule whose status is `open` is the
-user's to decide.
 
 ## Writing the generator
 
@@ -290,21 +260,15 @@ parameters are in the template.
   viewport by default. Draw every shape of a layer on one canvas, with
   antialiasing off, because each canvas and its MSAA cost every pixel on
   every frame.
-- Before placing, sizing or colouring anything on the screen, read
-  `Construct3-Cookbook/guides/project-files/new-project.md`, "Viewport, look and
-  HUD": the layout, and the default-look look that the helpers below draw
-  when the user gave no look, with the numbers behind them.
-- Positions and sizes are whole units of the placement grid, never numbers
-  picked one by one. `UNIT` follows the viewport (8 px for pixel art, 32 px
+- `UNIT` follows the viewport (8 px for pixel art, 32 px
   otherwise), and `TOUCH` is the smallest object a finger taps at that
   viewport; a tapped sprite is at least `TOUCH` wide. `units(n)` gives a
   size, `snap(v)` a coordinate, and `anchor("top-left", w, h, ox, oy)` a HUD
   element held against an edge or corner, `MARGIN` inside the viewport,
   with the instance's origin passed so the point returned is the one the
-  file stores. A shape is whole units wide and high, and `shape_inst(type,
-  file, col, row)` places it by the grid cell of its top-left corner;
-  `on_grid()` stops the run on a world instance off the grid, and an object
-  created at runtime goes to `grid_random(lo, hi)`, never a raw `random()`.
+  file stores. `shape_inst(type, file, col, row)` places a shape by the grid
+  cell of its top-left corner, and `grid_random(lo, hi)` gives an object
+  created at runtime a place on the grid.
 - A HUD label is `hud_text(type, text, where, longest=...)`: its box fits
   its longest text, and it reads towards the side it hangs on. A printable
   ASCII character counts at its width in Inter Medium, a Chinese, Japanese,
@@ -318,25 +282,15 @@ parameters are in the template.
   `GAP_IN` above the value in `TEXT_SIZE["number"]` and the light weight.
   What the player is on, a round, a level or a mode, is `hud_tag(type,
   text)` top left, a small tag in capitals such as `ROUND 1 / 6`, and
-  the events set its text in capitals. A title, menu or pause screen sets
-  its texts and buttons on the vertical centre line (`screen.menu-axis`): `hud_header()`
-  centres its title at the top with a tag under it, and a button takes
-  `"center"` for its column. The run warns of an instance of a layout or
-  layer named title, menu or pause that sits off the line.
+  the events set its text in capitals. `hud_header()` centres a title at the
+  top with a tag under it, and a button takes `"center"` for its column.
   A result screen states its moment with `result_headline(title_type,
   tag_type, text, tag, longest=...)`, one line at `display` size centred
-  on the screen (`screen.result-headline`). The controls are `hud_keys(box_type, key_type,
+  on the screen. The controls are `hud_keys(box_type, key_type,
   verb_type, [(key, verb), ...])` bottom left, and `hints(box_type)` is the
   group that dims the keys once the player has used them.
 - The playfield goes in the middle of what the HUD leaves, `centred(w, h,
-  play_area(hud))`, at least `GAP_OUT` from it. `spaced(groups)` stops the
-  run when two groups sit closer than `GROUP_RATIO` times the gap inside
-  either, and warns when one ninth of the screen holds `HUD_CROWD` items of
-  the HUD while two corners stand empty: give each item a corner or an edge
-  of its own, and each label one thing, not several joined by `·` or `|`.
-  `balanced(content, area)` warns when the playfield is off that
-  middle, and `filled(content)` when it covers less than `PLAYFIELD_MIN` of
-  the screen. The UI layer's instances go through `no_overlap()`, which
+  play_area(hud))`, at least `GAP_OUT` from it. The UI layer's instances go through `no_overlap()`, which
   stops the run naming every pair of boxes that meet, with the `dy` that
   clears them, and every box past the viewport.
 - A value shown as a bar, health, fuel, progress, a row of hearts, is
@@ -347,7 +301,7 @@ parameters are in the template.
   maximum, LENGTH))`, or slides it with `tween_width()`. A bar with its
   name in front of it is `labelled_bar(label, text, frame, fill, where,
   length)`.
-- The project fills the screen (`screen.fill`): `FULLSCREEN` is *Scale
+- The project fills the screen: `FULLSCREEN` is *Scale
   outer*, or *Integer scale outer* for pixel art, so the screen shows more
   than the viewport on its longer side. `PIXEL_ART` has a pixel-art project
   sample *Nearest* at a whole-number scale (`pixel-art.sampling`). The
@@ -359,17 +313,12 @@ parameters are in the template.
   the actions where the value changes, and `counting(text, value)` among a
   module's events. The Text shows the number alone, has the Tween behavior
   and draws in the number kind's weight, light, whose digits share one
-  width, or is left-aligned, or its other digits shift as one changes
-  (`type.counting-digits`; the run warns).
+  width, or is left-aligned, or its other digits shift as one changes.
 - Every change of layout is `*fade_to(layout)`, or `*fade_to()` to restart
-  this one, in place of `go_to_layout()` and `restart_layout()`
-  (`screen.transition`). The run then puts a cover on a top layer of every
+  this one, in place of `go_to_layout()` and `restart_layout()`. The run then puts a cover on a top layer of every
   layout the sheet runs and fades it away as each starts.
-- A text holds no emoji: the run stops on one in a layout or in a text the
-  events set (`text.no-emoji`). An icon is art in its own box beside the
-  text. A Text that the events set starts with real text, never `Text` or
-  Lorem ipsum, which `review_look.py` reports if it is still shown
-  (`text.placeholder`).
+- A Text that the events set starts with real text, never `Text` or
+  Lorem ipsum, which `check_screens.py` reports if it is still shown.
 - A button is `button(type, file, label, text, col, row)`, its shape drawn
   at `button_size(text)`; col `"center"` puts it on the cell nearest the
   vertical centre line. The label is centred on the shape, in the colour
@@ -405,19 +354,15 @@ parameters are in the template.
   structure the eye reads past, `solid` for edges, `dim`, `ink`, the
   accents `reward`, `danger`, `hover` and `pressed`, and `flash`. Keep these
   roles and change their values. The images `write_png()` draws, the labels
-  and the layers take them by role through `rgb()`, and a pixel of any other
-  colour stops the run with the nearest role: a new object reuses the
-  game's colours or adds one under the role it plays. A painting, a
-  gradient or a photograph passes `painted=True`. `check_palette()` stops
-  the run on a palette that breaks `colour.structure`, and in the default look
-  `palette.greys`.
+  and the layers take them by role through `rgb()`. A picture with soft edges
+  passes `painted=True`.
 - A sprite is `art(file, kind, w, h, role, subject)` in `build_images()`. It
   takes the picture `art/<file>` when it is there, which `scripts/art.py`
   renders or fits to the box; until then it draws the stand-in. `role` is
   the picture's body, which its hit frame shows in the flash, and
   `route="svg"` or `"image"` overrides `ART_ROUTE` for one object. Both have the same box, origin and collision polygon, so the
   layouts and events do not change when the art arrives. `subject` says in
-  words what the picture shows, for its prompt. Kind `"scene"` is an opaque
+  words what the picture shows, which the drawings' brief names. Kind `"scene"` is an opaque
   backdrop that fills its box.
 - A stand-in is `shape(file, kind, w, h, role)`: a flat rectangle, circle
   or triangle. `SHAPE_STYLE` can draw an outline and a cast shadow into the
@@ -446,20 +391,18 @@ parameters are in the template.
   variables `restWidth` and `restHeight`, so a size the user sets in the
   layout editor stays. `hit(obj)` gives
   the hit's squash with the flash, last in their block, as the coin's
-  `Collect` does; the object needs the Tween behavior. In the default look the
-  Flash behavior stops the run (`motion.hit`). A squash acts on the art,
-  never on an object that collides (`motion.squash-art`): a player is an invisible mask with Platform and its art, drawn
+  `Collect` does; the object needs the Tween behavior. A squash acts on the art,
+  never on an object that collides: a player is an invisible mask with Platform and its art, drawn
   with `shape(..., oy=1)`, pinned to it, and the run stops on a squash of
   the mask.
 - A tween takes the ease and the seconds of its class from `TWEEN_STYLE`:
   `style="hud_in"`, `"hud_out"`, `"bar"`, `"camera"`, `"world"` (the
-  default), `"popup"` or `"banner"` (`motion.tween-style`). A popup is a
+  default), `"popup"` or `"banner"`. A popup is a
   layer of its own over a veil, each made by `popup_layer()`:
   `popup(layer, veil, manager)` opens it, `show=False` closes it, and
   `popup_events(layer, veil, manager)` goes among the module's events. A
   pause menu is `pause_types()`, `pause_menu()` on the popup's layer and
-  `pause_events()`, as the stand-in game sets them (`menu.pause`). The motion
-  checks of `check_look.py` are the rules whose ids start with `motion.`.
+  `pause_events()`, as the stand-in game sets them.
   [motion-vocabulary.md](motion-vocabulary.md) names each motion with its
   helper and value: a pop, a float, a hit stop, a shake, a ticker, a stagger.
 - A label is `TEXT_SIZE["body"]`, a screen's title `TEXT_SIZE["title"]`, the
@@ -467,12 +410,9 @@ parameters are in the template.
   the weight `TEXT_WEIGHT` gives it, a font of `FONT`, never bold. `FONT`
   names Inter's three files, which the generator copies from the user's
   font cache into `fonts/` and lists; a file in neither place draws in
-  `system-ui` with a warning; `FONT = "system-ui"` ships none. `hud_text()`
-  stops the run on a colour that breaks `text.contrast` on what is behind
-  it, and names the roles that would read there. A size outside
-  `TEXT_SIZE` stops the run too (`type.scale`), as does one under
-  `TEXT_MIN` (`type.min-size`), in any look; a kind of text the look lacks
-  is a new key of `TEXT_SIZE`, as a colour is a new role.
+  `system-ui` with a warning; `FONT = "system-ui"` ships none. A label that
+  reads too faintly on what is behind it is a finding of
+  `scripts/check_screens.py`.
 - In pixel art every text type is a Sprite Font of `PIXEL_FONT`, an 8 px
   pixel font with Chinese, when the user's font cache holds its BDF file.
   Without the file the run warns and draws Texts. A text size of 8 draws
@@ -484,13 +424,12 @@ parameters are in the template.
   ASCII. After an edit by hand, run it again. A word that events build
   from parts that no string holds goes in with `--add`, which the next
   runs keep; `--replace` drops what is no longer in use.
-  `check_look.py` names a character in use that is not baked, since it
+  `check_project.py` names a character in use that is not baked, since it
   draws as nothing.
 - A game the player points at things in sets `POINTER = True`; the
   template's default is `False`, and the `pointer_*()` helpers then add
   nothing. On, `pointer_frames(file)` in `build_images()`, after
-  `hit_frame(file)`, draws the image's hover frame and its pressed frame,
-  (`pointer.colours`); `*pointer_drawn(file)` ends the
+  `hit_frame(file)`, draws the image's hover frame and its pressed frame,; `*pointer_drawn(file)` ends the
   type's animation, `types |= pointer_types()` declares the Mouse, and
   `*pointer_module(type)` in the sheet shows the hovered one's hover frame
   and, for an instant, a touched one's pressed frame. An object a touch
@@ -512,10 +451,10 @@ parameters are in the template.
   `pattern_type(name)` declares: `low`
   stripes for a harmless special surface, `caution`, ink stripes, for what
   moves or triggers, `hazard`, accent stripes, for what hurts, the last two
-  on strips and small zones only. `tiledbg_inst()` offsets a pattern so
-  neighbouring pieces meet without a seam. With `USER_LOOK` set,
-  `backdrop()` and `area()` take any Tiled Background of the user's look,
-  such as `image_type(name, "TiledBg", w, h, 0, 0)` of its tile.
+  on strips and small zones. `tiledbg_inst()` offsets a pattern so
+  neighbouring pieces meet without a seam. `backdrop()` and `area()` take any
+  Tiled Background too, such as `image_type(name, "TiledBg", w, h, 0, 0)` of
+  its tile.
 - `BEATS` paces the game: one beat per camera zone of a level, or per round,
   wave or window of time in a one-screen game, as the stand-in's rounds are.
   A beat is `beat(type, intensity, mechanics, holds=...)` plus the game's

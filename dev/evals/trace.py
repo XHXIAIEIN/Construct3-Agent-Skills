@@ -42,9 +42,9 @@ calls and their results:
   read included.
 - chain_depth, chain_end, chain_attempts, chain: the check chain
   check_project, review_design, open_in_editor --preview, preview_project,
-  review_look. A step passed when a call of it printed the line a passing
+  check_screens (review_look in a run of an older skill). A step passed when a call of it printed the line a passing
   run ends on: "ok:", "design: 0 findings", "N of N opened and ran without
-  errors", "keep:" or "kept:", "look: 0 findings ... 0 runtime errors".
+  errors", "keep:" or "kept:", "screens: 0 findings ... 0 runtime errors".
   chain_depth is the position of the deepest step that passed (0 to 5),
   chain_end its name, chain_reached the deepest step called whether it
   passed or not, chain_attempts the calls of chain scripts, and chain the
@@ -134,8 +134,10 @@ SKILL_DIR = Path(__file__).resolve().parents[2] / "plugin" / "skills" / "constru
 SKILL = SKILL_DIR.name
 sys.path.insert(0, str(SKILL_DIR / "scripts"))
 import c3project  # noqa: E402
-# The scripts of this skill, so that a call of one is found whatever path form it is run by ($S/x.py too).
-SCRIPT_NAMES = sorted(p.stem for p in (SKILL_DIR / "scripts").glob("*.py") if not p.stem.startswith("_"))
+# The scripts of this skill, so that a call of one is found whatever path form it is run by ($S/x.py too), and those
+# an old_skill arm of an older commit still runs.
+SCRIPT_NAMES = sorted({p.stem for p in (SKILL_DIR / "scripts").glob("*.py") if not p.stem.startswith("_")}
+                      | {"review_look", "check_look", "pick_look"})
 SCRIPT = re.compile(r"(?<![\w.-])(" + "|".join(SCRIPT_NAMES) + r")\.py\"?"
                     r"((?:\s+(?!\d*[<>])(?:\"[^\"]*\"|[^\s|;&<>]+))*)")     # 2>&1 is not an argument
 # The word a script is run by, with the path in front of it, quoted or bare.
@@ -143,13 +145,13 @@ SCRIPT_WORD = re.compile(r"\"([^\"]*?\.py)\"|([^\s\"|;&<>]+\.py)")
 HELP = {"--help", "-h"}
 
 # The check chain in order, and the line a passing call of each step prints.
-CHAIN = ("check_project", "review_design", "open_in_editor", "preview_project", "review_look")
+CHAIN = ("check_project", "review_design", "open_in_editor", "preview_project", "check_screens")
 PASSED = {
     "check_project": re.compile(r"^ok: ", re.M),
     "review_design": re.compile(r"^design: 0 findings", re.M),
     "open_in_editor": re.compile(r"^(\d+) of (\d+) opened and ran without errors", re.M),
     "preview_project": re.compile(r"^(keep|kept): ", re.M),
-    "review_look": re.compile(r"^look: 0 findings on \d+ layouts?, 0 runtime errors", re.M),
+    "check_screens": re.compile(r"^(?:screens|look): 0 findings on \d+ layouts?, 0 runtime errors", re.M),
 }
 PREVIEW_FAILED = ("no preview window", "the editor did not load")
 CHECK_FINDINGS = re.compile(r"^(warning: |stop: |\d+ problem\(s\)$)", re.M)
@@ -483,8 +485,9 @@ def scripts_of(c: dict) -> list[tuple[str, list[str]]]:
 
 
 def work_scripts(c: dict) -> set[str]:
-    """The scripts the call runs for their work, not for their --help."""
-    return {script for script, args in scripts_of(c) if not HELP & set(args)}
+    """The scripts the call runs for their work, not for their --help; review_look of an older skill by its name now."""
+    return {"check_screens" if script == "review_look" else script for script, args in scripts_of(c)
+            if not HELP & set(args)}
 
 
 def runs_script(c: dict, name: str) -> bool:
@@ -511,10 +514,10 @@ def step_passed(name: str, result: str) -> bool:
 
 
 # A step line of verify_change.py, and the chain step it ran: previewed is open_in_editor.py's pass.
-VERIFY_STEP = re.compile(r"^(checked|reviewed|opened|previewed|played|looked)\s+(passed|failed|asked|not run|skipped):",
+VERIFY_STEP = re.compile(r"^(checked|reviewed|opened|previewed|played|screened|looked)\s+(passed|failed|asked|not run|skipped):",
                          re.M)
 VERIFIED = {"checked": "check_project", "reviewed": "review_design", "previewed": "open_in_editor",
-            "played": "preview_project", "looked": "review_look"}
+            "played": "preview_project", "screened": "check_screens", "looked": "check_screens"}
 
 
 def chain_steps(c: dict) -> dict[str, bool]:

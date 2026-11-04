@@ -3,7 +3,6 @@ import builtins
 import datetime
 import json
 import math
-import re
 import shutil
 import struct
 import symtable
@@ -13,7 +12,7 @@ import pytest
 
 from tests.skill_helpers import (
     DATA,
-    REPO, SKILL, INSTALLED, EXAMPLES, NEEDS_EXAMPLES, run, tool, check, edit, every_event, game_rows, warnings, findings,
+    SKILL, INSTALLED, EXAMPLES, NEEDS_EXAMPLES, run, tool, check, edit, every_event, game_rows, warnings, findings,
     template_module, png_pixels, script_module,
 )
 from tests.conftest import FONT_CACHE
@@ -137,53 +136,10 @@ def test_shape_style_switches_the_baked_outline_and_shadow(tmp_path):
     assert png_pixels(tmp_path / "images" / "one.png")[0][0] == (*ink, 255)
 
 
-def test_template_draws_an_accent_that_shows_without_its_outline_and_a_fill_the_outline_shows_on(tmp_path):
-    """The paper draws no outline, so an accent reads 3:1 on canvas_alt or is drawn with its
-    outline; a fill too near the ink hides its own outline."""
-    t = template_module()
-    t.ROOT = tmp_path
-    t.shape("spike.png", "triangle", 32, 32, "danger")                          # 3.1:1, shows alone
-    t.PALETTE["danger"] = (245, 120, 110)
-    with pytest.raises(SystemExit, match=r"spike.png: danger \(245, 120, 110\) reads 2\.34:1 on canvas_alt, and an "
-                                         r"accent without an outline needs 3:1 .* darken danger, or draw it with its outline"):
-        t.shape("spike.png", "triangle", 32, 32, "danger")
-    t.shape("spike.png", "triangle", 32, 32, "danger", outline=True)
-    t.shape("wall.png", "rect", 32, 32, "solid")                                 # a grey may go without
-    t.shape("player.png", "rect", 32, 64, "ink", outline=True)                   # the player is ink, its outline too
-    t.PALETTE["dim"] = (60, 60, 60)
-    with pytest.raises(SystemExit, match=r"shade.png: its dim fill reads 1\.\d:1 against its ink outline, which needs "
-                                         r"3:1 to show; fill it in one of canvas, canvas_alt, line, solid, reward, danger, hover, pressed, flash"):
-        t.shape("shade.png", "rect", 32, 32, "dim", outline=True)
-
-
-def test_template_palette_keeps_the_ratios_of_the_blockout():
-    """The sheet's greys: the checker's two at most 1.2:1, structure 3:1 on the darker, and the
-    accents 3:1 on it as well, so every shape shows without an outline; the run stops on a palette
-    that loses the greys' ratios, naming the role to move."""
-    t = template_module()
-    ratios = {pair: round(t.contrast(t.rgb(pair[0]), t.rgb(pair[1])), 2) for pair in (
-        ("canvas", "canvas_alt"), ("solid", "canvas_alt"), ("reward", "canvas_alt"), ("danger", "canvas_alt"),
-        ("ink", "solid"), ("ink", "reward"), ("ink", "danger"))}
-    assert ratios == {("canvas", "canvas_alt"): 1.15, ("solid", "canvas_alt"): 4.01, ("reward", "canvas_alt"): 4.46,
-                      ("danger", "canvas_alt"): 3.09, ("ink", "solid"): 3.49, ("ink", "reward"): 3.14,
-                      ("ink", "danger"): 4.54}
-    t.check_palette()
-    assert [role for role in t.PALETTE if t.accent(role)] == ["reward", "danger", "hover", "pressed"]
-    t.PALETTE["canvas_alt"] = (200, 200, 200)
-    with pytest.raises(SystemExit, match=r"PALETTE: canvas .* and canvas_alt .* are 1\.\d\d:1; the backdrop's two greys "
-                                         r"stay at most 1\.2:1"):
-        t.check_palette()
-    t.PALETTE.update(canvas_alt=(238, 238, 234), solid=(160, 160, 160))
-    with pytest.raises(SystemExit, match=r"PALETTE: solid \(160, 160, 160\) on canvas_alt .* reads 2\.\d\d:1; structure "
-                                         r"needs 3:1 .* Darken solid"):
-        t.check_palette()
-
-
 def test_template_patterns_tile_by_the_unit_and_meet_without_a_seam(tmp_path):
     """An area is a Tiled Background of a pattern; its image offset is minus its corner modulo
     the tile, which the runtime subtracts from the texture coordinate, so every piece lines up
-    with the layout. The checker is the backdrop's alone, the high-contrast stripes strips and
-    small zones, and the plain paper no pattern but an opaque layer's colour."""
+    with the layout. The plain paper is no pattern but an opaque layer's colour."""
     t = template_module()
     t.ROOT = tmp_path
     with pytest.raises(SystemExit, match=r"pattern\('Sheet', 'plain'\): the plain paper is the colour of the opaque "
@@ -223,16 +179,7 @@ def test_template_patterns_tile_by_the_unit_and_meet_without_a_seam(tmp_path):
     assert (level["world"]["x"], level["world"]["width"], level["world"]["height"]) == (-3840, 4000 + 7680, 1080 + 7680)
     assert (level["properties"]["image-offset-x"], level["properties"]["image-offset-y"]) == (0, 0)
     assert t.screen_box(ox=0.5, oy=0.5) == (960, 540, 1920 + 7680, 1080 + 7680)   # a dim centred on the viewport
-    with pytest.raises(SystemExit, match=r"area\('Backdrop'\): the checker pattern is empty space, the backdrop alone"):
-        t.area("Backdrop", 0, 0, 4, 4)
-    with pytest.raises(SystemExit, match=r"area\('Lava'\): 12x10 cells of hazard stripes; .* keep the shorter side to 8 cells"):
-        t.area("Lava", 0, 0, 12, 10)
-    t.area("Ledge", 0, 0, 10, 6)                                             # low stripes may cover more
-    with pytest.raises(SystemExit, match=r"backdrop\('Door'\): the backdrop is the checker; .* If it is the plain "
-                                         r"paper, the plain paper is the colour of the opaque layer"):
-        t.backdrop("Door")
-    with pytest.raises(SystemExit, match=r"area\('Wall'\): not a pattern"):
-        t.area("Wall", 0, 0, 1, 1)
+
 
 
 # A palette of the user's: a night sky, its backdrop's two blues 1.32:1 apart
@@ -241,31 +188,13 @@ NIGHT = {"canvas": (14, 18, 48), "canvas_alt": (30, 40, 92), "line": (52, 64, 12
          "hover": (0, 229, 255), "pressed": (255, 145, 0), "flash": (255, 255, 255)}
 
 
-def test_a_look_the_user_gave_lifts_the_checks_of_default_look_and_keeps_the_rest(tmp_path):
-    """The default look is the fallback look. With USER_LOOK naming the look the user gave, the
-    checks of its taste stop nothing: a palette of the user's colours, a backdrop and an area of
-    the user's tiles, stripes over a large area and the Flash behavior pass. The checks every look
-    keeps still stop the run: structure and text contrast, an accent's contrast, the grid and a
-    clean alpha channel in pixel art."""
+def test_any_tiled_background_lays_a_backdrop_or_an_area_and_pixel_art_keeps_its_alpha_clean(tmp_path):
+    """A backdrop and an area take a pattern or any Tiled Background type, of any size and palette, and the z order
+    lays each as what it was laid by. A soft edge in pixel art still stops the run."""
     t = template_module()
     t.ROOT = tmp_path
     t.PALETTE.update(NIGHT)
-    with pytest.raises(SystemExit, match=r"the backdrop's two greys stay at most 1\.2:1, .* If the user gave the "
-                                         r"game a look of its own, name where it comes from in USER_LOOK"):
-        t.check_palette()
-    t.write_png("sky.png", 32, 32, lambda x, y: (*t.rgb("canvas" if (x * 7 + y * 3) % 11 else "line"), 255))
     t.pattern("Lava", "hazard")
-    with pytest.raises(SystemExit, match=r"backdrop\('Sky'\): the backdrop is the checker"):
-        t.backdrop("Sky")
-    with pytest.raises(SystemExit, match=r"area\('Sky'\): not a pattern"):
-        t.area("Sky", 0, 0, 4, 4)
-    with pytest.raises(SystemExit, match=r"area\('Lava'\): 12x10 cells of hazard stripes"):
-        t.area("Lava", 0, 0, 12, 10)
-    with pytest.raises(SystemExit, match=r"Blink: a hit shows as a colour"):
-        t.beh_def("Flash", "Blink")
-
-    t.USER_LOOK = "the user's: a night sky over a neon city, from their two reference images"
-    t.check_palette()
     t.image_type("Sky", "TiledBg", 32, 32, 0, 0)
     sky, lava, cloud = t.backdrop("Sky"), t.area("Lava", 0, 0, 12, 10), t.area("Sky", 2, 2, 20, 12)
     assert sky["world"]["width"] == 1920 and "Anchor" in sky["behaviors"]
@@ -273,22 +202,8 @@ def test_a_look_the_user_gave_lifts_the_checks_of_default_look_and_keeps_the_res
     t.shape("coin.png", "circle", 64, 64, "reward")
     coin = t.shape_inst("Coin", "coin.png", 4, 4)
     assert [i["type"] for i in t.z_order([coin, cloud, lava, sky])] == ["Sky", "Sky", "Lava", "Coin"]
-    # What every look keeps
-    with pytest.raises(SystemExit, match=r"box.png: 40x32 is not whole units of 32 px"):
-        t.shape("box.png", "rect", 40, 32, "reward")
-    t.PALETTE.update(dim=(40, 50, 100))
-    with pytest.raises(SystemExit, match=r"Score: dim .* on canvas_alt .* reads 1\.\d:1; text of size 16 needs 4\.5:1"):
-        t.hud_text("Score", "Score: 0", "top-right", size=t.text_size("name"), color="dim")
-    t.PALETTE.update(NIGHT, danger=(60, 40, 110))
-    with pytest.raises(SystemExit, match=r"spike.png: danger .* reads 1\.\d\d:1 on canvas_alt, and an accent without "
-                                         r"an outline needs 3:1"):
-        t.shape("spike.png", "triangle", 64, 64, "danger")
-    t.PALETTE.update(NIGHT, solid=(50, 60, 110))
-    with pytest.raises(SystemExit, match=r"PALETTE: solid .* reads 1\.\d\d:1; structure needs 3:1"):
-        t.check_palette()
     small = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
-    small.ROOT, small.USER_LOOK = tmp_path, t.USER_LOOK
-    small.PALETTE.update(NIGHT)
+    small.ROOT = tmp_path
     with pytest.raises(SystemExit, match=r"images/soft.png: alpha 37 at \(0,0\)"):
         small.write_png("soft.png", 1, 1, lambda x, y: (*small.PALETTE["danger"], 37))
 
@@ -360,10 +275,8 @@ def test_template_fades_between_layouts(built):
     assert t.fade_to()[-1]["id"] == "restart-layout"
 
 
-def test_template_stops_on_an_emoji_and_warns_of_a_shifting_count(tmp_path, capsys):
-    """text.no-emoji: an emoji in a layout's Text or in a text the events set stops the run, naming
-    it; an arrow or a Chinese character does not. type.counting-digits: a counted Text that is not
-    left-aligned warns."""
+def test_template_warns_of_a_shifting_count(tmp_path, capsys):
+    """A counted Text that is not left-aligned warns."""
     t = template_module()
     t.ROOT = tmp_path
     lay = t.layout("Game", [t.layer("UI", parallax=0)], sheet="Game")
@@ -371,14 +284,6 @@ def test_template_stops_on_an_emoji_and_warns_of_a_shifting_count(tmp_path, caps
                                       t.text_inst("Lives", "Lives", 0, 64, 320, 64, halign="right")]
     plain = {"name": "Game", "events": [*t.event("Show", [t.on_start()], [t.set_text("Lives", '"x 3"')])]}
     t.check_texts(plain, {"Game": lay})
-    with pytest.raises(SystemExit, match="the events: Lives"):
-        t.check_texts({"name": "Game", "events": [*t.event("Show", [t.on_start()],
-                                                            [t.set_text("Lives", '"❤️ x 3"')])]},
-                      {"Game": lay})
-    lay["layers"][0]["instances"].append(t.text_inst("Star", "⭐", 0, 128, 64, 64))
-    with pytest.raises(SystemExit, match="layout Game: Star"):
-        t.check_texts(plain, {"Game": lay})
-    lay["layers"][0]["instances"].pop()
     capsys.readouterr()
     t.counting("Lives", "lives")
     t.check_texts(plain, {"Game": lay})
@@ -861,29 +766,6 @@ def test_template_button_is_a_shape_and_its_label_that_never_come_apart(tmp_path
     assert child["properties"]["initially-visible"] is False
 
 
-def test_template_warns_of_a_menu_item_off_the_centre_line(tmp_path, capsys):
-    """on_axis() warns of an instance of a title, menu or pause screen, by the layout's or the
-    layer's name, centred more than half a unit off the vertical centre line, and leaves out a
-    backdrop or a dim and every other screen, a settings screen among them (screen.menu-axis)."""
-    t = template_module()
-    t.ROOT = tmp_path
-    t.shape("play-default-000.png", "rect", *t.button_size("Play"), "solid")
-    centred = [*t.hud_header("MenuTitle", "MenuTag", "Coins", "Round 3"),
-               *t.button("Play", "play-default-000.png", "PlayLabel", "Play", "center", 12),
-               t.sprite_inst("Dim", *t.screen_box(ox=0.5, oy=0.5))]
-    menu = t.layout("Menu", [t.layer("UI", parallax=0)], sheet=None)
-    menu["layers"][0]["instances"] = centred
-    game = t.layout("Game", [t.layer("Game"), t.layer("Pause", parallax=0)], sheet=None)
-    game["layers"][0]["instances"] = [t.hud_tag("RoundTag", "Round 1")]
-    t.on_axis({"Menu": menu, "Game": game})
-    assert capsys.readouterr().out == ""
-    game["layers"][1]["instances"] = [t.hud_text("BackText", "Back", "top-left")]
-    t.on_axis({"Game": game})
-    assert capsys.readouterr().out.startswith(
-        f"warning: layout Game: a title, menu or pause screen sets its texts and buttons on the vertical centre line, "
-        f"x {t.VIEW_W / 2:g}, and BackText at x ")
-
-
 def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
     """Center centres a Text's em box, where capitals, digits and Chinese sit high, so optical_drop()
     lowers a label on or beside a shape: inside a button or a control's row by shrinking its box from
@@ -908,15 +790,11 @@ def test_template_centres_a_label_on_a_shape_by_its_ink(tmp_path):
     t.on_grid([tri], "layer Game")
 
 
-def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_the_hud(built, capsys):
+def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_the_hud(built):
     """hud_stat() puts a value GAP_IN under its name as one group; play_area() is what the HUD leaves,
-    GAP_OUT clear of it; centred() puts the board in its middle on the grid, raised by OPTICAL_LIFT, 0.
-    spaced() stops groups that sit closer than GROUP_RATIO times the gap inside one, the stand-in's
-    old fault of a name far from its number and the number near the board; balanced() warns on a
-    board off the middle of the play area."""
+    GAP_OUT clear of it; centred() puts the board in its middle on the grid, raised by OPTICAL_LIFT, 0."""
     t = template_module()
-    assert (t.GAP_IN, t.GAP_OUT, t.GROUP_RATIO, t.OPTICAL_LIFT) == (8, 32, 1.5, 0)
-    assert t.GAP_OUT >= t.GROUP_RATIO * t.GAP_IN
+    assert (t.GAP_IN, t.GAP_OUT, t.OPTICAL_LIFT) == (8, 32, 0)
     name, value = t.hud_stat("ScoreLabel", "ScoreText", "SCORE", "top-left", longest="999")
     assert t.box_of(name) == (64, 64, 160, 90) and t.box_of(value) == (64, 98, 224, 185)
     assert (name["properties"]["size"], value["properties"]["size"]) == (t.TEXT_SIZE["name"], t.TEXT_SIZE["number"])
@@ -930,62 +808,10 @@ def test_template_groups_a_value_with_its_name_and_centres_the_playfield_under_t
     assert t.centred(928, 544, area) == (512, 352) and t.centred(928, 544, area, lift=0.05) == (512, 320)
     with pytest.raises(SystemExit, match=r"centred\(\): a 2000x100 px box does not fit the 1792x799 px play area"):
         t.centred(2000, 100, area)
-    board = t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)
-    t.spaced([[name, value], [best[0], best[1]], [board]])
-    t.balanced([board], area)
-    assert capsys.readouterr().out == ""
-    # A board 5 px under the number, whose parts are 8 px apart: a box below another's bottom edge is
-    # as far from it as that edge, wherever it lies along it.
-    assert t.gap((0, 0, 10, 10), (100, 15, 200, 20)) == 5 and t.gap((0, 0, 10, 10), (40, 0, 50, 10)) == 30
-    with pytest.raises(SystemExit, match=r"ScoreLabel \+ ScoreText and Board are 4 px apart, and ScoreLabel \+ "
-                                         r"ScoreText holds its parts 8 px apart: groups need 1.5 times that"):
-        t.spaced([[name, value], [t.tiledbg_inst("Board", 512, 189, 928, 544, 0, 0)]])
-    # A name a unit above its number, and the board a unit under the number.
-    label = t.hud_text("ScoreLabel", "SCORE", "top-left")
-    number = t.hud_text("ScoreText", "0", "top-left", size=t.TEXT_SIZE["number"], dy=3)
-    with pytest.raises(SystemExit, match=r"are 32 px apart, and ScoreLabel \+ ScoreText holds its parts 64 px apart"):
-        t.spaced([[label, number], [t.tiledbg_inst("Board", 512, 288, 928, 544, 0, 0)]])
-    # A board centred on the whole screen is off the middle of what the HUD leaves.
-    t.balanced([t.tiledbg_inst("Board", 512, 256, 928, 544, 0, 0)], area)
-    assert capsys.readouterr().out.startswith("warning: layout Game: Board is centred at (976,528)")
-    # A board under PLAYFIELD_MIN of the screen warns; the stand-in's covers 24%.
-    assert t.PLAYFIELD_MIN == 0.15
-    t.filled([board])
-    assert capsys.readouterr().out == ""
-    t.filled([t.tiledbg_inst("Board", 800, 400, 320, 192, 0, 0)])
-    assert capsys.readouterr().out.startswith("warning: layout Game: Board covers 3% of the 1920x1080 screen, under "
-                                              "PLAYFIELD_MIN 15%")
     # The stand-in's board is where centred() puts it, under the tag and over the keys.
     game = json.loads((built / "layouts" / "Game.json").read_text(encoding="utf-8"))
     placed = next(i for layer in game["layers"] for i in layer["instances"] if i["type"] == "Board")["world"]
     assert (placed["x"], placed["y"], placed["width"], placed["height"]) == (512, 320, 928, 544)
-
-
-def test_template_warns_on_a_hud_gathered_in_one_place_while_its_corners_stand_empty(capsys):
-    """spaced() ends with spread(): a ninth of the screen off its middle that holds HUD_CROWD items of
-    the HUD while two corners hold nothing warns, naming the empty corners. An item is a group, and
-    one more for each word a label joins to it with a middle dot or a bar, so a round's tag with its
-    number is one item and a header of two facts a line is three."""
-    t = template_module()
-    assert t.HUD_CROWD == 3
-    tag = t.hud_tag("RoundTag", "Round 1 / 6", longest="Round 10 / 10")
-    assert t.items([tag]) == 1 and t.items([t.tiledbg_inst("Board", 512, 320, 928, 544, 0, 0)]) == 0
-    header = t.hud_header("TitleText", "SubTag", "二十拍 · 十二种动法", "八个空拍 · 同一套 7 / 2 / 5 / 4")
-    assert t.items(header) == 3
-    t.spaced([header])
-    assert capsys.readouterr().out == (
-        "warning: layout Game: the top of the screen holds 3 items of the HUD (TitleText, SubTag) while the "
-        "top-left, top-right, bottom-left, bottom-right corners stand empty. Give each item its own corner or edge, the where "
-        "of hud_stat(), hud_tag(), hud_text() or hud_keys(), and one thing to a label rather than several joined by "
-        "· or |\n")
-    # Three labels stacked in one corner warn; the same three in three corners do not.
-    stacked = [[t.hud_text(name, text, "top-left", dy=3 * n)]
-               for n, (name, text) in enumerate((("WaveText", "Wave 3"), ("LeftText", "12 left"), ("BestText", "Best 40")))]
-    t.spread(stacked)
-    assert "the top-left of the screen holds 3 items" in capsys.readouterr().out
-    t.spread([[t.hud_text("WaveText", "Wave 3", "top-left")], [t.hud_text("LeftText", "12 left", "top-right")],
-              [t.hud_text("BestText", "Best 40", "bottom-left")]])
-    assert capsys.readouterr().out == ""
 
 
 def test_template_screen_is_named_bands_and_the_stage_sizes_its_main_object():
@@ -1087,8 +913,6 @@ def test_template_slider_is_a_row_a_finger_holds_with_its_knob_on_the_track(tmp_
     assert t.box_of(shown)[3] == 400 - t.CONTROL_SIZE["knob"] / 2 - t.GAP_IN      # over the drawn knob
     t.no_overlap([track, fill, knob, shown])
     assert len(t.slider("quiet", 0, 0, t.units(8), value_at=None)) == 3
-    with pytest.raises(SystemExit, match=r"slider\('volume'\): length 100 is not whole units of 32 px"):
-        t.slider("volume", 0, 0, 100)
     with pytest.raises(SystemExit, match=r"lo 1, hi 1, step 1; a slider runs from a lower lo to a higher hi"):
         t.slider("volume", 0, 0, 320, lo=1, hi=1)
     small = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
@@ -1130,8 +954,7 @@ def test_template_slider_events_clamp_the_knob_to_its_track_on_a_step():
 def test_template_toggle_is_two_frames_flipped_by_a_press(tmp_path):
     """toggle_types() draws the switch off and on as two frames tagged "off" and "on", in a box TOUCH
     high whose whole area takes the finger; toggle() starts on the frame of `on` with its label as its
-    child; toggle_events() flips it on the release of press() and sets the boolean global of its name.
-    A knob or a state that does not read 3:1 stops the run."""
+    child; toggle_events() flips it on the release of press() and sets the boolean global of its name."""
     t = template_module()
     t.ROOT = tmp_path
     types = t.toggle_types()
@@ -1146,8 +969,6 @@ def test_template_toggle_is_two_frames_flipped_by_a_press(tmp_path):
     assert switch["instanceVariables"] == {"name": "sound", "on": True} and "Tween" in switch["behaviors"]
     assert label["sceneGraphData"]["parent-uid"] == switch["uid"]
     assert len(t.toggle("mute", 0, 0)) == 1
-    with pytest.raises(SystemExit, match=r"toggle knob: solid on solid reads 1.0:1, and a control's part needs 3:1"):
-        t.toggle_types(knob_role="solid")
     rows = t.toggle_events({"sound": "sound"})
     show = rows[1]["children"][0]
     assert [b["actions"][0]["parameters"] for b in show["children"] if b.get("eventType") == "block" and b["actions"]] \
@@ -1236,6 +1057,22 @@ def build_event_sheet() -> dict:
 if __name__ == "__main__":
     build_and_check()
 '''
+
+
+def test_a_generator_of_an_older_template_still_runs_after_its_helpers_are_refreshed(project):
+    """A game's generator keeps its settings and its calls across a refresh: ART_STYLE and USER_LOOK, which nothing
+    reads now, and the checks that went, which check nothing now."""
+    source = project / "tools" / "build_project.py"
+    text = source.read_text(encoding="utf-8")
+    marker = "# ==== construct3-agent-plugin helpers: begin"
+    text = text.replace(marker, f'ART_STYLE = "ink wash"\nUSER_LOOK = "the player\'s"\n{marker}', 1)
+    old = "    no_overlap(ui)\n"
+    assert old in text
+    text = text.replace(old, old + "    spaced([*HUD, [board]])\n    balanced([board], PLAY_AREA)\n    filled([board])\n"
+                        '    on_grid(ui, "layer UI")\n', 1)
+    source.write_text(text, encoding="utf-8")
+    code, out = run(project, "tools/build_project.py")
+    assert code == 0 and out.splitlines()[-1].startswith("ok:"), out
 
 
 def test_template_controls_generate_a_project_the_checker_passes(project):
@@ -1405,9 +1242,8 @@ def test_template_buttons_pressed_by_press_generate_a_project_the_checker_passes
                for c in ev.get("conditions") or []) == 2
 
 
-def test_template_draws_only_the_colours_of_its_palette(built, tmp_path):
-    """Every pixel the generator draws that shows is a colour of PALETTE: a new object reuses the
-    game's colours or names the role a new one plays, and the message says which role is nearest."""
+def test_template_draws_in_the_colours_of_its_palette(built, tmp_path):
+    """The stand-in draws in the colours of PALETTE, and a role it lacks stops the run. write_png() takes any colour."""
     t = template_module()
     t.ROOT = tmp_path
     for row in png_pixels(built / "images" / "coin-default-000.png"):
@@ -1415,12 +1251,8 @@ def test_template_draws_only_the_colours_of_its_palette(built, tmp_path):
     t.write_png("half.png", 2, 1, lambda x, y: (*t.PALETTE["danger"], 128 if x else 255))   # the shadow's alpha
     t.write_png("clear.png", 1, 1, lambda x, y: (1, 2, 3, 0))                                # a pixel that does not show
     assert png_pixels(tmp_path / "images" / "half.png") == [[(255, 61, 0, 255), (255, 61, 0, 128)]]
-    with pytest.raises(SystemExit, match=r"images/heart.png: \(230, 40, 60\) at \(1,0\) is no colour of PALETTE, "
-                                         r"nor are 1 more of its colours; the nearest is danger \(255, 61, 0\)\. "
-                                         r"Draw with rgb\('danger'\), or add the colour to PALETTE"):
-        t.write_png("heart.png", 3, 1, lambda x, y: [(0, 0, 0, 0), (230, 40, 60, 255), (9, 9, 9, 255)][x])
-    assert not (tmp_path / "images" / "heart.png").exists()
-    t.write_png("gradient.png", 2, 1, lambda x, y: (x * 200, 100, 0, 255), painted=True)     # a painting keeps its colours
+    t.write_png("heart.png", 3, 1, lambda x, y: [(0, 0, 0, 0), (230, 40, 60, 255), (9, 9, 9, 255)][x])
+    assert png_pixels(tmp_path / "images" / "heart.png")[0][1] == (230, 40, 60, 255)
     with pytest.raises(SystemExit, match=r"'crimson' is no role of PALETTE, which has canvas, canvas_alt, line, solid"):
         t.rgb("crimson")
     t.bar_images("HpFrame", "HpFill", caps=True)
@@ -1429,10 +1261,9 @@ def test_template_draws_only_the_colours_of_its_palette(built, tmp_path):
     assert png_pixels(tmp_path / "images" / "hpframe.png")[8][8][:3] == t.PALETTE["solid"]
 
 
-def test_template_labels_read_on_what_is_behind_them():
-    """A label is FONT at a size of TEXT_SIZE in a role of PALETTE, and one that reads below
-    4.5:1 on its backdrop, 3:1 from 18 pt up, large-scale text (WCAG 2.2, 1.4.3), stops the run
-    with the roles that would read there."""
+def test_template_labels_take_a_font_a_size_and_a_role():
+    """A label is FONT at a size in a role of PALETTE, and contrast() gives the WCAG ratio, which picks a label's
+    role on a shape."""
     t = template_module()
     assert round(t.contrast((255, 255, 255), (0, 0, 0)), 2) == 21 and t.contrast((30, 34, 48), (30, 34, 48)) == 1
     score = t.hud_text("ScoreText", "Score: 0", "top-left", longest="Score: 999")
@@ -1440,54 +1271,8 @@ def test_template_labels_read_on_what_is_behind_them():
         ("Inter-Regular", 18, t.rgba(t.PALETTE["ink"]))
     assert score["properties"]["bold"] is False
     assert (t.text_contrast(8), t.text_contrast(17), t.text_contrast(18), t.text_contrast(32)) == (4.5, 4.5, 3, 3)
-    t.PALETTE["dim"] = (120, 120, 120)                                   # 4.0:1 on the checker's darker cell
-    t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("number"), color="dim")  # large-scale: 3:1 is enough
-    with pytest.raises(SystemExit, match=r"TimerText: dim \(120, 120, 120\) on canvas_alt \(239, 239, 239\) reads 3\.8:1; "
-                                         r"text of size 16 needs 4\.5:1\. Roles that read on canvas_alt: ink; or put the label on a panel whose role it reads on and pass it as on="):
-        t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("name"), color="dim")
-    t.PALETTE["dim"] = (150, 150, 150)                                   # 2.7:1
-    with pytest.raises(SystemExit, match=r"text of size 60 needs 3:1"):
-        t.hud_text("TimerText", "Time: 30", "top-right", size=t.text_size("number"), color="dim")
-    t.PALETTE["dim"] = (120, 120, 120)
-    banner = t.hud_text("WinText", "YOU WIN", "center", size=t.text_size("display"), color="dim")
-    assert banner["properties"]["size"] == 64 and banner["properties"]["color"][:3] == [120 / 255] * 3
-    with pytest.raises(SystemExit, match=r"LivesText: flash \(255, 255, 255\) on canvas \(255, 255, 255\) reads 1\.0:1; "
-                                         r"text of size 18 needs 3:1\. Roles that read on canvas: solid, dim, ink, reward, danger;"):
-        t.hud_text("LivesText", "Lives", "top", color="flash", on="canvas")
     game = t.layout("Game", [t.layer("Background", transparent=False), t.layer("UI", parallax=0)], sheet="Game")
     assert [layer["backgroundColor"] for layer in game["layers"]] == [t.rgba(t.PALETTE["canvas"]), [1, 1, 1, 1]]
-
-
-def test_template_sizes_every_label_by_its_kind():
-    """A label takes one of TEXT_SIZE's sizes, the look's few sizes, one per kind of text, as a colour
-    takes a role of PALETTE: a size set by hand stops the run with the kinds, and a kind the look adds
-    is a size it may use."""
-    t = template_module()
-    with pytest.raises(SystemExit, match=r"ScoreText: size 24 is none of TEXT_SIZE's \(tag 15, name 16, body 18, "
-                                         r"title 30, number 60, display 64\)\. Give the label the size of its kind, "
-                                         r"text_size\(kind\)"):
-        t.hud_text("ScoreText", "Score: 0", "top-left", size=24)
-    t.TEXT_SIZE["caption"] = 24
-    assert t.hud_text("ScoreText", "Score: 0", "top-left", size=t.text_size("caption"))["properties"]["size"] == 24
-    small = template_module(VIEW="VIEW_W, VIEW_H = 320, 180")
-    with pytest.raises(SystemExit, match=r"Score: size 12 is none of TEXT_SIZE's \(tag 8, name 8, body 8, title 16"):
-        small.text_inst("Score", "AB", 0, 0, 16, 16, size=12)
-
-
-def test_template_stops_a_label_too_small_to_read_in_every_look():
-    """A label's em is at least TEXT_MIN of the viewport's shorter side, whatever look the game has,
-    and every kind of TEXT_SIZE clears it at any viewport, pixel art included."""
-    t = template_module()
-    assert t.TEXT_MIN == 0.0175
-    t.USER_LOOK = "the user's: a dense terminal look"
-    t.TEXT_SIZE["tag"] = 11
-    with pytest.raises(SystemExit, match=r"RoundTag: size 11 draws letters 14\.7 px high, under 18\.9 px, 1\.75% of "
-                                         r"the viewport's shorter side, .* Raise TEXT_SIZE's tag to at least 15$"):
-        t.hud_tag("RoundTag", "Round 1")
-    for view in ("320, 180", "640, 360", "1024, 576", "1280, 720", "720, 1280", "1920, 1080", "2560, 1440"):
-        v = template_module(VIEW=f"VIEW_W, VIEW_H = {view}")
-        least = v.TEXT_MIN * min(v.VIEW_W, v.VIEW_H)
-        assert all((size if v.UNIT == 8 else size * v.PX_PER_PT) >= least for size in v.TEXT_SIZE.values()), view
 
 
 def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
@@ -1506,51 +1291,9 @@ def test_template_fills_the_screen_and_samples_a_pixel_art_viewport_nearest():
     assert (p["properties"]["sampling"], p["properties"]["fullscreenMode"]) == ("nearest", "integer-scale-outer")
 
 
-def test_look_manifest_matches_the_template():
-    """assets/look-manifest.json is what an agent hands a model and confirms against: every value
-    it names in the template is the template's, and every status and scope is one it defines. The
-    rules that stop the run in the default look alone are its taste; legibility and the grid hold in
-    every look."""
-    manifest = json.loads((SKILL / "assets" / "look-manifest.json").read_text(encoding="utf-8"))
-    t = template_module()
-    ids = [r["id"] for r in manifest["rules"]]
-    assert len(ids) == len(set(ids))
-    for rule in manifest["rules"]:
-        assert rule["status"] in manifest["status"], rule["id"]
-        assert rule["scope"] in manifest["scope"], rule["id"]
-        if rule["status"] in ("enforced", "adopted", "open") and "value" in rule:
-            assert eval(rule["template"], vars(t)) == eval(rule["value"], vars(t)), rule["id"]
-        if rule["status"] == "open":
-            assert rule.get("options"), rule["id"]
-        named = rule.get("helpers", "") + ("" if "value" in rule else rule.get("template", ""))
-        for name in re.findall(r"(\w+)\(\)", named):
-            assert callable(getattr(t, name, None)), (rule["id"], name)
-        assert rule["source"] in manifest["decisions"], rule["id"]
-    for record in manifest["decisions"]:
-        if record.startswith("Construct3-Agent-Skills/"):
-            assert (REPO / record.removeprefix("Construct3-Agent-Skills/")).is_file(), record
-    # check_look.py enforces the manifest's values, so they cannot drift from the template's
-    check_look = script_module("check_look")
-    assert check_look.COLLIDING == t.COLLIDING
-    for view in ("VIEW_W, VIEW_H = 320, 180", "VIEW_W, VIEW_H = 720, 1280", "VIEW_W, VIEW_H = 1920, 1080"):
-        sized = template_module(VIEW=view)
-        assert check_look.rule_value("grid.unit", VIEW_W=sized.VIEW_W, VIEW_H=sized.VIEW_H) == sized.UNIT
-    assert {r["id"] for r in manifest["rules"] if r.get("strict")} >= {
-        "alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn"}
-    enforced = {r["scope"]: set() for r in manifest["rules"]}
-    for r in manifest["rules"]:
-        if r["status"] == "enforced":
-            enforced[r["scope"]].add(r["id"])
-    assert enforced["default-look"] == {"palette.greys", "backdrop.sheet", "pattern.areas", "motion.hit"}
-    assert enforced["every-look"] >= {"alpha.pure", "grid.shape-size", "grid.world-placement", "grid.runtime-spawn",
-                                      "colour.palette-only", "colour.structure", "colour.accent-contrast",
-                                      "text.contrast", "type.scale", "type.min-size", "control.parts", "pixel-art.sampling"}
-
-
-def test_template_keeps_alpha_pure_and_shapes_on_the_grid(tmp_path):
+def test_template_keeps_alpha_pure_and_places_a_shape_by_its_cell(tmp_path):
     """A drawn image holds nothing under a clear pixel; in pixel art it is clear, opaque or the
-    shadow's alpha, while a larger viewport antialiases its edges. A shape covers whole cells and
-    is placed by its cell; on_grid() stops a world instance off it."""
+    shadow's alpha, while a larger viewport antialiases its edges. A shape is placed by its cell."""
     t = template_module()
     t.ROOT = tmp_path
     t.write_png("clear.png", 1, 1, lambda x, y: (1, 2, 3, 0))
@@ -1567,18 +1310,12 @@ def test_template_keeps_alpha_pure_and_shapes_on_the_grid(tmp_path):
                                          r"or the shadow's 128"):
         small.write_png("soft.png", 1, 1, lambda x, y: (*small.PALETTE["danger"], 37))
     small.write_png("glow.png", 1, 1, lambda x, y: (1, 2, 3, 37), painted=True)
-    with pytest.raises(SystemExit, match=r"box.png: 40x32 is not whole units of 32 px; .* 64x32 here"):
-        t.shape("box.png", "rect", 40, 32, "reward")
     t.SHAPE_STYLE.update(shadow_angle=225)                          # a shadow up and to the left
     t.shape("box.png", "rect", 64, 32, "reward")
     inst = t.shape_inst("Box", "box.png", 3, 5)
     w = inst["world"]
     left, top = w["x"] - w["originX"] * w["width"], w["y"] - w["originY"] * w["height"]
     assert (left + t.PADS["box.png"][0], top + t.PADS["box.png"][1]) == (96, 160)
-    t.on_grid([inst], "layer Game")
-    inst["world"]["x"] += 5
-    with pytest.raises(SystemExit, match=r"layer Game: Box starts at .* off the 32 px grid. Place a shape with shape_inst"):
-        t.on_grid([inst], "layer Game")
     assert t.grid_random(0, 624) == "32 * floor(random(0, 20))"
 
 
@@ -1827,8 +1564,7 @@ def test_template_pauses_over_a_veil_with_a_column_of_rows(built):
 
 def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     """A hit is the shape's second frame, the same outline and shadow filled in HIT_FLASH's role
-    and tagged "hit", shown for HIT_FLASH["seconds"] of real time and then frame 0 again; the
-    Flash behavior stops the run."""
+    and tagged "hit", shown for HIT_FLASH["seconds"] of real time and then frame 0 again."""
     rest = png_pixels(built / "images" / "coin-default-000.png")
     hit = png_pixels(built / "images" / "coin-default-001.png")
     t = template_module()
@@ -1850,8 +1586,6 @@ def test_template_shows_a_hit_as_a_frame_of_the_flash_colour(built, tmp_path):
     t.ROOT = tmp_path
     with pytest.raises(SystemExit, match=r"hit_frame\('ball.png'\): draw the frame first"):
         t.hit_frame("ball.png")
-    with pytest.raises(SystemExit, match=r"Blink: a hit shows as a colour, not the Flash behavior's blinking"):
-        t.beh_def("Flash", "Blink")
 
 
 def test_template_writes_instances_in_the_editors_key_order_and_number_form(tmp_path):
@@ -2081,8 +1815,6 @@ def test_template_draws_areas_and_rings_as_lines(tmp_path):
                   for a in range(180)]
         assert {p[:3] for row in img for p in row if p[3]} == {t.PALETTE["solid"]}
         assert (min(around) == 0) == bool(dash) and max(around) > 200
-    with pytest.raises(SystemExit, match=r"odd.png: 50 px is not whole units of 32 px"):
-        t.ring("odd.png", 50)
 
 
 
@@ -2143,7 +1875,7 @@ def test_a_data_file_is_listed_with_the_type_the_editor_writes_for_its_extension
 
 
 def test_template_declares_the_longest_text_of_each_text_the_events_set(built, tmp_path, capsys):
-    """tools/texts.json holds the widest text each helper's `longest` gave, which review_look.py shows in its
+    """tools/texts.json holds the widest text each helper's `longest` gave, which check_screens.py shows in its
     worst data; a Text whose text the events set with no `longest` gets a warning."""
     assert json.loads((built / "tools" / "texts.json").read_text(encoding="utf-8"))["longest"]["ScoreText"] == "999"
     t = template_module()

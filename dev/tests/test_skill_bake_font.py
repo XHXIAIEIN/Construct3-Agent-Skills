@@ -139,9 +139,9 @@ def test_template_lowers_a_sprite_font_label_by_whole_font_pixels(tmp_path, monk
     assert t.optical_drop("menu", 16) == 0
 
 
-def test_pixel_art_game_bakes_its_fonts_and_check_look_finds_a_character_left_out(tmp_path, monkeypatch):
+def test_pixel_art_game_bakes_its_fonts_and_the_checker_finds_a_character_left_out(tmp_path, monkeypatch):
     """The stand-in game at 320x180 with the font in the cache: its labels are Sprite Fonts, the run
-    bakes them and passes its check, and check_look.py names a character that a later edit leaves
+    bakes them and passes its check, and check_project.py names a character that a later edit leaves
     unbaked."""
     pixel_cache(tmp_path, monkeypatch)
     root = new_project(tmp_path / "pixel")
@@ -157,13 +157,13 @@ def test_pixel_art_game_bakes_its_fonts_and_check_look_finds_a_character_left_ou
     manifest = c3.load(root / "tools" / "pixel-font.json")
     assert manifest["types"] == ["KeyText", "KeyVerb", "PauseLabel", "PauseTitle", "RoundTag", "ScoreLabel", "ScoreText"]
     assert all(c3.load(root / "objectTypes" / f"{n}.json")["plugin-id"] == "Spritefont2" for n in manifest["types"])
-    code, out = tool(root, "check_look")
+    code, out = tool(root, "check_project")
     assert code == 0, out
     edit(root, "layouts/Game.json", lambda d: [i["properties"].update(text="中文") for layer in d["layers"]
                                                for i in layer.get("instances", []) if i["type"] == "ScoreLabel"])
-    code, out = tool(root, "check_look")
+    code, out = tool(root, "check_project")
     assert code == 1 and "type.pixel-font: 2 characters in use are not baked into the Sprite Fonts" in out, out
     code, out = tool(root, "bake_font")
     assert code == 0, out
-    code, out = tool(root, "check_look")
+    code, out = tool(root, "check_project")
     assert code == 0, out

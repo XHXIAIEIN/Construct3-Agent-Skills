@@ -84,8 +84,7 @@ shows before the build and a bug in the events after it.
   `left of KEY`, `right of KEY` for another entry or object; a comment may
   follow the comma. `play_design.py` checks such a place on the first
   screen: the middle of the object's instances lies in that third, or past
-  that side of the other entry. `review_look.py` asks about a place written
-  in other words.
+  that side of the other entry. A place written in other words is not checked.
 - `state`: one row per piece of state, the table of `generating-a-project.md`,
   "Plan the state". `stored_in` is `"global"` (a global variable of the same
   name), `"Array"` (an Array object of the same name, with `"size": [w, h]`

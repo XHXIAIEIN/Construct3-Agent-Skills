@@ -194,98 +194,38 @@ about the editor or the preview goes to `editor-and-preview.md`.
    with `--remove N`. [design:
    `Construct3-Agent-Skills/docs/decisions/project-notes.md`]
 
-## The look of each layout
+## What each layout shows
 
-`scripts/review_look.py` checks what every layout shows, once the preview
+`scripts/check_screens.py` checks what every layout shows, once the preview
 passes. It goes to each layout with the runtime's `goToLayout`, takes a
-screenshot into `.tmp/scripts/review-look/shots/`, and reads the layout's
-instances from the runtime. Its finding lines are measured, each naming the layout, the object
+screenshot into `.tmp/scripts/check-screens/shots/`, and reads the layout's
+instances from the runtime. Each finding line names the layout, the object
 type and the UID: a text its box cuts (`text`), instances of one type on one
 box (`stacked`), overlaps on the HUD and texts over texts (`overlap`), a HUD
-instance the screen's edge cuts (`edge`), a type whose kinds show one
-frame (`frame`), texts gathered in one ninth of the screen while two
-corners stand empty (`crowd`), a text whose letters, measured on what lies
-behind them on screen, read under `text.contrast` (`faint`), a label or
-glyph whose ink sits off the centre of the shape it is centred on
-(`optical`), three or more instances of one type on one line whose gaps
-differ by 0.5 px to a quarter of the unit (`uneven`), and Texts that events
-set with no declared longest text (`unlimited`). Except `optical`, none of
-the first six fires on the official examples. The generator's helpers centre
-their labels by ink and space their rows evenly, so `optical` and `uneven`
-report what was placed by hand.
+instance the screen's edge cuts (`edge`), a type whose kinds show one frame
+(`frame`), a text still "Text" or Lorem ipsum after the start (`placeholder`),
+a text whose letters read under 4.5:1, or 3:1 when large, on what lies behind
+them on screen (`faint`), and Texts that events set with no declared longest
+text (`unlimited`).
 
-Each finding and each yes of the questions has a tier (`look.severity` in
-`assets/look-manifest.json`): `broken`, the player cannot read, reach or
-tell it apart; `ugly`, it reads but looks wrong; `fragile`, right as shown
-and one step from broken, or a finish of a pixel or two. Fix every broken
-one, then every ugly one: both fail the review. A fragile one warns, and
-the hand-over names it. A yes with more than one right fix, such as cutting
-a text short or wrapping it, is the user's to pick, so ask before you spend
-a round on it.
+A finding fails the run. A warning does not, and the hand-over names it:
+`unlimited` warns, and so does a finding that only a guessed longest text
+causes.
 
-Each layout is also looked at in three more data states and on two more
-shapes of screen (`look.worst-data`, `look.screen-shapes`): the Texts that
-events set show their longest text, nothing, and a count of one, and the
-screen takes the shapes the project's orientations allow, such as 4:3 and a
-phone's. A finding that arises only there carries `@` and where, as
-`@phone worst`, and its screenshot is `<layout>@phone-worst.png`. The
-longest text of a Text comes from `tools/texts.json`, which the generator
-writes from each helper's `longest=`; without it the worst text is a guess,
-and what only the guess causes warns. `--viewport` looks at one screen and
-`--data demo` at the layout as it starts.
-
-The script asks what a measurement cannot judge, in one list of yes/no
-questions about what a player sees as a mistake: text cut, too small, too
-faint or partly hidden; an object over a text, a button or a card's face;
-the HUD cut by the screen's edge; a stand-in or an object drawn in a style
-of its own; a backdrop that catches the eye before what the player acts on;
-kinds that look alike; a screen that looks like an app's dashboard;
-decoration repeated on every layout; when the user's reference pictures
-are in `art/references/`, a screenshot that looks like another game beside
-them (`look.references`); and, when the
-project has a design, the screen entries that `play_design.py` cannot
-measure. Art layered on purpose, such as scenery running past the edge, is
-no mistake. The agent that wrote the events reads its own screenshots by
-what it meant them to show, so the script also writes the screenshots and
-the questions into `brief.md` beside them, for a reviewer that has not seen
-the project. Where you can start a sub-agent, give it the brief as its
-whole task, save its reply to `.tmp/scripts/review-look/reply.md`, and
-run `scripts/review_look.py --reply .tmp/scripts/review-look/reply.md`. It
-names each answer the reply lacks and each yes that does not say where, so a reply that
-skipped a question is not taken for a pass, and it prints every yes. For
-each yes, name the layout and the object type at the place it describes.
-Otherwise open each screenshot with the
-image tool, answer each question from the picture, and name the same for
-each yes. Save these answers to `.tmp/scripts/review-look/reply.md` in the
-form the brief gives and check them with `--reply` as well, because `verify_change.py`
-passes its look step only on a reply that `--reply` checked: one that
-answers every question, each yes saying where, with no new yes. In a git
-repository the brief also gives each screenshot the same layout before the
-change. That layout comes from the commit where the branch `agents` left the
-user's branch. The reviewer marks each yes new or before. A yes from before
-is the project's own look, not a fault of the change. It fails nothing, and
-the `ok:` line names it for the hand-over. A new yes fails the step: fix it and
-run `verify_change.py` again, which looks again. After three replies with a
-new yes the step passes, and its `ok:` line names each yes left and each
-fragile finding, for the hand-over to give with each fix in three parts:
-before, after and why. In a generated game the step first runs `scripts/check_look.py`, and
-a finding of it stops the step before the review. When `scripts/art.py`
-has written a contact sheet of the game's pictures, the brief shows its
-pages after the screenshots, under the same questions. When there are references,
-the brief names a pair picture, `<layout>@reference.png`, beside each
-screenshot that has references, and the run prints the colours measured on
-each side. When the user picked a look with `scripts/pick_look.py`, the
-pair picture of the layout the game starts on also holds `art/look.png`, under a
-question of its own. A yes to either question is fixed in `PALETTE`,
-`ART_STYLE` and the drawings, toward the references' colours or the picked
-look. A question answered from
-memory of the events, not from the picture, is not answered.
+Each layout is also shown in three more data states and on two more shapes of
+screen: the Texts that events set show their longest text, nothing, and a
+count of one, and the screen takes the shapes the project's orientations
+allow, such as 4:3 and a phone's. A finding that arises only there carries `@`
+and where, as `@phone worst`, and its screenshot is
+`<layout>@phone-worst.png`. The longest text of a Text comes from
+`tools/texts.json`, which the generator writes from each helper's `longest=`.
+`--viewport` shows one screen and `--data demo` the layout as it starts.
 
 A layout reached by `goToLayout` starts without what the game's flow sets up
 before it, and one whose start events leave at once is printed as left for
 the layout they went to. Play to such a scene with a plan of
 `scripts/preview_project.py` and a `shot` step, which prints the findings
-that hold on any frame, and answer the same questions about that screenshot. [observed in a generated card game, r495.2
+that hold on any frame. [observed in a generated card game, r495.2
 preview, 2026-10-04: the combat layout, reached directly, went to the ending
 at once; played to by a plan, the same checks over its instances found the
 names, descriptions and costs of five cards stacked on one card, in a

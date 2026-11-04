@@ -10,7 +10,6 @@ At a viewport 360 px high or less the generator template draws pixel art:
 `PALETTE` with hard edges. A label in a Text draws at the screen's
 resolution with antialiased edges: a smooth shape among pixel art, whose
 edges blend the role and the paper into colours of no palette.
-`review_look.py` asks about exactly that mix.
 
 Task: in pixel art the labels keep the pixel grid and the palette's
 colours, in Latin and in Chinese, without a step the agent has to remember.
@@ -46,7 +45,7 @@ and both levels of GB2312 fits a cell of 8×8 px, six rows above the
 baseline and two below, within its own advance.
 
 The user's font cache holds it, as it holds Inter
-(`default-look.md`, "The font"); the repository and the plugin carry
+(`template-font.md`); the repository and the plugin carry
 no font file. Source: release 2026.10.16,
 `https://github.com/TakWolf/fusion-pixel-font/releases/download/2026.10.16/fusion-pixel-font-8px-proportional-bdf-v2026.10.16.zip`,
 sha256 `f26864c613cf502e6ea9f5d397469584b27bd49a1cee7c2c0c996b6900fcbe2d`;
@@ -58,7 +57,7 @@ without a font library.
 
 1. **Keep Texts, and accept the blend.** The examples blend colours too.
    But they draw letters on the pixel grid, and a smooth label among pixel
-   art is the mistake the look review asks about.
+   art breaks the pixel grid.
 2. **A Latin pixel font in a Sprite Font, Chinese in a Text.** Two drawing
    styles on one screen whenever a game is in Chinese.
 3. **One pixel font for both, every common character baked.** The first
@@ -90,8 +89,8 @@ what the game shows.
   is no longer in use; `--check` writes nothing. The spaces of U+2002 to
   U+200A, which the font lacks and a label may use, are baked as blank
   cells of their em width.
-- `check_look.py` reports a character in use that is not baked
-  (`type.pixel-font`), and `check_project.py` holds a Sprite Font to the
+- `check_project.py` reports a character in use that is not baked
+  (`type.pixel-font`), and holds a Sprite Font to the
   edge, contrast and banner checks it holds a Text to.
 - A key's box holds a pixel of paper above and below the line inside its
   outline, since a Sprite Font's line is exactly its cell.

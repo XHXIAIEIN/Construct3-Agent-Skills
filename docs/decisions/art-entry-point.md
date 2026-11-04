@@ -5,9 +5,8 @@ Date: 2026-10-30
 ## Problem
 
 A generated game took its pictures in four manual round trips:
-`prepare_art.py --list` printed one step at a time (the art direction, a key
-picture, a prompt per picture), the session's image tool made each picture,
-`prepare_art.py` cut it out and fitted it, and the generator ran again to
+`prepare_art.py --list` printed one step at a time, the session's image tool
+made each picture, `prepare_art.py` cut it out and fitted it, and the generator ran again to
 take it. Claude Code has no image tool, so most runs stopped after the first
 step and kept the stand-ins. Nothing drew the art of a game without one.
 
@@ -16,8 +15,8 @@ step and kept the stand-ins. Nothing drew the art of a game without one.
 1. **Keep the steps, and add a second script for drawings.** Two entry
    points, each with its own round trips.
 2. **One script, `scripts/art.py`, that moves each picture as far as it
-   can.** It runs the game's drawings, renders them, fits the image tool's
-   pictures, runs the generator when it wrote a picture, writes a contact
+   can.** It runs the game's drawings, renders them, fits the pictures of
+   `art/raw/`, runs the generator when it wrote a picture, writes a contact
    sheet, and prints one table: each picture's route, its state and the
    next step. Chosen.
 3. **The generator calls the renderer.** The generator is stdlib only and

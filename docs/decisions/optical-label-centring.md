@@ -20,8 +20,7 @@ box, not the capitals, not the Chinese and not the font's ascent and
 descent.
 
 The generator's labels, bars, toggles, stage labels and Sprite Font labels
-must look centred on what they sit on or beside, and `review_look.py` must
-name any label or glyph that does not, with the change that fixes it.
+must look centred on what they sit on or beside.
 
 ## Evidence
 
@@ -50,7 +49,7 @@ that draws as the runtime draws puts capitals and Chinese 2.5 to 3.5 px
 high at 27 px in Segoe UI, Microsoft YaHei and Arial too (0.09 to 0.13 em),
 and a lowercase "x" within 1 px of the centre.
 
-In Inter 4.1, the subsets of `default-look.md`, the same probe lowered by
+In Inter 4.1, the subsets of `template-font.md`, the same probe lowered by
 system-ui's value measures every label 1.0 px low at both sizes, capitals
 and Chinese alike, because Chinese falls back to the platform's face but
 stands on Inter's line. Centred by their box, they would sit 2 px high at
@@ -68,7 +67,7 @@ A line taller than its box draws from the box's top: a bar's name whose
 A probe from the template measures every label within 0.5 px of its face's
 centre, down and across, at both viewports, and each triangle within
 0.31 px. In Inter every label measures 0.0 px off centre down.
-`review_look.py` reports no `optical` finding on either. The shots, the
+The shots, the
 results and the probe are in `.local/docs/evidence/optical-align/`.
 
 ## Options
@@ -110,20 +109,7 @@ bakes it, in whole font pixels times the scale. `button()` and the label of
 `toggle()` and the other controls shrink their box from the top by twice
 it; `labelled_bar()` and the stage band of `band_text()` move their box
 down by it. A triangle of `shape()` has its origin at its centroid, and
-`shape_inst()` raises it by a sixth of its height, which `on_grid()`
-accepts.
-
-`review_look.py` reports `optical`: a label, a text beside a shape in a row,
-or a glyph alone on a shape, centred on it by its box, whose ink sits off
-the centre of the shape's face by more than the larger of 1.5 px and
-0.06 em of the text. Down, a text is measured by its capitals and digits,
-else its Chinese, the line the template centres; across, by all its ink; a
-glyph by its area's centroid. The face is the shape's pixels in its main
-colour, so a shadow does not move it. The 1.5 px floor stays clear of the
-0.5 px that a label of the helpers measures and of the 1 px that a Sprite
-Font's last advance adds across. It reports a label centred by its box at
-the title size and a Chinese label at the body size. A capital label at
-the body size, 1.5 px high, is at the floor and not reported.
+`shape_inst()` raises it by a sixth of its height.
 
 ## Re-evaluate when
 
@@ -132,5 +118,3 @@ the body size, 1.5 px high, is at the floor and not reported.
   system-ui by more than the shots resolve at the title size.
 - A release changes how `lib/gfx/text.js` places a line, such as its
   `textBaseline`.
-- `review_look.py` reports `optical` on a label that a template helper
-  placed.

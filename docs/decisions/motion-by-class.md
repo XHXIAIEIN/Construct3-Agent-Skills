@@ -12,8 +12,7 @@ its world objects therefore moved alike unless the agent chose each ease,
 and nothing opened a popup. The owner asked to learn from Emil Kowalski's
 animation skills ([emilkowalski/skills](https://github.com/emilkowalski/skills),
 commit `a81dbca`, MIT), whose web values disagree with the official
-examples in places. `check_look.py` checked no motion but the hit and the
-squash, while two traps of the Tween behavior
+examples in places. No check held motion, while two traps of the Tween behavior
 (`Construct3-Cookbook/guides/behaviors/tween.md`) break a game silently: a
 count restarted without *Stop*, and a size tween that cancels the tween
 destroying the same instance.
@@ -120,10 +119,11 @@ of the two side by side:
   and a held press for a destructive menu action, each until the examples
   are read for it.
 - `motion.stagger`, proposed: a step between items that enter together.
-  The examples were read for it in `motion-atlas-layouts.md`: they step
-  0.1 to 0.25 s, slower than the 30 to 80 ms above.
+  The examples step 0.1 to 0.25 s, slower than the 30 to 80 ms above.
 
-The five checks are in `check_look.py` under the ids of the table above.
+`check_project.py` holds `motion.value-restart`, the one check that is right or
+wrong for any look (`mechanical-checks-only.md`); the other ids above are
+the template's starting values.
 `references/motion-vocabulary.md` names each motion with its mechanism,
 helper and value, in the glossary shape of Emil's animation-vocabulary
 skill; its values come from the Cookbook's feel, attack-feel and vfx-timing

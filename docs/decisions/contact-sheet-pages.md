@@ -7,7 +7,7 @@ Date: 2026-10-31
 A contact sheet of one PNG 1600 px wide and as high as its page reaches
 thousands of px on a game with many pictures: 7430 px on the card game of
 the art-route runs. A model scales an image taller than 2576 px down before
-it reads it. The art agent and the look judge then see each picture at the
+it reads it. The art agent then sees each picture at the
 sheet's scale, not at the enlarged size that the sheet gives it.
 
 ## Evidence
@@ -46,18 +46,13 @@ Option 3.
   them.
 - A scene or a panel on the sheet is at most half the sheet's width and
   `PAGE_H` less 160 px high, so that it shares a page with its heading.
-- The art agent's brief asks it to open every page and to answer the
-  questions over all the pages together. `review_look.py` names each page
-  `Art sheet N` in the look review's brief, a picture of its own under the
-  same questions, and says that the pages are one sheet.
+- The art agent's brief asks it to open every page.
 - `dev/tests/test_skill_art.py` renders a sheet of forty pictures and a
   tall scene in the machine's browser and checks the size of each page.
 
 ## Re-evaluate when
 
 - The vision guide changes its limits: `PAGE_H` follows the token limit of
-  the models the art agent and the look judge run.
+  the model the art agent runs.
 - A run asks for more than 20 images in one request: a page stays under
   3000 px, so this limit is met already.
-- An agent judges two pictures alike or apart across two pages wrongly:
-  the pages then need the frames of one object kept on one page.

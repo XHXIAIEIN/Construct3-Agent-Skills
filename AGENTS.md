@@ -29,7 +29,7 @@ names a file of that clone.
 |------|---------------|
 | `plugin/.claude-plugin/plugin.json` | The plugin's manifest: name, version, description and keywords |
 | `plugin/skills/construct3-agent-plugin/` | The skill: `SKILL.md`, its scripts, references and assets |
-| `plugin/agents/` | The `project-worker`, `art-drawer`, `look-judge`, `design-judge` and `recording-describer` sub-agent types, which load with the plugin |
+| `plugin/agents/` | The `project-worker`, `art-drawer`, `design-judge` and `recording-describer` sub-agent types, which load with the plugin |
 | `plugin/README.md`, `plugin/icon.png`, `plugin/LICENSE` | The plugin's page in Claude's directory, its listing icon and its licence |
 | `scripts/bootstrap.py` | The script that clones the sibling repositories and installs the skill in a game project (section 4) |
 | `docs/decisions/` | The reasons behind the skill's choices, indexed in `docs/decisions/README.md` |
@@ -89,8 +89,8 @@ A runtime behaviour of events that changes which events an agent writes is a
 pitfall. Record it in Construct3-Cookbook, not here, as that repository's
 `AGENTS.md` describes: the entry and its source go on the page that owns it,
 and the section "Adding an entry" of `guides/pitfalls.md` says what the
-index gets. A lesson about the project file format, the editor, the preview
-or the look goes where that section says.
+index gets. A lesson about the project file format, the editor or the preview
+goes where that section says.
 
 ## 4. Use from a game project
 
@@ -134,7 +134,9 @@ repository, read `dev/AGENTS.md`.
 | Install and use the skill or the plugin | `README.md` |
 | The project tools that the skill carries into a game project | `plugin/skills/construct3-agent-plugin/SKILL.md` |
 | Event sheet design, the sourced pitfalls and the examples' authoring style | `design/thinking.md`, `pitfalls.md` with its pages and `design/style.md` under `Construct3-Cookbook/guides/`; `docs/decisions/event-sheet-design-guidance.md` |
-| The sheets, layers, objects and look of a new project | `Construct3-Cookbook/guides/project-files/new-project.md`, `docs/decisions/default-look.md`, `docs/decisions/default-look-is-the-fallback.md`, `docs/decisions/game-look-from-design-skills.md`, `docs/decisions/art-from-the-image-tool.md` |
+| The sheets, layers and objects of a new project | `Construct3-Cookbook/guides/project-files/new-project.md` |
+| Why the repository checks no looks | `docs/decisions/mechanical-checks-only.md` |
+| How a game gets its pictures | `docs/decisions/art-entry-point.md`, `docs/decisions/art-drawn-in-code.md`, `docs/decisions/art-from-the-image-tool.md` |
 | The slot case as a program, hand-editing project JSON, feel recipes, sequences and dialogue, menus, flat layers in depth under a 3D camera, and porting a web or WebGL effect | `Construct3-Cookbook/guides/recipes/` and `Construct3-Cookbook/guides/project-files/` |
 | The visual language of published games, their motion statistics and the analyzer | `docs/decisions/published-game-visual-language.md`, `docs/dev/published-game-analysis.md` and `scripts/reference_games/`, all in the Construct3-RAG clone |
 | Why features were kept or removed | `docs/decisions/README.md`, the index of the records |

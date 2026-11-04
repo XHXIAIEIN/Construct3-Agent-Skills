@@ -3,37 +3,25 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
-- [The Game's Look: What kill-game-slop Adds to the Review](look-from-kill-game-slop.md) — 2026-11-02
+- [The Scripts Check What Is Wrong, Not What Looks Good](mechanical-checks-only.md) — 2026-11-02
 - [The Clones Live in One Home Folder, and setup.py Lists the Missing Ones](clones-home.md) — 2026-11-01
-- [The Game's Look: unslop's Spacing and Alignment Measured on Game Screens](look-from-unslop.md) — 2026-11-01
 - [The Pause Menu Is a Column of Rows Over a Paper Veil, Without a Panel](pause-menu.md) — 2026-11-01
 - [The Plugin Holds No Data; Its Scripts Read the Construct3-RAG Clone](plugin-reads-the-clones.md) — 2026-11-01
 - [The Contact Sheet Comes in Pages a Model Reads at Their Own Size](contact-sheet-pages.md) — 2026-10-31
-- [Emil Kowalski's Other Skills Checked Against a Game Screen](emil-skills-for-a-game-screen.md) — 2026-10-31
 - [An Export Passes Only When Its Game Boots](export-boots-the-game.md) — 2026-10-31
 - [The Generator Removes the Files It No Longer Writes](generator-removes-what-it-no-longer-writes.md) — 2026-10-31
 - [Each Kind of Text Has Its Own Leading](leading-by-kind.md) — 2026-10-31
-- [The Game's Look: What impeccable Adds to the Review and the Manifest](look-from-impeccable.md) — 2026-10-31
-- [Layout, Type, Colour and Motion Rules of Motion-Design Websites, Measured on Game Screens](motion-atlas-layouts.md) — 2026-10-31
 - [A Game Keeps the Facts a Check Showed, on the Events They Rest On](project-notes.md) — 2026-10-31
 - [What a Recording Shows Is Described by a Reviewer That Has Not Seen the Change](recording-describer.md) — 2026-10-31
 - [A Preview Run Names What Went Wrong in the Runtime](runtime-signals.md) — 2026-10-31
 - [The Guide Search Prints the Symptom Rows First](symptom-search.md) — 2026-10-31
 - [The Count Draws in Inter's Tabular Digits](tabular-count-digits.md) — 2026-10-31
-- [taste-skill and frontend-design Read in Full, Against the Game's Look](taste-skill-and-frontend-design.md) — 2026-10-31
 - [Title and Result Screens Get Their Own Type Rules](title-and-result-screens.md) — 2026-10-31
-- [ui-ux-pro-max's Data Describes a Game's Store Page, and Its Web Rules Fail on Game Screens](ui-ux-pro-max-data.md) — 2026-10-31
-- [What a Web Landing Page Skill and a Redesign Skill Add to the Game's Look](web-landing-and-redesign-skills.md) — 2026-10-31
 - [The Art of a Generated Game Is Drawn by a Sub-Agent on a Fixed Model](art-drawer-agent.md) — 2026-10-30
 - [Art Drawn in Code as SVG: The Route Without an Image Tool](art-drawn-in-code.md) — 2026-10-30
 - [One Script Moves Every Picture of a Generated Game](art-entry-point.md) — 2026-10-30
-- [The Look Step Fails Only on What the Change Brought](look-blocks-only-what-the-change-brought.md) — 2026-10-30
-- [The Look Manifest Owns Every Look Rule](look-manifest-owns-the-rules.md) — 2026-10-30
-- [The User Picks a Given Look on the First Play Screen in Three Directions](look-picker.md) — 2026-10-30
-- [The Look Review Ranks Its Faults and Checks Worst Data and Other Screens](look-severity.md) — 2026-10-30
 - [Motion by Class: Eases by What Moves, a Popup Helper and Five Motion Checks](motion-by-class.md) — 2026-10-30
 - [A Label Is Centred on Its Shape by Its Ink](optical-label-centring.md) — 2026-10-30
-- [The User's References Are Measured and Shown Beside the Game's Screens](reference-pairs.md) — 2026-10-30
 - [SKILL.md Holds Facts and Tool Entries Inside 5000 Tokens](skill-body-budget.md) — 2026-10-30
 - [The Design Questions Go to a Reviewer That Has Not Seen the Request](design-judge-agent.md) — 2026-10-29
 - [The Generator Places a Drawing Canvas over the Viewport with Antialiasing Off](drawing-canvas-helpers.md) — 2026-10-28
@@ -43,10 +31,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A sub-agent type that carries only the tools the scripts need](project-worker-agent.md) — 2026-10-24
 - [One Script Runs the Checks of a Change and Says the Next Step](verify-change.md) — 2026-10-24
 - [A Two-Turn Case Measures What a Run Keeps Across a Compaction](compaction-eval.md) — 2026-10-23
-- [The Default Look Is the Fallback](default-look-is-the-fallback.md) — 2026-10-23
 - [What Only Maintainers Use Lives Under `dev/`](dev-folder.md) — 2026-10-23
-- [The Game's Look: What Aesthetics Skills Add to the Template](look-from-aesthetics-skills.md) — 2026-10-23
-- [The Look Judge Is a Read-Only Sub-Agent Type on the Measured Model](look-judge-agent.md) — 2026-10-23
 - [A Bundled Addon Is Installed Only on the User's Word](bundled-addon-consent.md) — 2026-10-22
 - [An Export Replaces Only the Folders It Recorded](export-folder-record.md) — 2026-10-22
 - [The Hand-Over Says What Ran](hand-over-says-what-ran.md) — 2026-10-22
@@ -62,10 +47,10 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [A Map of the Sheets: Which Layouts Run Each, and What It Holds](sheet-map.md) — 2026-10-16
 - [Sound Files Are Measured, and Placeholders Pass the Measure](sound-files-measured.md) — 2026-10-16
 - [The Hand-Entry Format Prompt Is Removed](remove-event-sheet-assistant.md) — 2026-10-15
-- [The Default Look: The Generator Template's Fallback](default-look.md) — 2026-10-14
 - [A Game Project's Long Documents Are Read in Parts](long-docs-in-parts.md) — 2026-10-14
 - [A long sheet prints its groups, and --find names the events that use a name](long-sheet-contents.md) — 2026-10-14
 - [A picture of an event sheet comes from the editor, fitted and cropped](sheet-screenshot.md) — 2026-10-14
+- [The Template's Font](template-font.md) — 2026-10-14
 - [Design Tokens for the Tool Pages](design-tokens.md) — 2026-10-13
 - [Lightweight review and optional complete evidence](design-review-packets.md) — 2026-10-10
 - [Numbers and Rules from Other Agent Frameworks, Measured Here First](borrowed-numbers.md) — 2026-10-08
@@ -76,17 +61,15 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [Input Controls: A Slider, a Toggle and a Text Input in the Template](input-controls.md) — 2026-10-08
 - [The Construct 3 Block Is Versioned and Refreshed in Place](instruction-block-refresh.md) — 2026-10-08
 - [The Generator Template's Viewport: 1920×1080 Landscape](landscape-viewport.md) — 2026-10-08
-- [Look Questions Measured Against Agent Labels](look-judge-calibration.md) — 2026-10-08
 - [An Operation of a Plan May Carry the Line Its Event Prints](plan-names-the-event-line.md) — 2026-10-08
 - [Skill Evals Are Graded by Playing the Result](runtime-graded-evals.md) — 2026-10-08
 - [A key a web export would ship is a warning, and stops the export](secret-scan.md) — 2026-10-08
-- [Art from the Image Tool](art-from-the-image-tool.md) — 2026-10-06
+- [Pictures Are Cut Out and Fitted to the Box](art-from-the-image-tool.md) — 2026-10-06
 - [Layout by Name: Components, Bands and Computed Checks](layout-by-name.md) — 2026-10-06
 - [The Plugin Folder Holds Only Its Sources](plugin-folder.md) — 2026-10-05
 - [The Plugin's Version and Why a Project Needs No Copy](plugin-tracks-commits.md) — 2026-10-05
 - [A Clone Behind Its Upstream Fails the Check](clone-update-check.md) — 2026-10-04
 - [A New Game Is a Checked Design, Played as a Prototype Before It Is Built](game-design-prototype.md) — 2026-10-04
-- [The Game's Look: What Design Skills Do, and What the Generator Takes](game-look-from-design-skills.md) — 2026-10-04
 - [The Generator Template Keeps Its Helpers, Refreshed in Place](generator-helpers-inline.md) — 2026-10-04
 - [A Table of Records Is an Array File, Copied into a Dictionary at Start](record-tables-as-arrays.md) — 2026-10-04
 - [A project's TypeScript definitions come from the editor](typescript-definitions-from-the-editor.md) — 2026-10-04
@@ -95,7 +78,7 @@ The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of th
 - [New Projects Allocate Uids at Random](random-uid-allocation.md) — 2026-10-03
 - [A Preview Is Played from a Plan of Steps](preview-player.md) — 2026-10-02
 - [The Skill Is `construct3-agent-plugin`, the Plugin `construct3`](skill-and-plugin-names.md) — 2026-10-02
-- [Greybox Blockout: The Stand-in Look and the Level's Pacing](greybox-blockout.md) — 2026-09-26
+- [Greybox Blockout: The Stand-in and the Level's Pacing](greybox-blockout.md) — 2026-09-26
 - [Setting a Machine Up from the URL Alone](bootstrap-from-the-url.md) — 2026-09-22
 - [Events Go into a Sheet through a Checked Plan](edit-sheet-script.md) — 2026-09-22
 - [The Checker Applies the Editor's Own Load Rules](checker-editor-load-rules.md) — 2026-09-21

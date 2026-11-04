@@ -323,7 +323,7 @@ def test_play_design_finds_an_object_outside_the_place_the_design_names():
                                 "on layer 'HUD', and the design's place wants it at y > 960 (below Hole) on that layer: "
                                 "move it in the layout")
     assert notes == ["3 of 5 checked (score, holes, message)",
-                     "review_look.py asks about Mole, whose words before the first comma are not a place",
+                     "no script checks Mole, whose words before the first comma are not a place",
                      "Lives names no object: write the key as the object type's name"]
     score["box"] = [400, 20, 700, 80]
     message["box"] = [60, 1100, 660, 1160]
@@ -346,7 +346,7 @@ def test_play_design_prints_the_screen_places_under_the_first_screen():
         {"started": True, "errors": [], "steps": [{"ok": True}, {"ok": True, "value": snap}, {"ok": True}]}]}}
     lines, code = pd.report(design, [], result, ["ScoreText", "Hole"])
     assert code == 1
-    assert lines[1] == ("  first screen: 1 finding; places: 1 of 2 checked (score); review_look.py asks about holes, "
+    assert lines[1] == ("  first screen: 1 finding; places: 1 of 2 checked (score); no script checks holes, "
                         "whose words before the first comma are not a place")
     assert lines[2].startswith('    screen: screen.score "top-right": ScoreText uid 1 has its middle at (110, 50)')
 
@@ -358,7 +358,7 @@ def test_check_design_prints_which_screen_places_play_design_measures(tmp_path):
     assert code == 0, out
     assert "  score  top-left  play_design.py: top-left" in out
     assert "  message  below the holes  play_design.py: below holes" in out
-    assert "  board  a 3 x 3 grid in the middle  review_look.py" in out
+    assert "  board  a 3 x 3 grid in the middle  no script" in out
     assert "play_design.py measures a place whose words before the first comma are only top, bottom" in out
 
 
@@ -777,7 +777,7 @@ def test_a_failed_play_says_to_fix_the_game_not_the_test(tmp_path, monkeypatch, 
                                       "--out", str(tmp_path / "result.json")])
     assert pd.main() == 1
     last = capsys.readouterr().out.splitlines()[-1]
-    assert last.startswith("next: fix the game where each line says: its events, or its layout for a look: or start:")
+    assert last.startswith("next: fix the game where each line says: its events, or its layout for a screen: or start:")
     assert "Do not change a test or a number of the design to make it pass" in last
     assert "only when the user agrees that it was wrong" in last
 

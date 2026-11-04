@@ -9,10 +9,7 @@ event needs a motion and the helper is not obvious.
 Each class of object keeps one kind of motion, so the player can tell what
 matters. `TWEEN_STYLE` in `assets/build_project.py` holds the ease and the
 seconds by class; a tween helper takes `style=` and a given time or ease
-wins over it. The rules and their status are in
-`assets/look-manifest.json`, under the ids that start with `motion.`. A
-rule whose status is `open` or `proposed` is the user's to decide: keep the
-template's value.
+wins over it.
 
 The glossary's shape, term then meaning, follows the animation-vocabulary
 skill of [emilkowalski/skills](https://github.com/emilkowalski/skills)
@@ -26,14 +23,14 @@ taken where the official examples measure otherwise
   template's ease for the HUD, a bar, the camera and the world, as the
   official examples tween them.
 - **Ease-out** - Starts fast and settles. `easeoutquint` opens a popup or a
-  banner (`motion.tween-style`). It is the curve that web interfaces
+  banner. It is the curve that web interfaces
   write as `cubic-bezier(0.23, 1, 0.32, 1)`.
 - **Ease-in** - Starts slowly. It suits an object that leaves, never a HUD
-  object that fades in (`motion.hud-ease-in`, a warning).
+  object that fades in.
 - **Overshoot** - Passes the end value and comes back: `easeoutback` once,
   `easeoutelastic` several times, `easeoutbounce` as a dropped ball. It is
   for world objects and the subject of a moment, such as a title card,
-  never the rest of the HUD (`motion.hud-overshoot`, a warning).
+  never the rest of the HUD.
 
 ## Entrances and exits
 
@@ -44,9 +41,7 @@ taken where the official examples measure otherwise
   fades in. `popup(layer, veil, manager)` opens a layer from
   `POPUP["scale"]`, 0.95, at opacity 0, and fades its veil of canvas in to
   `POPUP["veil"]`, 92 %, in 0.2 s `easeoutquint`. `show=False` closes it the
-  way it came, and `popup_events()` hides both layers when the close ends
-  (`motion.popup`). Never from 0 (`motion.panel-from-zero`, a
-  finding).
+  way it came, and `popup_events()` hides both layers when the close ends. Never from 0.
 - **Pop in** - Appears with an overshoot, as if it bounced into place. Set
   the size to a share of its size at rest, then tween back with
   `easeoutback` over about 0.3 s, which bounces once like something hard;
@@ -56,7 +51,6 @@ taken where the official examples measure otherwise
 - **Banner open** - A strip opens from its centre: tween its width from 0.
   `tween1(banner, tag, "offsetWidth", width, style="banner")`, 0.25 s
   `easeoutquint`; the Cookbook's title card uses `easeoutquart` in 0.25 s.
-  A width alone from 0 passes `motion.panel-from-zero`.
   [`Construct3-Cookbook/guides/recipes/feel.md`, "A chapter or stage title
   card"]
 - **Fade between layouts** - A viewport-sized `Fader` on a parallax-0 layer
@@ -70,25 +64,24 @@ taken where the official examples measure otherwise
   undoes a size set in the layout editor. `squash(art, kind)` with `SQUASH`: a hit 0.8 x
   1.2, back in 0.25 s `easeoutback`; a landing 1.2 x 0.8, back in 0.5 s
   `easeoutelastic`; a jump 0.7 x 1.3, held 0.2 s, back in 0.75 s
-  `easeoutelastic` (`motion.squash`). On the art, never on an object that
-  collides (`motion.squash-art`), and never on an object that a size tween
-  is destroying (`motion.size-on-dying`, a warning).
+  `easeoutelastic`. On the art, never on an object that
+  collides, and never on an object that a size tween
+  is destroying.
   [`Construct3-Cookbook/guides/behaviors/tween.md`]
 - **Hit flash** - The object's hit frame, drawn in the `flash` role, for an
   instant. `hit_frame(file)`, then `hit_flash(obj)` or `hit(obj)`. Value:
-  `HIT_FLASH["seconds"]`, 0.08 s of real time (`motion.hit`).
+  `HIT_FLASH["seconds"]`, 0.08 s of real time.
 - **Hit stop** - The game freezes for an instant on a big hit. System *Set
   time scale* 0.1, *Wait* with *Use time scale* off, *Set time scale* 1; a
   *Tween (value)* that feeds *Set time scale* ramps it. Slow motion is 0.1
-  to 0.2. No helper yet (`juice.functions`, proposed).
+  to 0.2. No helper yet.
   [`Construct3-Cookbook/guides/recipes/feel.md`, "Hit stop, slow motion"]
 - **Screen shake, in tiers** - Scroll To *Shake* with *Reducing
   magnitude*, the length from the effect. Magnitude as a share of the
   viewport's shorter side: about 0.5 % for a critical hit, 1 % for a merge,
   2 % for a kill; published games step it at about 0.3 %, 1 %, 2.8 % and
-  5 %, over about 0.4 s. No helper yet (`juice.functions`, proposed).
-  [`Construct3-Cookbook/guides/recipes/feel.md`, "Screen shake on impact";
-  the published games are the source of `juice.functions`]
+  5 %, over about 0.4 s. No helper yet.
+  [`Construct3-Cookbook/guides/recipes/feel.md`, "Screen shake on impact"]
 - **Impact burst** - One effect in four parts: a rise of 6 to 8 frames, a
   peak of 2 to 3, a fall to half in 5 to 6 and a tail of 4 to 6, the peak
   on the damage. [`Construct3-Cookbook/guides/recipes/vfx-timing.md`, "The
@@ -124,7 +117,7 @@ taken where the official examples measure otherwise
 ## Sequences
 
 - **Stagger** - Items that enter together start one after another. Not in
-  the template: a step of 0.03 to 0.08 s is proposed (`motion.stagger`).
+  the template: a step of 0.03 to 0.08 s is a start.
 - **Orchestration** - Several objects move as one choreographed moment,
   such as a level clear. Timeline *Play*, with branches that start together
   in sibling sub-events. [`Construct3-Cookbook/guides/recipes/feel.md`, "A
@@ -144,5 +137,4 @@ taken where the official examples measure otherwise
 A HUD change that comes with every action of the player, a score tick or an
 ammo count, shows at once or in the bar class; a moment of the session, a
 level clear or a new record, gets the popup or banner class. World motion
-on every jump or hit stays. This is `motion.frequency`, proposed: the
-template does not hold it yet, and `count_up()` still counts every gain.
+on every jump or hit stays. `count_up()` counts every gain.

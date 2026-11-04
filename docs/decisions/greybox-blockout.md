@@ -1,15 +1,13 @@
-# Greybox Blockout: The Stand-in Look and the Level's Pacing
+# Greybox Blockout: The Stand-in and the Level's Pacing
 
-Date: 2026-09-26; spacing and balance 2026-10-08
+Date: 2026-09-26
 Schema: Construct 3 r495.2
 
 ## Problem
 
 A generated game has no art until the user or the agent's image tool
 supplies it, and until then it has to look like what it is: a blockout that
-can be played, read and judged, and still looks like a designed thing rather
-than a debug screen. The template does not draw art
-(`game-look-from-design-skills.md`). In place of art it drew "a stand-in of
+can be played and read. The template does not draw art. In place of art it drew "a stand-in of
 one colour or a plain shape", and each run filled that in its own way.
 
 A level had the same gap. The grid, `anchor()` and `no_overlap()` place a
@@ -17,10 +15,9 @@ HUD; nothing placed a level's content, so a model laid platforms, hazards
 and pickups one at a time, with no measure of what the player can jump and
 no order in which the level asks things of the player.
 
-Task: a generated game gets a blockout look that holds together and a level
+Task: a generated game starts from a blockout that holds together and a level
 laid out on grids and paced like a directed sequence, both from values of
-the generator template and checks where the generator writes, so that a
-small model gets them by default.
+the generator template, so that a small model gets them by default.
 
 ## Evidence
 
@@ -34,8 +31,7 @@ Over reference blockouts and mock-ups of the stand-in:
 - Placeholders are three shapes: rectangle, triangle, circle.
 - Pattern marks areas and edges, not objects, as Tiled Backgrounds.
 - The look is neutral and costs a model no decisions: a template default it
-  keeps, not a style it chooses per game. It is the fallback for a game the
-  user gave no look (`default-look-is-the-fallback.md`).
+  keeps, not a style it chooses per game.
 - A game's screen is the scene, not a dashboard. Of six mock-ups of one
   coin screen, three drew an app interface, with rounded cards, a score
   pill and a shadow on everything; the user read them as a template and as
@@ -43,8 +39,6 @@ Over reference blockouts and mock-ups of the stand-in:
 - The coins sit on a small board centred in the play area, 5 × 3 slots;
   scattered over the screen, or on a board as wide as the screen, they
   read as untidy.
-- The palette, the type, the HUD and the subjects' sizes are those of
-  `default-look.md`.
 - Where something is transparent, a mask, or a background still to come,
   the backdrop is the grey-and-white checker editors show for transparency.
 - Where a game turns them on, the shadow is hard at half opacity and the
@@ -59,13 +53,6 @@ Over reference blockouts and mock-ups of the stand-in:
 
 The outline, shadow, hit and squash values come from the evidence in
 `published-game-visual-language.md`.
-
-### Contrast of the values
-
-The roles' colours and their ratios are in `default-look.md`. Every
-colour a `shape()` is drawn in reads at least 3:1 on the darker checker
-grey, `canvas_alt`, so a shape shows on the paper and on the checker
-alone.
 
 ### Level design
 
@@ -102,7 +89,7 @@ alone.
    template default is what a small model repeats.
 2. **A look section in the prompts.** Prose the repository has measured not
    to reach a small model (`event-sheet-design-guidance.md`).
-3. **A fixed vocabulary, values and checks in the template.** Chosen.
+3. **A fixed vocabulary and starting values in the template.** Chosen.
 4. **Soft drop shadows and a light top edge.** A translucent, blurred shadow
    over the checker reads as a smear.
 5. **An app interface: a stage card, a score pill, a shadow under every
@@ -129,6 +116,8 @@ alone.
 ## Decision
 
 Option 3, in `plugin/skills/construct3-agent-plugin/assets/build_project.py`.
+The vocabulary and its values are where a game starts; nothing stops a game
+for leaving them (`mechanical-checks-only.md`).
 
 ### The vocabulary
 
@@ -154,114 +143,14 @@ shape. A sprite that rotates is drawn with `shadow=False`.
 The score is its name over the number, one group of `hud_stat()`. Coins
 land on the board, `COLS` × `ROWS` slots a finger wide and a unit apart,
 one Tiled Background of a slot tile over an area drawn as lines, in the
-middle of the play area the HUD leaves (*Spacing and balance*). A round deals the cells
+middle of the play area the HUD leaves. A round deals the cells
 `(deal + i × STRIDE) mod CELLS`, with `STRIDE` and `CELLS` coprime, so no
 two coins meet, and the run stops on a round with more coins than slots.
 
-### Spacing and balance
-
-The user saw two faults on the stand-in: the dim SCORE sat a full line
-above its number while the HUD sat close to the board, and the board was
-centred on the screen rather than in the space under the HUD. Slide and
-poster skills put the gap between two groups at 1.5 to 2 times the gap
-inside one, and they centre the content in the space the fixed parts leave.
-Studies of model judges of layout find that a model looking at a render
-catches gross errors but misses small offsets, so both rules are computed
-from the boxes the generator writes.
-
-| Value | Holds |
-|-------|-------|
-| `GAP_IN` | A quarter unit, 8 px at 32: between a value and its name. A line's box adds about a quarter of an em above and below its letters, so the gap a player sees is larger |
-| `GAP_OUT` | One unit: the least between the HUD and the playfield |
-| `GROUP_RATIO` | 1.5: the gap between two groups over the gap inside either, at least |
-| `OPTICAL_LIFT` | 0: how far the playfield is raised above the middle of the play area, as a share of its height |
-
-- `hud_stat()` puts a value under its name as one group, each box one line
-  high, so a caller does not place the second line with `dy`.
-- `play_area(hud)` is the viewport, `MARGIN` inside it, less the HUD's boxes
-  and `GAP_OUT` around them; `centred(w, h, area)` puts a box in its middle
-  on the grid, raised by `OPTICAL_LIFT`, 0, so not at all.
-- `spaced(groups)` stops the run when two groups sit closer than
-  `GROUP_RATIO` times the gap inside either, with the helpers that fix it.
-  It stops, as `no_overlap()` does, because the helpers always pass it and
-  a failure is a placement made by hand.
-- `balanced(content, area)` prints a warning when the playfield's centre is
-  more than a unit from the middle of the play area. It warns and
-  does not stop, because a game may hold its playfield off the middle on
-  purpose, beside a panel or in a level wider than the screen, and the boxes
-  do not say which.
-
-Two more rules from the same sources were measured on the official 2D game
-examples before either became a check: 81 one-screen layouts of the
-examples tagged as games, their content the visible instances of the
-scrolling layers less Text and backdrops
-(`dev/evals/measure_layout.py`).
-
-| Rule from slide and poster skills | Official layouts that pass | Outcome |
-|-----------------------------------|----------------------------|---------|
-| The content covers 25 to 60% of the screen | 11%; 83% cover more, median 80% | `filled()` warns under `PLAYFIELD_MIN`, 15%, which 5% of the layouts fall under: a tilemap or a panel that covers the screen, which the measurement takes for a backdrop, or a level drawn at runtime |
-| The largest object is at least 1.5 times the next | 31%; median 1.0 | Rejected: a grid of equal tiles, cards or two paddles has no single largest object |
-
-A game screen fills more of the screen than a slide, so the band does not
-transfer, and the floor catches a board too small for the screen. The
-stand-in's board covers 24%.
-
-The 5% lift of design guides was set first and turned down: the official
-examples centre their content, a median 0% off the middle
-([web-landing-and-redesign-skills.md](web-landing-and-redesign-skills.md)),
-and the user set `OPTICAL_LIFT` to 0 on 2026-10-31.
-
-The user found generated screens that gather their information in one
-place, such as a title and a subtitle, each joining two facts with a middle
-dot, stacked in one corner while the other three stood empty.
-Two checks count the items of the HUD in each ninth of the screen: a
-group is one, and each part a label joins to another with " · " or " | "
-that holds a word is one more, so a count with its name, "Lives · 3",
-is one. A group whose labels hold no word, a count beside its
-icon, tells nothing, and a text across two thirds of the screen is a bar
-along an edge, in no one place.
-
-- `spread(groups)`, which `spaced()` ends with, counts the generator's HUD
-  groups and warns when a ninth off the middle holds `HUD_CROWD`, 3 items,
-  while two corners hold nothing, naming those corners. It warns and does
-  not stop, as `balanced()` does: the groups do not say whether a panel is
-  meant.
-- `review_look.py`'s `crowd` finding counts the texts the runtime shows,
-  those a group's gap apart taken as one, by the same threshold, so a game
-  that never calls `spaced()` is checked too. It also leaves out the one
-  text inside an object, a button's word or a map node's letter, which
-  labels it.
-
-`measure_layout.py --text` counts the same over the official layouts:
-
-| Most items in a ninth off the middle | Layouts |
-|--------------------------------------|--------:|
-| 0 | 86 |
-| 1 | 42 |
-| 2 | 4 |
-| 3 or more | 0 |
-
-Before the exceptions, 4 layouts held 3 items or more in a ninth with two
-corners empty: three counts on an info board, a creature's stats, two
-dense score lines and a combat bar across the bottom joining stats with
-" | ". Bare counts, labels and bars covered them, so the finding fires on no
-official example. The stand-in's tag, score and keys hold one corner each.
-
 ### Colour
 
-`PALETTE` holds the roles of `default-look.md` plus `flash`, the
-fill of a hit. Keep the roles and change values only. The player is `ink`;
-a bar is an `ink` fill in a `solid` frame. A game gives a role a hue of its
-own only where the palette and the shapes leave two things alike. The run
-stops, naming the roles that would pass, when:
-
-- `canvas` and `canvas_alt` pass 1.2:1, or `solid` falls under 3:1 on
-  `canvas_alt` (`check_palette()`);
-- an accent, a role that is a hue rather than a grey, falls under 3:1 on
-  `canvas_alt` and is drawn without its outline, or an outlined fill falls
-  under 3:1 against `ink` (`shape()`);
-- a label reads under 4.5:1, or under 3:1 from 18 pt up, large-scale text
-  (`text_contrast()`, through `hud_text()` and every label).
+`PALETTE` holds the template's colour roles and `flash`, the fill of a hit.
+The player is `ink`; a bar is an `ink` fill in a `solid` frame.
 
 ### Backdrop and patterns
 
@@ -284,8 +173,7 @@ top-down game the backdrop is the floor.
 
 `pattern(name, kind)` draws a one-unit tile, stripes at 45°;
 `pattern_type()` declares its Tiled Background and `area()` places it on
-grid cells, refusing the backdrop patterns and caution or hazard stripes wider than a
-quarter of the viewport's shorter side. `tiledbg_inst()` writes
+grid cells. `tiledbg_inst()` writes
 `image-offset = -corner mod tile`.
 
 ### Motion
@@ -294,7 +182,7 @@ quarter of the viewport's shorter side. `tiledbg_inst()` writes
   `flash` inside the ink outline, which keeps a white flash visible on the
   paper, tagged `hit`; `hit_flash(obj)` shows it for
   `HIT_FLASH["seconds"]`, 0.08 s of real time so slow motion does not
-  stretch it. `beh_def("Flash")` stops the run.
+  stretch it.
 - `squash(obj, kind)` sets the size to the share `SQUASH` gives, holds it
   and tweens back under the tag `squash`: a hit 0.8 × 1.2 back in 0.25 s
   `easeoutback`, a landing 1.2 × 0.8 in 0.5 s `easeoutelastic`, a jump
@@ -304,21 +192,6 @@ quarter of the viewport's shorter side. `tiledbg_inst()` writes
 - A squash acts on the art: a player is an invisible mask with Platform and
   its art, drawn with `shape(..., oy=1)`, pinned to it. The run stops on a
   squash of an object whose behavior collides.
-
-### The grid
-
-- `shape_inst(type, file, col, row)` places a shape by the cell of its
-  top-left corner, whatever side the shadow hangs on; `on_grid()` stops the
-  run on a world instance off the grid. The HUD keeps `anchor()`: 720 and
-  1080 are not whole units of 32.
-- An object created at runtime goes to `grid_random(lo, hi)`, never a raw
-  `random()`.
-- `write_png()` writes a clear pixel as (0, 0, 0, 0): a colour under alpha
-  0 bleeds into the edge when linear sampling scales the image. In pixel
-  art it stops on an alpha other than clear, opaque and the shadow's.
-
-A tween, a shake or a squash moves an object off the grid while it plays;
-the rule holds its rest position.
 
 ### The level
 
@@ -346,43 +219,9 @@ climax or rise for it, because the climax rule would stop every such toy.
 stand-in plays its beats as rounds: `ROUND_COINS` holds each round's coins
 and a global `beat` counts them.
 
-### The manifest
-
-`plugin/skills/construct3-agent-plugin/assets/look-manifest.json` lists every rule of
-this record and of `default-look.md` with a status and a scope: `enforced` when a check stops the generator,
-`adopted` when the user decided it and the template holds it, `proposed`,
-`rejected`; `every-look`, or `default-look` for the fallback's taste,
-which stops nothing once `USER_LOOK` names a look the user gave. Its `deliver` steps are what a model writing the generator is
-given, its `confirm` steps what the agent runs on the result, among them
-`scripts/check_look.py`, which confirms the strict rules on the project's
-files. `dev/tests/test_skill_build_project.py` fails when a rule and the
-template value it names drift apart.
-
-## Open
-
-- The reach bands wait on a measured jump.
-- No small-model iteration has run on this template. The eval case
-  `readable-on-a-dark-background` asks for a navy backdrop, on which the
-  labels' `ink` reads 1.4:1: `readable()` stops the generator, and the case
-  grades what the model does with that stop.
-- `measure_layout.py` reads the layout files, so content an example creates
-  at runtime is not counted; a measurement from previews would raise the
-  low end of the coverage.
-- Not in the template: camera-zone helpers; Sine
-  bobbing for pickups; the juice functions, camera-zone fields and
-  five-level worlds of `published-game-visual-language.md`, `proposed` in
-  the manifest.
-
 ## Re-evaluate when
 
-- The user's reading of the running stand-in disagrees with the mock-ups.
-- A run adds colours outside `PALETTE`, or passes `painted=True` to flat
-  shapes to get round the checks.
 - The reach from the approximation and the reach measured in a preview
   differ by more than one unit.
-- A game needs more than two accents: the vocabulary is too small for it,
-  or the game is past the blockout.
-- `spaced()` stops a layout the user accepts, or `balanced()` warns on most
-  games that hold their playfield off the middle on purpose.
 - Real art arrives, from the user or an image model: the blockout gives
   way, and its grids and pacing stay.

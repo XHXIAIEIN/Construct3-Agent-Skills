@@ -17,8 +17,7 @@ then looks at the result.
    its context already holds the sheets and the checks.
 2. **A sub-agent type, `construct3:art-drawer`, on a fixed strong model.**
    Its whole task is the brief that `art.py` writes: the pictures with their
-   boxes, roles and subjects, the art direction, the kit, and five questions
-   to answer on the contact sheet before it returns. Chosen.
+   boxes, roles and subjects, and the kit. Chosen.
 
 ## Decision
 
@@ -26,22 +25,16 @@ Option 2. `plugin/agents/art-drawer.md` has the tools a drawing needs (Read,
 Write, Edit, Bash), starts without the project's instruction files, and
 names its model by its full ID. It changes only `tools/drawings.py`, the
 files that script writes under `art/`, and the roles of `PALETTE` that a
-subject needs. It stops after three rounds, or once every question is
-answered no, and replies with the questions still answered yes.
+subject needs. It stops after three rounds, or once `art.py` refuses and names nothing,
+and replies with what it still refuses or names.
 `art.py` names the type in its last line, and `project-worker` hands the
-brief to it as it hands a judge's brief. `pick_look.py` hands it the first
-play screen in three looks the same way (`look-picker.md`).
+brief to it as it hands a judge's brief.
 
 The type runs Opus. Both candidate models drew the trial's card game in
 one style (`art-drawn-in-code.md`, "A drawing run measured here"), and the
-owner picked Opus from those contact sheets: it ended in two rounds with no
-question left as yes, where Sonnet took three and left the three buttons
-alike.
+owner picked Opus from those contact sheets.
 
 ## Re-evaluate when
 
 - A newer model is released: draw the same card game again with it and
   compare the contact sheets.
-- A drawing run leaves a style of its own on a screen that the look review
-  finds: the brief's questions or the kit change, measured on the same
-  card game.

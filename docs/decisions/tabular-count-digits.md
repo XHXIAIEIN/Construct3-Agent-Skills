@@ -62,7 +62,7 @@ for t in f["cmap"].tables:
 f.save(dst)
 ```
 
-The subset command of `default-look.md` then runs on the mapped file. The
+The subset command of `template-font.md` then runs on the mapped file. The
 other two weights keep proportional digits.
 
 The template reads the digits' advances from the font file

@@ -127,7 +127,7 @@ const GUARD_RULES = `Guarded text needs more than a polish to change: an eval it
 - In dev/game-project-AGENTS.md: what a record or an eval pins (the account of the block's step 1).
 - In decision records: the Date and Schema lines; measured eval results that settle a decision (pass rates, run counts), never rounded or dropped; decisions the user took, reworded at most, never reversed or softened; quoted editor and script messages; what a record names as removed, renamed or replaced, and its account of the state before the change (remove-*.md and any other record), which name files that are gone on purpose; licence attributions.
 - In Markdown code examples: the calls, which must name helpers that exist; a broken one gets a proposal, not a silent change of the example.
-- In code: names that a test patches or imports, names that JSON files such as dev/evals/evals.json or plugin/skills/construct3-agent-plugin/assets/look-manifest.json cite, wrappers an AGENTS.md orders kept, and every string a test asserts.
+- In code: names that a test patches or imports, names that JSON files such as dev/evals/evals.json cite, wrappers an AGENTS.md orders kept, and every string a test asserts.
 - What a script prints (stdout, stderr, exit codes, --help, and a module docstring that argparse prints): the code around it may change, the output may not.`
 
 const REPO_RULES = `This repository overrules general guidance where its rules or measurements say so:

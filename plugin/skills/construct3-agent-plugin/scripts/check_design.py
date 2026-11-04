@@ -560,10 +560,10 @@ def tables(design: gm.Design) -> list[str]:
         lines.append("screen, place, checked by:")
         for p in places:
             said = " ".join([p.third] + [f"{side} {ref}" for side, ref in p.sides]).strip()
-            lines.append(f"  {p.key}  {p.text}  " + (f"play_design.py: {said}" if p.measured else "review_look.py"))
+            lines.append(f"  {p.key}  {p.text}  " + (f"play_design.py: {said}" if p.measured else "no script"))
         if not all(p.measured for p in places):
             lines.append(f"  play_design.py measures a place whose words before the first comma are only "
-                         f"{gm.SCREEN_WORDS}; review_look.py asks about the others")
+                         f"{gm.SCREEN_WORDS}; no script checks the others")
     return lines
 
 
