@@ -326,7 +326,7 @@ def test_make_fixtures_pins_the_with_arm_to_a_worktree_of_the_commit(tmp_path: P
         assert read_json(case / "with_skill" / "fixture.json")["clone.commit"] == sha
         assert "clone.commit" not in read_json(case / "without_skill" / "fixture.json")
         block = (case / "with_skill" / "project" / "AGENTS.md").read_text(encoding="utf-8")
-        assert f"- Construct3-RAG: {(folder / 'plugin').resolve().as_posix()}" in block, block
+        assert f"- Construct3-Agent-Skills: {folder.resolve().as_posix()}" in block, block
         assert not (folder / "dev").exists() and (folder / "plugin" / "skills").is_dir() and (folder / "docs").is_dir()
         assert not subprocess.run(["git", "-C", str(folder), "status", "--porcelain", "--untracked-files=no"],
                                   capture_output=True, text=True, check=True).stdout.strip()
