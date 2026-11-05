@@ -240,6 +240,11 @@ def launcher(started: list[dict], exits: bool, port_file: Path | None = None) ->
     return Launched
 
 
+def test_the_browser_lets_the_editor_open_a_preview_after_the_key_stops_counting():
+    """F5 allows a popup for about 5 seconds; a busy machine reaches window.open later, and the blocker stops the preview."""
+    assert "--disable-popup-blocking" in oe.QUIET
+
+
 def test_open_in_editor_waits_for_the_port_of_a_browser_that_hands_its_start_over(tmp_path, monkeypatch):
     """Edge given a compatibility layer, __COMPAT_LAYER in its environment, starts the browser again
     as a child of its own and exits with code 0 within a tenth of a second. The start stopped waiting
