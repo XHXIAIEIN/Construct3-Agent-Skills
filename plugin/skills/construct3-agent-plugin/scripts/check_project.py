@@ -101,6 +101,7 @@ class Checker(FileChecks, ExpressionChecks, EventChecks, SheetChecks):
         # Sprite Font type -> the characters its instances draw, whether any has BBCode on
         self.font_sets: dict[str, tuple[set[str], bool]] = {}
         self.font_templates: dict[str, set[str]] = {}  # type -> the parts of its text a Set text replaces
+        self.font_placeholders: set[str] = set()  # types whose layout text stands in for what events give copies
         self.solid_obstacles = False  # a Pathfinding instance takes its obstacles from Solids
         self.solid_changes: list[str] = []  # where an action changes a Solid
         self.regenerated = False  # some action regenerates the obstacle map or a region of it

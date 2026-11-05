@@ -458,32 +458,53 @@ def member_types(families: dict, obj: str) -> list[str]:
     return families[obj].get("members", []) if obj in families else [obj]
 
 
+def sheet_actions(sheets: dict) -> Iterator[dict]:
+    """Every action of the sheets, those of sub-events too."""
+    def walk(events: list) -> Iterator[dict]:
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            yield from (a for a in ev.get("actions") or [] if isinstance(a, dict))
+            if isinstance(ev.get("children"), list):
+                yield from walk(ev["children"])
+
+    for sheet in sheets.values():
+        if isinstance(sheet.get("events"), list):
+            yield from walk(sheet["events"])
+
+
+def set_text_of(action: dict) -> tuple[str, str] | None:
+    """The object and the text expression of a Set text action; None for any other action."""
+    obj = action.get("objectClass") if action.get("id") == "set-text" else None
+    text = (action.get("parameters") or {}).get("text") if obj else None
+    return (obj, text) if isinstance(obj, str) and isinstance(text, str) else None
+
+
 def replaced_in_own_text(sheets: dict, families: dict) -> dict[str, set[str]]:
     """Object type -> the parts of its own text that a Set text replaces, "###" for
     replace(Self.Text, "###", ProjectVersion): a layout text that holds them is a template the events fill in.
     An action of a family replaces them in each member."""
     found: dict[str, set[str]] = {}
-
-    def walk(events: list) -> None:
-        for ev in events:
-            if not isinstance(ev, dict):
-                continue
-            for a in ev.get("actions") or []:
-                obj = a.get("objectClass") if isinstance(a, dict) and a.get("id") == "set-text" else None
-                text = (a.get("parameters") or {}).get("text") if obj else None
-                if not isinstance(obj, str) or not isinstance(text, str):
-                    continue
-                for m in OWN_TEXT_REPLACED.finditer(text):
-                    if m.group(1).lower() in ("self", obj.lower()):
-                        for t in member_types(families, obj):
-                            found.setdefault(t, set()).add(unquote(m.group(2)))
-            if isinstance(ev.get("children"), list):
-                walk(ev["children"])
-
-    for sheet in sheets.values():
-        if isinstance(sheet.get("events"), list):
-            walk(sheet["events"])
+    for a in sheet_actions(sheets):
+        obj, text = set_text_of(a) or (None, "")
+        for m in OWN_TEXT_REPLACED.finditer(text):
+            if m.group(1).lower() in ("self", obj.lower()):
+                for t in member_types(families, obj):
+                    found.setdefault(t, set()).add(unquote(m.group(2)))
     return found
+
+
+def filled_when_created(sheets: dict, families: dict) -> set[str]:
+    """The object types that events create and give a whole text: the text of one in a layout is a
+    placeholder, because the created copies show what the Set text gives them."""
+    created, filled = set(), set()
+    for a in sheet_actions(sheets):
+        if a.get("id") == "create-object":
+            created.add((a.get("parameters") or {}).get("object-to-create"))
+        obj, text = set_text_of(a) or (None, "")
+        if obj and not re.search(rf"\b(?:self|{re.escape(obj)})\s*\.\s*text\b", text, re.I):
+            filled.update(member_types(families, obj))
+    return created & filled
 
 
 def joined_literals(expr: str) -> list[str]:

@@ -644,7 +644,11 @@ class SheetChecks:
         self.check_stray_bullets()
         self.check_pending_instances()
         for t in self.created:
-            if t in p.types and t not in self.templates:
+            # A Sprite with no behaviors and no effects reads as a placed one does: its image's size, visible,
+            # collisions on [observed in a game project, r506.3 preview, 2026-11-05]
+            plain = t in p.types and p.plugin_of[t].lower() == "sprite" \
+                and not p.types[t].get("behaviorTypes") and not p.types[t].get("effectTypes")
+            if t in p.types and t not in self.templates and not plain:
                 self.warn(f"{t} is created at runtime but has no instance in any layout: "
                           f"it is created, but its behavior properties read 0 (a Bullet does not "
                           f"move); place one in a layout that never runs")
