@@ -50,9 +50,11 @@ calls and their results:
   passed or not, chain_attempts the calls of chain scripts, and chain the
   calls and the outcome of each step. A verify_change.py run counts as a
   call of each step it printed a line for, passed when the line says
-  passed; its previewed line is open_in_editor's.
+  passed; its previewed line is open_in_editor's. A run with --status
+  runs nothing and counts as no call.
 - preview_failed: script calls whose result says that no preview window
-  opened or that the editor did not load.
+  opened, that the editor refused to start one, or that the editor did not
+  load.
 - help_reads, repeat_help, help_reads_by_script: --help reads, the reads
   beyond the first of the same script, and the reads per script.
 - plan_refusals: edit_sheet.py calls that wrote nothing: exit code 1 as
@@ -153,7 +155,7 @@ PASSED = {
     "preview_project": re.compile(r"^(keep|kept): ", re.M),
     "check_screens": re.compile(r"^(?:screens|look): 0 findings on \d+ layouts?, 0 runtime errors", re.M),
 }
-PREVIEW_FAILED = ("no preview window", "the editor did not load")
+PREVIEW_FAILED = ("no preview window", "the editor did not load", "Failed to start preview", "Popup Blocked")
 CHECK_FINDINGS = re.compile(r"^(warning: |stop: |\d+ problem\(s\)$)", re.M)
 DESIGN_FINDINGS = re.compile(r"^design: \d+ findings?; fix", re.M)
 NO_MATCH = ("No matches found", "No files found")
@@ -522,9 +524,9 @@ VERIFIED = {"checked": "check_project", "reviewed": "review_design", "previewed"
 
 def chain_steps(c: dict) -> dict[str, bool]:
     """The chain steps the call ran and whether each passed: a chain script run for its work, or each step a
-    verify_change.py run printed a line for."""
+    verify_change.py run printed a line for. --status prints those lines and runs nothing, so it counts none."""
     out = {name: step_passed(name, c["result"]) for name in work_scripts(c) & set(CHAIN)}
-    if runs_script(c, "verify_change"):
+    if any(script == "verify_change" and not {*HELP, "--status"} & set(args) for script, args in scripts_of(c)):
         for step, state in VERIFY_STEP.findall(c["result"]):
             if step in VERIFIED:
                 out[VERIFIED[step]] = out.get(VERIFIED[step], False) or state == "passed"

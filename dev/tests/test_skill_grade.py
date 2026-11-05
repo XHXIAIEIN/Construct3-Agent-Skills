@@ -32,6 +32,8 @@ tracer = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_l
 spec.loader.exec_module(tracer)
 
 ANSWERS = Path(__file__).parent / "fixtures" / "restart_event_answers"
+COUNTDOWN_ANSWERS = Path(__file__).parent / "fixtures" / "countdown_answers"
+SAVED_ANSWERS = Path(__file__).parent / "fixtures" / "saved_answers"
 CHINESE_ALL_THREE = "**事件 10**（Restart 组）：Coin.Count = 0，仅触发一次。触发后等待 1 秒，再重载场景。\n"
 CASES = {c["name"]: c for c in json.loads((EVALS / "evals.json").read_text(encoding="utf-8"))["evals"]}
 
@@ -146,6 +148,22 @@ def test_the_restart_reads_the_countdown_running_out(tmp_path: Path, project: Pa
                       "parameters": {"variable": "Countdown", "value": "dt"}}]},
         {"eventType": "block", "sid": 106, "conditions": [restart],
          "actions": [{"id": "restart-layout", "objectClass": "System", "sid": 107}]}])
+    case = project_case(tmp_path, project, "add-countdown")
+    grade_iteration(tmp_path)
+    graded = read_json(case / "grading.json")["assertion_results"]
+    result = next(g for g in graded if g["text"].startswith("An event restarts the layout"))
+    assert result["passed"] is restarts, result
+
+
+@pytest.mark.parametrize(("name", "restarts"), [
+    # The add-countdown run of iteration 106 (old_skill): the restart is in a function that On timer "round" calls
+    ("function_the_timer_calls.json", True),
+    ("function_only_the_menu_calls.json", False),
+    ("function_a_running_countdown_calls.json", False)])
+def test_a_restart_in_a_function_counts_under_its_callers(tmp_path: Path, project: Path, name: str, restarts: bool) -> None:
+    add_countdown(project, {"id": "start-timer", "objectClass": "ScoreText", "sid": 101, "behaviorType": "Timer",
+                            "parameters": {"duration": "30", "type": "once", "tag": '"round"'}},
+                  read_json(COUNTDOWN_ANSWERS / name))
     case = project_case(tmp_path, project, "add-countdown")
     grade_iteration(tmp_path)
     graded = read_json(case / "grading.json")["assertion_results"]
@@ -1774,3 +1792,14 @@ def test_saved_counts_only_once_the_write_is_reported(tmp_path: Path, rows: list
     (tmp_path / "layouts").mkdir()
     (tmp_path / "layouts" / "Game.json").write_text(json.dumps({"layers": []}), encoding="utf-8")
     assert grader.saved_shown_where(saved_sheet(*rows), tmp_path)[0] is passed
+
+
+@pytest.mark.parametrize(("name", "passed"), [
+    # The saved-best-score run of iteration 106 (with_skill): the label shows on the report and hides when its fade ends
+    ("hides_when_the_fade_ends.json", True),
+    ("shows_beside_the_write.json", False)])
+def test_hiding_the_placed_word_shows_nothing(tmp_path: Path, name: str, passed: bool) -> None:
+    (tmp_path / "layouts").mkdir()
+    (tmp_path / "layouts" / "Game.json").write_text(json.dumps({"layers": [{"instances": [
+        {"type": "SavedLabel", "properties": {"text": "Saved", "initially-visible": False}}]}]}), encoding="utf-8")
+    assert grader.saved_shown_where(read_json(SAVED_ANSWERS / name), tmp_path)[0] is passed

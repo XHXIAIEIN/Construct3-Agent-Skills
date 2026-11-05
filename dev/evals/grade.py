@@ -158,6 +158,21 @@ def conditions_over(ev: dict, above: tuple) -> list:
     return [c for e in (*above, ev) for c in e.get("conditions", [])]
 
 
+def function_of(ev: dict, above: tuple) -> str | None:
+    return next((e.get("functionName") for e in (*above, ev) if e.get("eventType") == "function-block"), None)
+
+
+def conditions_reaching(ev: dict, above: tuple, rows: list, seen: tuple = ()) -> list[list]:
+    """The conditions on each way an event runs: its own and those over it, and for an event in a function those of
+    each event that calls the function."""
+    own = conditions_over(ev, above)
+    name = function_of(ev, above)
+    if name is None or name in seen:
+        return [own]
+    return [own + way for caller, over in rows if any(a.get("callFunction") == name for a in caller.get("actions", []))
+            for way in conditions_reaching(caller, over, rows, (*seen, name))] or [own]
+
+
 def sheet_of(project: Path) -> list | None:
     try:
         return json.loads((project / "eventSheets" / "Game.json").read_text(encoding="utf-8"))["events"]
@@ -184,7 +199,7 @@ def grade_add_countdown(run: Path) -> list[tuple[bool, str]]:
     started = [a for a, conds in acts if a.get("id") == "start-timer"
                and str(params(a).get("duration", "")).strip() in {"30", "30.0", *holders}]
     tags = {str(a["parameters"].get("tag", "")) for a in started}
-    names = re.compile("|".join([*map(re.escape, timers), r"\b(?:Duration|CurrentTime|TotalTime|NormalizedProgress)\s*\("])
+    names = re.compile("|".join([*(rf"\b{re.escape(t)}\b" for t in timers), r"\b(?:Duration|CurrentTime|TotalTime|NormalizedProgress)\s*\("])
                        if timers or started else r"$^", re.I)
 
     # A Timer started for 1 second, Regular, fires On timer once a second: the variable it takes 1 from counts down.
@@ -245,16 +260,16 @@ def grade_add_countdown(run: Path) -> list[tuple[bool, str]]:
             verdicts.append(not at[30] and (at[0] or at[-0.5]))
         return all(verdicts) if verdicts else None
 
-    restarts = [(ev, above) for ev, above in rows if any(a.get("id") == "restart-layout" for a in ev.get("actions", []))]
-    hit = next((ev for ev, above in restarts if names.search(values(conditions_over(ev, above)))
-                and runs_out(conditions_over(ev, above)) is not False
-                or any(c.get("id") == "on-timer" and str(params(c).get("tag", "")) in tags
-                       for c in conditions_over(ev, above))), None)
-    backwards = [ev for ev, above in restarts if runs_out(conditions_over(ev, above)) is False]
-    results.append((hit is not None, f"restart-layout under {values(hit['conditions'])}" if hit else
-                    f"restart-layout under {values(backwards[0]['conditions'])}, which holds while 30 seconds are "
+    restarts = [(ev, conds) for ev, above in rows if any(a.get("id") == "restart-layout" for a in ev.get("actions", []))
+                for conds in conditions_reaching(ev, above, rows)]
+    hit, under = next(((ev, conds) for ev, conds in restarts if names.search(values(conds)) and runs_out(conds) is not False
+                       or any(c.get("id") == "on-timer" and str(params(c).get("tag", "")) in tags for c in conds)),
+                      (None, []))
+    backwards = [conds for _, conds in restarts if runs_out(conds) is False]
+    results.append((hit is not None, f"restart-layout under {values(under)}" if hit else
+                    f"restart-layout under {values(backwards[0])}, which holds while 30 seconds are "
                     f"left or never at 0" if backwards else
-                    f"{len(restarts)} event(s) restart the layout, none reads {timers or 'a countdown variable'}"
+                    f"{len(restarts)} way(s) to restart the layout, none reads {timers or 'a countdown variable'}"
                     + (f" or is On timer {sorted(tags)}" if tags else "")))
 
     texts = [(a, conditions_over(ev, above)) for ev, above in rows for a in ev.get("actions", [])
@@ -1650,8 +1665,9 @@ WRITE_REPORTED = {"on-item-set", "on-any-item-set", "on-all-sets-complete"}
 
 def saved_shown_where(events: list, project: Path) -> tuple[bool, str]:
     """Whether every action that shows the word Saved runs when the write is reported: under such a trigger, or in
-    a function that only such a trigger calls. A Text placed with the word counts when an action shows it. An event
-    that says Not saved reports the failed write, so it shows no claim of a save."""
+    a function that only such a trigger calls. A Text placed with the word counts when an action shows it, and an
+    action that hides it shows nothing. An event that says Not saved reports the failed write, so it shows no claim
+    of a save."""
     placed = set()
     for path in (project / "layouts").glob("*.json"):
         for layer in json.loads(path.read_text(encoding="utf-8"))["layers"]:
@@ -1662,6 +1678,12 @@ def saved_shown_where(events: list, project: Path) -> tuple[bool, str]:
         return any(c.get("id") in WRITE_REPORTED and c.get("objectClass") == "LocalStorage"
                    for c in conditions_over(ev, above))
 
+    def shows_placed(a: dict) -> bool:
+        p = params(a)
+        return a.get("objectClass") in placed and (
+            a.get("id") == "set-visible" and p.get("visibility") != "invisible"
+            or a.get("id") == "set-opacity" and str(p.get("opacity", "")).strip() not in ("0", "0.0"))
+
     claims = [(ev, above) for ev, above in walk(events) if "not saved" not in values(ev.get("actions", [])).lower()]
     called, others = set(), set()
     for ev, above in claims:
@@ -1671,11 +1693,10 @@ def saved_shown_where(events: list, project: Path) -> tuple[bool, str]:
     shows, wrong = 0, []
     for ev, above in claims:
         for a in ev.get("actions", []):
-            word = "saved" in values([a]).lower()
-            if not word and not (a.get("objectClass") in placed and a.get("id") in ("set-visible", "set-opacity")):
+            if "saved" not in values([a]).lower() and not shows_placed(a):
                 continue
             shows += 1
-            owner = next((e.get("functionName") for e in (*above, ev) if e.get("eventType") == "function-block"), None)
+            owner = function_of(ev, above)
             if not reported(ev, above) and not (owner in called and owner not in others):
                 wrong.append(f"{a.get('id')} on {a.get('objectClass')}, event sid {ev.get('sid')}")
     if not shows:
