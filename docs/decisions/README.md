@@ -3,6 +3,7 @@ A new record is added below as its own title, with the date of its `Date:` line,
 The rules for writing one are in [../AGENTS.md](../AGENTS.md); the records of the event sheet guides are in
 [Construct3-Cookbook](https://github.com/XHXIAIEIN/Construct3-Cookbook/tree/main/docs/decisions).
 
+- [A Stopped Git Merge Is Finished by sid and uid, Not by Line](merge-project-files.md) — 2026-11-05
 - [The Scripts Check What Is Wrong, Not What Looks Good](mechanical-checks-only.md) — 2026-11-02
 - [The Clones Live in One Home Folder, and setup.py Lists the Missing Ones](clones-home.md) — 2026-11-01
 - [The Pause Menu Is a Column of Rows Over a Paper Veil, Without a Panel](pause-menu.md) — 2026-11-01

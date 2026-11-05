@@ -57,6 +57,9 @@ the expressions, so it can refuse a project that the checker passes.
   the user reviews `agents` and merges it. At the hand-over, give the user
   the events that changed, not the JSON diff:
   `python scripts/print_sheet.py --since <the user's branch>`.
+- A merge or cherry-pick stopped on files of `layouts/`, `eventSheets/`,
+  `objectTypes/` or `project.c3proj`: run `python scripts/merge_project.py`
+  before you open them. Git merges them by line, and this script by sid and uid.
 - Before you design an interaction, read
   `Construct3-Cookbook/guides/design/thinking.md` and run
   `scripts/search_guides.py` with the interaction's words.
@@ -80,7 +83,7 @@ the expressions, so it can refuse a project that the checker passes.
 [references/scripts.md](references/scripts.md) lists the scripts for a new
 game's design, sounds, the facts that earlier checks showed about
 the game, a picture of a sheet, Advanced Random, export, packing, art, the
-first-use check, a new project and the install, with the generator template
+first-use check, a new project, a stopped Git merge and the install, with the generator template
 and the runtime probe.
 
 Each script prints its options and examples with `--help`. A script stops
