@@ -331,6 +331,11 @@ TYPESCRIPT_WAIT = 60
 OPEN_DIALOGS_JS = r"""[...document.querySelectorAll('dialog[open]')].filter(d => d.id != 'progressDialog')
   .map(d => d.innerText.trim().replace(/\s+/g, ' ').slice(0, 1500))"""
 
+CLOSE_DIALOGS_JS = r"""[...document.querySelectorAll('dialog[open]')].filter(d => d.id != 'progressDialog')
+  .forEach(d => d.querySelector('ui-close-button, .okButton')?.click())"""
+PREVIEW_FAILED = "Failed to start preview"
+WINDOW_CLOSES = 10
+
 # The crash report the editor shows when it asserts as it builds the preview, as it does for a
 # frame whose collision polygon has fewer than three points. The preview window may still open
 # and run behind it, so the editor's page is read once the preview has run.
@@ -978,21 +983,42 @@ def request_text(event: dict, urls: dict[tuple, str]) -> str | None:
     return None
 
 
+def preview_windows(browser: Browser, target: str) -> list[dict]:
+    """The windows the editor's page has opened that are still there."""
+    return [t for t in browser.devtools.call("Target.getTargets")["targetInfos"]
+            if t["type"] == "page" and t.get("openerId") == target]
+
+
 def start_preview(browser: Browser, target: str, page: DevTools) -> tuple[dict, DevTools] | list[str]:
     """Press F5 in the editor, as the user would, and connect to the preview window
-    it opens; or the reasons it opened none."""
-    for kind in ("rawKeyDown", "keyUp"):
-        page.call("Input.dispatchKeyEvent", type=kind, key="F5", code="F5", windowsVirtualKeyCode=116)
-    window = None
-    for _ in range(80):
-        window = next((t for t in browser.devtools.call("Target.getTargets")["targetInfos"]
-                       if t["type"] == "page" and t.get("openerId") == target), None)
-        dialogs = page.evaluate(OPEN_DIALOGS_JS)
-        if window or dialogs:
+    it opens; or the reasons it opened none.
+
+    The editor opens every preview under one window name. A press while the last preview
+    window is closing gets that window, so this is either taken for the new one or ends in
+    "Failed to start preview", and a run that closes each window and starts the next meets
+    it about one time in ten. So it waits for that window to go first. A failure after
+    that is pressed once more, and any other dialog is the editor's answer about the project."""
+    gone = time.monotonic() + WINDOW_CLOSES
+    while preview_windows(browser, target):
+        if time.monotonic() > gone:
+            return [f"the last preview window did not close in {WINDOW_CLOSES} seconds"]
+        time.sleep(0.05)
+    for press in range(2):
+        for kind in ("rawKeyDown", "keyUp"):
+            page.call("Input.dispatchKeyEvent", type=kind, key="F5", code="F5", windowsVirtualKeyCode=116)
+        window, dialogs = None, []
+        for _ in range(80):
+            window = next(iter(preview_windows(browser, target)), None)
+            dialogs = page.evaluate(OPEN_DIALOGS_JS)
+            if window or dialogs:
+                break
+            time.sleep(0.25)
+        if window or (dialogs and not any(PREVIEW_FAILED in d for d in dialogs)):
             break
-        time.sleep(0.25)
+        if dialogs and press == 0:
+            page.evaluate(CLOSE_DIALOGS_JS)
     if not window:
-        return dialogs or ["no preview window in 20 seconds"]
+        return dialogs or ["no preview window in 40 seconds, after pressing F5 twice"]
     win = DevTools(f"ws://127.0.0.1:{browser.port}/devtools/page/{window['targetId']}")
     keep_active(win)
     return window, win

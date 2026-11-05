@@ -196,18 +196,20 @@ class Checker(FileChecks, ExpressionChecks, EventChecks, SheetChecks):
                 f"{len(self.sheets)} sheets, {len(self.sids) + len(self.ace_sids)} sids, {len(self.uids)} uids, "
                 f"{len(self.functions)} functions, {len(self.custom_actions)} custom actions")
         scripts = p.scripts_summary()
-        if scripts:
+        # An agent runs this check many times, and committed scripts need naming only when asked for a review
+        committed = then_open and scripts and p.scripts_committed()
+        if scripts and not committed:
             line += f"; scripts, which this check does not run or type-check: {scripts}"
         if not then_open:
             return line
         if scripts:
             line += "".join(f"; {clause}" for clause in copied_sizes(p, self.layouts))
+        if scripts and not committed:
             line += (f"; when you write or change a script, look up each API it calls: "
                      f"{script_command(p.root, 'lookup_script_api.py')} NAME")
         if os.environ.get(c3.IN_VERIFY) == "1":  # verify_change.py says the next step itself
             return line
-        return (f"{line}; next, run {script_command(p.root, 'verify_change.py')}, which goes on with the design "
-                f"review, the editor and its preview, the kept plays and the look, and says what to do at each")
+        return f"{line}; next, run {script_command(p.root, 'verify_change.py')}, which says what to do at each step"
 
 
 def digest(value) -> str:
