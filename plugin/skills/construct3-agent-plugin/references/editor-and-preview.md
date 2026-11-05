@@ -120,6 +120,16 @@ which cases to play and how to reach and read them to
   `AnalyserNode` on the same point. [source: `open_in_editor.py`, the
   comment at `--mute-audio`; the user's rule, 2026-09-30, that a test must
   not play sound through their speakers]
+- `open_in_editor.py` also starts the browser with
+  `--disable-popup-blocking`. F5 allows a popup for about 5 seconds, and the
+  editor calls `window.open` only after its own work on the key. A later call
+  returns null and stops the preview with the dialog Popup Blocked, which has
+  the buttons Try again and Cancel. A script of the agent's own that starts a
+  browser needs the flag too. A game's own `window.open` without a click also
+  opens under this flag, so a player's browser may block a popup that a run
+  here shows. [observed: `window.open` held back 6 seconds inside an r504
+  preview start gave that dialog without the flag and a window with it,
+  2026-11-05]
 
 - A request of a preview's worker reaches only the worker's own DevTools
   session, and only once `Network.enable` was sent there; the page's session

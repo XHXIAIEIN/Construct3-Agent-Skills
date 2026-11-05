@@ -192,6 +192,15 @@ def test_a_warning_of_the_screen_check_goes_in_the_hand_over(project: Path, monk
     assert "name in the hand-over, these warn: Game: unlimited." in out.splitlines()[-1], out
 
 
+def test_trace_counts_no_step_of_a_status_run() -> None:
+    """--status prints the outcome of each step on the files as they are, and runs nothing."""
+    call = {"tool": "Bash", "what": "python scripts/verify_change.py --status", "failed": False,
+            "result": f"checked   passed: {OK}\nreviewed  passed: design: 0 findings"}
+    assert tracer.chain_steps(call) == {}
+    assert tracer.chain_steps({**call, "what": "python scripts/verify_change.py"}) == {
+        "check_project": True, "review_design": True}
+
+
 def test_trace_counts_a_verify_change_run_as_the_steps_it_printed() -> None:
     call = {"tool": "Bash", "what": "python .agents/skills/construct3-agent-plugin/scripts/verify_change.py",
             "failed": True, "result": f"checked   passed: {OK}\nreviewed  passed: design: 0 findings\n"

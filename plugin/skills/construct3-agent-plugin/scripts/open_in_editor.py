@@ -611,9 +611,12 @@ class DevTools:
 # shader caches. The disk cache is capped; the editor's scripts take about 20 MB
 # a release. --mute-audio keeps a preview's sound off the user's speakers: the
 # audio graph still runs, so a game timed by its audio clock plays as it would.
+# The editor calls window.open only after its own work on F5, and the key allows
+# a popup for 5 seconds: on a busy machine the call comes later, returns null and
+# stops the preview with the dialog Popup Blocked, so the blocker is off.
 QUIET = ("--no-first-run", "--no-default-browser-check", "--disable-extensions", "--disable-component-update",
          "--disable-background-networking", "--disable-sync", "--disable-gpu-shader-disk-cache",
-         "--disk-cache-size=104857600", "--mute-audio")
+         "--disk-cache-size=104857600", "--mute-audio", "--disable-popup-blocking")
 
 
 # The browser opens no IndexedDB whose folder path reaches MAX_PATH, measured as a

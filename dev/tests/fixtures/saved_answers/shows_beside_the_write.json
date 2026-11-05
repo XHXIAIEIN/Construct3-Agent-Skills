@@ -1,0 +1,57 @@
+[
+	{
+		"eventType": "block",
+		"sid": 301,
+		"conditions": [
+			{
+				"id": "every-tick",
+				"objectClass": "System",
+				"sid": 302
+			}
+		],
+		"actions": [
+			{
+				"id": "set-item",
+				"objectClass": "LocalStorage",
+				"sid": 303,
+				"parameters": {
+					"key": "BEST_KEY",
+					"value": "best"
+				}
+			},
+			{
+				"id": "set-visible",
+				"objectClass": "SavedLabel",
+				"sid": 306,
+				"parameters": {
+					"visibility": "visible"
+				}
+			}
+		]
+	},
+	{
+		"eventType": "block",
+		"sid": 307,
+		"conditions": [
+			{
+				"id": "on-tweens-finished",
+				"objectClass": "SavedLabel",
+				"sid": 308,
+				"behaviorType": "Tween",
+				"parameters": {
+					"tags": "\"saved\""
+				}
+			}
+		],
+		"actions": [
+			{
+				"id": "set-visible",
+				"objectClass": "SavedLabel",
+				"sid": 309,
+				"parameters": {
+					"visibility": "invisible"
+				}
+			}
+		]
+	}
+]

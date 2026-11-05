@@ -1,0 +1,45 @@
+[
+	{
+		"eventType": "function-block",
+		"functionName": "FadeRestart",
+		"sid": 201,
+		"conditions": [],
+		"actions": [
+			{
+				"id": "wait",
+				"objectClass": "System",
+				"sid": 202,
+				"parameters": {
+					"seconds": "0.3",
+					"use-timescale": false
+				}
+			},
+			{
+				"id": "restart-layout",
+				"objectClass": "System",
+				"sid": 203
+			}
+		]
+	},
+	{
+		"eventType": "block",
+		"sid": 205,
+		"conditions": [
+			{
+				"id": "on-timer",
+				"objectClass": "ScoreText",
+				"sid": 206,
+				"behaviorType": "Timer",
+				"parameters": {
+					"tag": "\"round\""
+				}
+			}
+		],
+		"actions": [
+			{
+				"callFunction": "FadeRestart",
+				"sid": 204
+			}
+		]
+	}
+]
