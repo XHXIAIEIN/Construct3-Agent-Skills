@@ -12,7 +12,7 @@ import pytest
 
 from tests.skill_helpers import (
     RAG, DATA,
-    REPO, SKILL, INSTALLED, SHEET, run, tool, check, edit, cond, block, events, png, template_module, every_event, game_rows, collect_tween,
+    REPO, SKILL, INSTALLED, SHEET, git, run, tool, check, edit, cond, block, events, png, template_module, every_event, game_rows, collect_tween,
     warnings,
     findings, plan, add_addon, add_global_object, add_keyboard, coin_copy, pathfinding_coin, solid_board, EXAMPLES,
     NEEDS_EXAMPLES,
@@ -21,10 +21,10 @@ from tests.skill_helpers import (
 
 # --- what the editor reads as it opens a project --------------------------------------------------
 def test_a_passing_check_ends_with_the_command_that_checks_the_rest(built, monkeypatch):
-    """The ok: line names verify_change.py, which goes on to the review, the editor and the plays; under
+    """The ok: line names verify_change.py, which goes on with the rest of the checks; under
     verify_change.py itself it names no next step."""
     code, out = check(built)
-    assert code == 0 and "next, run python .agents/skills/construct3-agent-plugin/scripts/verify_change.py, "         "which goes on" in out.splitlines()[-1], out
+    assert code == 0 and "next, run python .agents/skills/construct3-agent-plugin/scripts/verify_change.py, "         "which says" in out.splitlines()[-1], out
     code, out = run(built.parent, SKILL / "scripts" / "check_project.py", "--rag", str(RAG), "--project", str(built))
     assert code == 0 and f"verify_change.py --project {built.resolve().as_posix()}, which" in out.splitlines()[-1], out
     assert "open_in_editor.py" not in out and "play_design.py" not in out
@@ -2136,6 +2136,24 @@ def test_ok_line_names_the_scripts_the_check_does_not_run(project):
     # A review reads the project and changes no script
     code, out = tool(project, "check_project", "--review")
     assert code == 0 and "scripts/main.js (4 lines)" in out and "lookup_script_api" not in out, out
+
+
+def test_ok_line_leaves_out_scripts_git_already_holds(project):
+    """The check runs many times in a change, so a script is named only while it is being changed. A review still
+    names each, because it reads the project once."""
+    from tests.test_skill_print_sheet import add_script
+    add_script(project, 4)
+    git(project, "init", "-b", "main")
+    git(project, "add", "-A")
+    git(project, "commit", "-m", "base")
+    code, out = tool(project, "check_project")
+    assert code == 0 and "scripts/main.js" not in out and "lookup_script_api" not in out, out
+    assert re.search(r"; next, run python \S*verify_change\.py, which says what to do at each step$", out.strip()), out
+    code, out = tool(project, "check_project", "--review")
+    assert code == 0 and "scripts/main.js (4 lines)" in out, out
+    (project / "scripts" / "main.js").write_text("// changed", encoding="utf-8")
+    code, out = tool(project, "check_project")
+    assert code == 0 and "scripts/main.js (1 lines)" in out and "lookup_script_api" in out, out
 
 
 def test_ok_line_names_a_layout_size_written_into_a_script(project):

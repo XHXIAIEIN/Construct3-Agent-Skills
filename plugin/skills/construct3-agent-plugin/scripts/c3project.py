@@ -1850,6 +1850,10 @@ class Project:
         """The file of every item project.c3proj lists under kind; None for one that has no file."""
         return listed_files(self.root, self.data, kind)
 
+    def scripts_committed(self) -> bool:
+        """Whether Git holds each script as it is here; false outside a Git repository."""
+        return git_out(self.root, "status", "--porcelain", "--", *map(str, self.script_files())) == ""
+
     def script_files(self) -> list[Path]:
         """The JavaScript and TypeScript files project.c3proj lists, relative to the project folder."""
         out = []
