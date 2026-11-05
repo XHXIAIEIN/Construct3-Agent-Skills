@@ -793,3 +793,79 @@ def test_the_next_script_takes_the_page_that_holds_the_same_files(tmp_path, monk
     kept.write_text(json.dumps(named), encoding="utf-8")
     Page.mark = ""
     assert oe.kept_editor(browser, "k") is None and closed == ["T1", "T1"] and not kept.exists()
+
+
+class PreviewEditor:
+    """The editor's page and the browser, as start_preview sees them: `windows` is what Target.getTargets gives on
+    each call, its last entry for every call after; `failures` is how many presses end in the failure dialog."""
+
+    def __init__(self, windows=(), failures=0, other_dialog=None):
+        self.windows, self.failures, self.other_dialog = list(windows), failures, other_dialog
+        self.presses, self.open, self.closed = 0, [], 0
+        self.devtools = self
+        self.port = 1
+
+    def call(self, method, **params):
+        if method == "Target.getTargets":
+            ids = self.windows.pop(0) if len(self.windows) > 1 else (self.windows[0] if self.windows else [])
+            return {"targetInfos": [{"type": "page", "openerId": "editor", "targetId": i} for i in ids]}
+        if params.get("type") == "keyUp":
+            self.presses += 1
+            if self.other_dialog:
+                self.open = [self.other_dialog]
+            elif self.failures:
+                self.failures -= 1
+                self.open = ["Construct 3 Failed to start preview OK"]
+            else:
+                self.windows = [["new"]]
+        return {}
+
+    def evaluate(self, expression):
+        if expression == oe.CLOSE_DIALOGS_JS:
+            self.open, self.closed = [], self.closed + 1
+        return self.open
+
+
+
+@pytest.fixture
+def connected(monkeypatch):
+    monkeypatch.setattr(oe, "DevTools", lambda url: url)
+    monkeypatch.setattr(oe, "keep_active", lambda page: None)
+    monkeypatch.setattr(oe.time, "sleep", lambda seconds: None)
+
+
+def test_preview_waits_for_the_last_window_to_go_before_it_presses_f5(connected):
+    """A press while it closes gets that window, and the new one is never the one connected to."""
+    editor = PreviewEditor(windows=[["old"], ["old"], []])
+    window, _ = oe.start_preview(editor, "editor", editor)
+    assert window["targetId"] == "new" and editor.presses == 1
+
+
+def test_preview_that_failed_to_start_is_pressed_once_more(connected):
+    editor = PreviewEditor(failures=1)
+    window, _ = oe.start_preview(editor, "editor", editor)
+    assert window["targetId"] == "new" and editor.presses == 2 and editor.closed == 1
+
+
+def test_preview_that_fails_twice_reports_the_editor_dialog(connected):
+    editor = PreviewEditor(failures=2)
+    assert oe.start_preview(editor, "editor", editor) == ["Construct 3 Failed to start preview OK"]
+    assert editor.presses == 2
+
+
+def test_another_dialog_is_reported_without_a_second_press(connected):
+    editor = PreviewEditor(other_dialog="Missing addon")
+    assert oe.start_preview(editor, "editor", editor) == ["Missing addon"]
+    assert editor.presses == 1 and editor.closed == 0
+
+
+def test_no_window_after_two_presses_says_how_long_it_waited(connected, monkeypatch):
+    class Silent(PreviewEditor):
+        def call(self, method, **params):
+            if method == "Target.getTargets":
+                return {"targetInfos": []}
+            self.presses += params.get("type") == "keyUp"
+            return {}
+    editor = Silent()
+    assert oe.start_preview(editor, "editor", editor) == ["no preview window in 40 seconds, after pressing F5 twice"]
+    assert editor.presses == 2
