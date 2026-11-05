@@ -14,8 +14,8 @@ from checker_common import (
     JSON_EXAMPLES, FULL_TURN, RESERVED_WORDS, DEVICE_NAMES, PROJECT_TEXT, PROJECT_OPTIONS, PROJECT_ALSO,
     ANIMATED_PLUGINS, IMAGE_PLUGINS, BLEND_MODES, LAYER_NUMBERS, WORLD_NUMBERS, FOLDER_PROJECT_RELEASE,
     SHADOW_SUFFIX, TEXT_EDGE, TEXT_CONTRAST, SHORT_TEXT, editor_name, next_name, case_aside, BBCODE_TAG,
-    SPRITE_FONT_DEFAULTS, member_types, replaced_in_own_text, first_few, effect_names, contrast_ratio,
-    hex_colour, layer_instances, frames_of,
+    SPRITE_FONT_DEFAULTS, member_types, replaced_in_own_text, filled_when_created, first_few, effect_names,
+    contrast_ratio, hex_colour, layer_instances, frames_of,
 )
 
 # The tallest viewport of pixel art; above it the template antialiases every edge.
@@ -486,7 +486,8 @@ class FileChecks:
 
     def check_sprite_font_instance(self, where: str, t: str, props: dict) -> None:
         """Records the characters this instance draws, for the type's Set text actions, and checks its own text
-        without the parts a Set text replaces. A property the instance leaves out is read as the editor fills it."""
+        without the parts a Set text replaces, unless it is a placeholder for the copies the events fill in. A
+        property the instance leaves out is read as the editor fills it."""
         missing = [k for k in SPRITE_FONT_DEFAULTS if k not in props]
         if missing:
             self.warn(f"{where}: {t} instance has no {', '.join(missing)}; the editor fills "
@@ -501,7 +502,7 @@ class FileChecks:
         chars, any_bbcode = self.font_sets.get(t, (set(), False))
         self.font_sets[t] = (chars | set(charset), any_bbcode or bbcode)
         text = props.get("text")
-        if isinstance(text, str):
+        if isinstance(text, str) and t not in self.font_placeholders:
             for part in self.font_templates.get(t, ()):
                 text = text.replace(part, "")
             self.check_sprite_font_text(f"{where}: {t} text", t, text, set(charset), bbcode)
@@ -570,6 +571,7 @@ class FileChecks:
         self.layouts = p.load_listed("layouts")
         self.sheets = {**p.load_listed("eventSheets"), **self.unsaved}
         self.font_templates = replaced_in_own_text(self.sheets, p.families)
+        self.font_placeholders = filled_when_created(self.sheets, p.families)
         for lname, lay in self.layouts.items():
             self.collect_sids(lay)
             if not (isinstance(lay.get("name"), str) and lay["name"]):

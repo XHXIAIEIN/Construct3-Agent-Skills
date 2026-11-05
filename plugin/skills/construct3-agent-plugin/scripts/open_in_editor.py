@@ -1461,6 +1461,7 @@ REPOSITORY = "XHXIAIEIN/Construct3-Agent-Skills"      # where the skill lives, a
 # In reports/ of the scratch: the fingerprint of each refusal already offered to the user.
 OFFERED = "editor-reports.json"
 PLACE = re.compile(r", event (\d+)")
+MESSAGE_FILLING = re.compile(r"\{\d+\}|\[/?\w+(?:=[^\]]*)?\]")   # the {0} and [b] of a language pack's message
 
 
 def refusal(result: dict) -> list[str]:
@@ -1531,9 +1532,29 @@ def given_names(p: c3.Project) -> dict[str, str]:
     return names
 
 
+def editor_phrases(rag: Path) -> list[str]:
+    """The fixed parts of the messages in the editor's language packs, longest first: what stands between
+    the {0} placeholders and [b] tags of a message, when it is long enough to be a phrase and not a name."""
+    phrases: set[str] = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, str):
+            for part in map(str.strip, MESSAGE_FILLING.split(node)):
+                if len(part) >= 12 and " " in part if part.isascii() else len(part) >= 6:
+                    phrases.add(part)
+
+    for pack in (rag / "data" / "c3-lang").glob("*.json"):
+        walk(c3.load(pack)["text"])
+    return sorted(phrases, key=len, reverse=True)
+
+
 def redactor(p: c3.Project, names: dict[str, str]) -> Callable[[str], str]:
     """A text with every name the project gives in place of a placeholder of its kind, <object 1>, text in
-    quotes as "…", the project's folder as <project folder> and the home folder as ~."""
+    quotes as "…", the project's folder as <project folder> and the home folder as ~. The editor's own
+    phrases stay whole, because a function named `open` is not the word in "to open the project"."""
     shown: dict[str, str] = {}
     counts: dict[str, int] = {}
     for name, kind in names.items():
@@ -1545,15 +1566,21 @@ def redactor(p: c3.Project, names: dict[str, str]) -> Callable[[str], str]:
     others = [n for n in by_length if not n.isascii()]
     wide = re.compile("|".join(map(re.escape, others))) if others else None
     folders = [(str(p.root.resolve()), "<project folder>"), (str(Path.home()), "~")]
+    phrases = editor_phrases(p.rag)
+
+    def without_names(text: str) -> str:
+        for pattern in (words, wide):
+            text = pattern.sub(lambda m: shown[m.group(0)], text) if pattern else text
+        return text
 
     def redact(text: str) -> str:
         for folder, written in folders:
             for spelt in (folder, folder.replace("\\", "/")):
                 text = re.sub(re.escape(spelt), written, text, flags=re.I)
         text = c3.STRING_LITERAL.sub('"…"', text)
-        for pattern in (words, wide):
-            text = pattern.sub(lambda m: shown[m.group(0)], text) if pattern else text
-        return text
+        kept = [phrase for phrase in phrases if phrase in text]
+        parts = re.split("(" + "|".join(map(re.escape, kept)) + ")", text) if kept else [text]
+        return "".join(part if i % 2 else without_names(part) for i, part in enumerate(parts))
     return redact
 
 

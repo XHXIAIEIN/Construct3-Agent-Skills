@@ -712,6 +712,18 @@ def test_a_refusal_the_checker_passed_is_offered_as_a_report_without_the_project
     assert len(again) == 1 and "do not offer it again" in again[0] and str(body_file) in again[0], again
 
 
+@pytest.mark.parametrize("locale", ["en-US", "zh-CN"])
+def test_a_report_keeps_the_editors_phrases_when_a_name_is_one_of_their_words(project, locale):
+    """A name that is a word of the editor's own sentence is replaced outside that sentence only."""
+    message = json.loads((DATA / "c3-lang" / f"{locale}.json").read_text(encoding="utf-8"))
+    message = message["text"]["ui"]["errors"]["project-saved-in-newer-release"]
+    phrase = oe.MESSAGE_FILLING.split(message)[-1].strip()
+    word = phrase.split()[1] if locale == "en-US" else phrase[:2]
+    p = oe.c3.Project(project, oe.c3.locate_rag(project, None)[0], "en-US", oe.c3.Findings())
+    redact = oe.redactor(p, {word: "function", "Coin": "object"})
+    assert redact(f"{phrase} Coin {word}") == f"{phrase} <object 1> <function 1>"
+
+
 def test_no_report_when_the_checker_finds_the_problem_or_the_editor_lacks_an_addon(project):
     edit(project, "project.c3proj", lambda data: data["usedAddons"].append(
         {"type": "plugin", "id": "Ghost_Cursor", "name": "Ghost cursor", "author": "Someone", "version": "1.0.0.0"}))

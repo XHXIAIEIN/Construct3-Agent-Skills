@@ -1826,6 +1826,39 @@ def test_text_a_sprite_font_cannot_draw_is_named(project, layout_text, bbcode, a
     assert_one_warning(out, "plugin-reference/sprite-font.md", said)
 
 
+CREATE_LABEL = {"id": "create-object", "objectClass": "System", "sid": 26, "parameters": {
+    "object-to-create": "Label", "layer": '"Game"', "x": "0", "y": "0", "create-hierarchy": False,
+    "template-name": '""'}}
+
+
+@pytest.mark.parametrize("actions, said", [
+    ([CREATE_LABEL, set_label('"SCORE"')], None),
+    ([set_label('"SCORE"')], "'#' is not in the Character set"),
+    ([CREATE_LABEL], "'#' is not in the Character set"),
+    ([CREATE_LABEL, set_label('Self.Text & "1"')], "'#' is not in the Character set"),
+])
+def test_the_layout_text_of_a_type_events_create_and_fill_in_is_a_placeholder(project, actions, said):
+    """The copies show what the Set text gives them, so the layout's text is never drawn; a Set text that reads
+    the text keeps it on screen, and a placed instance that no copy of it stands for shows its own."""
+    sprite_font_label(project, "#")
+    out = findings(project, lambda s: game_rows(s).append(block([START], actions)))
+    assert_one_warning(out, "plugin-reference/sprite-font.md", said)
+
+
+@pytest.mark.parametrize("change, said", [
+    (lambda t: None, "its behavior properties read 0"),
+    (lambda t: t.update(behaviorTypes=[]), None),
+])
+def test_a_type_created_with_no_instance_in_a_layout_is_named_if_it_has_behaviors(project, change, said):
+    """An instance copies a placed one, and its behavior properties read 0 without one. A Sprite with no
+    behaviors and no effects reads as a placed one does."""
+    coin_copy(project, "Shot", "Bullet")
+    add_addon(project, "behavior", "Bullet", "Bullet")
+    edit(project, "objectTypes/Shot.json", change)
+    out = findings(project, lambda s: game_rows(s).append(FIRE))
+    assert_one_warning(out, "has no instance in any layout", said)
+
+
 @pytest.mark.parametrize("properties, said", [
     ({"text": "Score: 0"}, None),
     ({"text": "Score ★ 0"}, "'★' is not in the Character set of the Sprite Font Label"),
