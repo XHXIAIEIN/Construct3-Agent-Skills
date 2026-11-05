@@ -177,6 +177,31 @@ about the editor or the preview goes to `editor-and-preview.md`.
    one that fails. Fix the events the failing step reads, not the plan,
    because the plan passed when its change was made. Change a kept plan
    only when the game was meant to change what it checks.
+
+   If a plan passes in some replays and fails in others on the same game,
+   the plan races the game, so fix the plan. Confirm it by playing the plan
+   alone several times, then look for one of these readings:
+   - It starts after the input. A motion of 0.3 s can end before the first
+     read, so start the `record` with its `watch`, or the loop that reads
+     every frame, before the input.
+   - It samples a motion at fixed intervals. A wobble crosses its rest
+     position twice in each swing, so a read every 0.12 s can land on the
+     rest position. Read every frame and test the largest value.
+   - It tests a threshold that only an overshoot reaches. Test the size at
+     rest, because an overshoot lasts a few frames.
+   - It sends a gesture on a timer. A game reads a finger's speed per tick,
+     so a dropped frame changes the speed. Send one move per tick, by
+     awaiting `tick` on `runtime`.
+   - It starts at any phase of a repeating timer while a later step tells
+     two causes apart by that phase. Wait until the timer reaches a known
+     phase, then start.
+   - It calls a game function before the player could. A function that a
+     button calls can run during a transition that keeps the button off, and
+     then the game enters a state that play never reaches. Wait with `until`
+     for the state that the button needs, then call the function.
+
+   [observed in a game project, r506.3 preview, 2026-11-05: six kept plans
+   that failed at intervals, each traced to one of these readings]
    [design: `Construct3-Agent-Skills/docs/decisions/preview-player.md`, the bullet
    on kept plans]
 9. **Keep the facts a later check needs.** Once a probe or a passing plan
